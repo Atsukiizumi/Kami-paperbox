@@ -1,3 +1,11 @@
+/**
+ * Pixiv / FANBOX 会话格式（前后端共用，不要从 accounts.ts 再引回来，会循环）。
+ *
+ * 作用：辨认已登录 Cookie、丢掉访客令牌、拼请求头、给出官方登录 URL。
+ * 用法：isPixivLoggedInSession(raw)；fanboxCookieHeader(fanbox, pixivFallback)。
+ * 为什么：登录页一打开就会种下没有 `用户ID_` 的访客 PHPSESSID，当成登录会全 401。
+ *        FANBOX 必须走 accounts.pixiv.net → /auth/start，会话常和 Pixiv 是同一串。
+ */
 export type CookieLike = {
   name: string;
   value: string;

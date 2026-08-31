@@ -1,3 +1,9 @@
+/**
+ * 登录身份探测（服务端）。
+ *
+ * 作用：用当前 Cookie 打 self/status、user.info，失败再 parse HTML。
+ * 用法：/api/whoami → resolveIdentities。
+ */
 import { outboundFetch } from "./curl-fetch.server";
 import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./browser-login";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity";

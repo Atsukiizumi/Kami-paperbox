@@ -70,6 +70,7 @@ test("packJustified fills a row with no leftover gap", () => {
     gap: 10,
     items: [{ aspect: 1 }, { aspect: 1 }, { aspect: 1 }, { aspect: 1 }],
     idealHeight: 100,
+    minWidth: 40,
     captionBand: 0,
   });
   assert.equal(packed.placements.length, 4);
@@ -134,6 +135,24 @@ test("packJustified does not blow up a leftover last row", () => {
   });
   const only = packed.placements[0];
   assert.ok(only);
-  assert.ok(only.height <= 220 * 1.01);
+  assert.ok(only.width >= 168);
   assert.ok(only.width < 400);
+  assert.ok(only.height <= 400);
+});
+
+test("packJustified keeps portrait cards wide enough for a title", () => {
+  const portraits = Array.from({ length: 8 }, () => ({ aspect: 0.62 }));
+  const packed = packJustified({
+    containerWidth: 960,
+    gap: 12,
+    items: portraits,
+    idealHeight: 220,
+    minWidth: 188,
+    captionBand: 0,
+  });
+  for (const p of packed.placements) {
+    assert.ok(p.width + 0.5 >= 188, `card width ${p.width} should be >= 188`);
+  }
+  const firstRow = packed.placements.filter((p) => p.y === 0);
+  assert.ok(firstRow.length <= 4);
 });

@@ -1,3 +1,12 @@
+/**
+ * 客户端状态。
+ *
+ * 作用：账号 Cookie、主题、安全模式、路径规则、浏览 Tab、下载队列。
+ * 用法：组件里 useSettings() / useQueue()；服务端函数里用 cookiesFromSettings()
+ *      （读 persist 水合后的当前账号，FANBOX 会回退到 Pixiv 会话）。
+ * 为什么：设置是小 JSON，localStorage 够用。队列只留 80 条状态，原图在纸匣 IDB，
+ *        不要把 Blob 塞进 zustand。
+ */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types";

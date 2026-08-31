@@ -1,3 +1,10 @@
+/**
+ * Pixiv 动图 → GIF。
+ *
+ * 作用：按 ugoira_meta 的帧延时把 zip 里的图编成 GIF。
+ * 用法：encodeUgoiraGif(zipBytes, meta)；播放器用 UgoiraPlayer。
+ * 为什么：浏览器不能直接播 ugoira zip，存进纸匣也需要单一文件。
+ */
 import { GIFEncoder, applyPalette, quantize } from "gifenc/dist/gifenc.esm.js";
 import { unzipUgoira } from "./ugoira-zip";
 

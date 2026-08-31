@@ -1,3 +1,9 @@
+/**
+ * 纸匣里流转的数据结构。
+ *
+ * 作用：卡片、作品详情、队列项、纸匣目录条目。上游 JSON 不要直接传给 UI。
+ * 用法：WorkCard 浏览；WorkDetail 作品页；VaultMeta 纸匣（可带 relativePath 对磁盘）。
+ */
 import type { UgoiraMeta } from "./ugoira-meta";
 import type { PixivRankMode } from "./pixiv-feed";
 
@@ -168,4 +174,6 @@ export type VaultMeta = {
   pageCount: number;
   savedAt: number;
   bytes: number;
+  relativePath?: string;
+  folderLabel?: string;
 };

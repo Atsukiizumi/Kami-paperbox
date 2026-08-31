@@ -1,3 +1,10 @@
+/**
+ * 多账号结构。
+ *
+ * 作用：一个账号同时挂 Pixiv / FANBOX Cookie 和头像资料。
+ * 用法：createAccount(name, pixiv, fanbox)；displayName(account, site) 给切换器显示。
+ * 为什么：不要从这里 import browser-login（循环）。已登录判断用内联的 `数字ID_令牌` 正则。
+ */
 import type { SiteProfile } from "./site-identity";
 
 export type Account = {

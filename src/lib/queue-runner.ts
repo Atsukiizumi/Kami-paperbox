@@ -1,3 +1,10 @@
+/**
+ * 下载队列执行器。
+ *
+ * 作用：串行处理排队作品：拉详情 → 收图 → archiveWork。
+ * 用法：enqueueWork 入队后会自己 kick；页面刷新后若还有 queued 再 kick 一次。
+ * 为什么：并行会打爆源站和浏览器下载。状态在 localStorage，文件在纸匣。
+ */
 import { toast } from "sonner";
 import { fetchSource } from "./source";
 import { cookiesFromSettings, useQueue, useSettings } from "./store";

@@ -8,6 +8,16 @@
 
 暂无。
 
+## [0.6.5] — 2026-08-31
+
+对应 [PR #18](https://github.com/Atsukiizumi/Kami-paperbox/pull/18)。
+
+### 改进
+
+- 拼版加了最小卡片宽度，竖图不会再挤成一条，标题可以显示两行。
+- 纸匣做成可查询的目录：按标题、作者、标签、路径搜索，并记下写入文件夹时的相对路径。元数据仍在 IndexedDB（适合存图），不是 SQLite。
+- 核心模块补上「作用 / 用法 / 为什么」注释，约定见 [docs/comments.md](docs/comments.md)。
+
 ## [0.6.4] — 2026-08-31
 
 对应 [PR #17](https://github.com/Atsukiizumi/Kami-paperbox/pull/17)。

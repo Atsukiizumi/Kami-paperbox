@@ -1,3 +1,9 @@
+/**
+ * 登录中转 HTTP。
+ *
+ * 作用：start / poll 帧 / 转发输入 / 取消。实现全在 browser-login.server.ts。
+ * 用法：设置页 SessionRelayDialog fetch 本路由。
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import {
   cancelBrowserLogin,

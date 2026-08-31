@@ -1,9 +1,24 @@
+/**
+ * 纸匣存储（IndexedDB `kami-vault`）。
+ *
+ * 作用：把收入纸匣的作品元数据和原图像素存在本机浏览器里，刷新、关掉标签页都还在。
+ * 用法：
+ *   - saveVaultWork(work, pages) 写入 meta + blobs
+ *   - listVault() 按时间倒序列出
+ *   - getVaultBlob(key, page) 取某一页
+ *   - patchVaultMeta(key, { relativePath }) 把磁盘相对路径记到目录上
+ *   - 查询（标题/作者/标签/路径）见 vault-query.ts，不要在这里做过滤
+ * 为什么用 IndexedDB 而不是 SQLite：
+ *   图是 Blob，浏览器原生 IDB 就能存二进制，不必再塞一套 WASM SQL。
+ *   元数据很小，getAll 之后用 vault-query 过滤几千条足够。
+ *   磁盘文件夹自己不能搜，所以 meta 里记下 relativePath，查询走目录、文件走磁盘。
+ */
 import type { VaultMeta, WorkDetail, WorkPage } from "./types";
 
 export type { VaultMeta } from "./types";
 
 const DB_NAME = "kami-vault";
-const VERSION = 1;
+const VERSION = 2;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -16,6 +31,10 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("blobs")) {
         db.createObjectStore("blobs");
       }
+      const meta = req.transaction?.objectStore("meta");
+      if (meta && !meta.indexNames.contains("bySource")) meta.createIndex("bySource", "source", { unique: false });
+      if (meta && !meta.indexNames.contains("byAuthor")) meta.createIndex("byAuthor", "author", { unique: false });
+      if (meta && !meta.indexNames.contains("bySavedAt")) meta.createIndex("bySavedAt", "savedAt", { unique: false });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -80,6 +99,18 @@ export async function saveVaultWork(
     tx.onerror = () => reject(tx.error);
   });
   return meta;
+}
+
+export async function patchVaultMeta(key: string, patch: Partial<VaultMeta>): Promise<void> {
+  const current = await getVaultMeta(key);
+  if (!current) return;
+  const db = await openDb();
+  const tx = db.transaction("meta", "readwrite");
+  tx.objectStore("meta").put({ ...current, ...patch, key });
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 export async function deleteVaultWork(key: string): Promise<void> {

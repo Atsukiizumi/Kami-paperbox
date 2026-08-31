@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.6.4-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.6.5-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -121,7 +121,7 @@ http://user:pass@127.0.0.1:7890
 
 ### 纸匣与队列 🗂️
 
-- **保存**：原图（或动图合成的 GIF）先存进本机 IndexedDB，刷新还在
+- **保存**：原图（或动图合成的 GIF）先写入本机纸匣目录（IndexedDB），刷新还在。纸匣页可按标题、作者、标签、路径搜索。
 - **目标文件夹**：设置里用 Chrome / Edge 选一个本机文件夹，保存和下载可按规则再写一份到磁盘
 - **分类规则**：扁平、作者、日期、日期+时间、作者+日期、站点+作者，或自己写 `{author}` `{date}` `{title}` 等占位符
 - **下载**：有目标文件夹则按规则写入；否则走浏览器下载（路径里的斜杠会收成下划线）
@@ -243,6 +243,7 @@ Pixiv / FANBOX 没有给第三方的公开 API。纸匣对着官方页面把网�
 
 - 逐步实操（DevTools、无头拦包、拆 JS、curl、Cookie）：[docs/reverse-engineering.md](docs/reverse-engineering.md)
 - 已经在用的接口清单和代码落点：[docs/upstream.md](docs/upstream.md)
+- 注释约定（作用 / 用法 / 为什么）：[docs/comments.md](docs/comments.md)
 
 无头环境拦 XHR：
 
@@ -264,7 +265,8 @@ src/lib/social.server.ts        Pixiv / FANBOX 社交操作
 src/lib/reverse-search.ts       SauceNAO / IQDB / TinEye
 src/lib/booru.ts                Yande / Konachan / Danbooru
 src/lib/pixiv-feed.ts           榜单、推荐、AI 标记
-src/lib/vault.ts                本机纸匣（IndexedDB）
+src/lib/vault.ts                本机纸匣目录（IndexedDB：meta + 原图）
+src/lib/vault-query.ts          按标题/作者/标签/路径过滤
 src/lib/download-path.ts        下载分类规则
 src/lib/folder-access.ts        本机目标文件夹
 src/lib/persist-files.ts        纸匣 + 文件夹双写

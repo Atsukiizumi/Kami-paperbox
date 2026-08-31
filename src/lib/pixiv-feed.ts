@@ -1,3 +1,10 @@
+/**
+ * Pixiv 榜单/信息流的纯解析。
+ *
+ * 作用：榜单 mode 表、从 ajax JSON 抽出作品、判断 AI / 是否最后一页。
+ * 用法：upstream.server 调这里；UI 只用 PIXIV_RANK_MODES 做按钮。
+ * 为什么：JSON 形状经常变（illustId vs illust_id），集中兼容，方便单测。
+ */
 export const PIXIV_RANK_MODES = [
   { id: "daily", label: "日榜", nsfw: false, login: false },
   { id: "weekly", label: "周榜", nsfw: false, login: false },

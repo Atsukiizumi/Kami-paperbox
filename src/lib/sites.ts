@@ -1,3 +1,10 @@
+/**
+ * 站点枚举和原站链接。
+ *
+ * 作用：顶栏切换、作品「原始链接」、判断是不是图站。
+ * 用法：siteLabel(source)、workOriginUrl(source, id, authorId)。
+ * 为什么：FANBOX 创作者链接要用 creatorId（authorId），不能只用数字 id。
+ */
 import type { BooruSite, Source } from "./types";
 
 export const SITE_LIST = [

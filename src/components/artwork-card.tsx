@@ -1,3 +1,10 @@
+/**
+ * 浏览卡片。
+ *
+ * 作用：封面 + 两行标题 + 作者/标签；data-aspect 给拼版用。
+ * 用法：ArtworkGrid 包一层 MasonryBoard。无封面（FANBOX 文本投稿）改显示摘要。
+ * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
+ */
 import { Link } from "@tanstack/react-router";
 import { Download, ExternalLink, Lock, Play } from "lucide-react";
 import { cardAspect, cardLayout, type CardLayout } from "@/lib/card-aspect";
@@ -88,13 +95,15 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
             ) : null}
           </div>
         </Link>
-        <div className="flex h-[4.75rem] items-start gap-1 overflow-hidden px-3 py-2">
+        <div className="flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
           <Link
             to="/work/$source/$id"
             params={{ source: work.source, id: work.id }}
             className="min-w-0 flex-1 space-y-0.5"
           >
-            <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-fg">{work.title || "无题"}</h3>
+            <h3 className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg">
+              {work.title || "无题"}
+            </h3>
             <p className="line-clamp-1 text-xs text-muted">{work.author}</p>
             <p className="line-clamp-1 text-xs text-subtle">
               {work.tags.length > 0

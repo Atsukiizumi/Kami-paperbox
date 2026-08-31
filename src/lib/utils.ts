@@ -1,3 +1,9 @@
+/**
+ * 零碎工具。
+ *
+ * 作用：className 合并、媒体代理 URL、文件名清洗、字数/体积格式。
+ * 用法：mediaUrl(原图地址) 给 <img src>；不要把上游 URL 直接交给浏览器。
+ */
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

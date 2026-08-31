@@ -1,5 +1,13 @@
+/**
+ * 浏览网格容器。
+ *
+ * 作用：量容器宽度，调用 packJustified，把位置写到每个子节点的 CSS 变量。
+ * 用法：<MasonryBoard>{cards}</MasonryBoard>；卡片需 data-aspect 和 .kami-card-media。
+ * 为什么：useLayoutEffect 在绘制前打包，避免先看到 CSS grid 再跳到绝对定位。
+ *        只观察宽度和子节点增删；高度由我们自己写死，不必等图片 onLoad。
+ */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { MASONRY_CAPTION, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
+import { MASONRY_CAPTION, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
 import { cn } from "@/lib/utils";
 
 function readGap(root: HTMLElement): number {
@@ -41,6 +49,7 @@ function packBoard(root: HTMLElement) {
     items: children.map((el) => ({ aspect: readAspect(el) })),
     idealHeight: masonryRowHeight(width),
     captionBand: hasCaption ? MASONRY_CAPTION : 0,
+    minWidth: masonryMinCard(width, gap),
   });
 
   root.setAttribute("data-packed", "");

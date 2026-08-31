@@ -1,3 +1,10 @@
+/**
+ * 从 JSON/HTML 抠登录用户的名字和头像。
+ *
+ * 作用：设置页显示「这是谁」；接口 401 时还能从首页 HTML 兜底。
+ * 用法：parsePixivMe / parseFanboxMe。真正发请求在 site-identity.server.ts。
+ * 为什么：self/status 和 user.info 有时被拦，页面里的 meta-global-data 往往还有一份。
+ */
 export type SiteProfile = {
   id: string;
   name: string;
