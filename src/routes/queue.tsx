@@ -36,10 +36,11 @@ function QueuePage() {
         </p>
       ) : (
         <ul className="space-y-2">
-          {items.map((item) => (
+          {items.map((item, i) => (
             <li
               key={item.key}
-              className="flex items-center gap-3 rounded-xl bg-surface p-3"
+              className="kami-enter flex items-center gap-3 rounded-xl bg-surface p-3"
+              style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
             >
               <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-elevated">
                 <ProxiedImg src={item.thumb} alt="" className="size-full" />

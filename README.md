@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.4.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.4.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -28,6 +28,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 | 代理 | 设置里填 http / socks5，Pixiv、图站、搜图都会乖乖走它。也可以写进 `kami.config.json` 或 `KAMI_PROXY`。 |
 | 过滤 | R-18 默认关闭。Pixiv AI 作画会打 **AI** 标签，可一键过滤。 |
 | 外观 | 顶栏或设置里切换浅色 / 深色 / 跟随系统，并内置和纸、青墨、朱砂、松烟、苔色五套主题。 |
+| 动效 | 换页淡入、卡片错落出现、导航指示条滑动、主题配色过渡。系统若开了减少动态，会自动收住。 |
 
 导航就这几页：**浏览 / 搜图 / 队列 / 纸匣 / 设置**。迷路不了啦。
 

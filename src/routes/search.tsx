@@ -214,7 +214,7 @@ function SearchPage() {
       {items.length > 0 ? (
         <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((hit, i) => (
-            <HitCard key={`${hit.sourceUrl}-${i}`} hit={hit} />
+            <HitCard key={`${hit.sourceUrl}-${i}`} hit={hit} index={i} />
           ))}
         </ul>
       ) : null}
@@ -226,7 +226,7 @@ function engineLabel(id: SearchEngine) {
   return SEARCH_ENGINES.find((e) => e.id === id)?.label ?? id;
 }
 
-function HitCard({ hit }: { hit: ReverseHit }) {
+function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {
   const inner = (
     <>
       <div className="relative aspect-[4/3] overflow-hidden bg-elevated">
@@ -251,7 +251,10 @@ function HitCard({ hit }: { hit: ReverseHit }) {
   );
 
   return (
-    <li className="overflow-hidden rounded-xl bg-surface">
+    <li
+      className="kami-enter overflow-hidden rounded-xl bg-surface"
+      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+    >
       {hit.site && hit.workId ? (
         <Link to="/work/$source/$id" params={{ source: hit.site, id: hit.workId }} className="block">
           {inner}

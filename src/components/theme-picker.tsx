@@ -26,13 +26,24 @@ const APPEARANCE_OPTIONS: { id: Appearance; label: string; icon: typeof Sun }[] 
 function AppearanceToggle() {
   const appearance = useSettings((s) => s.appearance);
   const setAppearance = useSettings((s) => s.setAppearance);
+  const activeIndex = Math.max(
+    0,
+    APPEARANCE_OPTIONS.findIndex((option) => option.id === appearance),
+  );
 
   return (
     <div
-      className="grid grid-cols-3 rounded-xl bg-bg p-1"
+      className="relative grid grid-cols-3 rounded-xl bg-bg p-1"
       role="radiogroup"
       aria-label="浅色或深色"
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-1 left-0 flex h-10 w-1/3 justify-center px-1 transition-transform duration-200 ease-out"
+        style={{ transform: `translateX(${activeIndex * 100}%)` }}
+      >
+        <span className="h-full w-full rounded-lg bg-elevated" />
+      </span>
       {APPEARANCE_OPTIONS.map((option) => {
         const Icon = option.icon;
         const active = appearance === option.id;
@@ -44,8 +55,8 @@ function AppearanceToggle() {
             aria-checked={active}
             onClick={() => setAppearance(option.id)}
             className={cn(
-              "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors",
-              active ? "bg-elevated text-fg" : "text-muted hover:text-fg",
+              "relative z-10 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors duration-200",
+              active ? "text-fg" : "text-muted hover:text-fg",
             )}
           >
             <Icon className="size-3.5" />
@@ -88,7 +99,7 @@ function ThemeSwatches() {
             onClick={() => setTheme(def.id)}
             aria-pressed={active}
             className={cn(
-              "rounded-xl p-2 text-left transition-colors",
+              "rounded-xl p-2 text-left transition-colors duration-200",
               active ? "bg-elevated ring-1 ring-accent" : "bg-bg hover:bg-elevated/70",
             )}
           >
@@ -98,7 +109,7 @@ function ThemeSwatches() {
                 <span className="block text-sm font-medium text-fg">{def.name}</span>
                 <span className="block text-xs text-muted">{def.description}</span>
               </span>
-              {active ? <Check className="size-4 shrink-0 text-accent" /> : null}
+              {active ? <Check className="kami-pop size-4 shrink-0 text-accent" /> : null}
             </span>
           </button>
         );
