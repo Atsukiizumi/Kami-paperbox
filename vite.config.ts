@@ -105,7 +105,7 @@ function authPopupPlugin(): Plugin {
             }
           }
           // Ensure Host is the public preview host so Better Auth's dynamic
-          // baseURL / redirect_uri match the popup origin.
+          // baseURL / redirectURI match the popup origin.
           if (!requestHeaders.has("host")) requestHeaders.set("host", host);
 
           const request = new Request(`${proto}://${host}${rawUrl}`, {
@@ -165,6 +165,7 @@ export default defineConfig(({ command, isPreview }) => ({
     include: [
       "@tanstack/react-query",
       "@tanstack/react-router",
+      "@tanstack/react-start",
       "@tanstack/router-core",
       "@tanstack/router-core/isServer",
       "@tanstack/router-core/ssr/client",
@@ -172,6 +173,10 @@ export default defineConfig(({ command, isPreview }) => ({
       "seroval",
       "zustand",
     ],
+    exclude: ["puppeteer-core"],
+  },
+  ssr: {
+    external: ["puppeteer-core"],
   },
   plugins: [
     pgliteBootstrapPlugin(),
