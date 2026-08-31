@@ -1,7 +1,18 @@
+/**
+ * 浏览页拼版。
+ *
+ * 作用：把不同长宽比的卡片排进容器，同一行等高、横向撑满，中间不留大洞。
+ * 用法：packJustified({ containerWidth, gap, items: [{ aspect }] })。
+ *      MasonryBoard 会读卡片的 data-aspect，把 x/y/width/媒体高度写到 CSS 变量。
+ * 为什么按行撑满而不是瀑布流跨列：横图跨两列会在竖图旁边留空（红框那种洞）。
+ *        最小宽度（masonryMinCard）避免竖图被挤成一条，标题只剩「私…」。
+ * packMasonry 仍留给测试/旧逻辑，界面不再调用。
+ */
 export const MASONRY_GAP = 12;
 export const MASONRY_MIN_COL = 170;
 export const MASONRY_MAX_COLS = 5;
-export const MASONRY_CAPTION = 76;
+export const MASONRY_CAPTION = 88;
+export const MASONRY_MIN_CARD = 188;
 
 const FALLBACK_ASPECT = 3 / 4;
 const MIN_ASPECT = 0.45;
@@ -48,6 +59,12 @@ export function masonrySpan(layout: string | undefined, columns: number): number
 export function masonryRowHeight(width: number): number {
   const cols = masonryColumns(width);
   return Math.round(Math.max(180, Math.min(320, width / cols / 0.72)));
+}
+
+export function masonryMinCard(width: number, gap = MASONRY_GAP): number {
+  const cols = masonryColumns(width, gap);
+  const col = cols <= 1 ? width : (width - gap * (cols - 1)) / cols;
+  return Math.max(168, Math.min(MASONRY_MIN_CARD, Math.floor(col)));
 }
 
 export function clampAspect(aspect: number): number {
@@ -117,18 +134,21 @@ export function packJustified({
   items,
   idealHeight,
   captionBand = 0,
+  minWidth,
 }: {
   containerWidth: number;
   gap: number;
   items: JustifiedItem[];
   idealHeight?: number;
   captionBand?: number;
+  minWidth?: number;
 }): { placements: JustifiedPlacement[]; height: number } {
   const width = containerWidth;
   const empty = { placements: [] as JustifiedPlacement[], height: 0 };
   if (width <= 0 || items.length === 0) return empty;
 
   const ideal = idealHeight ?? masonryRowHeight(width);
+  const floor = minWidth ?? masonryMinCard(width, gap);
   const placements: JustifiedPlacement[] = items.map(() => ({
     x: 0,
     y: 0,
@@ -150,8 +170,13 @@ export function packJustified({
     let h = rawH;
     let fill = true;
     if (lastRow && rawH > ideal * 1.12) {
-      h = ideal;
-      fill = false;
+      let minH = ideal;
+      for (const idx of indices) {
+        const a = aspects[idx] ?? FALLBACK_ASPECT;
+        minH = Math.max(minH, floor / a);
+      }
+      h = Math.min(rawH, minH);
+      fill = h >= rawH - 0.5;
     }
     h = Math.max(80, Math.min(480, h));
     let x = 0;
@@ -159,6 +184,10 @@ export function packJustified({
       const i = indices[k] ?? 0;
       const a = aspects[i] ?? FALLBACK_ASPECT;
       let w = a * h;
+      if (!fill && n === 1 && w < floor) {
+        w = Math.min(floor, width);
+        h = w / a;
+      }
       if (fill && k === n - 1) w = Math.max(1, width - x);
       placements[i] = { x, y, width: Math.max(1, w), height: h };
       x += w + gap;
@@ -170,11 +199,19 @@ export function packJustified({
     const a = aspects[i] ?? FALLBACK_ASPECT;
     const nextCount = row.length + 1;
     const nextAspect = rowAspect + a;
-    const hIf = (width - gap * Math.max(0, nextCount - 1)) / nextAspect;
-    if (row.length > 0 && hIf <= ideal) {
-      flush([...row, i], false);
-      row = [];
-      rowAspect = 0;
+    const nextGaps = gap * Math.max(0, nextCount - 1);
+    const hIf = (width - nextGaps) / nextAspect;
+    const tooNarrow = [...row, i].some((idx) => (aspects[idx] ?? FALLBACK_ASPECT) * hIf < floor);
+    if (row.length > 0 && (hIf <= ideal || tooNarrow)) {
+      if (tooNarrow) {
+        flush(row, false);
+        row = [i];
+        rowAspect = a;
+      } else {
+        flush([...row, i], false);
+        row = [];
+        rowAspect = 0;
+      }
     } else {
       row.push(i);
       rowAspect = nextAspect;

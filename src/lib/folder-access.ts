@@ -1,3 +1,10 @@
+/**
+ * 本机下载文件夹（File System Access API）。
+ *
+ * 作用：记住用户选的 DirectoryHandle，按相对路径写入文件。
+ * 用法：pickDownloadFolder() 一次；之后 writeRelativeFile(dir, "作者/图.jpg", blob)。
+ * 为什么：handle 不能放 localStorage，只能放 IndexedDB。权限每次会话可能要再授权。
+ */
 const DB_NAME = "kami-folder";
 const STORE = "handles";
 const KEY = "download";

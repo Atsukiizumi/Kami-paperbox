@@ -1,3 +1,10 @@
+/**
+ * 代理地址校验。
+ *
+ * 作用：把用户填的 `127.0.0.1:7890` / `socks5://…` 收成合法 URL。
+ * 用法：parseProxyUrl(raw)；失败返回 { ok: false, error }。
+ * 为什么：乱填的字符串丢给 curl 会变成奇怪的报错，先挡在门口。
+ */
 const SCHEMES = new Set(["http:", "https:", "socks4:", "socks5:", "socks5h:"]);
 
 export type ProxyParse =

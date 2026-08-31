@@ -1,3 +1,10 @@
+/**
+ * 红心 / 收藏 / 关注（服务端）。
+ *
+ * 作用：复打官网自己的 POST。Pixiv 要先从首页 HTML 抠 CSRF。
+ * 用法：dispatchSocial，经 mutateSource。
+ * 为什么：这些接口要 Origin + Cookie + token，只能服务端发。
+ */
 import { bookmarkTagsOf } from "./social";
 import type { SocialInput, SocialOk } from "./types";
 import { outboundFetch } from "./curl-fetch.server";

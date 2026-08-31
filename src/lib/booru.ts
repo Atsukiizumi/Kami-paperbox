@@ -1,3 +1,10 @@
+/**
+ * 图站 URL 和字段映射（Yande / Konachan / Danbooru）。
+ *
+ * 作用：拼 list/post JSON 地址，把站点字段收成 WorkCard；挡住未成年相关标签。
+ * 用法：booruListUrl / mapBooruCard。请求本身在 upstream.server.ts。
+ * 为什么：三个站 JSON 形状接近但 rating、标签字段名不同，集中在这里改。
+ */
 import type { BooruSite, WorkCard, WorkDetail, WorkPage } from "./types";
 
 export const DANBOORU_UA = "Mozilla/5.0 gallery-dl/1.27.0";

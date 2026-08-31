@@ -1,3 +1,11 @@
+/**
+ * 登录中转（只在服务端跑）。
+ *
+ * 作用：用无头 Chrome 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
+ * 用法：HTTP `/api/login-browser` 调这里的 start/poll/input；不要在浏览器里 import。
+ * 为什么：预览和 Docker 没有桌面，弹不出 Chrome；页面 JS 又读不到 HttpOnly Cookie。
+ *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工。
+ */
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";

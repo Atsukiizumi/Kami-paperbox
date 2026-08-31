@@ -1,3 +1,11 @@
+/**
+ * 上游读接口（服务端）。
+ *
+ * 作用：把 Pixiv `/ajax`、FANBOX `api.fanbox.cc`、图站 JSON 转成纸匣的卡片/作品。
+ * 用法：只通过 source.ts 的 fetchSource 进来，UI 不要直接打这些域名。
+ * 为什么：浏览器过不了 CORS / pximg Referer；Cookie 和 Origin 必须由服务端带。
+ *        接口清单和抓法见 docs/upstream.md、docs/reverse-engineering.md。
+ */
 import type { UgoiraMeta } from "./ugoira-meta";
 import { mapUgoiraMeta } from "./ugoira-meta";
 import { socialFromPixivIllust } from "./social";

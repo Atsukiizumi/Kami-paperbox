@@ -1,3 +1,10 @@
+/**
+ * 下载路径模板。
+ *
+ * 作用：把 {author}{date}{title} 等占位符收成相对路径。
+ * 用法：formatDownloadPath(template, ctx)；预设见 PATH_PRESETS。
+ * 为什么：用户要按作者/日期归档。路径非法字符在这里清掉，避免写盘失败。
+ */
 export const PATH_PRESET_IDS = [
   "flat",
   "author",

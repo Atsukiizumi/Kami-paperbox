@@ -1,3 +1,9 @@
+/**
+ * 社交状态的纯解析（可单测）。
+ *
+ * 作用：从 Pixiv illust JSON 读出是否已红心/收藏/关注。
+ * 用法：socialFromPixivIllust(body)；真正 POST 在 social.server.ts。
+ */
 export type SocialState = {
   liked: boolean;
   bookmarked: boolean;

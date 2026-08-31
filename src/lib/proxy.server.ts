@@ -1,3 +1,10 @@
+/**
+ * 出站代理。
+ *
+ * 作用：决定当前用哪条代理（设置里保存的 > kami.config.json > 环境变量）。
+ * 用法：getActiveProxy()；设置页「保存代理」会写 .data/proxy.json。
+ * 为什么：源站在国内常要代理；登录中转的 Chrome 也要走同一条，否则 Cookie 域对不上。
+ */
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

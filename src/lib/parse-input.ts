@@ -1,3 +1,10 @@
+/**
+ * 搜索框粘贴解析。
+ *
+ * 作用：把作品链接、用户链接、标签收成结构化结果。
+ * 用法：parseUserInput(text, currentTab)。
+ * 为什么：用户习惯从浏览器复制 URL，不要让他们自己拆 ID。
+ */
 import type { BooruSite, Source } from "./types";
 
 export type ParsedQuery =

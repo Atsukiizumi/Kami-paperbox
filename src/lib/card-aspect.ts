@@ -1,3 +1,10 @@
+/**
+ * 卡片长宽比。
+ *
+ * 作用：用作品宽高算出 aspect，并分成 tile / wide / banner（仅作数据；拼版已不再跨列）。
+ * 用法：cardAspect(w, h)、cardLayout(w, h)；缺尺寸时 3:4。
+ * 为什么：Yande 等站点 API 带像素尺寸，可以在图加载前就占位，避免拼版跳一下。
+ */
 export const FALLBACK_ASPECT = 3 / 4;
 export const MIN_ASPECT = 0.45;
 export const WIDE_ASPECT = 4 / 3;

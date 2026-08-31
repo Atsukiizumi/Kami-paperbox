@@ -1,3 +1,9 @@
+/**
+ * 搜图引擎列表和结果解析（客户端形状）。
+ *
+ * 作用：SauceNAO / IQDB / TinEye 的标识；把源站链接收成作品。
+ * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
+ */
 import type { Source } from "./types";
 
 export type SearchEngine = "saucenao" | "iqdb" | "tineye";

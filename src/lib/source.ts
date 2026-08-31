@@ -1,3 +1,10 @@
+/**
+ * 浏览器 → 服务端的唯一入口。
+ *
+ * 作用：校验参数后调用 upstream / social。Cookie 只在服务端发出。
+ * 用法：fetchSource({ data: { op: "pixivRanking", ... } })；mutateSource 做红心收藏。
+ * 为什么：createServerFn 保证 UI 打不到 pixiv.net；zod 挡住胡来的 id/page。
+ */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { PIXIV_RANK_IDS } from "./pixiv-feed";

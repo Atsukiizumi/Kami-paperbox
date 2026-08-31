@@ -1,3 +1,10 @@
+/**
+ * 把作品页收成可存的 Blob 列表。
+ *
+ * 作用：拉原图或正规图；动图 unzip 后按设置合成 GIF。
+ * 用法：collectWorkFiles(work, { original })，再交给 archiveWork。
+ * 为什么：下载和收入纸匣走同一套，避免两处各拉一次。
+ */
 import { unzipUgoira } from "./ugoira-zip";
 import { extFromNameOrType } from "./ugoira-meta";
 import { mediaUrl } from "./utils";

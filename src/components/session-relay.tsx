@@ -1,3 +1,10 @@
+/**
+ * 登录中转画面。
+ *
+ * 作用：把后端 Chrome 的 JPEG 帧画到 canvas 上，把鼠标/键盘/IME 送回官方页。
+ * 用法：设置里「登录 Pixiv / FANBOX」打开本对话框。
+ * 为什么：用户的浏览器碰不到服务器上的 Chrome 窗口，只能看转过来的画面。
+ */
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";

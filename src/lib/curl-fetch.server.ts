@@ -1,3 +1,10 @@
+/**
+ * 出站 HTTP。
+ *
+ * 作用：上游请求走 Node fetch，过不去再降到 curl（代理、部分 TLS）。
+ * 用法：outboundFetch(url, init)，与 fetch 相近；代理来自 getActiveProxy()。
+ * 为什么：Pixiv 在某些网络下 Node 直连会卡或被重置，curl 更接近用户本机浏览器。
+ */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
