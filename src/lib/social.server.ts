@@ -4,41 +4,56 @@
  * 作用：复打官网自己的 POST。Pixiv 要先从首页 HTML 抠 CSRF。
  * 用法：dispatchSocial，经 mutateSource。
  * 为什么：这些接口要 Origin + Cookie + token，只能服务端发。
+ *        CSRF 现在藏在 meta-global-data（可能是实体编码），不能再用「只认十六进制」的旧正则。
  */
-import { bookmarkTagsOf } from "./social";
+import { bookmarkTagsOf, extractPixivCsrfToken, pixivHtmlLooksLoggedOut } from "./social";
 import type { SocialInput, SocialOk } from "./types";
 import { outboundFetch } from "./curl-fetch.server";
 import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
+import { parsePixivMe } from "./site-identity";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 let pixivTokenCache: { cookie: string; token: string; at: number } | null = null;
 
-async function pixivToken(cookie: string): Promise<string> {
+async function pixivToken(cookie: string, hintPath?: string): Promise<string> {
   if (pixivTokenCache && pixivTokenCache.cookie === cookie && Date.now() - pixivTokenCache.at < 8 * 60 * 1000) {
     return pixivTokenCache.token;
   }
-  const res = await outboundFetch("https://www.pixiv.net/", {
-    headers: withPixivUserId(
-      {
-        "User-Agent": UA,
-        Cookie: cookie,
-        Referer: "https://www.pixiv.net/",
-        Accept: "text/html",
-      },
-      cookie,
-    ),
-    redirect: "follow",
-  });
-  const html = await res.text();
-  const m =
-    html.match(/"token"\s*:\s*"([a-f0-9]{16,})"/i) ||
-    html.match(/pixiv\.context\.token\s*=\s*"([^"]+)"/) ||
-    html.match(/name="csrf-token"\s+content="([^"]+)"/);
-  if (!m?.[1]) throw new Error("无法取得 Pixiv 凭证，请重新登录");
-  pixivTokenCache = { cookie, token: m[1], at: Date.now() };
-  return m[1];
+  const pages = [
+    "https://www.pixiv.net/",
+    hintPath,
+    "https://www.pixiv.net/setting_user.php",
+  ].filter((u, i, all): u is string => Boolean(u) && all.indexOf(u) === i);
+
+  let lastHtml = "";
+  for (const url of pages) {
+    const res = await outboundFetch(url, {
+      headers: withPixivUserId(
+        {
+          "User-Agent": UA,
+          Cookie: cookie,
+          Referer: "https://www.pixiv.net/",
+          Accept: "application/json,text/html,*/*",
+          "Accept-Language": "ja,en;q=0.8",
+        },
+        cookie,
+      ),
+      redirect: "follow",
+    });
+    const html = await res.text();
+    lastHtml = html;
+    const token = extractPixivCsrfToken(html);
+    if (token) {
+      pixivTokenCache = { cookie, token, at: Date.now() };
+      return token;
+    }
+  }
+  if (pixivHtmlLooksLoggedOut(lastHtml) || !parsePixivMe({}, lastHtml)) {
+    throw new Error("无法取得 Pixiv 凭证，请重新登录");
+  }
+  throw new Error("无法解析 Pixiv CSRF，页面结构可能变了");
 }
 
 async function readJson(res: Response): Promise<Record<string, unknown>> {
@@ -55,8 +70,12 @@ async function pixivJson(
   cookie: string,
   body: unknown,
   form = false,
+  illustId?: string,
 ): Promise<Record<string, unknown>> {
-  const token = await pixivToken(cookie);
+  const token = await pixivToken(
+    cookie,
+    illustId ? `https://www.pixiv.net/artworks/${illustId}` : undefined,
+  );
   const headers = withPixivUserId(
     {
       "User-Agent": UA,
@@ -113,26 +132,38 @@ export async function dispatchSocial(input: SocialInput): Promise<SocialOk> {
   switch (input.op) {
     case "pixivLike": {
       if (!pixiv) throw new Error("需要登录 Pixiv");
-      await pixivJson("https://www.pixiv.net/ajax/illusts/like", pixiv, { illust_id: input.id });
+      await pixivJson("https://www.pixiv.net/ajax/illusts/like", pixiv, { illust_id: input.id }, false, input.id);
       return { ok: true, liked: true };
     }
     case "pixivBookmark": {
       if (!pixiv) throw new Error("需要登录 Pixiv");
       if (input.on) {
-        const json = await pixivJson("https://www.pixiv.net/ajax/illusts/bookmarks/add", pixiv, {
-          illust_id: input.id,
-          restrict: 0,
-          comment: "",
-          tags: bookmarkTagsOf(input.tags ?? []),
-        });
+        const json = await pixivJson(
+          "https://www.pixiv.net/ajax/illusts/bookmarks/add",
+          pixiv,
+          {
+            illust_id: input.id,
+            restrict: 0,
+            comment: "",
+            tags: bookmarkTagsOf(input.tags ?? []),
+          },
+          false,
+          input.id,
+        );
         const body = (json.body && typeof json.body === "object" ? json.body : json) as Record<string, unknown>;
         const last = body.last_bookmark_id ?? body.lastBookmarkId ?? body.bookmarkId ?? body.id;
         return { ok: true, bookmarked: true, bookmarkId: last != null ? String(last) : undefined };
       }
       if (!input.bookmarkId) throw new Error("没有收藏记录");
-      await pixivJson("https://www.pixiv.net/ajax/illusts/bookmarks/delete", pixiv, {
-        bookmarkIds: [input.bookmarkId],
-      });
+      await pixivJson(
+        "https://www.pixiv.net/ajax/illusts/bookmarks/delete",
+        pixiv,
+        {
+          bookmarkIds: [input.bookmarkId],
+        },
+        false,
+        input.id,
+      );
       return { ok: true, bookmarked: false };
     }
     case "pixivFollow": {
