@@ -123,6 +123,9 @@ export async function writeRelativeFile(
   const parts = relativePath.split("/").filter(Boolean);
   const filename = parts.pop();
   if (!filename) throw new Error("文件名无效");
+  if (parts.some((part) => part === "." || part === "..") || filename === "." || filename === "..") {
+    throw new Error("路径无效");
+  }
   let dir = root;
   for (const part of parts) {
     dir = await dir.getDirectoryHandle(part, { create: true });

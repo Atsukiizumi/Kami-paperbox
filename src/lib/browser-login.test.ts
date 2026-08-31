@@ -74,6 +74,10 @@ test("fanbox header uses logged-in token and can fall back to pixiv", () => {
     "FANBOXSESSID=99_abcdef0123456789deadbeef; PHPSESSID=99_abcdef0123456789deadbeef",
   );
   assert.equal(fanboxSessionFrom("", "99_abcdef0123456789deadbeef"), "99_abcdef0123456789deadbeef");
+  assert.equal(
+    fanboxCookieHeader("42_fanboxsessionvaluexx", "99_pixivsessionvaluexxx"),
+    "FANBOXSESSID=42_fanboxsessionvaluexx; PHPSESSID=99_pixivsessionvaluexxx",
+  );
 });
 
 test("fanbox login goes through pixiv account picker and auth/start", () => {

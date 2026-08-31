@@ -8,6 +8,18 @@
 
 暂无。
 
+## [0.7.20] — 2026-09-01
+
+对应 [PR #39](https://github.com/Atsukiizumi/Kami-paperbox/pull/39)。
+
+### 修复
+
+- 第 9 个账号不再冲掉当前登录。
+- 队列入队竞态、失败重试、下载进度。
+- FANBOX 与 Pixiv 会话分开带 Cookie；登录后会写回 HttpOnly。
+- CSRF 过期会清缓存再试；纸匣缩略图 Object URL 会释放。
+- 榜单最后一页不再空翻。
+
 ## [0.7.19] — 2026-09-01
 
 对应 [PR #38](https://github.com/Atsukiizumi/Kami-paperbox/pull/38)。

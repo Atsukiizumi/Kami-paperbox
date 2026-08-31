@@ -7,7 +7,7 @@ import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "
 import { playEnter } from "@/lib/motion";
 import { resumeQueue } from "@/lib/queue-runner";
 import { cn } from "@/lib/utils";
-import { useQueue } from "@/lib/store";
+import { useQueue, useSettings } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -63,12 +63,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const boot = () => resumeQueue();
-    if (useQueue.persist.hasHydrated()) {
-      boot();
-      return;
-    }
-    return useQueue.persist.onFinishHydration(boot);
+    let queueReady = useQueue.persist.hasHydrated();
+    let settingsReady = useSettings.persist.hasHydrated();
+    const boot = () => {
+      if (!queueReady || !settingsReady) return;
+      void useSettings.getState().syncSessions().catch(() => undefined);
+      resumeQueue();
+    };
+    const offQueue = queueReady
+      ? undefined
+      : useQueue.persist.onFinishHydration(() => {
+          queueReady = true;
+          boot();
+        });
+    const offSettings = settingsReady
+      ? undefined
+      : useSettings.persist.onFinishHydration(() => {
+          settingsReady = true;
+          boot();
+        });
+    boot();
+    return () => {
+      offQueue?.();
+      offSettings?.();
+    };
   }, []);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";

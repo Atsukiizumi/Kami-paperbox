@@ -128,25 +128,23 @@ export const mutateSource = createServerFn({ method: "POST" })
   });
 
 const sessionSchema = z.object({
-  pixiv: z.string().max(2048).optional(),
-  fanbox: z.string().max(2048).optional(),
+  pixiv: z.string().max(8192).optional(),
+  fanbox: z.string().max(8192).optional(),
 });
 
 export const saveSessions = createServerFn({ method: "POST" })
   .validator((data: unknown) => sessionSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
-    const parts: string[] = [];
-    const pixiv = (data.pixiv ?? "").trim();
-    const fanbox = (data.fanbox ?? "").trim();
+    const { fanboxSessionFrom, sanitizePixivCookie } = await import("./browser-login");
+    const pixiv = sanitizePixivCookie(data.pixiv ?? "");
+    const fanbox = fanboxSessionFrom(data.fanbox, pixiv);
     const pixivVal = pixiv ? encodeURIComponent(pixiv) : "";
     const fanboxVal = fanbox ? encodeURIComponent(fanbox) : "";
-    parts.push(
+    const parts = [
       `kami_pixiv=${pixivVal}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${pixiv ? 2592000 : 0}`,
-    );
-    parts.push(
       `kami_fanbox=${fanboxVal}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${fanbox ? 2592000 : 0}`,
-    );
+    ];
     setResponseHeader("Set-Cookie", parts);
     return { ok: true as const };
   });

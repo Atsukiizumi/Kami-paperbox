@@ -10,6 +10,7 @@
 import type { UgoiraMeta } from "./ugoira-meta";
 import { mapUgoiraMeta } from "./ugoira-meta";
 import { socialFromPixivIllust } from "./social";
+import { fanboxCursorTime } from "./utils.ts";
 import {
   collectIllustRecords,
   collectOrderedIds,
@@ -677,7 +678,7 @@ async function fanboxCreator(
   const nextCursor: FanboxCursor | null =
     last && posts.length >= 10
       ? {
-          datetime: asString(last.publishedDatetime).replace("T", " ").replace(/\+.*$/, ""),
+          datetime: fanboxCursorTime(asString(last.publishedDatetime)),
           id: asString(last.id),
         }
       : null;
@@ -751,7 +752,7 @@ function mapFanboxItems(posts: unknown[], safeMode: boolean): WorkCard[] {
 function nextFanboxCursor(posts: unknown[]): FanboxCursor | null {
   if (posts.length < 10) return null;
   const last = asRecord(posts[posts.length - 1]);
-  const datetime = asString(last.publishedDatetime).replace("T", " ").replace(/\+.*$/, "");
+  const datetime = fanboxCursorTime(asString(last.publishedDatetime));
   const id = asString(last.id);
   if (!datetime || !id) return null;
   return { datetime, id };

@@ -100,7 +100,33 @@ async function pixivJson(
   }
   const res = await outboundFetch(url, { method: "POST", headers, body: payload, redirect: "follow" });
   const json = await readJson(res);
-  if (!res.ok || json.error === true) {
+  const failed = !res.ok || json.error === true;
+  const stale =
+    failed && (res.status === 403 || /csrf|token|登录/i.test(String(json.message ?? "")));
+  if (failed && stale) {
+    pixivTokenCache = null;
+    const again = await pixivToken(
+      cookie,
+      illustId ? `https://www.pixiv.net/artworks/${illustId}` : undefined,
+    );
+    headers["x-csrf-token"] = again;
+    if (form) {
+      const params = new URLSearchParams(payload);
+      params.set("tt", again);
+      payload = params.toString();
+    }
+    const retry = await outboundFetch(url, { method: "POST", headers, body: payload, redirect: "follow" });
+    const retryJson = await readJson(retry);
+    if (!retry.ok || retryJson.error === true) {
+      throw new Error(
+        typeof retryJson.message === "string" && retryJson.message
+          ? retryJson.message
+          : "操作失败，请确认已登录",
+      );
+    }
+    return retryJson;
+  }
+  if (failed) {
     throw new Error(typeof json.message === "string" && json.message ? json.message : "操作失败，请确认已登录");
   }
   return json;
@@ -122,7 +148,7 @@ async function fanboxForm(path: string, cookie: string, params: Record<string, s
     redirect: "follow",
   });
   const json = await readJson(res);
-  if (!res.ok) throw new Error("FANBOX 操作失败，请确认已登录");
+  if (!res.ok || json.error === true) throw new Error("FANBOX 操作失败，请确认已登录");
   return json;
 }
 

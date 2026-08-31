@@ -125,9 +125,10 @@ export function fanboxSessionFrom(fanbox?: string, pixiv?: string): string {
 }
 
 export function fanboxCookieHeader(raw?: string, pixivFallback?: string): string | undefined {
-  const value = fanboxSessionFrom(raw, pixivFallback);
-  if (!value) return undefined;
-  return `FANBOXSESSID=${value}; PHPSESSID=${value}`;
+  const fanbox = fanboxSessionFrom(raw, pixivFallback);
+  if (!fanbox) return undefined;
+  const pixiv = sanitizePixivCookie(pixivFallback) || fanbox;
+  return `FANBOXSESSID=${fanbox}; PHPSESSID=${pixiv}`;
 }
 
 export function withPixivUserId(

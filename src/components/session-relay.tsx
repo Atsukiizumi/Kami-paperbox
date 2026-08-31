@@ -101,6 +101,12 @@ export function SessionRelayDialog({
     void run();
     return () => {
       stop = true;
+      void fetch("/api/login-browser", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+        keepalive: true,
+      }).catch(() => undefined);
     };
   }, [open, site]);
 
