@@ -116,7 +116,7 @@ export type FetchInput = {
   hideAi?: boolean;
 } & (
   | { op: "pixivRanking"; mode: PixivRankMode; page: number }
-  | { op: "pixivSearch"; word: string; page: number }
+  | { op: "pixivSearch"; word: string; page: number; exact?: boolean }
   | { op: "pixivRecommend" }
   | { op: "pixivFollowing"; page: number }
   | { op: "pixivRelated"; id: string }
