@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.4.3-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.5.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -23,7 +23,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 | 作品 | 大图可以缩放、拖动、键盘翻页。底下有保存、下载。Pixiv 还能收藏（带着 tag）、红心、关注。动图会动，还能合成 GIF よ〜 |
 | 搜图 | 上传、拖进去、或者粘贴一张本地图。默认 [SauceNAO](https://saucenao.com/)，也可以换成 [IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。作品页有「搜来源」，超方便。 |
 | 标签 | 五个站都会把 tag 带回来。卡片上先露几个，作品页点一下就能回当前站搜索。 |
-| 纸匣 / 队列 | IndexedDB 本地归档，想批量就丢进队列。原图或小图自己选。 |
+| 纸匣 / 队列 | IndexedDB 本地归档，刷新还在。设置里可选本机文件夹，按作者、日期或自定义规则分类写入。想批量就丢进队列。原图或小图自己选。 |
 | 账号 | Pixiv / FANBOX 的 Cookie 可以存好几份，顶栏切换。图站不用登录，轻松。 |
 | 代理 | 设置里填 http / socks5，Pixiv、图站、搜图都会乖乖走它。也可以写进 `kami.config.json` 或 `KAMI_PROXY`。 |
 | 过滤 | R-18 默认关闭。Pixiv AI 作画会打 **AI** 标签，可一键过滤。 |
@@ -121,8 +121,10 @@ http://user:pass@127.0.0.1:7890
 
 ### 纸匣与队列 🗂️
 
-- **保存**：原图（或动图合成的 GIF）存进本机 IndexedDB
-- **下载**：同时触发浏览器下载
+- **保存**：原图（或动图合成的 GIF）先存进本机 IndexedDB，刷新还在
+- **目标文件夹**：设置里用 Chrome / Edge 选一个本机文件夹，保存和下载可按规则再写一份到磁盘
+- **分类规则**：扁平、作者、日期、日期+时间、作者+日期、站点+作者，或自己写 `{author}` `{date}` `{title}` 等占位符
+- **下载**：有目标文件夹则按规则写入；否则走浏览器下载（路径里的斜杠会收成下划线）
 - **加入队列**：批量处理，去「队列」页看进度
 - 设置里把「保存原图 / 高清 GIF」关掉，就会用较小尺寸，更快一点
 
@@ -250,6 +252,9 @@ src/lib/reverse-search.ts       SauceNAO / IQDB / TinEye
 src/lib/booru.ts                Yande / Konachan / Danbooru
 src/lib/pixiv-feed.ts           榜单、推荐、AI 标记
 src/lib/vault.ts                本机纸匣（IndexedDB）
+src/lib/download-path.ts        下载分类规则
+src/lib/folder-access.ts        本机目标文件夹
+src/lib/persist-files.ts        纸匣 + 文件夹双写
 src/lib/ugoira.ts               动图播放与 GIF 合成
 src/lib/store.ts                设置、账号、队列
 scripts/pack.py                 源码打包

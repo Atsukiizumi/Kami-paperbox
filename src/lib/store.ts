@@ -20,6 +20,13 @@ import {
   parseAppearance,
   parseThemeId,
 } from "./theme";
+import {
+  DEFAULT_PATH_PRESET,
+  DEFAULT_PATH_TEMPLATE,
+  type PathPreset,
+  parsePathPreset,
+  templateForPreset,
+} from "./download-path";
 
 type Tab = Source;
 
@@ -29,6 +36,11 @@ type SettingsState = {
   safeMode: boolean;
   hideAi: boolean;
   downloadOriginal: boolean;
+  vaultMirrorFolder: boolean;
+  downloadToFolder: boolean;
+  pathPreset: PathPreset;
+  pathTemplate: string;
+  folderLabel: string;
   tab: Tab;
   searchEngine: SearchEngine;
   recents: string[];
@@ -42,6 +54,11 @@ type SettingsState = {
   setSafeMode: (v: boolean) => void;
   setHideAi: (v: boolean) => void;
   setDownloadOriginal: (v: boolean) => void;
+  setVaultMirrorFolder: (v: boolean) => void;
+  setDownloadToFolder: (v: boolean) => void;
+  setPathPreset: (v: PathPreset) => void;
+  setPathTemplate: (v: string) => void;
+  setFolderLabel: (v: string) => void;
   setTab: (v: Tab) => void;
   setSearchEngine: (v: SearchEngine) => void;
   addRecent: (v: string) => void;
@@ -78,6 +95,11 @@ export const useSettings = create<SettingsState>()(
       safeMode: true,
       hideAi: false,
       downloadOriginal: true,
+      vaultMirrorFolder: true,
+      downloadToFolder: true,
+      pathPreset: DEFAULT_PATH_PRESET,
+      pathTemplate: DEFAULT_PATH_TEMPLATE,
+      folderLabel: "",
       tab: "pixiv",
       searchEngine: DEFAULT_SEARCH_ENGINE,
       recents: [],
@@ -111,6 +133,21 @@ export const useSettings = create<SettingsState>()(
       setSafeMode: (safeMode) => set({ safeMode }),
       setHideAi: (hideAi) => set({ hideAi }),
       setDownloadOriginal: (downloadOriginal) => set({ downloadOriginal }),
+      setVaultMirrorFolder: (vaultMirrorFolder) => set({ vaultMirrorFolder }),
+      setDownloadToFolder: (downloadToFolder) => set({ downloadToFolder }),
+      setPathPreset: (preset) => {
+        const pathPreset = parsePathPreset(preset);
+        set({
+          pathPreset,
+          pathTemplate: templateForPreset(pathPreset, get().pathTemplate),
+        });
+      },
+      setPathTemplate: (pathTemplate) =>
+        set({
+          pathTemplate,
+          pathPreset: "custom",
+        }),
+      setFolderLabel: (folderLabel) => set({ folderLabel }),
       setTab: (tab) => set({ tab }),
       setSearchEngine: (searchEngine) =>
         set({ searchEngine: isSearchEngine(searchEngine) ? searchEngine : DEFAULT_SEARCH_ENGINE }),
@@ -191,7 +228,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -207,10 +244,22 @@ export const useSettings = create<SettingsState>()(
         const hideAi = p.hideAi === true;
         const theme = parseThemeId(p.theme);
         const appearance = parseAppearance(p.appearance);
+        const pathPreset = parsePathPreset(p.pathPreset);
+        const pathTemplate =
+          typeof p.pathTemplate === "string" && p.pathTemplate.trim()
+            ? p.pathTemplate
+            : templateForPreset(pathPreset);
+        const extra = {
+          vaultMirrorFolder: p.vaultMirrorFolder !== false,
+          downloadToFolder: p.downloadToFolder !== false,
+          pathPreset,
+          pathTemplate,
+          folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
+        };
         if (version >= 2 && legacy.accounts.length) {
-          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance };
+          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
         }
-        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance };
+        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
       },
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
@@ -218,6 +267,11 @@ export const useSettings = create<SettingsState>()(
         safeMode: s.safeMode,
         hideAi: s.hideAi,
         downloadOriginal: s.downloadOriginal,
+        vaultMirrorFolder: s.vaultMirrorFolder,
+        downloadToFolder: s.downloadToFolder,
+        pathPreset: s.pathPreset,
+        pathTemplate: s.pathTemplate,
+        folderLabel: s.folderLabel,
         tab: s.tab,
         searchEngine: s.searchEngine,
         recents: s.recents,

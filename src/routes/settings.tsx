@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
 import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
+import { StorageSection } from "@/components/storage-settings";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -281,6 +282,8 @@ function SettingsPage() {
       </header>
 
       <ThemeSection />
+
+      <StorageSection />
 
       <section className="space-y-3 rounded-xl bg-surface p-5">
         <h2 className="text-sm font-medium">账号</h2>

@@ -106,3 +106,29 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+
+export async function requestVaultPersistence(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.storage?.persist) return false;
+  try {
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+}
+
+export async function vaultStorageEstimate(): Promise<{
+  persisted: boolean;
+  usage: number;
+  quota: number;
+}> {
+  if (typeof navigator === "undefined" || !navigator.storage) {
+    return { persisted: false, usage: 0, quota: 0 };
+  }
+  const persisted = (await navigator.storage.persisted?.()) ?? false;
+  const estimate = await navigator.storage.estimate?.();
+  return {
+    persisted,
+    usage: estimate?.usage ?? 0,
+    quota: estimate?.quota ?? 0,
+  };
+}

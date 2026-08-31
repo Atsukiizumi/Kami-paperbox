@@ -2,8 +2,9 @@ import { toast } from "sonner";
 import { fetchSource } from "./source";
 import { cookiesFromSettings, useQueue, useSettings } from "./store";
 import { collectWorkFiles } from "./save-work";
-import { downloadBlob, saveVaultWork, workKey } from "./vault";
-import { sanitizeFilename, sleep } from "./utils";
+import { archiveWork } from "./persist-files";
+import { workKey } from "./vault";
+import { sleep } from "./utils";
 import { extFromNameOrType } from "./ugoira-meta";
 import { isBooru } from "./sites";
 import type { Source, WorkDetail } from "./types";
@@ -39,17 +40,13 @@ async function processOne(key: string) {
       original,
       onProgress: (done, total) => useQueue.getState().patch(key, { progress: done, total }),
     });
-    for (let i = 0; i < saved.length; i += 1) {
-      const { blob, page } = saved[i];
-      const ext = extFromNameOrType(page.name, blob.type);
-      downloadBlob(blob, `${work.id}_p${i}_${sanitizeFilename(work.title)}.${ext}`);
-      useQueue.getState().patch(key, { progress: i + 1, total: saved.length });
-      if (i < saved.length - 1) await sleep(400);
-    }
-    await saveVaultWork(work, saved);
+    const result = await archiveWork(work, saved, { download: true });
     useQueue.getState().patch(key, { status: "done", progress: saved.length, total: saved.length });
     const gif = saved.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
-    toast.success(gif ? `已保存 GIF：${work.title}` : `已收入纸匣：${work.title}`);
+    const title = work.title;
+    if (result.folder) toast.success(gif ? `已写入文件夹：${title}` : `已收入纸匣并写入文件夹：${title}`);
+    else if (result.folderSkipped) toast.success(gif ? `GIF 已保存，文件夹未授权` : `已收入纸匣：${title}`);
+    else toast.success(gif ? `已保存 GIF：${title}` : `已收入纸匣：${title}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "保存失败";
     useQueue.getState().patch(key, { status: "error", error: message });
