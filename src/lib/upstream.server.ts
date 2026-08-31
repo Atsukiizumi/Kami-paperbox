@@ -202,6 +202,7 @@ function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
     date: asString(item.createDate || item.date) || undefined,
     illustType: asNumber(item.illustType ?? item.illust_type, 0),
     aiType: pixivAiType(item) || undefined,
+    liked: socialFromPixivIllust(item).liked || undefined,
   };
 }
 

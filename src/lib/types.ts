@@ -31,6 +31,7 @@ export type WorkCard = {
   aiType?: number;
   rating?: string;
   excerpt?: string;
+  liked?: boolean;
 };
 
 export type WorkPage = {
