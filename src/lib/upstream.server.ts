@@ -925,7 +925,9 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
 export async function fetchMediaResponse(
   rawUrl: string,
   cookies: { pixiv?: string; fanbox?: string },
+  signal?: AbortSignal,
 ): Promise<Response> {
+  if (signal?.aborted) return new Response(null, { status: 204 });
   const url = parseAllowedMediaUrl(rawUrl);
   const headers: Record<string, string> = {
     "User-Agent": UA,
@@ -960,7 +962,8 @@ export async function fetchMediaResponse(
     if (c) headers.Cookie = c;
   }
 
-  const res = await outboundFetch(url.toString(), { headers, redirect: "follow" });
+  const res = await outboundFetch(url.toString(), { headers, redirect: "follow", signal });
+  if (signal?.aborted) return new Response(null, { status: 204 });
   if (!res.ok) {
     return new Response("upstream error", { status: res.status === 404 ? 404 : 502 });
   }
@@ -970,6 +973,16 @@ export async function fetchMediaResponse(
   }
   const contentType = res.headers.get("content-type") || "application/octet-stream";
   if (res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
+    if (signal) {
+      const body = res.body;
+      signal.addEventListener(
+        "abort",
+        () => {
+          void body.cancel().catch(() => undefined);
+        },
+        { once: true },
+      );
+    }
     return new Response(res.body, { status: 200, headers: mediaOutHeaders(contentType) });
   }
   const buf = new Uint8Array(await res.arrayBuffer());

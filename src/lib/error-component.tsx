@@ -1,13 +1,7 @@
 import { TriangleAlert } from "lucide-react";
+import { isAbortError } from "@/lib/abort";
 
-export function isAbortError(error: unknown): boolean {
-  if (!error) return false;
-  if (error instanceof DOMException && error.name === "AbortError") return true;
-  if (error instanceof Error && (error.name === "AbortError" || /operation was aborted/i.test(error.message))) {
-    return true;
-  }
-  return typeof error === "object" && "name" in error && (error as { name?: string }).name === "AbortError";
-}
+export { isAbortError };
 
 export function AppErrorComponent({ error }: { error: Error }) {
   if (isAbortError(error)) {
