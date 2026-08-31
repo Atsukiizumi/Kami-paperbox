@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+暂无。
+
+## [0.3.1] — 2026-08-31
+
+对应 [PR #4](https://github.com/Atsukiizumi/Kami-paperbox/pull/4)。
+
 ### 新增
 
 - 浏览卡片、作品页、大图预览和纸匣都可以跳转源站「原始链接」。
