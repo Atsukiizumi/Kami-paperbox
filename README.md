@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.6.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.6.2-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -236,6 +236,10 @@ corepack enable
 ```bash
 python3 scripts/pack.py -o kami-paperbox.tar.gz
 ```
+
+### 上游站点怎么读
+
+Pixiv / FANBOX 没有给第三方的公开 API。纸匣是对着官方页面的 Network 面板，把网站自己在用的 XHR 记下来再复打。Cookie 怎么认、请求头为什么会 401、接口清单和代码落点，写在 [docs/upstream.md](docs/upstream.md)。
 
 ### 屋子里都有谁
 

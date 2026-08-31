@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.6.2] — 2026-08-31
+
+对应 [PR #15](https://github.com/Atsukiizumi/Kami-paperbox/pull/15)。
+
+### 文档
+
+- 增加 [docs/upstream.md](docs/upstream.md)：怎么用浏览器 Network / Cookie 面板读 Pixiv、FANBOX 的接口，以及访客 Cookie、FANBOX `/auth/start` 回转这些踩过的坑。
+
 ## [0.6.1] — 2026-08-31
 
 对应 [PR #14](https://github.com/Atsukiizumi/Kami-paperbox/pull/14)。
