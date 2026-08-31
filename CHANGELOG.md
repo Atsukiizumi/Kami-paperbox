@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.12] — 2026-09-01
+
+对应 [PR #31](https://github.com/Atsukiizumi/Kami-paperbox/pull/31)。
+
+### 修复
+
+- 作品页图片按原比例完整显示，不再被封面用的裁切铺满切掉。
+
 ## [0.7.11] — 2026-09-01
 
 对应 [PR #30](https://github.com/Atsukiizumi/Kami-paperbox/pull/30)。
