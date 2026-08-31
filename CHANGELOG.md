@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.1] — 2026-09-01
+
+对应 [PR #41](https://github.com/Atsukiizumi/Kami-paperbox/pull/41)。
+
+### 修复
+
+- 首次向导不再在服务端读 localStorage 水合状态，打开应用不会 500。
+
 ## [0.8.0] — 2026-09-01
 
 对应 [PR #40](https://github.com/Atsukiizumi/Kami-paperbox/pull/40)。
