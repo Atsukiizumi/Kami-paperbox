@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.7.16] — 2026-09-01
+
+对应 [PR #35](https://github.com/Atsukiizumi/Kami-paperbox/pull/35)。
+
+### 改进
+
+- 页面进场带位移和虚化，卡片悬停抬起，封面从模糊落到清晰。
+- 搜图引擎改用 Tabs，侧栏用 ScrollArea。
+
 ## [0.7.15] — 2026-09-01
 
 对应 [PR #34](https://github.com/Atsukiizumi/Kami-paperbox/pull/34)。

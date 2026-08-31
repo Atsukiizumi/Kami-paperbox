@@ -298,20 +298,26 @@ html.kami-motion {
 @keyframes kami-enter {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(18px);
+    filter: blur(8px);
   }
   to {
     opacity: 1;
     transform: none;
+    filter: none;
   }
 }
 
 @keyframes kami-page {
   from {
     opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
   }
   to {
     opacity: 1;
+    transform: none;
+    filter: none;
   }
 }
 
@@ -375,7 +381,7 @@ html.kami-motion {
 }
 
 .kami-page {
-  animation: kami-page var(--motion-fast) var(--ease-out) backwards;
+  animation: kami-page var(--motion-slow) var(--ease-out) backwards;
 }
 
 .kami-chrome-down {
@@ -407,6 +413,21 @@ html.kami-motion {
   background-size: 220% 100%;
   animation: kami-shimmer 1.5s var(--ease-out) infinite;
   animation-delay: var(--shimmer-delay, 0s);
+}
+
+.kami-card-shell {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-border);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.kami-card-shell:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-float);
 }
 
 .kami-logo .kami-logo-fold {
@@ -484,7 +505,8 @@ a:focus-visible .kami-logo .kami-logo-fold {
   .kami-chrome-down,
   .kami-chrome-left,
   .kami-chrome-up,
-  .kami-pop {
+  .kami-pop,
+  .kami-card-shell:hover {
     filter: none !important;
     transform: none !important;
     opacity: 1 !important;

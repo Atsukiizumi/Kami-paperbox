@@ -29,10 +29,11 @@ export const ToggleGroupItem = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex h-9 items-center justify-center rounded-full bg-elevated px-3.5 text-sm text-muted",
-      "transition-colors hover:text-fg",
+      "transition-[color,background-color,transform,box-shadow] duration-200 ease-out",
+      "hover:text-fg active:scale-[0.96]",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
       "disabled:pointer-events-none disabled:opacity-40",
-      "data-[state=on]:bg-accent data-[state=on]:text-accent-fg",
+      "data-[state=on]:bg-accent data-[state=on]:text-accent-fg data-[state=on]:shadow-[var(--shadow-border)]",
       className,
     )}
     {...props}
