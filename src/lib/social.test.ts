@@ -33,6 +33,19 @@ describe("pixiv social", () => {
     assert.equal(extractPixivCsrfToken(html), "zz11yy22xx33ww44vv55uu66");
   });
 
+  it("reads csrf from single-quoted meta-global-data JSON", () => {
+    const html = `<meta name="global-data" id="meta-global-data" content='{"token":"5faddbf5966ad6879fb5f6d2f848f5f5","userData":{"id":"1"}}'>`;
+    assert.equal(extractPixivCsrfToken(html), "5faddbf5966ad6879fb5f6d2f848f5f5");
+  });
+
+  it("reads csrf from Next.js __NEXT_DATA__ preloaded api.token", () => {
+    const state = JSON.stringify({ api: { token: "0d09e0bbcd4ae59750b15bbaa96d0d7c" } });
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { serverSerializedPreloadedState: state } },
+    })}</script>`;
+    assert.equal(extractPixivCsrfToken(html), "0d09e0bbcd4ae59750b15bbaa96d0d7c");
+  });
+
   it("reads csrf-token meta regardless of attribute order", () => {
     const html = `<meta content="tt-token-value-12345" name="csrf-token">`;
     assert.equal(extractPixivCsrfToken(html), "tt-token-value-12345");

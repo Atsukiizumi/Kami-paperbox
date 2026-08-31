@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.18] — 2026-09-01
+
+对应 [PR #37](https://github.com/Atsukiizumi/Kami-paperbox/pull/37)。
+
+### 修复
+
+- 浏览页红心：Pixiv 作品页已改成 Next.js，CSRF 从 `__NEXT_DATA__.api.token` 读取。
+
 ## [0.7.17] — 2026-09-01
 
 对应 [PR #36](https://github.com/Atsukiizumi/Kami-paperbox/pull/36)。

@@ -35,7 +35,7 @@ async function pixivToken(cookie: string, hintPath?: string): Promise<string> {
           "User-Agent": UA,
           Cookie: cookie,
           Referer: "https://www.pixiv.net/",
-          Accept: "application/json,text/html,*/*",
+          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "ja,en;q=0.8",
         },
         cookie,
