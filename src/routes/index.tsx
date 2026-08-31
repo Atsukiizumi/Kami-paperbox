@@ -273,7 +273,7 @@ function Home() {
     booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.items : [];
   const items = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
   const activeQuery = tab === "pixiv" ? pixivQuery : tab === "fanbox" ? fanboxQuery : booruQuery;
-  const loading = activeQuery.isFetching;
+  const loading = activeQuery.isFetching && items.length === 0;
   const error =
     activeQuery.error instanceof Error
       ? activeQuery.error.message

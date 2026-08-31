@@ -4,9 +4,16 @@
  * 作用：封面和作品页图。每张自己请求、自己亮。
  * 用法：封面 fit="cover"（默认）；作品页 / 灯箱 fit="contain" 才不会裁掉。
  * 为什么：pximg 直接给浏览器会 403。封面要铺满卡片，作品页要整张看见。
+ *        已加载过的地址记在内存里，返回浏览不再闪扫光。
  */
 import { useEffect, useRef, useState } from "react";
 import { cn, mediaUrl } from "@/lib/utils";
+
+const warmThumbs = new Set<string>();
+
+function thumbKey(src: string) {
+  return mediaUrl(src);
+}
 
 export function ProxiedImg({
   src,
@@ -25,14 +32,16 @@ export function ProxiedImg({
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [active, setActive] = useState(priority);
+  const cached = Boolean(src && warmThumbs.has(thumbKey(src)));
+  const [loaded, setLoaded] = useState(cached);
+  const [active, setActive] = useState(priority || cached);
   const cover = fit === "cover";
 
   useEffect(() => {
-    setLoaded(false);
+    const hit = Boolean(src && warmThumbs.has(thumbKey(src)));
     setFailed(false);
-    setActive(priority);
+    setLoaded(hit);
+    setActive(priority || hit);
   }, [src, priority]);
 
   useEffect(() => {
@@ -89,7 +98,10 @@ export function ProxiedImg({
           loading="eager"
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            warmThumbs.add(thumbKey(src));
+            setLoaded(true);
+          }}
           onError={() => setFailed(true)}
         />
       ) : (

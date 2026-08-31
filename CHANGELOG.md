@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.14] — 2026-09-01
+
+对应 [PR #33](https://github.com/Atsukiizumi/Kami-paperbox/pull/33)。
+
+### 改进
+
+- 从作品页返回浏览不再重新拉列表：缓存半小时，滚动位置保留，已看过的封面直接亮。
+
 ## [0.7.13] — 2026-09-01
 
 对应 [PR #32](https://github.com/Atsukiizumi/Kami-paperbox/pull/32)。

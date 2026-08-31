@@ -13,6 +13,29 @@ import appCss from "../styles.css?url";
 
 const APP_NAME = "Kami 纸匣";
 
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30 * 60_000,
+        gcTime: 2 * 60 * 60_000,
+        retry: 1,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
+      },
+    },
+  });
+}
+
+let browserQueryClient: QueryClient | undefined;
+
+function getQueryClient() {
+  if (typeof document === "undefined") return makeQueryClient();
+  browserQueryClient ??= makeQueryClient();
+  return browserQueryClient;
+}
+
 export const Route = createRootRoute({
   errorComponent: RootError,
   head: () => ({
@@ -67,14 +90,7 @@ function ThemedToaster() {
 }
 
 function RootComponent() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: { staleTime: 120_000, gcTime: 30 * 60_000, retry: 1, refetchOnWindowFocus: false },
-        },
-      }),
-  );
+  const [queryClient] = useState(getQueryClient);
 
   return (
     <html lang="zh-CN" className="antialiased" suppressHydrationWarning>
