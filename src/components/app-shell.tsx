@@ -6,6 +6,7 @@ import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
+import { ThemeMenu } from "@/components/theme-picker";
 
 const NAV = [
   { to: "/", label: "浏览", icon: Compass },
@@ -72,7 +73,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="truncate font-display text-base tracking-tight">Kami 纸匣</span>
         </Link>
         <SiteSwitcher />
-        <AccountSwitcher />
+        <div className="ml-auto flex items-center gap-0.5">
+          <ThemeMenu />
+          <AccountSwitcher />
+        </div>
       </header>
 
       <aside

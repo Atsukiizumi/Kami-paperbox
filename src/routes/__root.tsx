@@ -5,7 +5,9 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/app-shell";
+import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { AppErrorComponent, isAbortError } from "@/lib/error-component";
+import { THEME_BOOTSTRAP_SCRIPT, THEMES } from "@/lib/theme";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Kami 纸匣";
@@ -24,7 +26,7 @@ export const Route = createRootRoute({
         name: "description",
         content: "跨端个人 Pixiv / FANBOX 作品存档。公开榜单可直接浏览，登录后可备份你已能查看的内容。",
       },
-      { name: "theme-color", content: "#0e0d0c" },
+      { name: "theme-color", content: THEMES.washi.dark.bg },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -48,6 +50,19 @@ function RootError({ error, reset }: ErrorComponentProps) {
   return <AppErrorComponent error={error} />;
 }
 
+function ThemedToaster() {
+  const resolved = useResolvedAppearance();
+  return (
+    <Toaster
+      theme={resolved}
+      position="top-center"
+      toastOptions={{
+        className: "bg-elevated text-fg border-border",
+      }}
+    />
+  );
+}
+
 function RootComponent() {
   const [queryClient] = useState(
     () =>
@@ -61,22 +76,19 @@ function RootComponent() {
   return (
     <html lang="zh-CN" className="antialiased" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="bg-bg text-fg">
         <PreviewHostBridge />
         <AuthProvider>
           <QueryClientProvider client={queryClient}>
-            <AppShell>
-              <Outlet />
-            </AppShell>
-            <Toaster
-              theme="dark"
-              position="top-center"
-              toastOptions={{
-                className: "bg-elevated text-fg border-border",
-              }}
-            />
+            <ThemeProvider>
+              <AppShell>
+                <Outlet />
+              </AppShell>
+              <ThemedToaster />
+            </ThemeProvider>
           </QueryClientProvider>
         </AuthProvider>
         <Scripts />

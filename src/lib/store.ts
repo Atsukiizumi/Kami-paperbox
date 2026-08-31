@@ -11,6 +11,15 @@ import {
   migrateLegacySettings,
 } from "./accounts";
 import type { SiteProfile } from "./site-identity";
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_THEME,
+  SETTINGS_STORAGE_KEY,
+  type Appearance,
+  type ThemeId,
+  parseAppearance,
+  parseThemeId,
+} from "./theme";
 
 type Tab = Source;
 
@@ -26,6 +35,8 @@ type SettingsState = {
   browseQuery: string;
   accounts: Account[];
   activeAccountId: string | null;
+  theme: ThemeId;
+  appearance: Appearance;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
   setSafeMode: (v: boolean) => void;
@@ -35,6 +46,8 @@ type SettingsState = {
   setSearchEngine: (v: SearchEngine) => void;
   addRecent: (v: string) => void;
   setBrowseQuery: (v: string) => void;
+  setTheme: (v: ThemeId) => void;
+  setAppearance: (v: Appearance) => void;
   addAccount: (name: string) => string;
   renameAccount: (id: string, name: string) => void;
   removeAccount: (id: string) => void;
@@ -71,6 +84,8 @@ export const useSettings = create<SettingsState>()(
       browseQuery: "",
       accounts: [],
       activeAccountId: null,
+      theme: DEFAULT_THEME,
+      appearance: DEFAULT_APPEARANCE,
       setPixivCookie: (pixivCookie) =>
         set((s) => {
           if (!s.activeAccountId) {
@@ -104,6 +119,8 @@ export const useSettings = create<SettingsState>()(
           recents: [v, ...s.recents.filter((x) => x !== v)].slice(0, 8),
         })),
       setBrowseQuery: (browseQuery) => set({ browseQuery }),
+      setTheme: (theme) => set({ theme: parseThemeId(theme) }),
+      setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       addAccount: (name) => {
         const acc = createAccount(name);
         set((s) => withActiveCookies([...s.accounts, acc].slice(0, 8), acc.id));
@@ -173,8 +190,8 @@ export const useSettings = create<SettingsState>()(
       },
     }),
     {
-      name: "kami-settings",
-      version: 3,
+      name: SETTINGS_STORAGE_KEY,
+      version: 4,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -188,10 +205,12 @@ export const useSettings = create<SettingsState>()(
           ? (p.searchEngine as SearchEngine)
           : DEFAULT_SEARCH_ENGINE;
         const hideAi = p.hideAi === true;
+        const theme = parseThemeId(p.theme);
+        const appearance = parseAppearance(p.appearance);
         if (version >= 2 && legacy.accounts.length) {
-          return { ...p, ...legacy, ...cookies, searchEngine, hideAi };
+          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance };
         }
-        return { ...p, ...legacy, ...cookies, searchEngine, hideAi };
+        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance };
       },
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
@@ -204,6 +223,8 @@ export const useSettings = create<SettingsState>()(
         recents: s.recents,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
+        theme: s.theme,
+        appearance: s.appearance,
       }),
     },
   ),
