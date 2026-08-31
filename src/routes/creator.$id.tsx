@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { BackToBrowse } from "@/components/back-to-browse";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +38,7 @@ function CreatorPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
+        <BackToBrowse />
         <Skeleton className="h-28 w-full rounded-lg" />
         <ArtworkGridSkeleton count={6} />
       </div>
@@ -45,9 +47,12 @@ function CreatorPage() {
 
   if (query.error || !query.data) {
     return (
-      <p className="py-12 text-sm text-muted">
-        {query.error instanceof Error ? query.error.message : "无法加载创作者"}
-      </p>
+      <div className="space-y-3 py-12">
+        <BackToBrowse />
+        <p className="text-sm text-muted">
+          {query.error instanceof Error ? query.error.message : "无法加载创作者"}
+        </p>
+      </div>
     );
   }
 
@@ -56,6 +61,7 @@ function CreatorPage() {
 
   return (
     <div className="space-y-6">
+      <BackToBrowse />
       {profile?.cover ? (
         <div className="overflow-hidden rounded-lg">
           <ProxiedImg src={profile.cover} alt="" className="h-36 w-full object-cover md:h-48" />
