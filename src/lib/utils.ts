@@ -28,6 +28,13 @@ export function formatCount(n: number | undefined): string {
   return String(n);
 }
 
+export function formatResolution(width?: number, height?: number): string {
+  const w = Math.round(Number(width) || 0);
+  const h = Math.round(Number(height) || 0);
+  if (w < 1 || h < 1) return "";
+  return `${w}×${h}`;
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

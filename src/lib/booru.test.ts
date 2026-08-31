@@ -71,6 +71,8 @@ describe("booru filters", () => {
     assert.equal(card?.source, "yande");
     assert.equal(card?.id, "1267938");
     assert.equal(card?.author, "himeno_nanako");
+    assert.equal(card?.width, 1392);
+    assert.equal(card?.height, 1867);
     const detail = mapBooruDetail("yande", {
       id: 1267938,
       tags: "business_suit",
@@ -81,8 +83,13 @@ describe("booru filters", () => {
       author: "himeno_nanako",
       file_ext: "jpg",
       source: "https://x.com/x",
+      width: 1392,
+      height: 1867,
     }, true);
     assert.equal(detail?.pages[0]?.original.includes("files.yande.re"), true);
+    assert.equal(detail?.width, 1392);
+    assert.equal(detail?.pages[0]?.width, 1392);
+    assert.equal(detail?.pages[0]?.height, 1867);
   });
 
   it("maps danbooru posts and hides sensitive in safe mode", () => {

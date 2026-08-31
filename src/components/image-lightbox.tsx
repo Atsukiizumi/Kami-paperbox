@@ -8,6 +8,7 @@ import { UgoiraPlayer } from "./ugoira-player";
 export type LightboxItem = {
   src: string;
   alt: string;
+  caption?: string;
   ugoira?: { zipUrl: string; frames: UgoiraFrame[] };
 };
 
@@ -117,6 +118,7 @@ export function ImageLightbox({
       <div className="flex h-12 shrink-0 items-center gap-2 px-2">
         <p className="px-2 text-sm tabular-nums text-muted">
           {index + 1} / {items.length}
+          {item.caption ? ` · ${item.caption}` : ""}
         </p>
         {originUrl ? (
           <a

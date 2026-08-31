@@ -201,6 +201,8 @@ export function mapBooruDetail(
     regular: sample || original,
     original: original || sample,
     name: `${site}-${card.id}.${ext}`,
+    width: card.width,
+    height: card.height,
   };
   const source = asString(rec.source);
   return {

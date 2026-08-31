@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.2] — 2026-09-01
+
+对应 [PR #42](https://github.com/Atsukiizumi/Kami-paperbox/pull/42)。
+
+### 改进
+
+- 浏览卡片和作品页显示图片分辨率（例如 1920×1080）。
+
 ## [0.8.1] — 2026-09-01
 
 对应 [PR #41](https://github.com/Atsukiizumi/Kami-paperbox/pull/41)。

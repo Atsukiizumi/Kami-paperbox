@@ -376,6 +376,8 @@ async function pixivIllust(
         thumb: asString(urls.small || urls.thumb_mini),
         regular: asString(urls.regular),
         original: asString(urls.original || urls.regular),
+        width: asNumber(asRecord(p).width) || undefined,
+        height: asNumber(asRecord(p).height) || undefined,
       });
     }
   }
@@ -385,6 +387,8 @@ async function pixivIllust(
       thumb: asString(urls.small || urls.thumb),
       regular: asString(urls.regular || urls.small),
       original: asString(urls.original || urls.regular),
+      width: asNumber(body.width) || undefined,
+      height: asNumber(body.height) || undefined,
     });
   }
   const work: WorkDetail = {
@@ -408,6 +412,11 @@ async function pixivIllust(
     aiType: asNumber(body.aiType, 0),
     ...socialFromPixivIllust(body),
   };
+  const first = work.pages[0];
+  if (first && !first.width && work.width) {
+    first.width = work.width;
+    first.height = work.height;
+  }
   if (cookie && work.authorId) {
     try {
       const userJson = await upstreamJson(`https://www.pixiv.net/ajax/user/${work.authorId}?full=1`, {
@@ -528,6 +537,8 @@ function pushFanboxImage(pages: WorkPage[], raw: Record<string, unknown>) {
     regular: original,
     original,
     name: name ? `${name}.${ext}` : undefined,
+    width: asNumber(raw.width) || undefined,
+    height: asNumber(raw.height) || undefined,
   });
 }
 
@@ -612,7 +623,13 @@ function extractFanboxPages(post: Record<string, unknown>): WorkPage[] {
   if (pages.length === 0) {
     const cover = fanboxCoverOf(post);
     if (cover.url) {
-      add({ thumb: cover.url, regular: cover.url, original: cover.url });
+      add({
+        thumb: cover.url,
+        regular: cover.url,
+        original: cover.url,
+        width: cover.width,
+        height: cover.height,
+      });
     }
   }
   return pages;
@@ -704,18 +721,20 @@ async function fanboxPost(
   const user = asRecord(post.user);
   const restricted = asBool(post.isRestricted);
   const pages = restricted ? [] : extractFanboxPages(post);
-  const cover = asString(post.coverImageUrl) || fanboxCoverOf(post).url;
+  const cover = fanboxCoverOf(post);
   const work: WorkDetail = {
     source: "fanbox",
     id: asString(post.id || id),
     title: asString(post.title),
     author: asString(user.name),
     authorId: asString(post.creatorId || user.userId),
-    thumb: cover || pages[0]?.thumb || "",
+    thumb: cover.url || pages[0]?.thumb || "",
     pageCount: pages.length || 1,
     tags: Array.isArray(post.tags)
       ? post.tags.filter((t): t is string => typeof t === "string")
       : [],
+    width: pages[0]?.width || cover.width,
+    height: pages[0]?.height || cover.height,
     restricted,
     feeRequired: asNumber(post.feeRequired, 0),
     date: asString(post.publishedDatetime) || undefined,

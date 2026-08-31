@@ -26,7 +26,7 @@ import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
-import { formatCount, mediaUrl } from "@/lib/utils";
+import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
 import { archiveWork } from "@/lib/persist-files";
 import { workKey as vaultWorkKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
@@ -124,12 +124,14 @@ function WorkPage() {
           src: mediaUrl(work.pages[0]?.regular || work.thumb),
           alt: work.title,
           ugoira: { zipUrl: work.ugoira.src, frames: work.ugoira.frames },
+          caption: formatResolution(work.width, work.height),
         },
       ];
     }
     return work.pages.map((page, i) => ({
       src: mediaUrl(page.regular || page.original),
       alt: `${work.title} ${i + 1}`,
+      caption: formatResolution(page.width, page.height),
     }));
   }, [work]);
 
@@ -352,6 +354,9 @@ function WorkPage() {
             <span className="text-fg">{work.author}</span>
           )}
           {work.pageCount > 1 ? <Badge>{work.pageCount} 页</Badge> : null}
+          {formatResolution(work.width, work.height) ? (
+            <span className="tabular-nums">{formatResolution(work.width, work.height)}</span>
+          ) : null}
           {work.illustType === 2 || work.ugoira ? <Badge>动图 GIF</Badge> : null}
           {work.aiType === 2 ? <Badge>AI</Badge> : null}
           {work.views ? <span className="tabular-nums">浏览 {formatCount(work.views)}</span> : null}
@@ -451,6 +456,12 @@ function WorkPage() {
                   className="max-h-[85vh]"
                 />
               </button>
+              {formatResolution(page.width, page.height) ? (
+                <figcaption className="px-3 py-2 text-xs tabular-nums text-muted">
+                  {formatResolution(page.width, page.height)}
+                  {work.pages.length > 1 ? ` · ${i + 1}/${work.pages.length}` : ""}
+                </figcaption>
+              ) : null}
             </figure>
           ))
         )}

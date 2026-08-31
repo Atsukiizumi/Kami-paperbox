@@ -40,6 +40,8 @@ export type WorkPage = {
   original: string;
   name?: string;
   bytes?: number;
+  width?: number;
+  height?: number;
 };
 
 export type WorkDetail = WorkCard & {
