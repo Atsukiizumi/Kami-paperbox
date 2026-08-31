@@ -3,6 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![Changelog](https://img.shields.io/badge/changelog-0.3.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -252,6 +253,7 @@ scripts/pack.py                 源码打包
 kami.config.example.json        监听地址 / 代理样板（复制为 kami.config.json）
 .env.example                    环境变量样板
 .gitignore                      排除本机配置、依赖、构建产物
+CHANGELOG.md                    更新日志
 Dockerfile                      生产镜像
 docker-compose.yml              一键启动
 ```
@@ -268,7 +270,7 @@ React 19、TanStack Router / Query / Start、Vite、Nitro、Tailwind CSS 4、Zus
 
 ## 许可证 📜
 
-采用 [MIT License](LICENSE)。本项目仅供学习交流。
+采用 [MIT License](LICENSE)。本项目仅供学习交流。更新记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 Kami Paperbox / Kami 纸匣。今天也要好好收纳喜欢的画呀 📦🌸
 

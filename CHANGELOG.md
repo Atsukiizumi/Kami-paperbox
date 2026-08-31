@@ -1,0 +1,55 @@
+# 更新日志
+
+本文件记录 Kami 纸匣的用户可见变化，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。版本号大致遵循 [SemVer](https://semver.org/lang/zh-CN/)。
+
+之后每次改动都会开 Pull Request，合并进 `main` 后再把条目写到这里。
+
+## [Unreleased]
+
+暂无。
+
+## [0.3.0] — 2026-08-31
+
+### 新增
+
+- 本更新日志，以及 README 入口。
+
+### 变更
+
+- 采用 [MIT License](LICENSE)。`package.json` 标注 `"license": "MIT"`。
+- README 去掉法律声明和数据安全长文，只保留「本项目仅供学习交流」。
+
+### 修复
+
+- 点「浏览器登录 Pixiv / FANBOX」时，Vite `AbortError` 会把刚打开的 Chrome / Edge **立刻关掉**，看起来像没弹窗。登录窗口现在作为后台任务运行，和网页请求脱钩；设置页轮询状态，AbortError 不再整页刷新。
+- 找不到窗口时看任务栏。设置里可以「取消弹窗」。终端成功时会打印 `[kami] 已打开登录窗口: …`。
+- `puppeteer-core` 不再打进 Vite SSR 包，减少登录启动失败。
+
+## [0.2.0] — 2026-08-31
+
+对应 [PR #1](https://github.com/Atsukiizumi/Kami-paperbox/pull/1)、[PR #2](https://github.com/Atsukiizumi/Kami-paperbox/pull/2)。
+
+### 新增
+
+- 设置里「浏览器登录 Pixiv / FANBOX」：拉起本机 Chrome / Edge 打开官方登录页，抓取 `PHPSESSID` / `FANBOXSESSID`。手贴 Cookie 仍可用。Docker 无图形界面时请手贴。
+- `/api/login-browser`、`/api/whoami`。
+- Pixiv 与 FANBOX 用户名、头像分开保存，顶栏账号切换、图源切换、设置页都会显示。
+- 依赖 `puppeteer-core`。找不到浏览器时可设 `KAMI_CHROME`。
+
+## [0.1.0] — 2026-08-31
+
+仓库首个公开快照。
+
+### 新增
+
+- 五个图源，顶栏一次只看一个站，每个站都能搜：Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru。
+- Pixiv 公开榜；登录后「为你推荐 / 关注」。FANBOX 公开创作者；登录后动态和已支持。图站最新 / 热门。
+- 作品大图：缩放、拖动、键盘翻页。保存进纸匣、下载到磁盘。Pixiv 收藏（带 tag）、红心、关注；FANBOX 点赞、关注。动图播放并合成 GIF。
+- 搜图：上传 / 拖入 / 粘贴本地图。默认 [SauceNAO](https://saucenao.com/)，可切 [IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。
+- 五个站都会带回 tag。
+- 本地纸匣（IndexedDB）和下载队列。
+- 多账号保存 Pixiv / FANBOX Cookie，顶栏切换。
+- HTTP / SOCKS5 代理（设置、`kami.config.json`、`KAMI_PROXY`）。
+- R-18 开关（默认关）。Pixiv AI 作画标记和过滤。
+- Docker 与 `pnpm` 本地开发。监听地址写在 `kami.config.json`（默认 `0.0.0.0:8080`）。
+- 可装成 PWA。
