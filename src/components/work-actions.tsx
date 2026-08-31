@@ -1,4 +1,4 @@
-import { Archive, Download, Heart, Star, UserMinus, UserPlus } from "lucide-react";
+import { Archive, Download, ExternalLink, Heart, Star, UserMinus, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkDetail } from "@/lib/types";
@@ -7,6 +7,7 @@ export function WorkActions({
   work,
   saving,
   compact,
+  originUrl,
   onSave,
   onDownload,
   onBookmark,
@@ -16,6 +17,7 @@ export function WorkActions({
   work: WorkDetail;
   saving?: boolean;
   compact?: boolean;
+  originUrl?: string;
   onSave: () => void;
   onDownload: () => void;
   onBookmark?: () => void;
@@ -49,6 +51,14 @@ export function WorkActions({
         <Button size={sm} variant={work.followed ? "secondary" : "ghost"} onClick={onFollow}>
           {work.followed ? <UserMinus className="size-4" /> : <UserPlus className="size-4" />}
           {work.followed ? "已关注" : "关注"}
+        </Button>
+      ) : null}
+      {originUrl ? (
+        <Button size={sm} variant="ghost" asChild>
+          <a href={originUrl} target="_blank" rel="noreferrer">
+            <ExternalLink className="size-4" />
+            原始链接
+          </a>
         </Button>
       ) : null}
     </div>

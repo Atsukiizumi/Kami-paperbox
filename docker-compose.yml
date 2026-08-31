@@ -9,4 +9,9 @@ services:
       HOST: 0.0.0.0
       PORT: 8080
       # KAMI_PROXY: http://host.docker.internal:7890
+    volumes:
+      - kami-data:/app/.data
     restart: unless-stopped
+
+volumes:
+  kami-data:

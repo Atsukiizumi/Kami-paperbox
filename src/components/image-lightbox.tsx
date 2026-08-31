@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, X, ZoomIn, ZoomOut } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UgoiraFrame } from "@/lib/ugoira-meta";
@@ -17,6 +17,7 @@ export function ImageLightbox({
   open,
   onClose,
   onIndex,
+  originUrl,
   footer,
 }: {
   items: LightboxItem[];
@@ -24,6 +25,7 @@ export function ImageLightbox({
   open: boolean;
   onClose: () => void;
   onIndex: (i: number) => void;
+  originUrl?: string;
   footer?: ReactNode;
 }) {
   const [shown, setShown] = useState(open);
@@ -116,6 +118,18 @@ export function ImageLightbox({
         <p className="px-2 text-sm tabular-nums text-muted">
           {index + 1} / {items.length}
         </p>
+        {originUrl ? (
+          <a
+            href={originUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-sm text-muted hover:bg-elevated hover:text-fg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="size-3.5" />
+            原始链接
+          </a>
+        ) : null}
         <div className="ml-auto flex items-center">
           <button
             type="button"

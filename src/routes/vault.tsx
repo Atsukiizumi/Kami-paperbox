@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { Button } from "@/components/ui/button";
+import { workOriginUrl } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatBytes } from "@/lib/utils";
 import {
@@ -100,6 +101,17 @@ function VaultPage() {
                 </div>
               </button>
               <div className="flex gap-1 px-2 pb-2">
+                <Button variant="ghost" size="sm" asChild>
+                  <a
+                    href={workOriginUrl(item.source, item.id, item.authorId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="原始链接"
+                  >
+                    <ExternalLink className="size-4" />
+                    原始链接
+                  </a>
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => void exportWork(item)}>
                   <Download className="size-4" />
                   导出
@@ -129,6 +141,7 @@ function VaultPage() {
         open={Boolean(open) && pages.length > 0}
         onClose={() => setOpen(null)}
         onIndex={setPreviewIndex}
+        originUrl={open ? workOriginUrl(open.source, open.id, open.authorId) : undefined}
       />
     </div>
   );

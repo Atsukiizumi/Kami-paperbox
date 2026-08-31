@@ -54,7 +54,7 @@ function ProxySection() {
       if (!res.ok || data.ok === false) throw new Error(data.error || "保存失败");
       setUrl(data.url ?? "");
       setSource(data.source ?? "saved");
-      toast.success(data.url ? "代理已保存，立即生效" : "已关闭自定义代理");
+      toast.success(data.url ? "代理已写入 kami.config.json，立即生效" : "已关闭自定义代理");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {
@@ -91,6 +91,7 @@ function ProxySection() {
         拉取 Pixiv、FANBOX、图站和搜图时走这个地址。支持 http、https、socks5，例如
         <span className="text-fg"> 127.0.0.1:7890</span> 或{" "}
         <span className="text-fg">socks5://127.0.0.1:1080</span>。
+        点保存会写入本机 <span className="text-fg">kami.config.json</span>，重启后也还在。
       </p>
       <Input
         value={url}

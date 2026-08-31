@@ -1,6 +1,7 @@
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { parseProxyUrl } from "./proxy-url";
+import { fileURLToPath } from "node:url";
+import { parseProxyUrl } from "./proxy-url.ts";
 
 export type ProxySource = "saved" | "config" | "env" | "none";
 
@@ -10,9 +11,52 @@ export type ProxyState = {
 };
 
 const RUNTIME_REL = join(".data", "proxy.json");
+const CONFIG_REL = "kami.config.json";
 
-function runtimePath(): string {
-  return join(process.cwd(), RUNTIME_REL);
+function runtimePath(root: string): string {
+  return join(root, RUNTIME_REL);
+}
+
+function configPath(root: string): string {
+  return join(root, CONFIG_REL);
+}
+
+function isKamiRoot(dir: string): boolean {
+  if (existsSync(join(dir, "kami.config.example.json"))) return true;
+  if (existsSync(join(dir, "kami.config.json"))) return true;
+  try {
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as { name?: string };
+    return pkg.name === "kami-paperbox";
+  } catch {
+    return false;
+  }
+}
+
+function walkUp(start: string): string | null {
+  let dir = start;
+  for (let i = 0; i < 12; i += 1) {
+    if (isKamiRoot(dir)) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+/** Resolve the project root even when Vite SSR cwd is not the repo. */
+export function resolveKamiRoot(explicit?: string): string {
+  if (explicit) return walkUp(explicit) ?? explicit;
+  const env = process.env.KAMI_ROOT?.trim();
+  if (env) return walkUp(env) ?? env;
+  const fromCwd = walkUp(process.cwd());
+  if (fromCwd) return fromCwd;
+  try {
+    const fromModule = walkUp(dirname(fileURLToPath(import.meta.url)));
+    if (fromModule) return fromModule;
+  } catch {
+    /* bundled / virtual */
+  }
+  return process.cwd();
 }
 
 function readJsonFile(path: string): Record<string, unknown> | null {
@@ -35,12 +79,26 @@ function parseOrEmpty(raw: string): string {
   return parsed.ok ? parsed.href : "";
 }
 
-export function readProxyState(): ProxyState {
-  const saved = readJsonFile(runtimePath());
+function applyEnv(url: string) {
+  if (url) process.env.KAMI_PROXY = url;
+  else delete process.env.KAMI_PROXY;
+}
+
+function writeKamiConfigProxy(url: string, root: string) {
+  const path = configPath(root);
+  const current = readJsonFile(path) ?? {};
+  const host = typeof current.host === "string" && current.host.trim() ? current.host.trim() : "0.0.0.0";
+  const port = typeof current.port === "number" && Number.isInteger(current.port) ? current.port : 8080;
+  const next = { ...current, host, port, proxy: url };
+  writeFileSync(path, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+}
+
+export function readProxyState(root = resolveKamiRoot()): ProxyState {
+  const saved = readJsonFile(runtimePath(root));
   if (saved && saved.set === true) {
     return { url: parseOrEmpty(typeof saved.url === "string" ? saved.url : ""), source: "saved" };
   }
-  const cfg = readJsonFile(join(process.cwd(), "kami.config.json"));
+  const cfg = readJsonFile(configPath(root));
   const fromCfg = parseOrEmpty(typeof cfg?.proxy === "string" ? cfg.proxy : "");
   if (fromCfg) return { url: fromCfg, source: "config" };
   const fromEnvVar =
@@ -55,24 +113,49 @@ export function readProxyState(): ProxyState {
   return { url: "", source: "none" };
 }
 
-export function getActiveProxy(): string {
-  return readProxyState().url;
+export function getActiveProxy(root = resolveKamiRoot()): string {
+  return readProxyState(root).url;
 }
 
-export function saveProxyUrl(raw: string): ProxyState {
+export function saveProxyUrl(raw: string, root = resolveKamiRoot()): ProxyState {
   const parsed = parseProxyUrl(raw);
   if (!parsed.ok) throw new Error(parsed.error);
-  const path = runtimePath();
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify({ set: true, url: parsed.href }, null, 2)}\n`, "utf8");
-  return { url: parsed.href, source: "saved" };
+  const path = runtimePath(root);
+  const errors: string[] = [];
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${JSON.stringify({ set: true, url: parsed.href }, null, 2)}\n`, "utf8");
+  } catch (err) {
+    errors.push(`.data/proxy.json: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  try {
+    writeKamiConfigProxy(parsed.href, root);
+  } catch (err) {
+    errors.push(`kami.config.json: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  applyEnv(parsed.href);
+  if (errors.length === 2) {
+    throw new Error(`代理没能写进磁盘：${errors.join("；")}`);
+  }
+  if (errors.length) {
+    console.warn(`[kami] 代理部分写入失败：${errors.join("；")}`);
+  } else {
+    console.info(`[kami] 代理已写入 ${configPath(root)}`);
+  }
+  return { url: parsed.href, source: parsed.href ? "saved" : "none" };
 }
 
-export function clearSavedProxy(): ProxyState {
+export function clearSavedProxy(root = resolveKamiRoot()): ProxyState {
   try {
-    unlinkSync(runtimePath());
+    unlinkSync(runtimePath(root));
   } catch {
     /* already gone */
   }
-  return readProxyState();
+  try {
+    writeKamiConfigProxy("", root);
+  } catch {
+    /* config may be missing in a fresh tree */
+  }
+  applyEnv("");
+  return readProxyState(root);
 }

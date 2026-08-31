@@ -8,6 +8,22 @@
 
 暂无。
 
+## [0.3.1] — 2026-08-31
+
+对应 [PR #4](https://github.com/Atsukiizumi/Kami-paperbox/pull/4)。
+
+### 新增
+
+- 浏览卡片、作品页、大图预览和纸匣都可以跳转源站「原始链接」。
+
+### 修复
+
+- 设置里保存代理以前只写到隐藏的 `.data/proxy.json`，打开 `kami.config.json` 会以为没存上。现在会同时写入 `kami.config.json`，立刻设置 `KAMI_PROXY`，Docker 数据卷会保留 `.data`。
+
+### 变更
+
+- `.gitignore` 忽略 `pnpm-lock.yaml` 和 `src/routeTree.gen.ts`（本地 `pnpm i` / `pnpm dev` 会再生成），并从版本库取消跟踪。
+
 ## [0.3.0] — 2026-08-31
 
 ### 新增
