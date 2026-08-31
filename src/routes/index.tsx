@@ -256,6 +256,8 @@ function Home() {
       pixivQuery.data.op === "pixivFollowing")
       ? pixivQuery.data.items
       : [];
+  const pixivHasNext =
+    pixivQuery.data && "nextPage" in pixivQuery.data ? pixivQuery.data.nextPage != null : false;
   const rankingDate =
     pixivQuery.data && pixivQuery.data.op === "pixivRanking" ? pixivQuery.data.date : "";
   const fanboxItems: WorkCard[] =
@@ -271,6 +273,8 @@ function Home() {
   const fanboxProfile = fanboxCreatorPage && fanboxCreatorPage.op === "fanboxCreator" ? fanboxCreatorPage.profile : null;
   const booruItems: WorkCard[] =
     booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.items : [];
+  const booruHasNext =
+    booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.nextPage != null : false;
   const items = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
   const activeQuery = tab === "pixiv" ? pixivQuery : tab === "fanbox" ? fanboxQuery : booruQuery;
   const loading = activeQuery.isFetching && items.length === 0;
@@ -545,7 +549,7 @@ function Home() {
             上一页
           </Button>
           <span className="flex h-11 items-center px-2 text-sm tabular-nums text-muted">{page}</span>
-          <Button variant="secondary" disabled={loading} onClick={() => setPage((p) => p + 1)}>
+          <Button variant="secondary" disabled={loading || !pixivHasNext} onClick={() => setPage((p) => p + 1)}>
             下一页
           </Button>
         </div>
@@ -561,7 +565,7 @@ function Home() {
             上一页
           </Button>
           <span className="flex h-11 items-center px-2 text-sm tabular-nums text-muted">{page}</span>
-          <Button variant="secondary" disabled={loading} onClick={() => setPage((p) => p + 1)}>
+          <Button variant="secondary" disabled={loading || !booruHasNext} onClick={() => setPage((p) => p + 1)}>
             下一页
           </Button>
         </div>

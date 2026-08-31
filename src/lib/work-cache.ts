@@ -30,18 +30,23 @@ export function patchCachedWork(
   id: string,
   patch: Partial<WorkCard> & Partial<WorkDetail>,
 ) {
-  queryClient.setQueriesData<FetchOk>({ queryKey: ["home-pixiv"] }, (old) => patchFetch(old, source, id, patch));
-  queryClient.setQueriesData<FetchOk>({ queryKey: ["home-booru"] }, (old) => patchFetch(old, source, id, patch));
-  queryClient.setQueriesData<InfiniteData<FetchOk>>({ queryKey: ["home-fanbox"] }, (old) => {
-    if (!old?.pages) return old;
-    let changed = false;
-    const pages = old.pages.map((page) => {
-      const next = patchFetch(page, source, id, patch);
-      if (next !== page) changed = true;
-      return next ?? page;
+  const listKeys = [["home-pixiv"], ["home-booru"], ["related"], ["user"]];
+  for (const queryKey of listKeys) {
+    queryClient.setQueriesData<FetchOk>({ queryKey }, (old) => patchFetch(old, source, id, patch));
+  }
+  const pageKeys = [["home-fanbox"], ["creator"]];
+  for (const queryKey of pageKeys) {
+    queryClient.setQueriesData<InfiniteData<FetchOk>>({ queryKey }, (old) => {
+      if (!old?.pages) return old;
+      let changed = false;
+      const pages = old.pages.map((page) => {
+        const next = patchFetch(page, source, id, patch);
+        if (next !== page) changed = true;
+        return next ?? page;
+      });
+      return changed ? { ...old, pages } : old;
     });
-    return changed ? { ...old, pages } : old;
-  });
+  }
   queryClient.setQueriesData<WorkDetail>({ queryKey: ["work", source, id] }, (old) =>
     old ? { ...old, ...patch } : old,
   );

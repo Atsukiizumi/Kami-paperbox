@@ -43,7 +43,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const queryClient = useQueryClient();
-  const [liked, setLiked] = useState(Boolean(work.liked));
+  const liked = Boolean(work.liked);
   const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
 
@@ -76,7 +76,6 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
     setLiking(true);
     try {
       await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
-      setLiked(true);
       patchCachedWork(queryClient, work.source, work.id, { liked: true });
       toast.success("已点红心");
     } catch (err) {

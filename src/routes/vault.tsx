@@ -76,8 +76,13 @@ function VaultPage() {
       const next: LightboxItem[] = [];
       for (let i = 0; i < open.pageCount; i += 1) {
         const blob = await getVaultBlob(open.key, i);
+        if (cancelled) return;
         if (!blob) continue;
         const url = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
         urls.push(url);
         next.push({ src: url, alt: `${open.title} ${i + 1}` });
       }
@@ -260,14 +265,22 @@ function VaultThumb({ item }: { item: VaultMeta }) {
   const [src, setSrc] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
+    let cancelled = false;
     let url = "";
     setLoaded(false);
+    setSrc("");
     void getVaultBlob(item.key, 0).then((blob) => {
       if (!blob) return;
-      url = URL.createObjectURL(blob);
-      setSrc(url);
+      const next = URL.createObjectURL(blob);
+      if (cancelled) {
+        URL.revokeObjectURL(next);
+        return;
+      }
+      url = next;
+      setSrc(next);
     });
     return () => {
+      cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
   }, [item.key]);

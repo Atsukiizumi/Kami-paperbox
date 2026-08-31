@@ -37,6 +37,16 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** FANBOX list cursors want `YYYY-MM-DD HH:mm:ss`, not `T` / `Z` / offsets. */
+export function fanboxCursorTime(raw: string): string {
+  return raw
+    .replace("T", " ")
+    .replace(/\.\d+/, "")
+    .replace(/Z$/i, "")
+    .replace(/[+-]\d{2}:\d{2}$/, "")
+    .trim();
+}
+
 /** Decode the HTML entities we actually see in Pixiv / SauceNAO markup. Ampersand last. */
 export function decodeHtmlEntities(value: string): string {
   return value

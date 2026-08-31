@@ -128,7 +128,7 @@ export const useSettings = create<SettingsState>()(
       activeAccountId: null,
       theme: DEFAULT_THEME,
       appearance: DEFAULT_APPEARANCE,
-      setPixivCookie: (pixivCookie) =>
+      setPixivCookie: (pixivCookie) => {
         set((s) => {
           if (!s.activeAccountId) {
             const acc = createAccount("账号 1", pixivCookie, s.fanboxCookie);
@@ -138,8 +138,10 @@ export const useSettings = create<SettingsState>()(
             a.id === s.activeAccountId ? { ...a, pixivCookie, pixivProfile: null } : a,
           );
           return withActiveCookies(accounts, s.activeAccountId);
-        }),
-      setFanboxCookie: (fanboxCookie) =>
+        });
+        void get().syncSessions();
+      },
+      setFanboxCookie: (fanboxCookie) => {
         set((s) => {
           if (!s.activeAccountId) {
             const acc = createAccount("账号 1", s.pixivCookie, fanboxCookie);
@@ -149,7 +151,9 @@ export const useSettings = create<SettingsState>()(
             a.id === s.activeAccountId ? { ...a, fanboxCookie, fanboxProfile: null } : a,
           );
           return withActiveCookies(accounts, s.activeAccountId);
-        }),
+        });
+        void get().syncSessions();
+      },
       setSafeMode: (safeMode) => set({ safeMode }),
       setHideAi: (hideAi) => set({ hideAi }),
       setDownloadOriginal: (downloadOriginal) => set({ downloadOriginal }),
@@ -187,8 +191,10 @@ export const useSettings = create<SettingsState>()(
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       addAccount: (name) => {
+        const current = get();
+        if (current.accounts.length >= 8) return current.activeAccountId ?? "";
         const acc = createAccount(name);
-        set((s) => withActiveCookies([...s.accounts, acc].slice(0, 8), acc.id));
+        set(withActiveCookies([...current.accounts, acc], acc.id));
         return acc.id;
       },
       renameAccount: (id, name) =>
@@ -214,8 +220,10 @@ export const useSettings = create<SettingsState>()(
       },
       syncSessions: async () => {
         const { pixivCookie, fanboxCookie } = get();
+        const pixiv = sanitizePixivCookie(pixivCookie);
+        const fanbox = fanboxSessionFrom(fanboxCookie, pixiv);
         await saveSessions({
-          data: { pixiv: pixivCookie, fanbox: fanboxCookie },
+          data: { pixiv, fanbox },
         });
       },
       applyProfiles: (profiles) => {
@@ -362,7 +370,7 @@ export const useQueue = create<QueueState>()(
       items: [],
       enqueue: (item) =>
         set((s) => {
-          if (s.items.some((x) => x.key === item.key && x.status !== "done")) {
+          if (s.items.some((x) => x.key === item.key && (x.status === "queued" || x.status === "running"))) {
             return s;
           }
           const next: QueueItem = {
@@ -371,6 +379,7 @@ export const useQueue = create<QueueState>()(
             progress: 0,
             total: 1,
             addedAt: Date.now(),
+            error: undefined,
           };
           return { items: [next, ...s.items.filter((x) => x.key !== item.key)].slice(0, 80) };
         }),

@@ -11,7 +11,7 @@ import { mediaUrl } from "./utils";
 import type { WorkDetail, WorkPage } from "./types";
 
 async function fetchBlob(url: string): Promise<Blob> {
-  const res = await fetch(mediaUrl(url));
+  const res = await fetch(mediaUrl(url), { signal: AbortSignal.timeout(90_000) });
   if (!res.ok) throw new Error(`下载失败（${res.status}）`);
   return res.blob();
 }

@@ -38,12 +38,12 @@ export async function loadWork(source: Source, id: string): Promise<WorkDetail> 
 
 export async function saveWorkNow(
   work: { source: Source; id: string; title?: string; restricted?: boolean },
-  opts: { download: boolean },
+  opts: { download: boolean; onProgress?: (done: number, total: number) => void },
 ): Promise<void> {
   if (work.restricted) throw new Error("需要有效订阅才能保存这篇投稿");
   const detail = await loadWork(work.source, work.id);
   const original = useSettings.getState().downloadOriginal;
-  const saved = await collectWorkFiles(detail, { original });
+  const saved = await collectWorkFiles(detail, { original, onProgress: opts.onProgress });
   const result = await archiveWork(detail, saved, { download: opts.download });
   const gif = saved.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
   const title = detail.title || work.title || work.id;
@@ -67,7 +67,10 @@ async function processOne(key: string) {
   if (!item) return;
   useQueue.getState().patch(key, { status: "running", progress: 0, error: undefined });
   try {
-    await saveWorkNow(item, { download: true });
+    await saveWorkNow(item, {
+      download: true,
+      onProgress: (done, total) => useQueue.getState().patch(key, { progress: done, total }),
+    });
     useQueue.getState().patch(key, { status: "done", progress: 1, total: 1 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "保存失败";
@@ -88,6 +91,7 @@ export async function runQueue() {
     }
   } finally {
     running = false;
+    if (useQueue.getState().items.some((x) => x.status === "queued")) void runQueue();
   }
 }
 
@@ -111,13 +115,10 @@ export function enqueueWork(work: {
 
 /** After a refresh, "running" rows are dead. Put them back in line and start the loop. */
 export function resumeQueue() {
-  const items = useQueue.getState().items;
-  if (items.some((item) => item.status === "running")) {
-    useQueue.setState({
-      items: items.map((item) =>
-        item.status === "running" ? { ...item, status: "queued", error: undefined } : item,
-      ),
-    });
+  for (const item of useQueue.getState().items) {
+    if (item.status === "running") {
+      useQueue.getState().patch(item.key, { status: "queued", error: undefined });
+    }
   }
   void runQueue();
 }
