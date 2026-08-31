@@ -1,18 +1,6 @@
-import type { CSSProperties } from "react";
+import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-export function Skeleton({
-  className,
-  style,
-}: {
-  className?: string;
-  style?: CSSProperties;
-}) {
-  return (
-    <div
-      className={cn("kami-shimmer rounded-xl", className)}
-      style={style}
-      aria-hidden
-    />
-  );
+export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("kami-shimmer rounded-xl", className)} aria-hidden {...props} />;
 }

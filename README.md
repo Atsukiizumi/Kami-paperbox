@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.4.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.4.2-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -19,7 +19,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 | | |
 | --- | --- |
-| 浏览 | 顶栏切换图源，一次只看一个站（专心！）。每个图源都能搜。Pixiv 公开榜；登录后还有「为你推荐 / 关注」。FANBOX 公开创作者；登录后看动态和已支持。图站则是最新 / 热门。 |
+| 浏览 | 顶栏切换图源，一次只看一个站（专心！）。每个图源都能搜。Pixiv 公开榜；登录后还有「为你推荐 / 关注」。FANBOX 公开创作者；登录后看动态和已支持。图站则是最新 / 热门。竖图按原比例拼，横图跨列放大，特别宽的铺满一行。 |
 | 作品 | 大图可以缩放、拖动、键盘翻页。底下有保存、下载。Pixiv 还能收藏（带着 tag）、红心、关注。动图会动，还能合成 GIF よ〜 |
 | 搜图 | 上传、拖进去、或者粘贴一张本地图。默认 [SauceNAO](https://saucenao.com/)，也可以换成 [IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。作品页有「搜来源」，超方便。 |
 | 标签 | 五个站都会把 tag 带回来。卡片上先露几个，作品页点一下就能回当前站搜索。 |
