@@ -49,14 +49,37 @@ function isCsrfToken(value: unknown): value is string {
   return typeof value === "string" && TOKEN_RE.test(value);
 }
 
-function tokenFromRecord(rec: Record<string, unknown> | null | undefined): string | undefined {
-  if (!rec) return undefined;
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* not json */
+  }
+  return null;
+}
+
+function tokenFromRecord(rec: Record<string, unknown> | null | undefined, depth = 0): string | undefined {
+  if (!rec || depth > 8) return undefined;
   for (const key of ["token", "csrfToken", "csrf_token", "tt"]) {
     if (isCsrfToken(rec[key])) return rec[key] as string;
   }
-  const nested = rec.context ?? rec.pixiv ?? rec.pageProps ?? rec.props;
-  if (nested && typeof nested === "object") {
-    const hit = tokenFromRecord(nested as Record<string, unknown>);
+  for (const key of ["api", "context", "pixiv", "pageProps", "props"]) {
+    const nested = rec[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const hit = tokenFromRecord(nested as Record<string, unknown>, depth + 1);
+      if (hit) return hit;
+    }
+    if (typeof nested === "string" && nested.startsWith("{")) {
+      const hit = tokenFromRecord(parseJsonObject(nested), depth + 1);
+      if (hit) return hit;
+    }
+  }
+  const serialized = rec.serverSerializedPreloadedState;
+  if (typeof serialized === "string" && serialized.startsWith("{")) {
+    const hit = tokenFromRecord(parseJsonObject(serialized), depth + 1);
     if (hit) return hit;
   }
   return undefined;
@@ -70,20 +93,26 @@ function decodeEntities(value: string): string {
     .replace(/&/g, "&");
 }
 
-function parseMetaJson(html: string, id: string): Record<string, unknown> | null {
-  const re = new RegExp(`id="${id}"[^>]*content=['"]([^'"]+)['"]`, "i");
-  const alt = new RegExp(`content=['"]([^'"]+)['"][^>]*id="${id}"`, "i");
-  const raw = html.match(re)?.[1] || html.match(alt)?.[1];
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(decodeEntities(raw)) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    /* not json */
-  }
-  return null;
+function attributeValue(tag: string, name: string): string | undefined {
+  const single = tag.match(new RegExp(`${name}='([^']*)'`, "i"));
+  if (single?.[1] != null) return decodeEntities(single[1]);
+  const double = tag.match(new RegExp(`${name}="([^"]*)"`, "i"));
+  if (double?.[1] != null) return decodeEntities(double[1]);
+  return undefined;
+}
+
+function parseTaggedJson(html: string, id: string): Record<string, unknown> | null {
+  const tag =
+    html.match(new RegExp(`<[^>]*\\sid="${id}"[^>]*>`, "i"))?.[0] ||
+    html.match(new RegExp(`<[^>]*id='${id}'[^>]*>`, "i"))?.[0];
+  if (!tag) return null;
+  const raw = attributeValue(tag, "content") ?? attributeValue(tag, "value");
+  return raw ? parseJsonObject(raw) : null;
+}
+
+function parseNextData(html: string): Record<string, unknown> | null {
+  const raw = html.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
+  return raw ? parseJsonObject(raw.trim()) : null;
 }
 
 /**
@@ -91,23 +120,30 @@ function parseMetaJson(html: string, id: string): Record<string, unknown> | null
  *
  * 作用：红心、收藏、关注的 POST 必须带这个值。
  * 用法：extractPixivCsrfToken(homepageHtml)。
- * 为什么：官网现在把 token 放进 meta-global-data / 实体编码的 JSON，
- *        不再保证是十六进制，旧正则会在已登录时误报「请重新登录」。
+ * 为什么：旧站把 token 放进 meta-global-data；作品页 / 榜单已换成 Next.js，
+ *        token 在 __NEXT_DATA__ → serverSerializedPreloadedState.api.token。
  */
 export function extractPixivCsrfToken(html: string): string | undefined {
   if (!html) return undefined;
   for (const id of ["meta-global-data", "meta-preload-data", "init-config"]) {
-    const hit = tokenFromRecord(parseMetaJson(html, id));
+    const hit = tokenFromRecord(parseTaggedJson(html, id));
     if (hit) return hit;
   }
 
+  const next = tokenFromRecord(parseNextData(html));
+  if (next) return next;
+
   const decoded = decodeEntities(html);
-  const quoted =
-    decoded.match(/"token"\s*:\s*"([A-Za-z0-9_-]{16,128})"/)?.[1] ||
-    decoded.match(/"csrfToken"\s*:\s*"([A-Za-z0-9_-]{16,128})"/)?.[1] ||
-    decoded.match(/"csrf_token"\s*:\s*"([A-Za-z0-9_-]{16,128})"/)?.[1] ||
-    decoded.match(/pixiv\.context\.token\s*=\s*"([^"]+)"/)?.[1];
-  if (isCsrfToken(quoted)) return quoted;
+  for (const re of [
+    /"token"\s*:\s*"([A-Za-z0-9_-]{16,128})"/g,
+    /"csrfToken"\s*:\s*"([A-Za-z0-9_-]{16,128})"/g,
+    /"csrf_token"\s*:\s*"([A-Za-z0-9_-]{16,128})"/g,
+    /pixiv\.context\.token\s*=\s*"([^"]+)"/g,
+  ]) {
+    for (const m of decoded.matchAll(re)) {
+      if (isCsrfToken(m[1])) return m[1];
+    }
+  }
 
   const meta =
     html.match(/name=["']csrf-token["'][^>]*content=["']([^"']+)["']/i)?.[1] ||
