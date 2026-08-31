@@ -12,6 +12,7 @@ import { socialFromPixivIllust } from "./social";
 import {
   collectIllustRecords,
   collectOrderedIds,
+  collectPixivTags,
   isAiWork,
   isLastFeedPage,
   orderCardsByIds,
@@ -176,16 +177,6 @@ function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
   if (alwaysBlockedPixiv(item)) return null;
   const id = asString(item.id || item.illust_id);
   if (!id) return null;
-  const tagsRaw = item.tags;
-  const tags: string[] = [];
-  if (Array.isArray(tagsRaw)) {
-    for (const t of tagsRaw) {
-      if (typeof t === "string") tags.push(t);
-      else if (t && typeof t === "object" && "tag" in t) {
-        tags.push(asString((t as { tag: unknown }).tag));
-      }
-    }
-  }
   return {
     source: "pixiv",
     id,
@@ -196,7 +187,7 @@ function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
       item.url || asRecord(item.urls).thumb || asRecord(item.urls).small || asRecord(item.urls).regular,
     ),
     pageCount: asNumber(item.pageCount || item.illust_page_count, 1),
-    tags: tags.filter(Boolean).slice(0, 12),
+    tags: collectPixivTags(item.tags ?? item).slice(0, 12),
     width: asNumber(item.width) || undefined,
     height: asNumber(item.height) || undefined,
     date: asString(item.createDate || item.date) || undefined,
@@ -340,18 +331,6 @@ async function pixivSearch(
   };
 }
 
-function collectPixivTags(raw: unknown): string[] {
-  const tags = asRecord(asRecord(raw).tags);
-  const list = Array.isArray(tags.tags) ? tags.tags : [];
-  const out: string[] = [];
-  for (const t of list) {
-    const rec = asRecord(t);
-    const tag = asString(rec.tag);
-    if (tag) out.push(tag);
-  }
-  return out.slice(0, 24);
-}
-
 async function pixivIllust(
   id: string,
   cookie?: string,
@@ -402,7 +381,7 @@ async function pixivIllust(
     authorId: asString(body.userId),
     thumb: pages[0]?.thumb ?? "",
     pageCount: asNumber(body.pageCount, pages.length),
-    tags: collectPixivTags(body.tags),
+    tags: collectPixivTags(body),
     width: asNumber(body.width) || undefined,
     height: asNumber(body.height) || undefined,
     date: asString(body.createDate) || undefined,

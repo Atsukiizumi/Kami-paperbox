@@ -292,6 +292,12 @@ function WorkPage() {
 
   const originUrl = workOriginUrl(src, work.id, work.authorId);
 
+  function searchTag(tag: string) {
+    setTab(src);
+    setBrowseQuery(tag);
+    void navigate({ to: "/" });
+  }
+
   return (
     <article className="space-y-6">
       <header className="space-y-2">
@@ -330,6 +336,21 @@ function WorkPage() {
           <ExternalLink className="size-3 shrink-0" />
           <span className="truncate">{originUrl}</span>
         </a>
+        {work.tags.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {work.tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                title={`搜索「${tag.replace(/_/g, " ")}」`}
+                className="rounded-full bg-elevated px-3 py-1 text-sm text-muted transition-colors hover:bg-accent hover:text-accent-fg"
+                onClick={() => searchTag(tag)}
+              >
+                {tag.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -371,25 +392,6 @@ function WorkPage() {
         <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-muted">
           {work.description.slice(0, 1200)}
         </p>
-      ) : null}
-
-      {work.tags.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {work.tags.slice(0, 24).map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className="rounded-full bg-elevated px-2.5 py-1 text-xs text-muted transition-colors hover:bg-accent hover:text-accent-fg"
-              onClick={() => {
-                setTab(src);
-                setBrowseQuery(tag);
-                void navigate({ to: "/" });
-              }}
-            >
-              {tag.replace(/_/g, " ")}
-            </button>
-          ))}
-        </div>
       ) : null}
 
       <div className="space-y-4">

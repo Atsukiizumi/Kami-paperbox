@@ -71,6 +71,48 @@ function asRecord(v: unknown): Record<string, unknown> {
   return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
 }
 
+function asString(v: unknown): string {
+  return typeof v === "string" ? v.trim() : typeof v === "number" && Number.isFinite(v) ? String(v) : "";
+}
+
+/**
+ * 从 Pixiv illust / 榜单 JSON 抽出标签名。
+ *
+ * 作用：作品页展示、点 tag 回浏览搜索。
+ * 用法：collectPixivTags(body) 或 collectPixivTags(body.tags)。
+ * 为什么：官网有时是 `{ tags: { tags: [{ tag }] } }`，有时直接是数组；
+ *        以前只按一层解，作品页就会一张标签都没有。
+ */
+export function collectPixivTags(raw: unknown): string[] {
+  if (!raw) return [];
+  let list: unknown[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else {
+    const rec = asRecord(raw);
+    if (Array.isArray(rec.tags)) list = rec.tags;
+    else {
+      const nested = asRecord(rec.tags);
+      if (Array.isArray(nested.tags)) list = nested.tags;
+    }
+  }
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of list) {
+    let tag = "";
+    if (typeof item === "string") tag = item.trim();
+    else {
+      const rec = asRecord(item);
+      tag = asString(rec.tag || rec.name || rec.tagName);
+    }
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
 export function collectIllustRecords(raw: unknown): Record<string, unknown>[] {
   const root = asRecord(raw);
   const body = asRecord(root.body ?? root);

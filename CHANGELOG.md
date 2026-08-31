@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.4] — 2026-08-31
+
+对应 [PR #23](https://github.com/Atsukiizumi/Kami-paperbox/pull/23)。
+
+### 修复
+
+- 作品页会显示标签。以前 Pixiv 详情把 `{ tags: { tags: [...] } }` 解错了，界面上一张 tag 都没有。点标签会回到浏览页搜索该词。
+
 ## [0.7.3] — 2026-08-31
 
 对应 [PR #22](https://github.com/Atsukiizumi/Kami-paperbox/pull/22)。

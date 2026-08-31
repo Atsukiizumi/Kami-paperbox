@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  collectPixivTags,
   collectIllustRecords,
   collectOrderedIds,
   formatRankDate,
@@ -62,5 +63,18 @@ describe("pixiv feed", () => {
     assert.equal(isAiWork({ tags: ["风景"] }), false);
     assert.equal(pixivAiType({ illust_ai_type: "2" }), 2);
     assert.equal(pixivAiType({ aiType: 1 }), 1);
+  });
+
+  it("reads tags from nested illust json and from a flat array", () => {
+    assert.deepEqual(
+      collectPixivTags({
+        tags: {
+          tags: [{ tag: "オリジナル" }, { tag: "VOCALOID" }, { tag: "オリジナル" }],
+        },
+      }),
+      ["オリジナル", "VOCALOID"],
+    );
+    assert.deepEqual(collectPixivTags({ tags: [{ tag: "猫" }, "風景"] }), ["猫", "風景"]);
+    assert.deepEqual(collectPixivTags(["hatsune_miku", "VOCALOID"]), ["hatsune_miku", "VOCALOID"]);
   });
 });
