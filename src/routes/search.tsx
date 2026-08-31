@@ -114,7 +114,7 @@ function SearchPage() {
       <header className="space-y-1">
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">搜图</h1>
         <p className="text-sm text-muted">
-          上传本地图片，在 SauceNAO、IQDB、TinEye 查来源。默认 SauceNAO。
+          上传本地图片，在 SauceNAO、ascii2d、IQDB、TinEye 查来源。默认 SauceNAO。
         </p>
       </header>
 
@@ -239,6 +239,8 @@ function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {
           <Badge className="absolute left-2 top-2 bg-bg/80 text-fg">
             {hit.similarity.toFixed(hit.similarity >= 10 ? 0 : 1)}%
           </Badge>
+        ) : hit.extra ? (
+          <Badge className="absolute left-2 top-2 bg-bg/80 text-fg">{hit.extra}</Badge>
         ) : null}
       </div>
       <div className="space-y-1 px-3 py-2">
