@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { runQueue } from "@/lib/queue-runner";
 import { useQueue } from "@/lib/store";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/queue")({ component: QueuePage });
 
@@ -31,9 +32,12 @@ function QueuePage() {
         </div>
       </header>
       {items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted">
-          队列是空的。在作品页点「加入队列」，会按顺序保存到纸匣并尝试下载原图。
-        </p>
+        <Alert>
+          <AlertTitle>队列是空的</AlertTitle>
+          <AlertDescription>
+            在作品页或卡片上点「加入队列」或「保存」，会按顺序收入纸匣并尝试下载原图。
+          </AlertDescription>
+        </Alert>
       ) : (
         <ul className="space-y-2">
           {items.map((item, i) => (
@@ -48,20 +52,12 @@ function QueuePage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{item.title}</p>
                 <p className="truncate text-xs text-muted">{item.author}</p>
-                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-elevated">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-[width] duration-300",
-                      item.status === "error" ? "bg-danger" : "bg-accent",
-                    )}
-                    style={{
-                      width:
-                        item.total > 0
-                          ? `${Math.round((item.progress / item.total) * 100)}%`
-                          : "0%",
-                    }}
-                  />
-                </div>
+                <Progress
+                  value={item.total > 0 ? Math.round((item.progress / item.total) * 100) : 0}
+                  className={
+                    item.status === "error" ? "mt-1.5 [&>div]:bg-danger" : "mt-1.5"
+                  }
+                />
                 <p className="mt-1 text-xs tabular-nums text-subtle">
                   {item.status === "queued" && "等待中"}
                   {item.status === "running" && `${item.progress}/${item.total}`}

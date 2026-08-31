@@ -8,6 +8,7 @@ import {
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useResolvedAppearance } from "@/components/theme-provider";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -120,22 +121,22 @@ function ThemeSwatches() {
 
 export function ThemeSection() {
   return (
-    <section className="space-y-4 rounded-xl bg-surface p-5">
-      <div>
-        <h2 className="text-sm font-medium">外观</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted">
-          浅色和深色各有一套配色。跟随系统会跟着设备自动切换。
-        </p>
-      </div>
-      <AppearanceToggle />
-      <div>
-        <h2 className="text-sm font-medium">主题</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted">
-          五套纸匣配色，浏览区和按钮都会跟着换。
-        </p>
-      </div>
-      <ThemeSwatches />
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>外观</CardTitle>
+        <CardDescription>浅色和深色各有一套配色。跟随系统会跟着设备自动切换。</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <AppearanceToggle />
+        <div>
+          <h2 className="text-sm font-medium">主题</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            五套纸匣配色，浏览区和按钮都会跟着换。
+          </p>
+        </div>
+        <ThemeSwatches />
+      </CardContent>
+    </Card>
   );
 }
 

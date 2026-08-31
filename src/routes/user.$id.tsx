@@ -2,9 +2,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { BackToBrowse } from "@/components/back-to-browse";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { formatCount } from "@/lib/utils";
@@ -47,9 +55,12 @@ function UserPage() {
     return (
       <div className="space-y-3 py-12">
         <BackToBrowse />
-        <p className="text-sm text-muted">
-          {query.error instanceof Error ? query.error.message : "无法加载画师"}
-        </p>
+        <Alert variant="danger">
+          <AlertTitle>无法加载画师</AlertTitle>
+          <AlertDescription>
+            {query.error instanceof Error ? query.error.message : "请检查链接，或在设置中填入登录 Cookie。"}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -58,7 +69,17 @@ function UserPage() {
 
   return (
     <div className="space-y-6">
-      <BackToBrowse />
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BackToBrowse />
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{profile.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <header className="flex gap-4">
         <div className="size-16 overflow-hidden rounded-full bg-elevated">
           <ProxiedImg src={profile.avatar} alt="" className="size-full" />

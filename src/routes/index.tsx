@@ -9,6 +9,8 @@ import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { parseUserInput } from "@/lib/parse-input";
 import {
   PIXIV_PERSONAL_FEEDS,
@@ -22,7 +24,6 @@ import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
-import { cn } from "@/lib/utils";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -345,14 +346,16 @@ function Home() {
       {recents.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {recents.map((item) => (
-            <button
+            <Button
               key={item}
               type="button"
-              className="max-w-full truncate rounded-full bg-elevated px-3 py-1 text-xs text-muted hover:text-fg"
+              variant="secondary"
+              size="sm"
+              className="max-w-full truncate rounded-full"
               onClick={() => goFromInput(item)}
             >
               {item}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}
@@ -360,33 +363,31 @@ function Home() {
       {tab === "pixiv" ? (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            {PIXIV_PERSONAL_FEEDS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => choosePixivFeed(item.id)}
-                className={cn(
-                  "h-9 rounded-full px-3.5 text-sm transition-colors",
-                  !searchWord && feed === item.id
-                    ? "bg-accent text-accent-fg"
-                    : "bg-elevated text-muted hover:text-fg",
-                  !loggedIn && "opacity-70",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
+            <ToggleGroup
+              type="single"
+              value={!searchWord ? feed : ""}
+              onValueChange={(v) => {
+                if (v) choosePixivFeed(v as PixivFeed);
+              }}
+            >
+              {PIXIV_PERSONAL_FEEDS.map((item) => (
+                <ToggleGroupItem key={item.id} value={item.id} className={!loggedIn ? "opacity-70" : undefined}>
+                  {item.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
             {searchWord ? (
-              <button
+              <Button
                 type="button"
-                className="h-9 rounded-full bg-accent px-3.5 text-sm text-accent-fg"
+                size="sm"
+                className="rounded-full"
                 onClick={() => {
                   setSearchWord("");
                   setPage(1);
                 }}
               >
                 搜索「{searchWord}」×
-              </button>
+              </Button>
             ) : null}
             {rankingDate && !searchWord && isPixivRankMode(feed) ? (
               <span className="ml-auto text-xs tabular-nums text-subtle">
@@ -394,86 +395,51 @@ function Home() {
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={!searchWord && isPixivRankMode(feed) ? feed : ""}
+            onValueChange={(v) => {
+              if (v) choosePixivFeed(v as PixivFeed);
+            }}
+          >
             {rankModes.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => choosePixivFeed(r.id)}
-                className={cn(
-                  "h-9 rounded-full px-3.5 text-sm transition-colors",
-                  !searchWord && feed === r.id
-                    ? "bg-accent text-accent-fg"
-                    : "bg-elevated text-muted hover:text-fg",
-                )}
-              >
+              <ToggleGroupItem key={r.id} value={r.id}>
                 {r.label}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
       ) : tab === "fanbox" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (!fanboxCookie) {
+          <ToggleGroup
+            type="single"
+            value={!searchWord ? fanboxFeed : ""}
+            onValueChange={(v) => {
+              if (!v) return;
+              if (v !== "creator" && !fanboxCookie) {
                 toast.error("先在设置里添加 FANBOX 账号");
                 return;
               }
-              setFanboxFeed("home");
+              setFanboxFeed(v as FanboxFeed);
               setSearchWord("");
             }}
-            className={cn(
-              "h-9 rounded-full px-3.5 text-sm",
-              fanboxFeed === "home" ? "bg-accent text-accent-fg" : "bg-elevated text-muted hover:text-fg",
-            )}
           >
-            动态
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!fanboxCookie) {
-                toast.error("先在设置里添加 FANBOX 账号");
-                return;
-              }
-              setFanboxFeed("supporting");
-              setSearchWord("");
-            }}
-            className={cn(
-              "h-9 rounded-full px-3.5 text-sm",
-              fanboxFeed === "supporting"
-                ? "bg-accent text-accent-fg"
-                : "bg-elevated text-muted hover:text-fg",
-            )}
-          >
-            已支持
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFanboxFeed("creator");
-              setSearchWord("");
-            }}
-            className={cn(
-              "h-9 rounded-full px-3.5 text-sm",
-              fanboxFeed === "creator" ? "bg-accent text-accent-fg" : "bg-elevated text-muted hover:text-fg",
-            )}
-          >
-            创作者
-          </button>
+            <ToggleGroupItem value="home">动态</ToggleGroupItem>
+            <ToggleGroupItem value="supporting">已支持</ToggleGroupItem>
+            <ToggleGroupItem value="creator">创作者</ToggleGroupItem>
+          </ToggleGroup>
           {searchWord ? (
-            <button
+            <Button
               type="button"
-              className="h-9 rounded-full bg-accent px-3.5 text-sm text-accent-fg"
+              size="sm"
+              className="rounded-full"
               onClick={() => {
                 setSearchWord("");
                 setPage(1);
               }}
             >
               标签「{searchWord}」×
-            </button>
+            </Button>
           ) : null}
           {fanboxFeed === "creator" ? (
             <>
@@ -484,56 +450,53 @@ function Home() {
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          {(["recent", "popular"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setBooruFeed(id);
-                setSearchWord("");
-                setPage(1);
-              }}
-              className={cn(
-                "h-9 rounded-full px-3.5 text-sm",
-                !searchWord && booruFeed === id
-                  ? "bg-accent text-accent-fg"
-                  : "bg-elevated text-muted hover:text-fg",
-              )}
-            >
-              {id === "recent" ? "最新" : "热门"}
-            </button>
-          ))}
+          <ToggleGroup
+            type="single"
+            value={!searchWord ? booruFeed : ""}
+            onValueChange={(v) => {
+              if (!v) return;
+              setBooruFeed(v as "recent" | "popular");
+              setSearchWord("");
+              setPage(1);
+            }}
+          >
+            <ToggleGroupItem value="recent">最新</ToggleGroupItem>
+            <ToggleGroupItem value="popular">热门</ToggleGroupItem>
+          </ToggleGroup>
           {searchWord ? (
-            <button
+            <Button
               type="button"
-              className="h-9 rounded-full bg-accent px-3.5 text-sm text-accent-fg"
+              size="sm"
+              className="rounded-full"
               onClick={() => {
                 setSearchWord("");
                 setPage(1);
               }}
             >
               标签「{searchWord}」×
-            </button>
+            </Button>
           ) : null}
         </div>
       )}
 
       {error ? (
-        <div className="rounded-lg border border-border bg-surface px-4 py-6 text-sm text-muted">
-          <p className="text-fg">{error.includes("登录") ? error : "暂时无法连接到源站。"}</p>
+        <Alert>
+          <AlertTitle>{error.includes("登录") ? error : "暂时无法连接到源站。"}</AlertTitle>
           {error.includes("登录") ? (
-            <Button className="mt-4" variant="secondary" asChild>
-              <Link to="/settings">去设置账号</Link>
-            </Button>
+            <AlertDescription>
+              <Button className="mt-3" variant="secondary" asChild>
+                <Link to="/settings">去设置账号</Link>
+              </Button>
+            </AlertDescription>
           ) : (
-            <>
-              <p className="mt-1">{error}</p>
-              <Button className="mt-4" variant="secondary" onClick={() => void activeQuery.refetch()}>
+            <AlertDescription>
+              {error}
+              <Button className="mt-3" variant="secondary" onClick={() => void activeQuery.refetch()}>
                 重试
               </Button>
-            </>
+            </AlertDescription>
           )}
-        </div>
+        </Alert>
       ) : null}
 
       {loading && items.length === 0 ? (

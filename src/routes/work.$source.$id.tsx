@@ -11,6 +11,14 @@ import { UgoiraPlayer } from "@/components/ugoira-player";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { WorkTagList } from "@/components/saved-tags";
 import { enqueueWork } from "@/lib/queue-runner";
 import { collectWorkFiles } from "@/lib/save-work";
@@ -286,10 +294,12 @@ function WorkPage() {
     return (
       <div className="space-y-3 py-10">
         <BackToBrowse />
-        <h1 className="text-2xl font-semibold">无法打开作品</h1>
-        <p className="text-sm text-muted">
-          {query.error instanceof Error ? query.error.message : "请检查链接，或在设置中填入登录 Cookie。"}
-        </p>
+        <Alert variant="danger">
+          <AlertTitle>无法打开作品</AlertTitle>
+          <AlertDescription>
+            {query.error instanceof Error ? query.error.message : "请检查链接，或在设置中填入登录 Cookie。"}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -305,9 +315,20 @@ function WorkPage() {
 
   return (
     <article className="space-y-6">
-      <header className="space-y-2">
-        <BackToBrowse />
-        <p className="text-xs uppercase tracking-[0.16em] text-muted">{siteLabel(src)}</p>
+      <header className="space-y-3">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BackToBrowse />
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>{siteLabel(src)}</BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{work.title}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         <h1 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">{work.title}</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           {src === "pixiv" ? (
@@ -383,9 +404,12 @@ function WorkPage() {
       {progress ? <p className="text-xs tabular-nums text-subtle">{progress}</p> : null}
 
       {work.restricted ? (
-        <div className="rounded-lg border border-border bg-surface px-4 py-4 text-sm text-muted">
-          这篇投稿需要订阅才能查看附件。在设置里填入你的 FANBOXSESSID（需已订阅该创作者）后再打开。
-        </div>
+        <Alert>
+          <AlertTitle>需要订阅</AlertTitle>
+          <AlertDescription>
+            这篇投稿需要订阅才能查看附件。在设置里填入你的 FANBOXSESSID（需已订阅该创作者）后再打开。
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {work.description ? (

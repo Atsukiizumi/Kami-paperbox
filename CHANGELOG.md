@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.8] — 2026-08-31
+
+对应 [PR #27](https://github.com/Atsukiizumi/Kami-paperbox/pull/27)。
+
+### 改进
+
+- 用 Radix / shadcn 风格组件收齐界面：浏览榜单用 ToggleGroup，详情用面包屑，设置用 Card，队列用 Progress，侧栏收起有 Tooltip，错误用 Alert。
+
 ## [0.7.7] — 2026-08-31
 
 对应 [PR #26](https://github.com/Atsukiizumi/Kami-paperbox/pull/26)。

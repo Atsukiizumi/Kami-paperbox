@@ -7,6 +7,8 @@ import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "
 import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
+import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
   { to: "/", label: "浏览", icon: Compass },
@@ -65,14 +67,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <header className="kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/75 px-3 backdrop-blur-md md:px-4">
-        <button
-          type="button"
-          className="hidden size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg md:inline-flex"
-          aria-label={expanded ? "收起导航" : "展开导航"}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          <PanelLeft className="size-4" />
-        </button>
+        <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="hidden size-10 md:inline-flex"
+            aria-label={expanded ? "收起导航" : "展开导航"}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <PanelLeft />
+          </Button>
+        </Hint>
         <Link to="/" className="flex min-w-0 items-center gap-2.5 px-1">
           <LogoMark />
           <span className="truncate font-display text-base tracking-tight">Kami 纸匣</span>
@@ -100,11 +106,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           {NAV.map((item) => {
             const active = isActive(pathname, item.to);
             const Icon = item.icon;
-            return (
+            const link = (
               <Link
-                key={item.to}
                 to={item.to}
-                title={item.label}
+                title={expanded ? undefined : item.label}
                 className={cn(
                   "relative z-10 flex h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm transition-colors duration-200",
                   active ? "text-fg" : "text-muted hover:text-fg",
@@ -120,6 +125,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </>
                 ) : null}
               </Link>
+            );
+            if (expanded) {
+              return (
+                <div key={item.to} className="contents">
+                  {link}
+                </div>
+              );
+            }
+            return (
+              <Hint key={item.to} label={item.label} side="right">
+                {link}
+              </Hint>
             );
           })}
         </nav>
