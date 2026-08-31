@@ -1,7 +1,7 @@
 /**
  * 浏览卡片。
  *
- * 作用：封面 + 两行标题 + 作者/标签；封面上可直接保存、Pixiv 可点红心。
+ * 作用：封面 + 两行标题 + 作者/分辨率/标签；封面上可直接保存、Pixiv 可点红心。
  * 用法：ArtworkGrid 包一层 MasonryBoard。无封面（FANBOX 文本投稿）改显示摘要。
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/红心叠在封面上，不占标题宽度。
@@ -22,7 +22,7 @@ import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
 import { workKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
-import { cn } from "@/lib/utils";
+import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { ProxiedImg } from "./proxied-img";
 import { MasonryBoard } from "./masonry-board";
@@ -59,6 +59,7 @@ export function ArtworkCard({
   const queryClient = useQueryClient();
   const inVault = useVaultIndex((s) => Boolean(s.keys[workKey(work.source, work.id)]));
   const liked = Boolean(work.liked);
+  const resolution = formatResolution(work.width, work.height);
   const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
 
@@ -157,8 +158,15 @@ export function ArtworkCard({
                 AI
               </Badge>
             ) : null}
-            {work.pageCount > 1 ? (
-              <Badge className="absolute right-2 top-2 bg-bg/80 text-fg">{work.pageCount}p</Badge>
+            {work.pageCount > 1 || resolution ? (
+              <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+                {work.pageCount > 1 ? (
+                  <Badge className="bg-bg/80 text-fg">{work.pageCount}p</Badge>
+                ) : null}
+                {resolution ? (
+                  <Badge className="bg-bg/80 font-normal tabular-nums text-fg">{resolution}</Badge>
+                ) : null}
+              </div>
             ) : null}
             {inVault ? (
               <Badge className="absolute bottom-2 right-2 gap-1 bg-bg/80 text-fg">
@@ -225,7 +233,10 @@ export function ArtworkCard({
             <h3 className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg">
               {work.title || "无题"}
             </h3>
-            <p className="line-clamp-1 text-xs text-muted">{work.author}</p>
+            <p className="line-clamp-1 text-xs text-muted">
+              {work.author}
+              {resolution ? <span className="text-subtle"> · {resolution}</span> : null}
+            </p>
             <p className="line-clamp-1 text-xs text-subtle">
               {work.tags.length > 0
                 ? work.tags
