@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.7.5] — 2026-08-31
+
+对应 [PR #24](https://github.com/Atsukiizumi/Kami-paperbox/pull/24)。
+
+### 新增
+
+- 各站标签规则分开：Pixiv 点标签走精确匹配，搜索框空格表示同时包含；Yande / Konachan / Danbooru 空格是并且，标签里的空格写成下划线；FANBOX 一次一个标签。
+- 每个站点可保存快捷标签（作品页星星，或浏览页「保存当前搜索」），点一下就按该站规则搜索。
+
 ## [0.7.4] — 2026-08-31
 
 对应 [PR #23](https://github.com/Atsukiizumi/Kami-paperbox/pull/23)。

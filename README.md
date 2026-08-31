@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.7.4-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.7.5-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -22,7 +22,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 | 浏览 | 顶栏切换图源，一次只看一个站（专心！）。卡片上可直接保存进纸匣；Pixiv 还能点红心。 |
 | 作品 | 大图可以缩放、拖动、键盘翻页。标题下展示标签，点一下就按当前站点搜索。底下有保存、下载。Pixiv 还能收藏（带着 tag）、红心、关注。 |
 | 搜图 | 上传、拖进去、或者粘贴一张本地图。默认 [SauceNAO](https://saucenao.com/)，也可以换成 [IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。作品页有「搜来源」，超方便。 |
-| 标签 | 五个站都会把 tag 带回来。卡片上先露几个，作品页点一下就能回当前站搜索。 |
+| 标签 | 五个站都会把 tag 带回来。作品页点标签按该站规则搜索（Pixiv 精确匹配，图站空格=并且、空格写成下划线）。星星可保存成各站自己的快捷标签，浏览页一点就能搜。 |
 | 纸匣 / 队列 | 本机 Node 目录（`.data/vault`：SQLite + 原图），浏览器 IndexedDB 作预览。设置里可选再拷一份到文件夹。想批量就丢进队列。 |
 | 账号 | Pixiv / FANBOX 的 Cookie 可以存好几份，顶栏切换。图站不用登录，轻松。 |
 | 代理 | 设置里填 http / socks5，Pixiv、图站、搜图都会乖乖走它。也可以写进 `kami.config.json` 或 `KAMI_PROXY`。 |
@@ -267,6 +267,7 @@ src/lib/social.server.ts        Pixiv / FANBOX 社交操作
 src/lib/reverse-search.ts       SauceNAO / IQDB / TinEye
 src/lib/booru.ts                Yande / Konachan / Danbooru
 src/lib/pixiv-feed.ts           榜单、推荐、AI 标记
+src/lib/site-tags.ts            各站标签规则与快捷标签
 src/lib/vault.ts                浏览器纸匣缓存（IndexedDB）
 src/lib/vault-query.ts          按标题/作者/标签/路径过滤
 src/lib/vault-store.server.ts   本机 Node 目录（SQLite + 文件）

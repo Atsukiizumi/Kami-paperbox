@@ -1,7 +1,7 @@
 /**
  * 客户端状态。
  *
- * 作用：账号 Cookie、主题、安全模式、路径规则、浏览 Tab、下载队列。
+ * 作用：账号 Cookie、主题、安全模式、路径规则、浏览 Tab、各站快捷标签、下载队列。
  * 用法：组件里 useSettings() / useQueue()；服务端函数里用 cookiesFromSettings()
  *      （读 persist 水合后的当前账号，FANBOX 会回退到 Pixiv 会话）。
  * 为什么：设置是小 JSON，localStorage 够用。队列只留 80 条状态，原图在纸匣 IDB，
@@ -37,6 +37,11 @@ import {
   parsePathPreset,
   templateForPreset,
 } from "./download-path";
+import {
+  emptySavedTags,
+  parseSavedTags,
+  toggleSavedTag as toggleSavedTagList,
+} from "./site-tags";
 
 type Tab = Source;
 
@@ -55,6 +60,8 @@ type SettingsState = {
   searchEngine: SearchEngine;
   recents: string[];
   browseQuery: string;
+  browseExact: boolean;
+  savedTags: Record<Source, string[]>;
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -72,7 +79,8 @@ type SettingsState = {
   setTab: (v: Tab) => void;
   setSearchEngine: (v: SearchEngine) => void;
   addRecent: (v: string) => void;
-  setBrowseQuery: (v: string) => void;
+  setBrowseQuery: (v: string, exact?: boolean) => void;
+  toggleSavedTag: (source: Source, tag: string) => void;
   setTheme: (v: ThemeId) => void;
   setAppearance: (v: Appearance) => void;
   addAccount: (name: string) => string;
@@ -114,6 +122,8 @@ export const useSettings = create<SettingsState>()(
       searchEngine: DEFAULT_SEARCH_ENGINE,
       recents: [],
       browseQuery: "",
+      browseExact: false,
+      savedTags: emptySavedTags(),
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -165,7 +175,15 @@ export const useSettings = create<SettingsState>()(
         set((s) => ({
           recents: [v, ...s.recents.filter((x) => x !== v)].slice(0, 8),
         })),
-      setBrowseQuery: (browseQuery) => set({ browseQuery }),
+      setBrowseQuery: (browseQuery, exact = false) =>
+        set({ browseQuery, browseExact: Boolean(exact) }),
+      toggleSavedTag: (source, tag) =>
+        set((s) => ({
+          savedTags: {
+            ...s.savedTags,
+            [source]: toggleSavedTagList(s.savedTags[source] ?? [], source, tag),
+          },
+        })),
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       addAccount: (name) => {
@@ -238,7 +256,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -276,6 +294,7 @@ export const useSettings = create<SettingsState>()(
           pathPreset,
           pathTemplate,
           folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
+          savedTags: parseSavedTags(p.savedTags),
         };
         if (version >= 2 && legacy.accounts.length) {
           return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
@@ -296,6 +315,7 @@ export const useSettings = create<SettingsState>()(
         tab: s.tab,
         searchEngine: s.searchEngine,
         recents: s.recents,
+        savedTags: s.savedTags,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
         theme: s.theme,

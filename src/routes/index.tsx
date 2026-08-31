@@ -4,6 +4,7 @@ import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { SavedTagBar } from "@/components/saved-tags";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
+import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import { cn } from "@/lib/utils";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
 
@@ -42,25 +44,32 @@ function Home() {
   const [page, setPage] = useState(1);
   const [batch, setBatch] = useState(0);
   const [searchWord, setSearchWord] = useState("");
+  const [searchExact, setSearchExact] = useState(false);
   const [creatorId, setCreatorId] = useState("official");
   const [fanboxFeed, setFanboxFeed] = useState<FanboxFeed>("creator");
   const [booruFeed, setBooruFeed] = useState<"recent" | "popular">("recent");
   const browseQuery = useSettings((s) => s.browseQuery);
+  const browseExact = useSettings((s) => s.browseExact);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
+  const savedTags = useSettings((s) => s.savedTags[tab] ?? []);
+  const toggleSavedTag = useSettings((s) => s.toggleSavedTag);
 
   useEffect(() => {
     setSearchWord("");
     setQuery("");
+    setSearchExact(false);
     setPage(1);
   }, [tab]);
 
   useEffect(() => {
     if (!browseQuery) return;
-    setSearchWord(browseQuery);
-    setQuery(browseQuery);
+    const word = canonicalTag(tab, browseQuery) || browseQuery.trim();
+    setSearchWord(word);
+    setQuery(word);
+    setSearchExact(browseExact);
     setPage(1);
     setBrowseQuery("");
-  }, [browseQuery, setBrowseQuery]);
+  }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
   const loggedIn = isPixivLoggedInSession(pixivCookie);
   useEffect(() => {
@@ -82,12 +91,14 @@ function Home() {
   }, [fanboxCookie]);
 
   const pixivQuery = useQuery({
-    queryKey: ["home-pixiv", feed, page, batch, searchWord, safeMode, hideAi, pixivCookie],
+    queryKey: ["home-pixiv", feed, page, batch, searchWord, searchExact, safeMode, hideAi, pixivCookie],
     enabled: tab === "pixiv",
     queryFn: async () => {
       const creds = cookiesFromSettings();
       if (searchWord) {
-        return fetchSource({ data: { op: "pixivSearch", word: searchWord, page, ...creds } });
+        return fetchSource({
+          data: { op: "pixivSearch", word: searchWord, page, exact: searchExact, ...creds },
+        });
       }
       if (feed === "recommend") {
         return fetchSource({ data: { op: "pixivRecommend", ...creds } });
@@ -150,6 +161,17 @@ function Home() {
     },
   });
 
+  function runTagSearch(source: typeof tab, word: string, exact: boolean) {
+    const next = canonicalTag(source, word) || word.trim();
+    if (!next) return;
+    if (source !== tab) setTab(source);
+    setSearchWord(next);
+    setQuery(next);
+    setSearchExact(exact);
+    setPage(1);
+    if (isBooru(source)) setBooruFeed("recent");
+  }
+
   function goFromInput(raw: string) {
     const parsed = parseUserInput(raw, tab);
     if (parsed.kind === "query" && !parsed.word) return;
@@ -171,14 +193,10 @@ function Home() {
         setSearchWord("");
         return;
       case "fanbox-tag":
-        setTab("fanbox");
-        setSearchWord(parsed.word);
-        setPage(1);
+        runTagSearch("fanbox", parsed.word, true);
         return;
       case "pixiv-tag":
-        setTab("pixiv");
-        setSearchWord(parsed.word);
-        setPage(1);
+        runTagSearch("pixiv", parsed.word, true);
         return;
       case "booru-post":
         setTab(parsed.site);
@@ -188,19 +206,10 @@ function Home() {
         });
         return;
       case "booru-tag":
-        setTab(parsed.site);
-        setSearchWord(parsed.word);
-        setBooruFeed("recent");
-        setPage(1);
+        runTagSearch(parsed.site, parsed.word, true);
         return;
       case "query":
-        if (tab === "fanbox") {
-          setSearchWord(parsed.word);
-          setPage(1);
-        } else {
-          setSearchWord(parsed.word);
-          setPage(1);
-        }
+        runTagSearch(tab, parsed.word, false);
         return;
     }
   }
@@ -232,6 +241,7 @@ function Home() {
     }
     setFeed(next);
     setSearchWord("");
+    setSearchExact(false);
     setPage(1);
   }
 
@@ -282,10 +292,10 @@ function Home() {
           </h1>
           <p className="max-w-lg text-sm text-muted">
             {tab === "pixiv"
-              ? "标签搜索、打开作品。登录后可收藏、红心和关注。"
+              ? "标签搜索、打开作品。登录后可收藏、红心和关注。点标签是精确匹配。"
               : tab === "fanbox"
-                ? "搜标签或打开创作者。"
-                : `用标签搜索 ${siteLabel(tab)}，点卡片看大图。`}
+                ? "一次搜索一个标签，或打开创作者。"
+                : `用标签搜索 ${siteLabel(tab)}。空格表示并且，标签里的空格写成下划线。`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 pt-1">
@@ -306,13 +316,7 @@ function Home() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              tab === "pixiv"
-                ? "搜索标签，或粘贴作品 / 画师链接"
-                : tab === "fanbox"
-                  ? "搜索标签，或输入创作者 ID / 链接"
-                  : "搜索标签，或粘贴作品链接"
-            }
+            placeholder={tagPlaceholder(tab)}
             className="pl-10"
             enterKeyHint="search"
           />
@@ -325,6 +329,16 @@ function Home() {
           <Button type="submit">打开</Button>
         </div>
       </form>
+
+      <SavedTagBar
+        source={tab}
+        tags={savedTags}
+        active={searchWord}
+        current={searchWord}
+        onSearch={(tag) => runTagSearch(tab, tag, true)}
+        onToggle={(tag) => toggleSavedTag(tab, tag)}
+        onSaveCurrent={() => toggleSavedTag(tab, searchWord)}
+      />
 
       {recents.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">

@@ -34,6 +34,7 @@ const fetchSchema = z.intersection(
       op: z.literal("pixivSearch"),
       word: z.string().min(1).max(80),
       page: z.number().int().min(1).max(20),
+      exact: z.boolean().optional(),
     }),
     z.object({ op: z.literal("pixivRecommend") }),
     z.object({

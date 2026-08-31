@@ -5,6 +5,7 @@
  * 用法：只通过 source.ts 的 fetchSource 进来，UI 不要直接打这些域名。
  * 为什么：浏览器过不了 CORS / pximg Referer；Cookie 和 Origin 必须由服务端带。
  *        接口清单和抓法见 docs/upstream.md、docs/reverse-engineering.md。
+ *        Pixiv 搜索：点标签用 s_tag_full（精确），搜索框用 s_tag（包含）。
  */
 import type { UgoiraMeta } from "./ugoira-meta";
 import { mapUgoiraMeta } from "./ugoira-meta";
@@ -304,13 +305,15 @@ async function pixivSearch(
   cookie?: string,
   safeMode = true,
   hideAi = false,
+  exact = false,
 ): Promise<FetchOk> {
   const mode = safeMode ? "safe" : "all";
   const encoded = encodeURIComponent(word);
   const ai = hideAi ? "&ai_type=1" : "";
+  const sMode = exact ? "s_tag_full" : "s_tag";
   const url =
     `https://www.pixiv.net/ajax/search/artworks/${encoded}` +
-    `?word=${encoded}&order=date_d&mode=${mode}&p=${page}&s_mode=s_tag&type=all${ai}&lang=zh`;
+    `?word=${encoded}&order=date_d&mode=${mode}&p=${page}&s_mode=${sMode}&type=all${ai}&lang=zh`;
   const json = asRecord(await upstreamJson(url, { cookie, origin: "pixiv" }));
   if (json.error) throw new Error(asString(json.message, "搜索失败"));
   const body = asRecord(json.body);
@@ -878,7 +881,7 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "pixivRanking":
       return pixivRanking(input.mode, input.page, pixiv, safe, hideAi);
     case "pixivSearch":
-      return pixivSearch(input.word, input.page, pixiv, safe, hideAi);
+      return pixivSearch(input.word, input.page, pixiv, safe, hideAi, input.exact === true);
     case "pixivRecommend":
       return pixivRecommend(pixiv, safe, hideAi);
     case "pixivFollowing":
