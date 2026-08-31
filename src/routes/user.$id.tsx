@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { BackToBrowse } from "@/components/back-to-browse";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +36,7 @@ function UserPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
+        <BackToBrowse />
         <Skeleton className="h-20 w-full rounded-lg" />
         <ArtworkGridSkeleton count={6} />
       </div>
@@ -43,9 +45,12 @@ function UserPage() {
 
   if (query.error || !query.data) {
     return (
-      <p className="py-12 text-sm text-muted">
-        {query.error instanceof Error ? query.error.message : "无法加载画师"}
-      </p>
+      <div className="space-y-3 py-12">
+        <BackToBrowse />
+        <p className="text-sm text-muted">
+          {query.error instanceof Error ? query.error.message : "无法加载画师"}
+        </p>
+      </div>
     );
   }
 
@@ -53,6 +58,7 @@ function UserPage() {
 
   return (
     <div className="space-y-6">
+      <BackToBrowse />
       <header className="flex gap-4">
         <div className="size-16 overflow-hidden rounded-full bg-elevated">
           <ProxiedImg src={profile.avatar} alt="" className="size-full" />

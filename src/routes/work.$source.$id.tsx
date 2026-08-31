@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ExternalLink, ScanSearch } from "lucide-react";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
+import { BackToBrowse } from "@/components/back-to-browse";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { WorkActions } from "@/components/work-actions";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -274,6 +275,7 @@ function WorkPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
+        <BackToBrowse />
         <Skeleton className="h-8 w-48" />
         <Skeleton className="aspect-[3/4] w-full max-w-md rounded-xl" />
       </div>
@@ -283,13 +285,11 @@ function WorkPage() {
   if (query.error || !work) {
     return (
       <div className="space-y-3 py-10">
+        <BackToBrowse />
         <h1 className="text-2xl font-semibold">无法打开作品</h1>
         <p className="text-sm text-muted">
           {query.error instanceof Error ? query.error.message : "请检查链接，或在设置中填入登录 Cookie。"}
         </p>
-        <Button variant="secondary" asChild>
-          <Link to="/">返回浏览</Link>
-        </Button>
       </div>
     );
   }
@@ -306,6 +306,7 @@ function WorkPage() {
   return (
     <article className="space-y-6">
       <header className="space-y-2">
+        <BackToBrowse />
         <p className="text-xs uppercase tracking-[0.16em] text-muted">{siteLabel(src)}</p>
         <h1 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">{work.title}</h1>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
