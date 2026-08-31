@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus, Trash2 } from "lucide-react";
+import { LogIn, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { accountLabel } from "@/lib/accounts";
+import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
+import { SiteAvatar } from "@/components/site-avatar";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -152,16 +153,60 @@ function SettingsPage() {
   const removeAccount = useSettings((s) => s.removeAccount);
   const switchAccount = useSettings((s) => s.switchAccount);
   const syncSessions = useSettings((s) => s.syncSessions);
+  const applyProfiles = useSettings((s) => s.applyProfiles);
+  const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const [newName, setNewName] = useState("");
+  const [loginBusy, setLoginBusy] = useState<"pixiv" | "fanbox" | null>(null);
 
   const active = accounts.find((a) => a.id === activeAccountId);
 
   async function persist() {
     try {
       await syncSessions();
+      await refreshIdentities();
       toast.success("登录状态已保存在这台设备");
     } catch {
       toast.error("未能写入会话，图片代理可能无法使用付费内容");
+    }
+  }
+
+  async function browserLogin(site: "pixiv" | "fanbox") {
+    if (!active) {
+      addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
+    }
+    setLoginBusy(site);
+    toast.message("会弹出系统浏览器的官方登录页，请在那边完成登录。网页里嵌不进 Pixiv。");
+    try {
+      const res = await fetch("/api/login-browser", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ site }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        pixiv?: string;
+        fanbox?: string;
+        pixivProfile?: { id: string; name: string; avatar?: string } | null;
+        fanboxProfile?: { id: string; name: string; avatar?: string } | null;
+      };
+      if (!res.ok || !data.ok) throw new Error(data.error || "登录失败");
+      if (data.pixiv) setPixivCookie(data.pixiv);
+      if (data.fanbox) setFanboxCookie(data.fanbox);
+      applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
+      if (!data.pixivProfile && !data.fanboxProfile) await refreshIdentities();
+      await useSettings.getState().syncSessions();
+      const pixivName = data.pixivProfile?.name;
+      const fanboxName = data.fanboxProfile?.name;
+      toast.success(
+        [pixivName ? `Pixiv ${pixivName}` : data.pixiv ? "Pixiv 已登录" : "", fanboxName ? `FANBOX ${fanboxName}` : data.fanbox && !pixivName ? "FANBOX 已登录" : ""]
+          .filter(Boolean)
+          .join(" · ") || "已写入会话",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "登录失败");
+    } finally {
+      setLoginBusy(null);
     }
   }
 
@@ -193,7 +238,13 @@ function SettingsPage() {
                     : "text-muted hover:bg-elevated hover:text-fg",
                 )}
               >
-                <span className="truncate">{accountLabel(acc)}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex -space-x-1.5">
+                    <SiteAvatar profile={siteProfile(acc, "pixiv")} size="sm" />
+                    <SiteAvatar profile={siteProfile(acc, "fanbox")} size="sm" className="ring-2 ring-surface" />
+                  </span>
+                  <span className="min-w-0 truncate">{accountLabel(acc)}</span>
+                </span>
                 {acc.id === activeAccountId ? (
                   <span className="text-xs text-accent">当前</span>
                 ) : null}
@@ -235,11 +286,17 @@ function SettingsPage() {
                 onChange={(e) => renameAccount(active.id, e.target.value)}
               />
             </div>
-            <div>
+            <div className="flex items-start gap-3">
+              <SiteAvatar profile={siteProfile(active, "pixiv")} size="lg" />
+              <div className="min-w-0 flex-1">
               <label className="text-sm font-medium" htmlFor="pixiv-cookie">
-                Pixiv PHPSESSID
+                Pixiv
               </label>
-              <p className="mt-0.5 text-xs text-subtle">{mask(pixivCookie)}</p>
+              <p className="mt-0.5 text-sm text-fg">{displayName(active, "pixiv")}</p>
+              {active.pixivProfile?.id ? (
+                <p className="text-xs text-subtle">ID {active.pixivProfile.id}</p>
+              ) : null}
+              <p className="text-xs text-subtle">{mask(pixivCookie)}</p>
               <Input
                 id="pixiv-cookie"
                 className="mt-1"
@@ -250,12 +307,19 @@ function SettingsPage() {
                 value={pixivCookie}
                 onChange={(e) => setPixivCookie(e.target.value.trim())}
               />
+              </div>
             </div>
-            <div>
+            <div className="flex items-start gap-3">
+              <SiteAvatar profile={siteProfile(active, "fanbox")} size="lg" />
+              <div className="min-w-0 flex-1">
               <label className="text-sm font-medium" htmlFor="fanbox-cookie">
-                FANBOX FANBOXSESSID
+                FANBOX
               </label>
-              <p className="mt-0.5 text-xs text-subtle">{mask(fanboxCookie)}</p>
+              <p className="mt-0.5 text-sm text-fg">{displayName(active, "fanbox")}</p>
+              {active.fanboxProfile?.id ? (
+                <p className="text-xs text-subtle">ID {active.fanboxProfile.id}</p>
+              ) : null}
+              <p className="text-xs text-subtle">{mask(fanboxCookie)}</p>
               <Input
                 id="fanbox-cookie"
                 className="mt-1"
@@ -266,7 +330,30 @@ function SettingsPage() {
                 value={fanboxCookie}
                 onChange={(e) => setFanboxCookie(e.target.value.trim())}
               />
+              </div>
             </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                disabled={loginBusy !== null}
+                onClick={() => void browserLogin("pixiv")}
+              >
+                <LogIn className="size-4" />
+                {loginBusy === "pixiv" ? "等待 Pixiv 登录…" : "浏览器登录 Pixiv"}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={loginBusy !== null}
+                onClick={() => void browserLogin("fanbox")}
+              >
+                <LogIn className="size-4" />
+                {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
+              </Button>
+            </div>
+            <p className="text-xs leading-relaxed text-subtle">
+              网页无法嵌入 Pixiv 登录框，也不能跨站读取 Cookie。会在本机弹出 Chrome / Edge
+              打开官方登录页；密码只打在官方站点上。登录成功后只把会话 Cookie 写回当前账号。
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>
               <Button
@@ -282,7 +369,27 @@ function SettingsPage() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted">添加一个账号后，再粘贴 Cookie。</p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted">还没有账号。可以先弹出官方登录页，成功后会自动建一个。</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                disabled={loginBusy !== null}
+                onClick={() => void browserLogin("pixiv")}
+              >
+                <LogIn className="size-4" />
+                {loginBusy === "pixiv" ? "等待 Pixiv 登录…" : "浏览器登录 Pixiv"}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={loginBusy !== null}
+                onClick={() => void browserLogin("fanbox")}
+              >
+                <LogIn className="size-4" />
+                {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
+              </Button>
+            </div>
+          </div>
         )}
       </section>
 
