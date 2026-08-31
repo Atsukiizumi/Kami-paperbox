@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { SessionRelayDialog } from "@/components/session-relay";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
 import {
+  fanboxSessionFrom,
   isPixivLoggedInSession,
   parseCookieDump,
   pixivUserIdFromCookie,
@@ -176,6 +177,9 @@ function SettingsPage() {
         toast.error("当前 Pixiv Cookie 不是已登录会话。需要形如 12345678_令牌，没有下划线的是访客 Cookie。");
         return;
       }
+      if (pixivCookie && !fanboxSessionFrom(fanboxCookie, pixivCookie)) {
+        setFanboxCookie(pixivCookie);
+      }
       await syncSessions();
       await refreshIdentities();
       toast.success("登录状态已保存在这台设备");
@@ -197,6 +201,7 @@ function SettingsPage() {
     if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
     if (parsed.pixiv) setPixivCookie(parsed.pixiv);
     if (parsed.fanbox) setFanboxCookie(parsed.fanbox);
+    else if (parsed.pixiv) setFanboxCookie(parsed.pixiv);
     try {
       await useSettings.getState().syncSessions();
       await useSettings.getState().refreshIdentities();
@@ -236,6 +241,7 @@ function SettingsPage() {
     }
     if (data.pixiv) setPixivCookie(data.pixiv);
     if (data.fanbox) setFanboxCookie(data.fanbox);
+    else if (data.pixiv) setFanboxCookie(data.pixiv);
     applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
     if (!data.pixivProfile && !data.fanboxProfile) await refreshIdentities();
     await useSettings.getState().syncSessions();
@@ -412,8 +418,9 @@ function SettingsPage() {
               </Button>
             </div>
             <p className="text-xs leading-relaxed text-subtle">
-              「登录」会在这个页面里打开官方登录页（由后端中转），登完自动收回 Cookie。也可以把 PHPSESSID、Cookie
-              导出 JSON 或 Netscape cookies.txt 粘进来。
+              「登录」会在这个页面里打开官方登录页。FANBOX 会先到 Pixiv 选账号，再回转
+              <span className="text-fg"> /auth/start </span>
+              把会话带回来。也可以把 PHPSESSID、Cookie 导出 JSON 或 Netscape cookies.txt 粘进来。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>

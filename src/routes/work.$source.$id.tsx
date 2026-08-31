@@ -14,6 +14,7 @@ import { enqueueWork } from "@/lib/queue-runner";
 import { collectWorkFiles } from "@/lib/save-work";
 import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, mediaUrl } from "@/lib/utils";
 import { archiveWork } from "@/lib/persist-files";
@@ -33,7 +34,7 @@ function WorkPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pixivCookie = useSettings((s) => s.pixivCookie);
-  const fanboxCookie = useSettings((s) => s.fanboxCookie);
+  const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
   const setTab = useSettings((s) => s.setTab);

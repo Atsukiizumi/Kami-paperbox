@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.6.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.6.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -90,7 +90,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 ### 账号（仅 Pixiv / FANBOX）
 
-设置里的「登录 Pixiv / FANBOX」会由后端打开 **官方登录页**，把画面中转到纸匣窗口里。密码只打在官方站点上，登进去之后会把 `PHPSESSID` / `FANBOXSESSID` 收回来（访客 Cookie 不算）。网页预览和 Docker 也能这样登录。不想走窗口的话，可以手贴 Cookie。
+设置里的「登录 Pixiv / FANBOX」会由后端打开 **官方登录页**，把画面中转到纸匣窗口里。FANBOX 会先到 Pixiv 选账号，再回转 `www.fanbox.cc/auth/start` 把会话带回来。密码只打在官方站点上。访客 Cookie 不算。网页预览和 Docker 也能这样登录。不想走窗口的话，可以手贴 Cookie。
 
 手贴步骤：
 

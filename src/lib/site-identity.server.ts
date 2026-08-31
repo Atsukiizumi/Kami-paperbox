@@ -89,7 +89,7 @@ export async function resolveIdentities(input: { pixiv?: string; fanbox?: string
 }> {
   const [pixiv, fanbox] = await Promise.all([
     fetchPixivProfile(input.pixiv),
-    fetchFanboxProfile(input.fanbox),
+    fetchFanboxProfile(input.fanbox || input.pixiv),
   ]);
   return { pixiv, fanbox };
 }

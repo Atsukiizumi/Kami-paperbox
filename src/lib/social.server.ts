@@ -102,7 +102,7 @@ async function fanboxForm(path: string, cookie: string, params: Record<string, s
 
 export async function dispatchSocial(input: SocialInput): Promise<SocialOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
-  const fanbox = fanboxCookieHeader(input.fanboxCookie);
+  const fanbox = fanboxCookieHeader(input.fanboxCookie, input.pixivCookie);
   switch (input.op) {
     case "pixivLike": {
       if (!pixiv) throw new Error("需要登录 Pixiv");

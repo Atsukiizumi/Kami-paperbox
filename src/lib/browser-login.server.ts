@@ -2,7 +2,10 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  FANBOX_AUTH_START,
+  FANBOX_LOGIN_URL,
   LOGIN_VIEW,
+  PIXIV_LOGIN_URL,
   chromeCandidates,
   loginJobBusy,
   pickSession,
@@ -389,10 +392,7 @@ async function runJob(site: LoginSite): Promise<void> {
     }
     await startScreencast(page);
 
-    const start =
-      site === "fanbox"
-        ? "https://www.fanbox.cc/login"
-        : "https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F&source=pc&view_type=page";
+    const start = site === "fanbox" ? FANBOX_LOGIN_URL : PIXIV_LOGIN_URL;
     await page.goto(start, { waitUntil: "domcontentloaded", timeout: 45_000 });
     job = { ...job, pageUrl: page.url() };
     if (!job.frame) await grabFrame(page);
@@ -402,10 +402,12 @@ async function runJob(site: LoginSite): Promise<void> {
     let fanbox = "";
     let pixivProfile: SiteProfile | null = null;
     let fanboxProfile: SiteProfile | null = null;
-    let triedFanbox = site === "fanbox";
     let pixivConfirmed = false;
     let openedPixivHome = false;
+    let openedFanboxAuth = false;
     let pixivSeenAt = 0;
+    let fanboxBounceAt = 0;
+    let fanboxDone = false;
     let lastShot = 0;
     while (Date.now() < deadline && !stop) {
       const alive = typeof browser.connected === "boolean" ? browser.connected : true;
@@ -434,24 +436,38 @@ async function runJob(site: LoginSite): Promise<void> {
         if (pixivProfile?.id || Date.now() - pixivSeenAt > 8_000) pixivConfirmed = true;
       }
 
-      if (site === "pixiv" && pixivConfirmed && !triedFanbox) {
-        triedFanbox = true;
+      if (site === "fanbox" && pixiv && !pixivConfirmed) {
+        pixivConfirmed = true;
+      }
+
+      const readyForFanbox = site === "fanbox" ? Boolean(pixiv || fanbox) : pixivConfirmed;
+      if (readyForFanbox && !fanboxDone && !openedFanboxAuth) {
+        openedFanboxAuth = true;
+        fanboxBounceAt = Date.now();
         try {
-          await page.goto("https://www.fanbox.cc/", { waitUntil: "domcontentloaded", timeout: 20_000 });
-          const after = await readCookies(page);
-          fanbox = after.fanbox || fanbox;
-          fanboxProfile = (await profileFromFanboxPage(page)) ?? fanboxProfile;
+          await page.goto(FANBOX_AUTH_START, { waitUntil: "domcontentloaded", timeout: 25_000 });
         } catch {
-          /* FANBOX is optional */
+          openedFanboxAuth = false;
         }
       }
 
-      if (site === "fanbox" && fanbox && !fanboxProfile) {
-        fanboxProfile = await profileFromFanboxPage(page);
+      if (openedFanboxAuth && !fanboxDone) {
+        const after = await readCookies(page);
+        pixiv = after.pixiv || pixiv;
+        fanbox = after.fanbox || fanbox;
+        if (!fanbox && pixiv) fanbox = pixiv;
+        if (fanbox && !fanboxProfile) {
+          fanboxProfile = (await profileFromFanboxPage(page)) ?? fanboxProfile;
+        }
+        if (fanbox && (fanboxProfile?.id || Date.now() - fanboxBounceAt > 8_000)) fanboxDone = true;
+        if (!fanbox && Date.now() - fanboxBounceAt > 12_000) {
+          if (pixiv) fanbox = pixiv;
+          fanboxDone = true;
+        }
       }
 
-      if (site === "pixiv" && pixivConfirmed) break;
-      if (site === "fanbox" && fanbox) break;
+      if (site === "pixiv" && pixivConfirmed && fanboxDone) break;
+      if (site === "fanbox" && fanbox && fanboxDone) break;
       await new Promise((r) => setTimeout(r, 700));
     }
     if (stop) throw new Error("已取消登录窗口");
@@ -459,8 +475,9 @@ async function runJob(site: LoginSite): Promise<void> {
       throw new Error("超时未检测到 Pixiv 登录。请在窗口里完成登录（访客 Cookie 不算），或改用手贴。");
     }
     if (site === "fanbox" && !fanbox) {
-      throw new Error("超时未检测到 FANBOX 登录。请在窗口里完成登录，或改用手贴。");
+      throw new Error("超时未检测到 FANBOX 登录。请从官方账号选择页登入，完成 /auth/start 回转后再等一下。");
     }
+    if (pixiv && !fanbox) fanbox = pixiv;
     if (!pixivProfile || (fanbox && !fanboxProfile)) {
       try {
         const profiles = await resolveIdentities({ pixiv, fanbox });
