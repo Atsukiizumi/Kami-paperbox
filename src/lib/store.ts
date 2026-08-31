@@ -43,6 +43,25 @@ import {
   toggleSavedTag as toggleSavedTagList,
 } from "./site-tags";
 
+type PersistApi = {
+  hasHydrated?: () => boolean;
+  onFinishHydration?: (cb: () => void) => () => void;
+};
+
+/** Zustand persist 在 SSR 上可能没有 `.persist`。等浏览器水合后再跑。 */
+export function onPersisted(store: { persist?: PersistApi }, fn: () => void): () => void {
+  const api = store.persist;
+  if (!api?.hasHydrated) {
+    fn();
+    return () => undefined;
+  }
+  if (api.hasHydrated()) {
+    fn();
+    return () => undefined;
+  }
+  return api.onFinishHydration?.(fn) ?? (() => undefined);
+}
+
 type Tab = Source;
 
 type SettingsState = {

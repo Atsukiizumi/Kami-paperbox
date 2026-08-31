@@ -8,7 +8,7 @@ import { playEnter } from "@/lib/motion";
 import { resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
 import { cn } from "@/lib/utils";
-import { useQueue, useSettings } from "@/lib/store";
+import { onPersisted, useQueue, useSettings } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { Button } from "@/components/ui/button";
@@ -65,30 +65,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    let queueReady = useQueue.persist.hasHydrated();
-    let settingsReady = useSettings.persist.hasHydrated();
+    let queueReady = false;
+    let settingsReady = false;
     const boot = () => {
       if (!queueReady || !settingsReady) return;
       void useSettings.getState().syncSessions().catch(() => undefined);
       void useVaultIndex.getState().refresh().catch(() => undefined);
       resumeQueue();
     };
-    const offQueue = queueReady
-      ? undefined
-      : useQueue.persist.onFinishHydration(() => {
-          queueReady = true;
-          boot();
-        });
-    const offSettings = settingsReady
-      ? undefined
-      : useSettings.persist.onFinishHydration(() => {
-          settingsReady = true;
-          boot();
-        });
-    boot();
+    const offQueue = onPersisted(useQueue, () => {
+      queueReady = true;
+      boot();
+    });
+    const offSettings = onPersisted(useSettings, () => {
+      settingsReady = true;
+      boot();
+    });
     return () => {
-      offQueue?.();
-      offSettings?.();
+      offQueue();
+      offSettings();
     };
   }, []);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";

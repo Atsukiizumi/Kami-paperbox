@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { applyLoginSession } from "@/lib/apply-session";
 import { canPickFolder, pickDownloadFolder } from "@/lib/folder-access";
 import { type LoginSite } from "@/lib/browser-login";
-import { useSettings } from "@/lib/store";
+import { onPersisted, useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const STEPS = ["Pixiv", "FANBOX", "文件夹"] as const;
@@ -29,15 +29,12 @@ export function Onboarding() {
   const setFolderLabel = useSettings((s) => s.setFolderLabel);
   const setVaultMirrorFolder = useSettings((s) => s.setVaultMirrorFolder);
   const setDownloadToFolder = useSettings((s) => s.setDownloadToFolder);
-  const [hydrated, setHydrated] = useState(() => useSettings.persist.hasHydrated());
+  const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [relay, setRelay] = useState<LoginSite | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (hydrated) return;
-    return useSettings.persist.onFinishHydration(() => setHydrated(true));
-  }, [hydrated]);
+  useEffect(() => onPersisted(useSettings, () => setHydrated(true)), []);
 
   if (!hydrated || onboarded) return null;
 
