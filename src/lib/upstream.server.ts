@@ -514,6 +514,8 @@ function mapFanboxPostCard(raw: Record<string, unknown>): WorkCard | null {
     thumb: asString(cover.url || raw.coverImageUrl),
     pageCount: 1,
     tags,
+    width: asNumber(cover.width) || undefined,
+    height: asNumber(cover.height) || undefined,
     restricted: asBool(raw.isRestricted),
     feeRequired: asNumber(raw.feeRequired, 0),
     date: asString(raw.publishedDatetime) || undefined,

@@ -22,7 +22,7 @@
     "start": "node scripts/with-app-env.mjs node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/accounts.test.ts src/lib/ugoira-meta.test.ts src/lib/pixiv-feed.test.ts src/lib/booru.test.ts src/lib/parse-input.test.ts src/lib/reverse-search.test.ts src/lib/social.test.ts src/lib/proxy-url.test.ts src/lib/proxy.server.test.ts src/lib/browser-login.test.ts src/lib/site-identity.test.ts src/lib/sites.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/accounts.test.ts src/lib/ugoira-meta.test.ts src/lib/pixiv-feed.test.ts src/lib/booru.test.ts src/lib/parse-input.test.ts src/lib/reverse-search.test.ts src/lib/social.test.ts src/lib/proxy-url.test.ts src/lib/proxy.server.test.ts src/lib/browser-login.test.ts src/lib/site-identity.test.ts src/lib/sites.test.ts src/lib/card-aspect.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "pack": "python3 scripts/pack.py",

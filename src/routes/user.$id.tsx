@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArtworkGrid } from "@/components/artwork-card";
+import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,11 +36,7 @@ function UserPage() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-20 w-full rounded-lg" />
-        <div className="grid grid-cols-2 gap-2.5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[3/4] rounded-lg" />
-          ))}
-        </div>
+        <ArtworkGridSkeleton count={6} />
       </div>
     );
   }

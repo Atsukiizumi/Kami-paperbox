@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.3.3] — 2026-08-31
+
+对应 [PR #6](https://github.com/Atsukiizumi/Kami-paperbox/pull/6)。
+
+### 变更
+
+- 浏览、画师、创作者和相关作品改成按原图比例的拼版，不再统一裁成 3:4。特别横的或特别竖的会收在一个范围内。没有尺寸信息的卡片（多数 FANBOX）仍用 3:4。
+
 ## [0.3.2] — 2026-08-31
 
 对应 [PR #5](https://github.com/Atsukiizumi/Kami-paperbox/pull/5)。
