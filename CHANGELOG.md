@@ -10,6 +10,8 @@
 
 ## [0.5.0] — 2026-08-31
 
+对应 [PR #11](https://github.com/Atsukiizumi/Kami-paperbox/pull/11)。
+
 ### 新增
 
 - 设置里可以选下载目标文件夹（本机 Chrome / Edge）。收入纸匣仍先存在浏览器里，并可同时按规则写入该文件夹。
