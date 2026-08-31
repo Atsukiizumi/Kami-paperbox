@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.3.2] — 2026-08-31
+
+对应 [PR #5](https://github.com/Atsukiizumi/Kami-paperbox/pull/5)。
+
+### 修复
+
+- 开发模式下脚本会因为浏览器里 `new AsyncLocalStorage()` 直接崩掉，点任何按钮都没反应。不再把 `@tanstack/react-start` 预打包进前端。
+
 ## [0.3.1] — 2026-08-31
 
 对应 [PR #4](https://github.com/Atsukiizumi/Kami-paperbox/pull/4)。

@@ -162,10 +162,12 @@ export default defineConfig(({ command, isPreview }) => ({
   optimizeDeps: {
     // Pre-bundle the first-paint graph so Vite does not discover these mid-request
     // and abort SSR with `AbortError: This operation was aborted` (srvx).
+    // Do NOT include `@tanstack/react-start`: its client prebundle evaluates
+    // `new AsyncLocalStorage()` and the page dies with
+    // `AsyncLocalStorage is not a constructor` — every click then no-ops.
     include: [
       "@tanstack/react-query",
       "@tanstack/react-router",
-      "@tanstack/react-start",
       "@tanstack/router-core",
       "@tanstack/router-core/isServer",
       "@tanstack/router-core/ssr/client",
@@ -173,7 +175,12 @@ export default defineConfig(({ command, isPreview }) => ({
       "seroval",
       "zustand",
     ],
-    exclude: ["puppeteer-core"],
+    exclude: [
+      "puppeteer-core",
+      "@tanstack/react-start",
+      "@tanstack/start-client-core",
+      "@tanstack/start-storage-context",
+    ],
   },
   ssr: {
     external: ["puppeteer-core"],
