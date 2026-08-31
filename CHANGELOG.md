@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.17] — 2026-09-01
+
+对应 [PR #36](https://github.com/Atsukiizumi/Kami-paperbox/pull/36)。
+
+### 修复
+
+- 动效不再被 `prefers-reduced-motion` 整页打成 0ms；切页、悬停、榜单滑块都能看见。
+
 ## [0.7.16] — 2026-09-01
 
 对应 [PR #35](https://github.com/Atsukiizumi/Kami-paperbox/pull/35)。

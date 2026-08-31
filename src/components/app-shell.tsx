@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
+import { playEnter } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
@@ -152,13 +153,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
       </aside>
 
-      <main className={cn(contentPad, "transition-[padding] duration-200")}>
-        <div
-          key={pathname}
-          className="kami-page mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 md:px-10 md:pb-12 md:pt-8"
-        >
-          {children}
-        </div>
+      <main className={cn(contentPad, "transition-[padding] duration-300 ease-out")}>
+        <PageFrame pathname={pathname}>{children}</PageFrame>
       </main>
 
       <nav className="kami-chrome-up fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
@@ -194,6 +190,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
+    </div>
+  );
+}
+
+function PageFrame({ pathname, children }: { pathname: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    playEnter(el);
+  }, [pathname]);
+  return (
+    <div
+      ref={ref}
+      className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 md:px-10 md:pb-12 md:pt-8"
+    >
+      {children}
     </div>
   );
 }

@@ -298,26 +298,22 @@ html.kami-motion {
 @keyframes kami-enter {
   from {
     opacity: 0;
-    transform: translateY(18px);
-    filter: blur(8px);
+    transform: translate3d(0, 28px, 0);
   }
   to {
     opacity: 1;
-    transform: none;
-    filter: none;
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes kami-page {
   from {
     opacity: 0;
-    transform: translateY(14px);
-    filter: blur(6px);
+    transform: translate3d(0, 20px, 0);
   }
   to {
     opacity: 1;
-    transform: none;
-    filter: none;
+    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -358,13 +354,33 @@ html.kami-motion {
   from {
     opacity: 0;
     transform: scale(0.25);
-    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
+}
+
+@keyframes kami-vt-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+@keyframes kami-vt-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+}
+
+::view-transition-old(root) {
+  animation: 180ms var(--ease-out) both kami-vt-out;
+}
+
+::view-transition-new(root) {
+  animation: 320ms var(--ease-out) both kami-vt-in;
 }
 
 @keyframes kami-shimmer {
@@ -421,13 +437,17 @@ html.kami-motion {
   background: var(--color-surface);
   box-shadow: var(--shadow-border);
   transition:
-    transform var(--motion-fast) var(--ease-out),
-    box-shadow var(--motion-fast) var(--ease-out);
+    transform 280ms var(--ease-out),
+    box-shadow 280ms var(--ease-out);
 }
 
 .kami-card-shell:hover {
-  transform: translateY(-4px);
+  transform: translate3d(0, -8px, 0);
   box-shadow: var(--shadow-float);
+}
+
+.kami-card-shell:active {
+  transform: translate3d(0, -2px, 0);
 }
 
 .kami-logo .kami-logo-fold {
@@ -492,23 +512,7 @@ a:focus-visible .kami-logo .kami-logo-fold {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-
-  .kami-page,
-  .kami-enter,
-  .kami-chrome-down,
-  .kami-chrome-left,
-  .kami-chrome-up,
-  .kami-pop,
-  .kami-card-shell:hover {
-    filter: none !important;
-    transform: none !important;
-    opacity: 1 !important;
+  .kami-shimmer {
+    animation: none;
   }
 }
