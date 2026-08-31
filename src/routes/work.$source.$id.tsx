@@ -15,8 +15,8 @@ import { collectWorkFiles } from "@/lib/save-work";
 import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
-import { formatCount, mediaUrl, sanitizeFilename } from "@/lib/utils";
-import { downloadBlob, saveVaultWork } from "@/lib/vault";
+import { formatCount, mediaUrl } from "@/lib/utils";
+import { archiveWork } from "@/lib/persist-files";
 import { useMemo, useState } from "react";
 import { parseSource, siteLabel, workOriginUrl, isBooru } from "@/lib/sites";
 import { pickRelatedTag } from "@/lib/booru";
@@ -152,23 +152,16 @@ function WorkPage() {
           setProgress(detail.ugoira ? `合成 GIF ${done}/${total}` : `保存 ${done}/${total}`);
         },
       });
-      if (alsoDownload) {
-        blobs.forEach(({ blob, page }, i) => {
-          const ext = extFromNameOrType(page.name, blob.type);
-          downloadBlob(blob, `${detail.id}_p${i}_${sanitizeFilename(detail.title)}.${ext}`);
-        });
-      }
-      await saveVaultWork(detail, blobs);
+      const result = await archiveWork(detail, blobs, { download: alsoDownload });
       const gif = blobs.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
-      toast.success(
-        gif
-          ? alsoDownload
-            ? "GIF 已下载并收入纸匣"
-            : "GIF 已收入纸匣"
-          : alsoDownload
-            ? "已下载并收入纸匣"
-            : "已收入纸匣",
-      );
+      const skipped = result.folderSkipped ? "，文件夹未授权" : "";
+      if (result.folder) {
+        toast.success(gif ? "GIF 已收入纸匣并写入文件夹" : "已收入纸匣并写入文件夹");
+      } else if (alsoDownload) {
+        toast.success((gif ? "GIF 已下载并收入纸匣" : "已下载并收入纸匣") + skipped);
+      } else {
+        toast.success((gif ? "GIF 已收入纸匣" : "已收入纸匣") + skipped);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {

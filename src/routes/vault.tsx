@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { workOriginUrl } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatBytes, cn } from "@/lib/utils";
+import { exportVaultItem } from "@/lib/persist-files";
+import { useSettings } from "@/lib/store";
 import {
   deleteVaultWork,
-  downloadBlob,
   getVaultBlob,
   listVault,
   type VaultMeta,
@@ -18,6 +19,8 @@ import {
 export const Route = createFileRoute("/vault")({ component: VaultPage });
 
 function VaultPage() {
+  const folderLabel = useSettings((s) => s.folderLabel);
+  const vaultMirrorFolder = useSettings((s) => s.vaultMirrorFolder);
   const [items, setItems] = useState<VaultMeta[]>([]);
   const [open, setOpen] = useState<VaultMeta | null>(null);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -57,20 +60,25 @@ function VaultPage() {
   }, [open]);
 
   async function exportWork(item: VaultMeta) {
+    const pages: { blob: Blob; ext: string }[] = [];
     for (let i = 0; i < item.pageCount; i += 1) {
       const blob = await getVaultBlob(item.key, i);
       if (!blob) continue;
-      const ext = extFromNameOrType(undefined, blob.type);
-      downloadBlob(blob, `${item.id}_p${i}.${ext}`);
+      pages.push({ blob, ext: extFromNameOrType(undefined, blob.type) });
     }
-    toast.success("已导出");
+    const result = await exportVaultItem(item, pages);
+    toast.success(result.folder ? "已按规则写入文件夹" : "已导出");
   }
 
   return (
     <div className="space-y-5">
       <header>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
-        <p className="mt-1 text-sm text-muted">保存在这台设备上，不会同步到云端。点开可放大预览。</p>
+        <p className="mt-1 text-sm text-muted">
+          {folderLabel && vaultMirrorFolder
+            ? `预览存在浏览器里，文件同时写入「${folderLabel}」。`
+            : "保存在这台设备的浏览器里，不会同步到云端。点开可放大预览。"}
+        </p>
       </header>
       {items.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">

@@ -8,6 +8,17 @@
 
 暂无。
 
+## [0.5.0] — 2026-08-31
+
+对应 [PR #11](https://github.com/Atsukiizumi/Kami-paperbox/pull/11)。
+
+### 新增
+
+- 设置里可以选下载目标文件夹（本机 Chrome / Edge）。收入纸匣仍先存在浏览器里，并可同时按规则写入该文件夹。
+- 分类规则：扁平、作者、日期、日期+时间、作者+日期、站点+作者，或自己写 `{author}` `{date}` `{time}` `{title}` 等占位符。日期按保存当时计算。
+- 浏览器会申请持久化存储，减少纸匣被自动清掉的机会。
+
+
 ## [0.4.3] — 2026-08-31
 
 对应 [PR #10](https://github.com/Atsukiizumi/Kami-paperbox/pull/10)。
