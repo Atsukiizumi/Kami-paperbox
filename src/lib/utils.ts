@@ -13,6 +13,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function mediaUrl(url: string | undefined | null): string {
   if (!url) return "";
+  if (url.startsWith("/api/") || url.startsWith("blob:") || url.startsWith("data:")) return url;
   return `/api/media?u=${encodeURIComponent(url)}`;
 }
 

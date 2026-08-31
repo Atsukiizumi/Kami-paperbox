@@ -6,9 +6,11 @@ import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { resumeQueue } from "@/lib/queue-runner";
+import { useVaultIndex } from "@/lib/vault-index";
 import { cn } from "@/lib/utils";
 import { useQueue, useSettings } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
+import { Onboarding } from "@/components/onboarding";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -68,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     const boot = () => {
       if (!queueReady || !settingsReady) return;
       void useSettings.getState().syncSessions().catch(() => undefined);
+      void useVaultIndex.getState().refresh().catch(() => undefined);
       resumeQueue();
     };
     const offQueue = queueReady
@@ -184,6 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className={cn(contentPad, "transition-[padding] duration-300 ease-out")}>
         <PageFrame pathname={pathname}>{children}</PageFrame>
       </main>
+      <Onboarding />
 
       <nav className="kami-chrome-up fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
         <div className="relative grid grid-cols-5">

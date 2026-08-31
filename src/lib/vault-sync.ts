@@ -17,6 +17,10 @@ export type ServerVaultList = {
   totals: { count: number; bytes: number; dir: string };
 };
 
+export function vaultPageUrl(key: string, page = 0): string {
+  return `/api/vault?key=${encodeURIComponent(key)}&page=${page}`;
+}
+
 async function asJson<T>(res: Response): Promise<T | null> {
   if (!res.ok) return null;
   try {

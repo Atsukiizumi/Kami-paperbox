@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decodeHtmlEntities, fanboxCursorTime } from "./utils.ts";
+import { decodeHtmlEntities, fanboxCursorTime, mediaUrl } from "./utils.ts";
 
 test("decodes HTML entities with ampersand last", () => {
   assert.equal(decodeHtmlEntities("A \u0026amp; B"), "A & B");
@@ -12,4 +12,10 @@ test("decodes HTML entities with ampersand last", () => {
 test("normalizes FANBOX cursor timestamps", () => {
   assert.equal(fanboxCursorTime("2024-01-15T12:00:00Z"), "2024-01-15 12:00:00");
   assert.equal(fanboxCursorTime("2024-01-15T12:00:00.123+09:00"), "2024-01-15 12:00:00");
+});
+
+test("leaves vault and blob URLs unproxied", () => {
+  assert.equal(mediaUrl("/api/vault?key=pixiv:1&page=0"), "/api/vault?key=pixiv:1&page=0");
+  assert.equal(mediaUrl("blob:http://local/1"), "blob:http://local/1");
+  assert.match(mediaUrl("https://i.pximg.net/a.jpg") ?? "", /api\/media/);
 });

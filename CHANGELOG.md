@@ -8,6 +8,16 @@
 
 暂无。
 
+## [0.8.0] — 2026-09-01
+
+对应 [PR #40](https://github.com/Atsukiizumi/Kami-paperbox/pull/40)。
+
+### 改进
+
+- 浏览和作品页能看出已经收入纸匣。
+- 第一次打开有登录向导：Pixiv → FANBOX → 文件夹。
+- 纸匣页改成和浏览同一套拼版，作者做成可点的筛选条，点卡片进作品页。
+
 ## [0.7.20] — 2026-09-01
 
 对应 [PR #39](https://github.com/Atsukiizumi/Kami-paperbox/pull/39)。

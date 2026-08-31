@@ -66,6 +66,7 @@ type SettingsState = {
   activeAccountId: string | null;
   theme: ThemeId;
   appearance: Appearance;
+  onboarded: boolean;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
   setSafeMode: (v: boolean) => void;
@@ -83,6 +84,7 @@ type SettingsState = {
   toggleSavedTag: (source: Source, tag: string) => void;
   setTheme: (v: ThemeId) => void;
   setAppearance: (v: Appearance) => void;
+  setOnboarded: (v: boolean) => void;
   addAccount: (name: string) => string;
   renameAccount: (id: string, name: string) => void;
   removeAccount: (id: string) => void;
@@ -128,6 +130,7 @@ export const useSettings = create<SettingsState>()(
       activeAccountId: null,
       theme: DEFAULT_THEME,
       appearance: DEFAULT_APPEARANCE,
+      onboarded: false,
       setPixivCookie: (pixivCookie) => {
         set((s) => {
           if (!s.activeAccountId) {
@@ -190,6 +193,7 @@ export const useSettings = create<SettingsState>()(
         })),
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
+      setOnboarded: (onboarded) => set({ onboarded }),
       addAccount: (name) => {
         const current = get();
         if (current.accounts.length >= 8) return current.activeAccountId ?? "";
@@ -269,7 +273,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 8,
+      version: 9,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -308,6 +312,9 @@ export const useSettings = create<SettingsState>()(
           pathTemplate,
           folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
           savedTags: parseSavedTags(p.savedTags),
+          onboarded:
+            p.onboarded === true ||
+            legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
         };
         if (version >= 2 && legacy.accounts.length) {
           return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
@@ -333,6 +340,7 @@ export const useSettings = create<SettingsState>()(
         activeAccountId: s.activeAccountId,
         theme: s.theme,
         appearance: s.appearance,
+        onboarded: s.onboarded,
       }),
     },
   ),

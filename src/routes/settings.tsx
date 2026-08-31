@@ -20,6 +20,7 @@ import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { useSettings } from "@/lib/store";
+import { applyCookieDump, applyLoginSession } from "@/lib/apply-session";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -169,7 +170,6 @@ function SettingsPage() {
   const removeAccount = useSettings((s) => s.removeAccount);
   const switchAccount = useSettings((s) => s.switchAccount);
   const syncSessions = useSettings((s) => s.syncSessions);
-  const applyProfiles = useSettings((s) => s.applyProfiles);
   const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const [newName, setNewName] = useState("");
   const [relaySite, setRelaySite] = useState<LoginSite | null>(null);
@@ -194,30 +194,12 @@ function SettingsPage() {
   }
 
   async function applyDump(raw: string) {
-    const parsed = parseCookieDump(raw);
-    if (!parsed.pixiv && !parsed.fanbox) {
-      if (raw.trim() && !isPixivLoggedInSession(raw) && /phpsessid/i.test(raw)) {
-        toast.error("这是访客 Cookie（没有用户ID_令牌）。请先在 Pixiv 登录，再复制 PHPSESSID。");
-        return;
-      }
-      toast.error("没有识别到 PHPSESSID / FANBOXSESSID。");
+    const result = await applyCookieDump(raw);
+    if (!result.ok) {
+      toast.error(result.error);
       return;
     }
-    if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
-    if (parsed.pixiv) setPixivCookie(parsed.pixiv);
-    if (parsed.fanbox) setFanboxCookie(parsed.fanbox);
-    else if (parsed.pixiv) setFanboxCookie(parsed.pixiv);
-    try {
-      await useSettings.getState().syncSessions();
-      await useSettings.getState().refreshIdentities();
-      const id = pixivUserIdFromCookie(parsed.pixiv);
-      toast.success(
-        [parsed.pixiv ? `Pixiv${id ? ` ID ${id}` : ""}` : "", parsed.fanbox ? "FANBOX" : ""].filter(Boolean).join(" · ") +
-          " 已写入",
-      );
-    } catch {
-      toast.error("Cookie 已填入，但还没能核对资料");
-    }
+    toast.success("Cookie 已写入");
   }
 
   async function pasteDump() {
@@ -239,17 +221,11 @@ function SettingsPage() {
     pixivProfile?: { id: string; name: string; avatar?: string } | null;
     fanboxProfile?: { id: string; name: string; avatar?: string } | null;
   }) {
-    if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
-    if (data.pixiv && !isPixivLoggedInSession(data.pixiv)) {
-      toast.error("抓到的是访客 Cookie，还没有真正登录。");
+    const result = await applyLoginSession({ ...data, accountName: newName });
+    if (!result.ok) {
+      toast.error(result.error);
       return;
     }
-    if (data.pixiv) setPixivCookie(data.pixiv);
-    if (data.fanbox) setFanboxCookie(data.fanbox);
-    else if (data.pixiv) setFanboxCookie(data.pixiv);
-    applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
-    if (!data.pixivProfile && !data.fanboxProfile) await refreshIdentities();
-    await useSettings.getState().syncSessions();
     const pixivName = data.pixivProfile?.name;
     const fanboxName = data.fanboxProfile?.name;
     toast.success(
