@@ -1,10 +1,9 @@
 /**
  * 走本站图片代理的 <img>。
  *
- * 作用：给封面和作品页图。每张图自己请求、自己亮，不等一批齐。
- * 用法：首屏几张 priority；其余进视口附近才开始拉。
- * 为什么：pximg 直接给浏览器会 403。以前前 8 张 eager、后面 lazy，
- *        看起来像攒够数量才出图。现在谁先到谁先显示。
+ * 作用：封面和作品页图。每张自己请求、自己亮。
+ * 用法：封面 fit="cover"（默认）；作品页 / 灯箱 fit="contain" 才不会裁掉。
+ * 为什么：pximg 直接给浏览器会 403。封面要铺满卡片，作品页要整张看见。
  */
 import { useEffect, useRef, useState } from "react";
 import { cn, mediaUrl } from "@/lib/utils";
@@ -15,17 +14,20 @@ export function ProxiedImg({
   className,
   priority = false,
   sizes,
+  fit = "cover",
 }: {
   src?: string;
   alt: string;
   className?: string;
   priority?: boolean;
   sizes?: string;
+  fit?: "cover" | "contain";
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [active, setActive] = useState(priority);
+  const cover = fit === "cover";
 
   useEffect(() => {
     setLoaded(false);
@@ -62,16 +64,27 @@ export function ProxiedImg({
   }
 
   return (
-    <span ref={hostRef} className={cn("relative block size-full overflow-hidden bg-elevated", className)}>
-      {loaded ? null : <span className="kami-shimmer pointer-events-none absolute inset-0" aria-hidden />}
+    <span
+      ref={hostRef}
+      className={cn(
+        "relative bg-elevated",
+        cover ? "block size-full overflow-hidden" : "block w-full",
+        cover ? className : undefined,
+      )}
+    >
+      {loaded ? null : (
+        <span className="kami-shimmer pointer-events-none absolute inset-0 min-h-40" aria-hidden />
+      )}
       {active ? (
         <img
           src={mediaUrl(src)}
           alt={alt}
           sizes={sizes}
           className={cn(
-            "size-full object-cover transition-opacity duration-200 ease-out",
+            "transition-opacity duration-200 ease-out",
+            cover ? "size-full object-cover" : "mx-auto h-auto w-full object-contain",
             loaded ? "opacity-100" : "opacity-0",
+            cover ? undefined : className,
           )}
           loading="eager"
           fetchPriority={priority ? "high" : "auto"}
@@ -79,7 +92,9 @@ export function ProxiedImg({
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
         />
-      ) : null}
+      ) : (
+        <span className="block min-h-40 w-full" />
+      )}
     </span>
   );
 }

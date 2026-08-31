@@ -430,7 +430,7 @@ function WorkPage() {
           </figure>
         ) : (
           work.pages.map((page, i) => (
-            <figure key={`${page.original}-${i}`} className="overflow-hidden rounded-lg bg-surface">
+            <figure key={`${page.original}-${i}`} className="rounded-lg bg-surface">
               <button
                 type="button"
                 className="block w-full cursor-zoom-in"
@@ -439,9 +439,10 @@ function WorkPage() {
                 <ProxiedImg
                   src={page.regular || page.original}
                   alt={`${work.title} ${i + 1}`}
+                  fit="contain"
                   priority={i === 0}
                   sizes="(max-width: 1100px) 100vw, 900px"
-                  className="mx-auto max-h-[85vh] w-full object-contain"
+                  className="max-h-[85vh]"
                 />
               </button>
             </figure>
