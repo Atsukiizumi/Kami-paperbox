@@ -177,6 +177,9 @@ function responseFromCurl(res: CurlResult): Response {
 }
 
 export async function outboundFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  if (init.signal?.aborted) {
+    throw new DOMException("This operation was aborted", "AbortError");
+  }
   if (!getActiveProxy()) {
     return fetch(url, init);
   }

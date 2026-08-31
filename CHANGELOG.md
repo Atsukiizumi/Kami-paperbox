@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.13] — 2026-09-01
+
+对应 [PR #32](https://github.com/Atsukiizumi/Kami-paperbox/pull/32)。
+
+### 修复
+
+- 滚走或关掉作品页时，图片代理被浏览器取消不再刷成 500 AbortError。
+
 ## [0.7.12] — 2026-09-01
 
 对应 [PR #31](https://github.com/Atsukiizumi/Kami-paperbox/pull/31)。
