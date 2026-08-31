@@ -13,6 +13,7 @@ export function WorkActions({
   onBookmark,
   onLike,
   onFollow,
+  inVault,
 }: {
   work: WorkDetail;
   saving?: boolean;
@@ -23,13 +24,14 @@ export function WorkActions({
   onBookmark?: () => void;
   onLike?: () => void;
   onFollow?: () => void;
+  inVault?: boolean;
 }) {
   const sm = compact ? "sm" : "default";
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", compact && "justify-center")}>
-      <Button size={sm} disabled={saving || work.restricted} onClick={onSave}>
+      <Button size={sm} variant={inVault ? "secondary" : "default"} disabled={saving || work.restricted} onClick={onSave}>
         <Archive className="size-4" />
-        保存
+        {inVault ? "已在纸匣" : "保存"}
       </Button>
       <Button size={sm} variant="secondary" disabled={saving || work.restricted} onClick={onDownload}>
         <Download className="size-4" />

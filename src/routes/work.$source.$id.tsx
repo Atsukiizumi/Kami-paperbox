@@ -28,6 +28,8 @@ import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, mediaUrl } from "@/lib/utils";
 import { archiveWork } from "@/lib/persist-files";
+import { workKey as vaultWorkKey } from "@/lib/vault";
+import { useVaultIndex } from "@/lib/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
 import { useMemo, useState } from "react";
 import { parseSource, siteLabel, workOriginUrl, isBooru } from "@/lib/sites";
@@ -56,6 +58,7 @@ function WorkPage() {
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState("");
   const [preview, setPreview] = useState<number | null>(null);
+  const inVault = useVaultIndex((s) => Boolean(s.keys[vaultWorkKey(src, id)]));
 
   const query = useQuery({
     queryKey: ["work", src, id, safeMode, pixivCookie, fanboxCookie],
@@ -380,6 +383,7 @@ function WorkPage() {
         <WorkActions
           work={work}
           saving={saving}
+          inVault={inVault}
           originUrl={originUrl}
           onSave={() => void saveNow(work, false)}
           onDownload={() => void saveNow(work, true)}
@@ -465,6 +469,7 @@ function WorkPage() {
             compact
             originUrl={originUrl}
             saving={saving}
+            inVault={inVault}
             onSave={() => void saveNow(work, false)}
             onDownload={() => void saveNow(work, true)}
             onBookmark={() => void doBookmark(work)}

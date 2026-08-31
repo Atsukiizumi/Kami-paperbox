@@ -20,6 +20,7 @@ import {
 import { useSettings } from "./store";
 import type { VaultMeta, WorkDetail, WorkPage } from "./types";
 import { downloadBlob, patchVaultMeta, saveVaultWork } from "./vault";
+import { rememberVaultKey } from "./vault-index";
 import { patchServerVault, pushVaultToServer } from "./vault-sync";
 
 export type ArchiveWork = {
@@ -116,6 +117,7 @@ export async function archiveWork(
     folderLabel: relativePath ? settings.folderLabel : meta.folderLabel,
   };
   const server = Boolean(await pushVaultToServer(serverMeta, files));
+  rememberVaultKey(work.source, work.id);
   if (opts.download && !folder) {
     for (let i = 0; i < pages.length; i += 1) {
       const item = pages[i];

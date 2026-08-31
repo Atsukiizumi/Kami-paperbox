@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.7.20-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.8.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -19,11 +19,11 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 | | |
 | --- | --- |
-| 浏览 | 顶栏切换图源，一次只看一个站（专心！）。卡片上可直接保存进纸匣；Pixiv 还能点红心。 |
+| 浏览 | 顶栏切换图源，一次只看一个站。卡片上可直接保存进纸匣，已收入会标出来；Pixiv 还能点红心。 |
 | 作品 | 大图可以缩放、拖动、键盘翻页。标题下展示标签，点一下就按当前站点搜索。底下有保存、下载。Pixiv 还能收藏（带着 tag）、红心、关注。 |
 | 搜图 | 上传、拖进去、或者粘贴一张本地图。默认 [SauceNAO](https://saucenao.com/)，也可以换成 [IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。作品页有「搜来源」，超方便。 |
 | 标签 | 五个站都会把 tag 带回来。作品页点标签按该站规则搜索（Pixiv 精确匹配，图站空格=并且、空格写成下划线）。星星可保存成各站自己的快捷标签，浏览页一点就能搜。 |
-| 纸匣 / 队列 | 本机 Node 目录（`.data/vault`：SQLite + 原图），浏览器 IndexedDB 作预览。设置里可选再拷一份到文件夹。想批量就丢进队列。 |
+| 纸匣 / 队列 | 本机 Node 目录（`.data/vault`：SQLite + 原图），浏览器 IndexedDB 作预览。纸匣页用浏览同一套拼版，可按作者筛选。设置里可选再拷一份到文件夹。想批量就丢进队列。 |
 | 账号 | Pixiv / FANBOX 的 Cookie 可以存好几份，顶栏切换。图站不用登录，轻松。 |
 | 代理 | 设置里填 http / socks5，Pixiv、图站、搜图都会乖乖走它。也可以写进 `kami.config.json` 或 `KAMI_PROXY`。 |
 | 过滤 | R-18 默认关闭。Pixiv AI 作画会打 **AI** 标签，可一键过滤。 |
@@ -40,7 +40,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 1. 顶栏下拉，换当前图源。一次只交一个朋友，专心看。
 2. 搜索框丢标签，或者直接粘贴源站链接（作品、用户、`?tags=` 列表都行）。
-3. 卡片封面右下角：保存进纸匣；Pixiv 还可以点红心（要登录）。点卡片本身进作品页。
+3. 卡片封面右下角：保存进纸匣（已收入会打勾）；Pixiv 还可以点红心（要登录）。点卡片本身进作品页。
 4. 作品页的标签可以点，会回到当前站点搜这个词。便利すぎ。
 
 | 图源 | 未登录 | 登录后 | 搜索 |
