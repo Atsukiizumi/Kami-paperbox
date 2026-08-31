@@ -1,8 +1,12 @@
+import type { SiteProfile } from "./site-identity";
+
 export type Account = {
   id: string;
   name: string;
   pixivCookie: string;
   fanboxCookie: string;
+  pixivProfile?: SiteProfile | null;
+  fanboxProfile?: SiteProfile | null;
 };
 
 export function createAccount(name: string, pixivCookie = "", fanboxCookie = ""): Account {
@@ -15,6 +19,8 @@ export function createAccount(name: string, pixivCookie = "", fanboxCookie = "")
     name: name.trim() || "未命名",
     pixivCookie: pixivCookie.trim(),
     fanboxCookie: fanboxCookie.trim(),
+    pixivProfile: null,
+    fanboxProfile: null,
   };
 }
 
@@ -52,8 +58,26 @@ export function migrateLegacySettings(persisted: {
 
 export function accountLabel(account: Account | undefined): string {
   if (!account) return "未登录";
+  const pixiv = account.pixivProfile?.name;
+  const fanbox = account.fanboxProfile?.name;
+  if (pixiv && fanbox && pixiv !== fanbox) return `${pixiv} / ${fanbox}`;
+  if (pixiv) return pixiv;
+  if (fanbox) return fanbox;
   const bits: string[] = [];
   if (account.pixivCookie) bits.push("Pixiv");
   if (account.fanboxCookie) bits.push("FANBOX");
   return bits.length ? `${account.name} · ${bits.join("/")}` : account.name;
+}
+
+export function siteProfile(account: Account | undefined, site: "pixiv" | "fanbox") {
+  if (!account) return undefined;
+  return site === "pixiv" ? account.pixivProfile : account.fanboxProfile;
+}
+
+export function displayName(account: Account | undefined, site: "pixiv" | "fanbox"): string {
+  if (!account) return "未登录";
+  const name = siteProfile(account, site)?.name;
+  if (name) return name;
+  if (site === "pixiv") return account.pixivCookie ? "已登录" : "未登录";
+  return account.fanboxCookie ? "已登录" : "未登录";
 }

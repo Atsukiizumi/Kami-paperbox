@@ -31,6 +31,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+__pycache__/
+*.pyc
 
 # 沙箱 / 预览（不属于发布仓库）
 .grok/
@@ -39,4 +41,3 @@ AGENTS.project.md
 .playwright-cli/
 .node_modules.lock
 startup.sh
-

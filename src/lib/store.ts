@@ -10,6 +10,7 @@ import {
   createAccount,
   migrateLegacySettings,
 } from "./accounts";
+import type { SiteProfile } from "./site-identity";
 
 type Tab = Source;
 
@@ -39,6 +40,8 @@ type SettingsState = {
   removeAccount: (id: string) => void;
   switchAccount: (id: string) => Promise<void>;
   syncSessions: () => Promise<void>;
+  applyProfiles: (profiles: { pixiv?: SiteProfile | null; fanbox?: SiteProfile | null }) => void;
+  refreshIdentities: () => Promise<void>;
 };
 
 function withActiveCookies(
@@ -75,7 +78,7 @@ export const useSettings = create<SettingsState>()(
             return withActiveCookies([acc], acc.id);
           }
           const accounts = s.accounts.map((a) =>
-            a.id === s.activeAccountId ? { ...a, pixivCookie } : a,
+            a.id === s.activeAccountId ? { ...a, pixivCookie, pixivProfile: null } : a,
           );
           return withActiveCookies(accounts, s.activeAccountId);
         }),
@@ -86,7 +89,7 @@ export const useSettings = create<SettingsState>()(
             return withActiveCookies([acc], acc.id);
           }
           const accounts = s.accounts.map((a) =>
-            a.id === s.activeAccountId ? { ...a, fanboxCookie } : a,
+            a.id === s.activeAccountId ? { ...a, fanboxCookie, fanboxProfile: null } : a,
           );
           return withActiveCookies(accounts, s.activeAccountId);
         }),
@@ -133,10 +136,45 @@ export const useSettings = create<SettingsState>()(
           data: { pixiv: pixivCookie, fanbox: fanboxCookie },
         });
       },
+      applyProfiles: (profiles) => {
+        set((s) => {
+          if (!s.activeAccountId) return s;
+          const accounts = s.accounts.map((a) =>
+            a.id === s.activeAccountId
+              ? {
+                  ...a,
+                  pixivProfile: profiles.pixiv !== undefined ? profiles.pixiv : a.pixivProfile,
+                  fanboxProfile: profiles.fanbox !== undefined ? profiles.fanbox : a.fanboxProfile,
+                }
+              : a,
+          );
+          return { accounts };
+        });
+      },
+      refreshIdentities: async () => {
+        const { pixivCookie, fanboxCookie } = get();
+        if (!pixivCookie && !fanboxCookie) {
+          get().applyProfiles({ pixiv: null, fanbox: null });
+          return;
+        }
+        const res = await fetch("/api/whoami", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pixiv: pixivCookie, fanbox: fanboxCookie }),
+        });
+        const data = (await res.json()) as {
+          pixiv?: SiteProfile | null;
+          fanbox?: SiteProfile | null;
+        };
+        get().applyProfiles({
+          pixiv: pixivCookie ? (data.pixiv ?? null) : null,
+          fanbox: fanboxCookie ? (data.fanbox ?? null) : null,
+        });
+      },
     }),
     {
       name: "kami-settings",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
