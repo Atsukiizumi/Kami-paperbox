@@ -183,7 +183,7 @@ export default defineConfig(({ command, isPreview }) => ({
     ],
   },
   ssr: {
-    external: ["puppeteer-core"],
+    external: ["puppeteer-core", "node:sqlite"],
   },
   plugins: [
     pgliteBootstrapPlugin(),

@@ -8,12 +8,13 @@
  *   - getVaultBlob(key, page) 取某一页
  *   - patchVaultMeta(key, { relativePath }) 把磁盘相对路径记到目录上
  *   - 查询（标题/作者/标签/路径）见 vault-query.ts，不要在这里做过滤
- * 为什么用 IndexedDB 而不是 SQLite：
- *   图是 Blob，浏览器原生 IDB 就能存二进制，不必再塞一套 WASM SQL。
- *   元数据很小，getAll 之后用 vault-query 过滤几千条足够。
- *   磁盘文件夹自己不能搜，所以 meta 里记下 relativePath，查询走目录、文件走磁盘。
+ * 为什么用 IndexedDB 而不是只靠 SQLite：
+ *   图是 Blob，浏览器里要能立刻预览；Node 关掉时 PWA 还得能看缓存。
+ *   真正扛量和可查询的目录在服务端 vault-store.server.ts（`.data/vault`）。
+ *   磁盘用户文件夹自己不能搜，所以 meta 里记下 relativePath。
  */
 import type { VaultMeta, WorkDetail, WorkPage } from "./types";
+import { deleteServerVault, fetchServerVaultBlob } from "./vault-sync";
 
 export type { VaultMeta } from "./types";
 
@@ -68,7 +69,9 @@ export async function getVaultMeta(key: string): Promise<VaultMeta | undefined> 
 export async function getVaultBlob(key: string, page: number): Promise<Blob | undefined> {
   const db = await openDb();
   const tx = db.transaction("blobs", "readonly");
-  return (await reqToPromise(tx.objectStore("blobs").get(`${key}#${page}`))) as Blob | undefined;
+  const local = (await reqToPromise(tx.objectStore("blobs").get(`${key}#${page}`))) as Blob | undefined;
+  if (local) return local;
+  return fetchServerVaultBlob(key, page);
 }
 
 export async function saveVaultWork(
@@ -125,6 +128,7 @@ export async function deleteVaultWork(key: string): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+  await deleteServerVault(key);
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

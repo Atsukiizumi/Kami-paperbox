@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.0] — 2026-08-31
+
+对应 [PR #19](https://github.com/Atsukiizumi/Kami-paperbox/pull/19)。
+
+### 新增
+
+- 本机 Node 纸匣目录：元数据用 SQLite（Node 22 自带 `node:sqlite`），原图写在 `.data/vault/files`。收入纸匣会同时推到服务器；纸匣页优先读这份目录。浏览器 IndexedDB 仍作预览缓存，Node 写不了盘时自动回退。
+
 ## [0.6.5] — 2026-08-31
 
 对应 [PR #18](https://github.com/Atsukiizumi/Kami-paperbox/pull/18)。
