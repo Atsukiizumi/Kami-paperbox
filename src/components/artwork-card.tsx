@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Download, ExternalLink, Lock, Play } from "lucide-react";
-import { cardAspect } from "@/lib/card-aspect";
+import { cardAspect, cardLayout, type CardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork } from "@/lib/queue-runner";
 import { isBooru, workOriginUrl } from "@/lib/sites";
@@ -11,13 +11,24 @@ import { Badge } from "./ui/badge";
 import { ProxiedImg } from "./proxied-img";
 import { Skeleton } from "./ui/skeleton";
 
-const SKELETON_ASPECTS = [0.75, 1.2, 0.62, 1.45, 0.8, 0.52, 1.05, 0.68];
+const SKELETONS: { aspect: number; layout: CardLayout }[] = [
+  { aspect: 0.75, layout: "tile" },
+  { aspect: 1.6, layout: "wide" },
+  { aspect: 0.62, layout: "tile" },
+  { aspect: 0.8, layout: "tile" },
+  { aspect: 1.45, layout: "wide" },
+  { aspect: 0.52, layout: "tile" },
+  { aspect: 2.4, layout: "banner" },
+  { aspect: 0.68, layout: "tile" },
+];
 
 export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: number }) {
   const aspect = cardAspect(work.width, work.height);
+  const layout = cardLayout(work.width, work.height);
   return (
     <article
       className="kami-enter group"
+      data-layout={layout}
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
       <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-float)]">
@@ -139,13 +150,17 @@ export function ArtworkGrid({
 export function ArtworkGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div className="kami-masonry">
-      {Array.from({ length: count }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className="rounded-xl"
-          style={{ aspectRatio: SKELETON_ASPECTS[i % SKELETON_ASPECTS.length] }}
-        />
-      ))}
+      {Array.from({ length: count }).map((_, i) => {
+        const item = SKELETONS[i % SKELETONS.length];
+        return (
+          <Skeleton
+            key={i}
+            className="rounded-xl"
+            data-layout={item.layout}
+            style={{ aspectRatio: item.aspect }}
+          />
+        );
+      })}
     </div>
   );
 }

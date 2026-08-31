@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.4.2] — 2026-08-31
+
+对应 [PR #9](https://github.com/Atsukiizumi/Kami-paperbox/pull/9)。
+
+### 变更
+
+- 横图不再挤在单列里显得很小。普通横图会跨两列放大，特别宽的全景会铺满一整行。竖图仍按原比例拼在格子里。
+
+
 ## [0.4.1] — 2026-08-31
 
 对应 [PR #8](https://github.com/Atsukiizumi/Kami-paperbox/pull/8)。
