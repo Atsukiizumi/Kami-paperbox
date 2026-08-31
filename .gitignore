@@ -1,0 +1,42 @@
+# 依赖与构建
+node_modules/
+.output/
+.vercel/
+.nitro/
+dist/
+*.tsbuildinfo
+
+# 本机配置（含代理）。样板见 *.example.*
+kami.config.json
+.env
+.env.*
+!.env.example
+
+# 运行时（代理覆盖、纸匣旁路文件）
+.data/
+
+# 打包产物与本地截图
+artifacts/
+screenshots/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+kami-paperbox.tar.gz
+
+# 日志与系统
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 沙箱 / 预览（不属于发布仓库）
+.grok/
+AGENTS.md
+AGENTS.project.md
+.playwright-cli/
+.node_modules.lock
+startup.sh
+

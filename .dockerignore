@@ -1,0 +1,17 @@
+node_modules
+.git
+.vercel
+.output
+.nitro
+.grok
+.cache
+.tanstack
+screenshots
+artifacts
+dist
+*.log
+npm-debug.log*
+.env
+.env.*
+AGENTS.md
+startup.sh
