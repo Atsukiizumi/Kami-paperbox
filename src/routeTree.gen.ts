@@ -14,9 +14,11 @@ import { Route as QueueRouteImport } from './routes/queue'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VaultRouteImport } from './routes/vault'
+import { Route as ApiLoginBrowserRouteImport } from './routes/api/login-browser'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiProxyRouteImport } from './routes/api/proxy'
 import { Route as ApiReverseSearchRouteImport } from './routes/api/reverse-search'
+import { Route as ApiWhoamiRouteImport } from './routes/api/whoami'
 import { Route as CreatorIdRouteImport } from './routes/creator.$id'
 import { Route as UserIdRouteImport } from './routes/user.$id'
 import { Route as WorkSourceIdRouteImport } from './routes/work.$source.$id'
@@ -46,6 +48,11 @@ const VaultRoute = VaultRouteImport.update({
   path: '/vault',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLoginBrowserRoute = ApiLoginBrowserRouteImport.update({
+  id: '/api/login-browser',
+  path: '/api/login-browser',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaRoute = ApiMediaRouteImport.update({
   id: '/api/media',
   path: '/api/media',
@@ -59,6 +66,11 @@ const ApiProxyRoute = ApiProxyRouteImport.update({
 const ApiReverseSearchRoute = ApiReverseSearchRouteImport.update({
   id: '/api/reverse-search',
   path: '/api/reverse-search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWhoamiRoute = ApiWhoamiRouteImport.update({
+  id: '/api/whoami',
+  path: '/api/whoami',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatorIdRoute = CreatorIdRouteImport.update({
@@ -83,9 +95,11 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/vault': typeof VaultRoute
+  '/api/login-browser': typeof ApiLoginBrowserRoute
   '/api/media': typeof ApiMediaRoute
   '/api/proxy': typeof ApiProxyRoute
   '/api/reverse-search': typeof ApiReverseSearchRoute
+  '/api/whoami': typeof ApiWhoamiRoute
   '/creator/$id': typeof CreatorIdRoute
   '/user/$id': typeof UserIdRoute
   '/work/$source/$id': typeof WorkSourceIdRoute
@@ -96,9 +110,11 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/vault': typeof VaultRoute
+  '/api/login-browser': typeof ApiLoginBrowserRoute
   '/api/media': typeof ApiMediaRoute
   '/api/proxy': typeof ApiProxyRoute
   '/api/reverse-search': typeof ApiReverseSearchRoute
+  '/api/whoami': typeof ApiWhoamiRoute
   '/creator/$id': typeof CreatorIdRoute
   '/user/$id': typeof UserIdRoute
   '/work/$source/$id': typeof WorkSourceIdRoute
@@ -110,9 +126,11 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/vault': typeof VaultRoute
+  '/api/login-browser': typeof ApiLoginBrowserRoute
   '/api/media': typeof ApiMediaRoute
   '/api/proxy': typeof ApiProxyRoute
   '/api/reverse-search': typeof ApiReverseSearchRoute
+  '/api/whoami': typeof ApiWhoamiRoute
   '/creator/$id': typeof CreatorIdRoute
   '/user/$id': typeof UserIdRoute
   '/work/$source/$id': typeof WorkSourceIdRoute
@@ -125,9 +143,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/vault'
+    | '/api/login-browser'
     | '/api/media'
     | '/api/proxy'
     | '/api/reverse-search'
+    | '/api/whoami'
     | '/creator/$id'
     | '/user/$id'
     | '/work/$source/$id'
@@ -138,9 +158,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/vault'
+    | '/api/login-browser'
     | '/api/media'
     | '/api/proxy'
     | '/api/reverse-search'
+    | '/api/whoami'
     | '/creator/$id'
     | '/user/$id'
     | '/work/$source/$id'
@@ -151,9 +173,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/vault'
+    | '/api/login-browser'
     | '/api/media'
     | '/api/proxy'
     | '/api/reverse-search'
+    | '/api/whoami'
     | '/creator/$id'
     | '/user/$id'
     | '/work/$source/$id'
@@ -165,9 +189,11 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   VaultRoute: typeof VaultRoute
+  ApiLoginBrowserRoute: typeof ApiLoginBrowserRoute
   ApiMediaRoute: typeof ApiMediaRoute
   ApiProxyRoute: typeof ApiProxyRoute
   ApiReverseSearchRoute: typeof ApiReverseSearchRoute
+  ApiWhoamiRoute: typeof ApiWhoamiRoute
   CreatorIdRoute: typeof CreatorIdRoute
   UserIdRoute: typeof UserIdRoute
   WorkSourceIdRoute: typeof WorkSourceIdRoute
@@ -210,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VaultRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/login-browser': {
+      id: '/api/login-browser'
+      path: '/api/login-browser'
+      fullPath: '/api/login-browser'
+      preLoaderRoute: typeof ApiLoginBrowserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media': {
       id: '/api/media'
       path: '/api/media'
@@ -229,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/api/reverse-search'
       fullPath: '/api/reverse-search'
       preLoaderRoute: typeof ApiReverseSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/whoami': {
+      id: '/api/whoami'
+      path: '/api/whoami'
+      fullPath: '/api/whoami'
+      preLoaderRoute: typeof ApiWhoamiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/creator/$id': {
@@ -261,9 +301,11 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   VaultRoute: VaultRoute,
+  ApiLoginBrowserRoute: ApiLoginBrowserRoute,
   ApiMediaRoute: ApiMediaRoute,
   ApiProxyRoute: ApiProxyRoute,
   ApiReverseSearchRoute: ApiReverseSearchRoute,
+  ApiWhoamiRoute: ApiWhoamiRoute,
   CreatorIdRoute: CreatorIdRoute,
   UserIdRoute: UserIdRoute,
   WorkSourceIdRoute: WorkSourceIdRoute,
