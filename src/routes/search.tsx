@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DEFAULT_SEARCH_ENGINE,
   MAX_SEARCH_BYTES,
@@ -118,27 +120,22 @@ function SearchPage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-1 rounded-xl bg-surface p-1">
-        {SEARCH_ENGINES.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => chooseEngine(item.id)}
-            className={cn(
-              "h-10 min-w-[5.5rem] flex-1 rounded-lg px-2.5 text-sm font-medium transition-colors",
-              engine === item.id
-                ? "bg-accent text-accent-fg"
-                : "text-muted hover:bg-elevated/80 hover:text-fg",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={engine}
+        onValueChange={(v) => chooseEngine(v as SearchEngine)}
+      >
+        <TabsList>
+          {SEARCH_ENGINES.map((item) => (
+            <TabsTrigger key={item.id} value={item.id}>
+              {item.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      <div
+      <Card
         className={cn(
-          "rounded-xl bg-surface p-5 transition-colors",
+          "transition-colors duration-200",
           dragOver ? "bg-elevated" : "",
         )}
         onDragOver={(e) => {
@@ -201,7 +198,7 @@ function SearchPage() {
             ) : null}
           </div>
         </div>
-      </div>
+      </Card>
 
       {error && items.length === 0 ? (
         <p className="text-sm text-muted">{error}</p>
@@ -254,9 +251,10 @@ function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {
 
   return (
     <li
-      className="kami-enter overflow-hidden rounded-xl bg-surface"
+      className="kami-enter"
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
+      <div className="kami-card-shell">
       {hit.site && hit.workId ? (
         <Link to="/work/$source/$id" params={{ source: hit.site, id: hit.workId }} className="block">
           {inner}
@@ -282,6 +280,7 @@ function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {
           </a>
         </div>
       ) : null}
+      </div>
     </li>
   );
 }

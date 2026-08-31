@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Hint } from "@/components/ui/tooltip";
 
@@ -67,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
+      <header className="kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
         <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
           <Button
             type="button"
@@ -99,10 +100,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           paneWidth,
         )}
       >
+        <ScrollArea className="min-h-0 flex-1">
         <nav className="relative flex flex-col gap-1 p-2">
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-200 ease-out"
+            className="pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out"
             style={{ transform: `translateY(${activeIndex * 3}rem)` }}
           />
           {NAV.map((item) => {
@@ -142,6 +144,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        </ScrollArea>
         {expanded ? (
           <p className="mt-auto px-4 pb-4 text-xs leading-relaxed text-subtle">
             个人备份。请尊重作者版权。

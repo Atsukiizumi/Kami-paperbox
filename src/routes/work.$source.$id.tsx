@@ -430,7 +430,7 @@ function WorkPage() {
           </figure>
         ) : (
           work.pages.map((page, i) => (
-            <figure key={`${page.original}-${i}`} className="rounded-lg bg-surface">
+            <figure key={`${page.original}-${i}`} className="kami-enter rounded-lg bg-surface">
               <button
                 type="button"
                 className="block w-full cursor-zoom-in"

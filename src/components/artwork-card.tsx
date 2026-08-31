@@ -89,7 +89,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
       data-aspect={String(aspect)}
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
-      <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-float)]">
+      <div className="kami-card-shell">
         <div className="relative">
         <Link
           to="/work/$source/$id"
@@ -106,7 +106,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
                 alt={work.title}
                 priority={index < 4}
                 sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
-                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
               />
             ) : (
               <div className="flex size-full items-end bg-surface px-3 py-3">
@@ -146,7 +146,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
             ) : null}
           </div>
         </Link>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end gap-1 p-2 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end gap-1 bg-gradient-to-t from-bg/70 via-bg/20 to-transparent p-2 opacity-100 transition-[opacity,transform] duration-200 ease-out md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
           <CardIconButton
             label="收入纸匣"
             disabled={saving || work.restricted}

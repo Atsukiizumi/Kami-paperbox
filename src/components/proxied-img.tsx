@@ -90,9 +90,9 @@ export function ProxiedImg({
           alt={alt}
           sizes={sizes}
           className={cn(
-            "transition-opacity duration-200 ease-out",
+            "transition-[opacity,filter,transform] duration-500 ease-out",
             cover ? "size-full object-cover" : "mx-auto h-auto w-full object-contain",
-            loaded ? "opacity-100" : "opacity-0",
+            loaded ? "scale-100 opacity-100 blur-0" : "scale-[1.03] opacity-0 blur-md",
             cover ? undefined : className,
           )}
           loading="eager"
