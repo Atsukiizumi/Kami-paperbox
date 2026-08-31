@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where([data-appearance="dark"], [data-appearance="dark"] *));
+
 @theme {
   --color-bg: #0e0d0c;
   --color-surface: #171614;
@@ -34,10 +36,153 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+html[data-theme="washi"][data-appearance="dark"] {
+  --color-bg: #0e0d0c;
+  --color-surface: #171614;
+  --color-elevated: #211f1c;
+  --color-fg: #f3efe8;
+  --color-muted: #9c958c;
+  --color-subtle: #6f6a64;
+  --color-accent: #e8dfd2;
+  --color-accent-fg: #1a1714;
+  --color-danger: #e8a09a;
+  --color-ok: #9cba9a;
+}
+
+html[data-theme="washi"][data-appearance="light"] {
+  --color-bg: #f3ece0;
+  --color-surface: #e8e0d2;
+  --color-elevated: #faf6ee;
+  --color-fg: #12110f;
+  --color-muted: #5c574f;
+  --color-subtle: #8a8378;
+  --color-accent: #1c1a17;
+  --color-accent-fg: #f3ece0;
+  --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+html[data-theme="aosumi"][data-appearance="dark"] {
+  --color-bg: #0d1116;
+  --color-surface: #161c24;
+  --color-elevated: #1e2630;
+  --color-fg: #e6edf4;
+  --color-muted: #8a96a3;
+  --color-subtle: #65707c;
+  --color-accent: #8aa4b8;
+  --color-accent-fg: #0d1116;
+  --color-danger: #d49a94;
+  --color-ok: #8fb09a;
+}
+
+html[data-theme="aosumi"][data-appearance="light"] {
+  --color-bg: #eef2f6;
+  --color-surface: #e2e8ee;
+  --color-elevated: #f7f9fb;
+  --color-fg: #12161c;
+  --color-muted: #55606c;
+  --color-subtle: #7a8692;
+  --color-accent: #3a5368;
+  --color-accent-fg: #eef2f6;
+  --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+html[data-theme="shusha"][data-appearance="dark"] {
+  --color-bg: #140f0e;
+  --color-surface: #1d1715;
+  --color-elevated: #2a201c;
+  --color-fg: #f3ebe4;
+  --color-muted: #9a8b82;
+  --color-subtle: #71665e;
+  --color-accent: #c45c48;
+  --color-accent-fg: #f3ebe4;
+  --color-danger: #e8a09a;
+  --color-ok: #9cba9a;
+}
+
+html[data-theme="shusha"][data-appearance="light"] {
+  --color-bg: #f6eee6;
+  --color-surface: #ece2d6;
+  --color-elevated: #fbf7f2;
+  --color-fg: #1c1412;
+  --color-muted: #6a5c54;
+  --color-subtle: #9a8b82;
+  --color-accent: #a83c2c;
+  --color-accent-fg: #fbf7f2;
+  --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+html[data-theme="songyan"][data-appearance="dark"] {
+  --color-bg: #0b0b0b;
+  --color-surface: #161616;
+  --color-elevated: #222222;
+  --color-fg: #f1f0ec;
+  --color-muted: #979790;
+  --color-subtle: #6d6d68;
+  --color-accent: #d8d4cc;
+  --color-accent-fg: #121210;
+  --color-danger: #d0908c;
+  --color-ok: #8aaa88;
+}
+
+html[data-theme="songyan"][data-appearance="light"] {
+  --color-bg: #f3f2ee;
+  --color-surface: #e7e6e1;
+  --color-elevated: #fcfcfa;
+  --color-fg: #141413;
+  --color-muted: #5e5e59;
+  --color-subtle: #8a8a84;
+  --color-accent: #1a1a18;
+  --color-accent-fg: #f3f2ee;
+  --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+html[data-theme="koke"][data-appearance="dark"] {
+  --color-bg: #10140e;
+  --color-surface: #191e16;
+  --color-elevated: #242a1e;
+  --color-fg: #ecefe4;
+  --color-muted: #92988a;
+  --color-subtle: #6a7064;
+  --color-accent: #8b9a70;
+  --color-accent-fg: #10140e;
+  --color-danger: #d49a94;
+  --color-ok: #8b9a70;
+}
+
+html[data-theme="koke"][data-appearance="light"] {
+  --color-bg: #f0f2e8;
+  --color-surface: #e4e7d8;
+  --color-elevated: #f7f8f0;
+  --color-fg: #181c14;
+  --color-muted: #5c6354;
+  --color-subtle: #8a9080;
+  --color-accent: #4a5836;
+  --color-accent-fg: #f0f2e8;
+  --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+html[data-appearance="dark"] {
+  color-scheme: dark;
+}
+
+html[data-appearance="light"] {
+  color-scheme: light;
+  --shadow-border: 0 0 0 1px color-mix(in oklab, var(--color-fg) 8%, transparent);
+  --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 10%, transparent),
+    0 12px 32px color-mix(in oklab, var(--color-fg) 10%, transparent);
+  --shadow-float: 0 18px 40px color-mix(in oklab, var(--color-fg) 12%, transparent);
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color-scheme: dark;
   }
 
   html,

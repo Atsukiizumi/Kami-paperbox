@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
 import { SiteAvatar } from "@/components/site-avatar";
+import { ThemeSection } from "@/components/theme-picker";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -278,6 +279,8 @@ function SettingsPage() {
       <header>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">设置</h1>
       </header>
+
+      <ThemeSection />
 
       <section className="space-y-3 rounded-xl bg-surface p-5">
         <h2 className="text-sm font-medium">账号</h2>

@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.4.0] — 2026-08-31
+
+对应 [PR #7](https://github.com/Atsukiizumi/Kami-paperbox/pull/7)。
+
+### 新增
+
+- 设置和顶栏可以切换外观：浅色、深色，或跟随系统。
+- 内置五套纸匣主题，每套都有深浅配色：和纸、青墨、朱砂、松烟、苔色。默认仍是和纸深色。
+
 ## [0.3.3] — 2026-08-31
 
 对应 [PR #6](https://github.com/Atsukiizumi/Kami-paperbox/pull/6)。

@@ -48,7 +48,7 @@ export function AccountSwitcher() {
         <button
           type="button"
           className={cn(
-            "ml-auto flex h-10 max-w-56 items-center gap-2 rounded-lg px-2 text-xs text-muted",
+            "flex h-10 max-w-56 items-center gap-2 rounded-lg px-2 text-xs text-muted",
             "transition-colors hover:bg-elevated hover:text-fg",
           )}
         >
