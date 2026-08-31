@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.6.0] — 2026-08-31
+
+对应 [PR #13](https://github.com/Atsukiizumi/Kami-paperbox/pull/13)。
+
+### 变更
+
+- 「登录 Pixiv / FANBOX」不再往本机桌面弹一个你看不见的 Chrome。后端打开官方登录页，把画面中转到设置里的窗口，点、打字都在这个窗口里完成，登进去再把 Cookie 收回来。
+- 网页预览、Docker、没有桌面的环境也能登录。仍然可以用剪贴板粘贴 PHPSESSID、Cookie 导出 JSON 或 cookies.txt。
+
 ## [0.5.1] — 2026-08-31
 
 对应 [PR #12](https://github.com/Atsukiizumi/Kami-paperbox/pull/12)。

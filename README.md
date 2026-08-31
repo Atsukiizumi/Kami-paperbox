@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.5.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.6.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -90,16 +90,16 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 ### 账号（仅 Pixiv / FANBOX）
 
-本机桌面运行时，设置里的「浏览器登录」会拉起系统 Chrome / Edge，打开 **Pixiv / FANBOX 官方登录页**。密码只在官方站点输入。窗口会等到你真正登进去（Pixiv 的 `PHPSESSID` 变成 `用户ID_令牌`）再关掉——登录页一打开就会发的访客 Cookie 不算。Docker 或没有桌面时，请改用手贴 Cookie。
+设置里的「登录 Pixiv / FANBOX」会由后端打开 **官方登录页**，把画面中转到纸匣窗口里。密码只打在官方站点上，登进去之后会把 `PHPSESSID` / `FANBOXSESSID` 收回来（访客 Cookie 不算）。网页预览和 Docker 也能这样登录。不想走窗口的话，可以手贴 Cookie。
 
 手贴步骤：
 
 1. 在浏览器登录 [pixiv.net](https://www.pixiv.net) 或 [fanbox.cc](https://www.fanbox.cc)
 2. 打开开发者工具 → Application / 存储 → Cookies
-3. 复制 `PHPSESSID`（Pixiv）或 `FANBOXSESSID`（FANBOX）的值。Pixiv 已登录的值形如 `12345678_后面一串`
+3. 复制 `PHPSESSID`（Pixiv）或 `FANBOXSESSID`（FANBOX）的值。Pixiv 已登录的值形如 `12345678_后面一串`。Cookie-Editor JSON、Netscape cookies.txt 或整段 Cookie 头也可以直接粘。
 4. 在设置里新建或选中账号，粘贴后保存
 
-公开榜单、图站和免费投稿不填凭证也可以用。找不到浏览器时，可设置环境变量 `KAMI_CHROME` 指向 `chrome.exe` / `msedge.exe`。如果配置了代理，弹出的登录窗口也会走同一代理。
+公开榜单、图站和免费投稿不填凭证也可以用。找不到浏览器时，可设置环境变量 `KAMI_CHROME` 指向 `chrome.exe` / `msedge.exe`。如果配置了代理，登录中转也会走同一代理。
 
 ### 代理
 
