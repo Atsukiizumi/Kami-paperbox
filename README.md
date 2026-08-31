@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.3.2-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.3.3-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 

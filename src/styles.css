@@ -95,6 +95,38 @@
   animation: kami-enter 420ms var(--ease-out) both;
 }
 
+.kami-masonry {
+  column-count: 2;
+  column-gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .kami-masonry {
+    column-count: 3;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kami-masonry {
+    column-count: 4;
+  }
+}
+
+@media (min-width: 1280px) {
+  .kami-masonry {
+    column-count: 5;
+  }
+}
+
+.kami-masonry > * {
+  -webkit-column-break-inside: avoid;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

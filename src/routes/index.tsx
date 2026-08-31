@@ -3,12 +3,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArtworkGrid } from "@/components/artwork-card";
+import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { parseUserInput } from "@/lib/parse-input";
 import {
   PIXIV_PERSONAL_FEEDS,
@@ -512,11 +511,7 @@ function Home() {
       ) : null}
 
       {loading && items.length === 0 ? (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[3/4] rounded-lg" />
-          ))}
-        </div>
+        <ArtworkGridSkeleton count={8} />
       ) : (
         <ArtworkGrid
           items={items}
