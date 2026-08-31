@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { masonryColumns, masonrySpan, packMasonry } from "@/lib/masonry-flow";
+import { MASONRY_CAPTION, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
 import { cn } from "@/lib/utils";
 
 function readGap(root: HTMLElement): number {
@@ -15,6 +15,15 @@ function readGap(root: HTMLElement): number {
   return n;
 }
 
+function readAspect(el: HTMLElement): number {
+  const raw = Number.parseFloat(el.dataset.aspect || "");
+  if (Number.isFinite(raw) && raw > 0) return raw;
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  if (w > 0 && h > 0) return w / Math.max(1, h - MASONRY_CAPTION);
+  return 0.75;
+}
+
 function packBoard(root: HTMLElement) {
   const children = [...root.children] as HTMLElement[];
   const width = root.clientWidth;
@@ -25,32 +34,23 @@ function packBoard(root: HTMLElement) {
   }
 
   const gap = readGap(root);
-  const columns = masonryColumns(width, gap);
-  const spans = children.map((el) => masonrySpan(el.dataset.layout, columns));
-  const colWidth = (width - gap * (columns - 1)) / columns;
+  const hasCaption = children.some((el) => el.querySelector(".kami-card-media"));
+  const packed = packJustified({
+    containerWidth: width,
+    gap,
+    items: children.map((el) => ({ aspect: readAspect(el) })),
+    idealHeight: masonryRowHeight(width),
+    captionBand: hasCaption ? MASONRY_CAPTION : 0,
+  });
 
   root.setAttribute("data-packed", "");
-  children.forEach((el, i) => {
-    const span = spans[i] ?? 1;
-    el.style.setProperty("--masonry-w", `${colWidth * span + gap * (span - 1)}px`);
-  });
-
-  const packed = packMasonry({
-    containerWidth: width,
-    columns,
-    gap,
-    items: children.map((el, i) => ({
-      span: spans[i] ?? 1,
-      height: el.offsetHeight,
-    })),
-  });
-
   children.forEach((el, i) => {
     const place = packed.placements[i];
     if (!place) return;
     el.style.setProperty("--masonry-x", `${place.x}px`);
     el.style.setProperty("--masonry-y", `${place.y}px`);
     el.style.setProperty("--masonry-w", `${place.width}px`);
+    el.style.setProperty("--masonry-media-h", `${place.height}px`);
   });
   root.style.setProperty("--masonry-h", `${packed.height}px`);
 }
@@ -91,8 +91,8 @@ export function MasonryBoard({
     });
     ro.observe(root);
 
-    const mo = new MutationObserver(run);
-    mo.observe(root, { childList: true });
+    const mo = new MutationObserver(schedule);
+    mo.observe(root, { childList: true, subtree: false });
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);

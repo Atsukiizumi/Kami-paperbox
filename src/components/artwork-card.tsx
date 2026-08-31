@@ -24,12 +24,14 @@ const SKELETONS: { aspect: number; layout: CardLayout }[] = [
 ];
 
 export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: number }) {
-  const aspect = cardAspect(work.width, work.height);
-  const layout = cardLayout(work.width, work.height);
+  const hasMedia = Boolean(work.thumb);
+  const aspect = hasMedia ? cardAspect(work.width, work.height) : 5 / 3;
+  const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   return (
     <article
       className="kami-enter group"
       data-layout={layout}
+      data-aspect={String(aspect)}
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
       <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-float)]">
@@ -38,12 +40,23 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
           params={{ source: work.source, id: work.id }}
           className="block"
         >
-          <div className="relative overflow-hidden bg-elevated" style={{ aspectRatio: aspect }}>
-            <ProxiedImg
-              src={work.thumb}
-              alt={work.title}
-              className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-            />
+          <div
+            className="kami-card-media relative overflow-hidden bg-elevated"
+            style={{ aspectRatio: aspect }}
+          >
+            {hasMedia ? (
+              <ProxiedImg
+                src={work.thumb}
+                alt={work.title}
+                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+              />
+            ) : (
+              <div className="flex size-full items-end bg-surface px-3 py-3">
+                <p className="line-clamp-5 text-sm leading-relaxed text-muted">
+                  {work.excerpt || work.title || "无封面"}
+                </p>
+              </div>
+            )}
             {work.restricted ? (
               <div className="absolute inset-0 flex items-center justify-center bg-overlay">
                 <Lock className="size-6 text-fg" />
@@ -75,7 +88,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
             ) : null}
           </div>
         </Link>
-        <div className="flex items-start gap-1 px-3 py-2">
+        <div className="flex h-[4.75rem] items-start gap-1 overflow-hidden px-3 py-2">
           <Link
             to="/work/$source/$id"
             params={{ source: work.source, id: work.id }}
@@ -83,14 +96,14 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
           >
             <h3 className="line-clamp-1 text-sm font-medium tracking-tight text-fg">{work.title || "无题"}</h3>
             <p className="line-clamp-1 text-xs text-muted">{work.author}</p>
-            {work.tags.length > 0 ? (
-              <p className="line-clamp-1 text-xs text-subtle">
-                {work.tags
-                  .slice(0, 3)
-                  .map((t) => t.replace(/_/g, " "))
-                  .join(" · ")}
-              </p>
-            ) : null}
+            <p className="line-clamp-1 text-xs text-subtle">
+              {work.tags.length > 0
+                ? work.tags
+                    .slice(0, 3)
+                    .map((t) => t.replace(/_/g, " "))
+                    .join(" · ")
+                : "\u00a0"}
+            </p>
           </Link>
           <button
             type="button"
@@ -111,12 +124,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
             rel="noreferrer"
             title="原始链接"
             aria-label="打开原始链接"
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg text-muted",
-              "transition-[opacity,transform,background-color,color] duration-150",
-              "hover:bg-elevated hover:text-fg active:scale-[0.96]",
-              "opacity-100 md:opacity-0 md:group-hover:opacity-100",
-            )}
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted transition-[opacity,transform,background-color,color] duration-150 hover:bg-elevated hover:text-fg active:scale-[0.96] opacity-100 md:opacity-0 md:group-hover:opacity-100"
             onClick={(e) => e.stopPropagation()}
           >
             <ExternalLink className="size-4" />
@@ -158,6 +166,7 @@ export function ArtworkGridSkeleton({ count = 8 }: { count?: number }) {
             key={i}
             className="rounded-xl"
             data-layout={item.layout}
+            data-aspect={String(item.aspect)}
             style={{ aspectRatio: item.aspect }}
           />
         );
