@@ -9,6 +9,25 @@ export type BrowserSession = {
   fanbox: string;
 };
 
+export type LoginSite = "pixiv" | "fanbox";
+
+export type LoginJobStatus = "idle" | "launching" | "waiting" | "done" | "error";
+
+export type LoginJobSnapshot = {
+  status: LoginJobStatus;
+  site: LoginSite | null;
+  error: string | null;
+  chrome: string | null;
+  pixiv: string;
+  fanbox: string;
+  pixivProfile: { id: string; name: string; avatar?: string } | null;
+  fanboxProfile: { id: string; name: string; avatar?: string } | null;
+};
+
+export function loginJobBusy(status: LoginJobStatus): boolean {
+  return status === "launching" || status === "waiting";
+}
+
 export function pickSession(cookies: CookieLike[]): BrowserSession {
   let pixiv = "";
   let fanbox = "";
@@ -38,6 +57,8 @@ export function chromeCandidates(platform = process.platform, env: NodeJS.Proces
       `${pf}\\Google\\Chrome\\Application\\chrome.exe`,
       `${pf86}\\Google\\Chrome\\Application\\chrome.exe`,
       local ? `${local}\\Google\\Chrome\\Application\\chrome.exe` : "",
+      local ? `${local}\\Google\\Chrome Beta\\Application\\chrome.exe` : "",
+      local ? `${local}\\Google\\Chrome SxS\\Application\\chrome.exe` : "",
       `${pf}\\Microsoft\\Edge\\Application\\msedge.exe`,
       `${pf86}\\Microsoft\\Edge\\Application\\msedge.exe`,
       local ? `${local}\\Microsoft\\Edge\\Application\\msedge.exe` : "",

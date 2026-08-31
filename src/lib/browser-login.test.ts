@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chromeCandidates, pickSession } from "./browser-login.ts";
+import { chromeCandidates, loginJobBusy, pickSession } from "./browser-login.ts";
 
 test("picks pixiv and fanbox session cookies", () => {
   const got = pickSession([
@@ -30,4 +30,13 @@ test("windows chrome candidates include edge", () => {
   });
   assert.equal(list[0], "D:\\Chrome\\chrome.exe");
   assert.ok(list.some((p) => p.endsWith("msedge.exe")));
+  assert.ok(list.some((p) => p.includes("Chrome SxS")));
+});
+
+test("login job busy flags", () => {
+  assert.equal(loginJobBusy("idle"), false);
+  assert.equal(loginJobBusy("done"), false);
+  assert.equal(loginJobBusy("error"), false);
+  assert.equal(loginJobBusy("launching"), true);
+  assert.equal(loginJobBusy("waiting"), true);
 });
