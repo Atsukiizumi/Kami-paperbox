@@ -32,6 +32,7 @@ import type {
   WorkPage,
 } from "./types";
 import { outboundFetch } from "./curl-fetch.server";
+import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -109,6 +110,7 @@ async function upstreamJson(
   };
   if (opts.origin === "pixiv") {
     headers.Referer = "https://www.pixiv.net/";
+    withPixivUserId(headers, opts.cookie);
   } else {
     headers.Referer = "https://www.fanbox.cc/";
     headers.Origin = "https://www.fanbox.cc";
@@ -124,20 +126,6 @@ async function upstreamJson(
     );
   }
   return res.json();
-}
-
-function pixivCookieHeader(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const v = raw.trim();
-  if (!v) return undefined;
-  return v.toLowerCase().startsWith("phpsessid=") ? v : `PHPSESSID=${v}`;
-}
-
-function fanboxCookieHeader(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const v = raw.trim();
-  if (!v) return undefined;
-  return v.toLowerCase().startsWith("fanboxsessid=") ? v : `FANBOXSESSID=${v}`;
 }
 
 function asRecord(v: unknown): Record<string, unknown> {
@@ -899,7 +887,10 @@ export async function fetchMediaResponse(
   if (host.endsWith("pximg.net")) {
     headers.Referer = "https://www.pixiv.net/";
     const c = pixivCookieHeader(cookies.pixiv);
-    if (c) headers.Cookie = c;
+    if (c) {
+      headers.Cookie = c;
+      withPixivUserId(headers, c);
+    }
   } else if (host === "yande.re" || host.endsWith(".yande.re")) {
     headers.Referer = "https://yande.re/";
   } else if (host.endsWith("konachan.com") || host.endsWith("konachan.net")) {

@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  canShowLoginWindow,
   chromeCandidates,
   loginJobBusy,
   pickSession,
@@ -10,14 +11,17 @@ import {
 } from "./browser-login";
 import { getActiveProxy } from "./proxy.server";
 import { parseProxyUrl } from "./proxy-url";
+import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity";
 import { resolveIdentities } from "./site-identity.server";
-import type { SiteProfile } from "./site-identity";
 
 type PageLike = {
   authenticate: (c: { username: string; password: string }) => Promise<void>;
   goto: (url: string, opts?: { waitUntil?: "domcontentloaded"; timeout?: number }) => Promise<unknown>;
   createCDPSession: () => Promise<{ send: (method: string) => Promise<unknown> }>;
   bringToFront: () => Promise<void>;
+  url: () => string;
+  content: () => Promise<string>;
+  evaluate: (pageFunction: () => unknown) => Promise<unknown>;
 };
 
 type BrowserLike = {
@@ -122,7 +126,78 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
   );
 }
 
+function isPixivLoginUrl(url: string): boolean {
+  return /accounts\.pixiv\.net/i.test(url) || /pixiv\.net\/login/i.test(url);
+}
+
+async function readCookies(page: PageLike): Promise<ReturnType<typeof pickSession>> {
+  const cdp = await page.createCDPSession();
+  const all = (await cdp.send("Network.getAllCookies")) as {
+    cookies?: { name: string; value: string; domain?: string }[];
+  };
+  return pickSession(all.cookies ?? []);
+}
+
+async function profileFromPixivPage(page: PageLike): Promise<SiteProfile | null> {
+  try {
+    const url = page.url();
+    if (isPixivLoginUrl(url)) return null;
+    const html = await page.content();
+    const fromHtml = parsePixivMe({}, html);
+    if (fromHtml?.id && fromHtml.name) return fromHtml;
+    const json = await page.evaluate(async () => {
+      const res = await fetch("https://www.pixiv.net/touch/ajax/user/self/status", {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      return res.json();
+    });
+    return parsePixivMe(json);
+  } catch {
+    return null;
+  }
+}
+
+async function profileFromFanboxPage(page: PageLike): Promise<SiteProfile | null> {
+  try {
+    const html = await page.content();
+    const fromHtml = parseFanboxMe({}, html);
+    if (fromHtml?.id && fromHtml.name) return fromHtml;
+    const json = await page.evaluate(async () => {
+      const res = await fetch("https://api.fanbox.cc/user.info", {
+        credentials: "include",
+        headers: { Accept: "application/json", Origin: "https://www.fanbox.cc" },
+      });
+      return res.json();
+    });
+    return parseFanboxMe(json);
+  } catch {
+    return null;
+  }
+}
+
+async function confirmPixivLogin(page: PageLike, pixiv: string): Promise<SiteProfile | null> {
+  if (isPixivLoginUrl(page.url())) {
+    try {
+      await page.goto("https://www.pixiv.net/", { waitUntil: "domcontentloaded", timeout: 20_000 });
+    } catch {
+      return null;
+    }
+  }
+  const fromPage = await profileFromPixivPage(page);
+  if (fromPage) return fromPage;
+  try {
+    const remote = await resolveIdentities({ pixiv, fanbox: "" });
+    return remote.pixiv;
+  } catch {
+    return null;
+  }
+}
+
 async function runJob(site: LoginSite): Promise<void> {
+  if (!canShowLoginWindow()) {
+    throw new Error("当前环境没有桌面，弹不出 Chrome / Edge。请在本机运行纸匣，或改用手贴 Cookie。");
+  }
   const profile = mkdtempSync(join(tmpdir(), "kami-login-"));
   let browser: BrowserLike | undefined;
   try {
@@ -153,46 +228,73 @@ async function runJob(site: LoginSite): Promise<void> {
     } catch {
       /* window might still be in the taskbar */
     }
-    const cdp = await page.createCDPSession();
 
     const deadline = Date.now() + 4 * 60 * 1000;
     let pixiv = "";
     let fanbox = "";
+    let pixivProfile: SiteProfile | null = null;
+    let fanboxProfile: SiteProfile | null = null;
     let triedFanbox = site === "fanbox";
+    let pixivConfirmed = false;
+    let openedPixivHome = false;
+    let pixivSeenAt = 0;
     while (Date.now() < deadline && !stop) {
       const alive = typeof browser.connected === "boolean" ? browser.connected : true;
       if (!alive) throw new Error("登录窗口已关闭");
-      const all = (await cdp.send("Network.getAllCookies")) as {
-        cookies?: { name: string; value: string; domain?: string }[];
-      };
-      const picked = pickSession(all.cookies ?? []);
+      const picked = await readCookies(page);
       pixiv = picked.pixiv || pixiv;
       fanbox = picked.fanbox || fanbox;
-      if (site === "pixiv" && pixiv && !triedFanbox) {
+
+      if (site === "pixiv" && pixiv && !pixivConfirmed) {
+        if (!pixivSeenAt) pixivSeenAt = Date.now();
+        if (!openedPixivHome && isPixivLoginUrl(page.url())) {
+          openedPixivHome = true;
+          try {
+            await page.goto("https://www.pixiv.net/", { waitUntil: "domcontentloaded", timeout: 20_000 });
+          } catch {
+            openedPixivHome = false;
+          }
+        }
+        pixivProfile = (await profileFromPixivPage(page)) ?? pixivProfile;
+        if (!pixivProfile) pixivProfile = await confirmPixivLogin(page, pixiv);
+        if (pixivProfile?.id || Date.now() - pixivSeenAt > 8_000) pixivConfirmed = true;
+      }
+
+      if (site === "pixiv" && pixivConfirmed && !triedFanbox) {
         triedFanbox = true;
         try {
           await page.goto("https://www.fanbox.cc/", { waitUntil: "domcontentloaded", timeout: 20_000 });
+          const after = await readCookies(page);
+          fanbox = after.fanbox || fanbox;
+          fanboxProfile = (await profileFromFanboxPage(page)) ?? fanboxProfile;
         } catch {
           /* FANBOX is optional */
         }
-        continue;
       }
-      if (site === "pixiv" && pixiv) break;
+
+      if (site === "fanbox" && fanbox && !fanboxProfile) {
+        fanboxProfile = await profileFromFanboxPage(page);
+      }
+
+      if (site === "pixiv" && pixivConfirmed) break;
       if (site === "fanbox" && fanbox) break;
       await new Promise((r) => setTimeout(r, 900));
     }
     if (stop) throw new Error("已取消登录窗口");
-    if (site === "pixiv" && !pixiv) throw new Error("超时未检测到 Pixiv 登录。请在弹出的官方页面完成登录。");
-    if (site === "fanbox" && !fanbox) throw new Error("超时未检测到 FANBOX 登录。请在弹出的官方页面完成登录。");
-
-    let pixivProfile: SiteProfile | null = null;
-    let fanboxProfile: SiteProfile | null = null;
-    try {
-      const profiles = await resolveIdentities({ pixiv, fanbox });
-      pixivProfile = profiles.pixiv;
-      fanboxProfile = profiles.fanbox;
-    } catch {
-      /* cookies are enough */
+    if (site === "pixiv" && !pixiv) {
+      throw new Error("超时未检测到 Pixiv 登录。请在弹出的官方页面完成登录（访客 Cookie 不算）。");
+    }
+    if (site === "fanbox" && !fanbox) {
+      throw new Error("超时未检测到 FANBOX 登录。请在弹出的官方页面完成登录。");
+    }
+    if (!pixivProfile || (fanbox && !fanboxProfile)) {
+      try {
+        const profiles = await resolveIdentities({ pixiv, fanbox });
+        pixivProfile = pixivProfile ?? profiles.pixiv;
+        fanboxProfile = fanboxProfile ?? profiles.fanbox;
+      } catch {
+        /* logged-in cookie is enough */
+      }
     }
     job = {
       ...job,

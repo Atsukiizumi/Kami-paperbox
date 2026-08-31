@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
+import { isPixivLoggedInSession } from "@/lib/browser-login";
 import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
@@ -166,6 +167,10 @@ function SettingsPage() {
 
   async function persist() {
     try {
+      if (pixivCookie && !isPixivLoggedInSession(pixivCookie)) {
+        toast.error("当前 Pixiv Cookie 不是已登录会话。需要形如 12345678_令牌，没有下划线的是访客 Cookie。");
+        return;
+      }
       await syncSessions();
       await refreshIdentities();
       toast.success("登录状态已保存在这台设备");
@@ -247,6 +252,10 @@ function SettingsPage() {
     pixivProfile?: { id: string; name: string; avatar?: string } | null;
     fanboxProfile?: { id: string; name: string; avatar?: string } | null;
   }) {
+    if (data.pixiv && !isPixivLoggedInSession(data.pixiv)) {
+      toast.error("抓到的是访客 Cookie，还没有真正登录。请在弹出窗口里完成 Pixiv 登录。");
+      return;
+    }
     if (data.pixiv) setPixivCookie(data.pixiv);
     if (data.fanbox) setFanboxCookie(data.fanbox);
     applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
@@ -426,8 +435,8 @@ function SettingsPage() {
               ) : null}
             </div>
             <p className="text-xs leading-relaxed text-subtle">
-              网页无法嵌入 Pixiv 登录框，也不能跨站读取 Cookie。会在本机弹出 Chrome / Edge
-              打开官方登录页；密码只打在官方站点上。登录成功后只把会话 Cookie 写回当前账号。找不到窗口的话，看任务栏。
+              网页嵌不进 Pixiv 登录框。会在本机弹出 Chrome / Edge 打开官方页，等你真正登进去再抓会话。没登录时 Pixiv
+              也会发一枚临时 Cookie，那种不算数，窗口会一直留着。找不到窗口就看任务栏；没有桌面时请改用手贴。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>
@@ -516,6 +525,7 @@ function SettingsPage() {
           <li>在电脑浏览器登录 pixiv.net 或 fanbox.cc。</li>
           <li>打开开发者工具 → Application / 存储 → Cookies。</li>
           <li>复制 PHPSESSID 或 FANBOXSESSID 的值，粘贴到当前账号。</li>
+          <li>Pixiv 已登录的 PHPSESSID 形如 12345678_后面一串，没有下划线的是访客 Cookie，不能用。</li>
           <li>Cookie 只存在你的浏览器里，不会进数据库。</li>
         </ol>
       </section>

@@ -17,24 +17,30 @@ export function cleanAvatarUrl(raw: unknown): string | undefined {
 export function parsePixivMe(json: unknown, html = ""): SiteProfile | null {
   const rec = asRecord(json);
   const body = asRecord(rec.body);
+  if (isExplicitlyLoggedOut(body) || isExplicitlyLoggedOut(rec)) return null;
   const status = asRecord(body.user_status ?? body.userStatus ?? body.user ?? body);
-  const id = str(status.user_id ?? status.userId ?? status.id ?? rec.user_id);
-  const name = str(status.user_name ?? status.userName ?? status.name ?? status.pixivId);
-  const img = status.profile_img ?? status.profileImg;
-  const avatar = cleanAvatarUrl(
-    typeof img === "string"
-      ? img
-      : asRecord(img).main ?? asRecord(img).medium ?? status.imageBig ?? status.image ?? status.iconUrl,
+  if (isExplicitlyLoggedOut(status)) return null;
+  const fromJson = profileFromFields(
+    status.user_id ?? status.userId ?? status.id ?? rec.user_id,
+    status.user_name ?? status.userName ?? status.name ?? status.pixivId,
+    avatarFrom(status),
   );
-  if (id && name) return { id, name, avatar };
+  if (fromJson) return fromJson;
+
+  const userData = extractJsonObject(html, "userData") ?? extractMetaGlobalUser(html);
+  const fromBlob = profileFromFields(
+    asRecord(userData).id ?? asRecord(userData).userId,
+    asRecord(userData).name ?? asRecord(userData).pixivId,
+    asRecord(userData).profileImg ?? asRecord(userData).imageBig ?? asRecord(userData).image,
+  );
+  if (fromBlob) return fromBlob;
 
   const htmlId =
-    html.match(/userData"\s*[:=]\s*\{[^}]*?"id"\s*:\s*"(\d+)"/)?.[1] ||
     html.match(/pixiv\.user\.id\s*=\s*"(\d+)"/)?.[1] ||
     html.match(/"user_id"\s*:\s*"(\d+)"/)?.[1];
   const htmlName =
-    html.match(/userData"\s*[:=]\s*\{[^}]*?"name"\s*:\s*"([^"]+)"/)?.[1] ||
-    html.match(/pixiv\.user\.name\s*=\s*"([^"]+)"/)?.[1];
+    html.match(/pixiv\.user\.name\s*=\s*"([^"]+)"/)?.[1] ||
+    html.match(/"user_name"\s*:\s*"([^"]+)"/)?.[1];
   const htmlAvatar = cleanAvatarUrl(
     html.match(/"profileImg"\s*:\s*"(https:[^"]+)"/)?.[1] ||
       html.match(/"imageBig"\s*:\s*"(https:[^"]+)"/)?.[1] ||
@@ -53,6 +59,14 @@ export function parseFanboxMe(json: unknown, html = ""): SiteProfile | null {
   const avatar = cleanAvatarUrl(user.iconUrl ?? user.avatarUrl ?? user.icon ?? asRecord(user.iconUrl).url);
   if (id && name) return { id, name, avatar };
 
+  const htmlUser = extractJsonObject(html, "user");
+  const fromBlob = profileFromFields(
+    asRecord(htmlUser).userId ?? asRecord(htmlUser).id,
+    asRecord(htmlUser).name,
+    asRecord(htmlUser).iconUrl ?? asRecord(htmlUser).avatarUrl,
+  );
+  if (fromBlob) return fromBlob;
+
   const htmlId = html.match(/"userId"\s*:\s*"(\d+)"/)?.[1];
   const htmlName = html.match(/"name"\s*:\s*"([^"]+)"/)?.[1];
   const htmlAvatar = cleanAvatarUrl(
@@ -60,6 +74,87 @@ export function parseFanboxMe(json: unknown, html = ""): SiteProfile | null {
   );
   if (htmlId && htmlName) return { id: htmlId, name: decodeJsonString(htmlName), avatar: htmlAvatar };
   return null;
+}
+
+function isExplicitlyLoggedOut(rec: Record<string, unknown>): boolean {
+  const flag = rec.is_login ?? rec.isLogin ?? rec.is_logged_in ?? rec.isLoggedIn;
+  return flag === false || flag === 0 || flag === "false";
+}
+
+function avatarFrom(status: Record<string, unknown>): unknown {
+  const img = status.profile_img ?? status.profileImg;
+  if (typeof img === "string") return img;
+  return asRecord(img).main ?? asRecord(img).medium ?? status.imageBig ?? status.image ?? status.iconUrl;
+}
+
+function profileFromFields(idRaw: unknown, nameRaw: unknown, avatarRaw: unknown): SiteProfile | null {
+  const id = str(idRaw);
+  const name = str(nameRaw);
+  if (!id || id === "0" || !name) return null;
+  return { id, name, avatar: cleanAvatarUrl(avatarRaw) };
+}
+
+function extractMetaGlobalUser(html: string): unknown {
+  const quoted =
+    html.match(/id="meta-global-data"[^>]*content='([^']+)'/)?.[1] ||
+    html.match(/id="meta-global-data"[^>]*content="([^"]+)"/)?.[1];
+  if (!quoted) return null;
+  try {
+    const parsed = JSON.parse(decodeHtmlEntities(quoted)) as unknown;
+    return asRecord(parsed).userData;
+  } catch {
+    return null;
+  }
+}
+
+function extractJsonObject(source: string, key: string): unknown {
+  const needle = `"${key}"`;
+  let from = 0;
+  while (from < source.length) {
+    const idx = source.indexOf(needle, from);
+    if (idx < 0) return null;
+    const colon = source.indexOf(":", idx + needle.length);
+    if (colon < 0) return null;
+    const start = source.indexOf("{", colon);
+    if (start < 0 || start - colon > 8) {
+      from = idx + needle.length;
+      continue;
+    }
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < source.length; i++) {
+      const c = source[i];
+      if (inString) {
+        if (escape) escape = false;
+        else if (c === "\\") escape = true;
+        else if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') inString = true;
+      else if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(source.slice(start, i + 1)) as unknown;
+          } catch {
+            from = i + 1;
+            break;
+          }
+        }
+      }
+    }
+    from = idx + needle.length;
+  }
+  return null;
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/"/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&/g, "&");
 }
 
 function asRecord(v: unknown): Record<string, unknown> {

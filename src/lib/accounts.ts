@@ -78,6 +78,10 @@ export function displayName(account: Account | undefined, site: "pixiv" | "fanbo
   if (!account) return "未登录";
   const name = siteProfile(account, site)?.name;
   if (name) return name;
-  if (site === "pixiv") return account.pixivCookie ? "已登录" : "未登录";
+  if (site === "pixiv") {
+    if (!account.pixivCookie) return "未登录";
+    const value = account.pixivCookie.trim().replace(/^PHPSESSID=/i, "");
+    return /^\d{2,12}_[A-Za-z0-9]{16,}$/.test(value) ? "已登录" : "会话无效";
+  }
   return account.fanboxCookie ? "已登录" : "未登录";
 }

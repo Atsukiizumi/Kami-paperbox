@@ -15,11 +15,32 @@ test("keeps pixiv avatar url", () => {
   assert.equal(got?.avatar, "https://i.pximg.net/a.png");
 });
 
+test("rejects pixiv guest status", () => {
+  const got = parsePixivMe({
+    body: {
+      user_status: {
+        is_login: false,
+        user_id: "0",
+        user_name: "",
+      },
+    },
+  });
+  assert.equal(got, null);
+});
+
 test("parses pixiv homepage html fallback", () => {
   const html = `{"userData":{"id":"99","name":"Kami","profileImg":"https://i.pximg.net/b.png"}}`;
   const got = parsePixivMe({}, html);
   assert.equal(got?.id, "99");
   assert.equal(got?.name, "Kami");
+  assert.equal(got?.avatar, "https://i.pximg.net/b.png");
+});
+
+test("parses meta-global-data userData", () => {
+  const html = `<meta id="meta-global-data" content='{"token":"abc","userData":{"id":"7","name":"紙","profileImg":"https://i.pximg.net/c.png"}}'>`;
+  const got = parsePixivMe({}, html);
+  assert.equal(got?.id, "7");
+  assert.equal(got?.name, "紙");
 });
 
 test("parses fanbox user json", () => {

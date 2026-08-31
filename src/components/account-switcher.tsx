@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { SiteAvatar } from "@/components/site-avatar";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
+import { isPixivLoggedInSession } from "@/lib/browser-login";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
@@ -27,13 +28,14 @@ export function AccountSwitcher() {
   const fanbox = siteProfile(active, "fanbox");
   const headline = pixiv?.name || fanbox?.name || active?.name || "未登录";
 
+  const pixivOk = isPixivLoggedInSession(pixivCookie);
   useEffect(() => {
-    if (!pixivCookie && !fanboxCookie) return;
+    if (!pixivOk && !fanboxCookie) return;
     const missing =
-      (pixivCookie && (!pixiv?.name || !pixiv?.avatar)) ||
+      (pixivOk && (!pixiv?.name || !pixiv?.avatar)) ||
       (fanboxCookie && (!fanbox?.name || !fanbox?.avatar));
     if (missing) void refreshIdentities().catch(() => undefined);
-  }, [activeAccountId, pixivCookie, fanboxCookie, pixiv?.name, pixiv?.avatar, fanbox?.name, fanbox?.avatar, refreshIdentities]);
+  }, [activeAccountId, pixivOk, fanboxCookie, pixiv?.name, pixiv?.avatar, fanbox?.name, fanbox?.avatar, refreshIdentities]);
 
   async function choose(id: string) {
     const next = accounts.find((a) => a.id === id);
@@ -53,7 +55,7 @@ export function AccountSwitcher() {
           )}
         >
           <span className="flex -space-x-2">
-            {pixivCookie ? <SiteAvatar profile={pixiv} size="sm" /> : <UserRound className="size-4" />}
+            {pixivOk ? <SiteAvatar profile={pixiv} size="sm" /> : <UserRound className="size-4" />}
             {fanboxCookie ? <SiteAvatar profile={fanbox} size="sm" className="ring-2 ring-bg" /> : null}
           </span>
           <span className="flex min-w-0 flex-col items-start leading-tight">

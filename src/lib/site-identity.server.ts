@@ -1,20 +1,9 @@
 import { outboundFetch } from "./curl-fetch.server";
+import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./browser-login";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
-function pixivCookieHeader(raw?: string): string | undefined {
-  if (!raw?.trim()) return undefined;
-  const v = raw.trim();
-  return v.toLowerCase().startsWith("phpsessid=") ? v : `PHPSESSID=${v}`;
-}
-
-function fanboxCookieHeader(raw?: string): string | undefined {
-  if (!raw?.trim()) return undefined;
-  const v = raw.trim();
-  return v.toLowerCase().startsWith("fanboxsessid=") ? v : `FANBOXSESSID=${v}`;
-}
 
 async function readJson(res: Response): Promise<unknown> {
   const text = await res.text();
@@ -28,12 +17,15 @@ async function readJson(res: Response): Promise<unknown> {
 export async function fetchPixivProfile(cookie?: string): Promise<SiteProfile | null> {
   const header = pixivCookieHeader(cookie);
   if (!header) return null;
-  const headers = {
-    "User-Agent": UA,
-    Cookie: header,
-    Referer: "https://www.pixiv.net/",
-    Accept: "application/json,text/html,*/*",
-  };
+  const headers = withPixivUserId(
+    {
+      "User-Agent": UA,
+      Cookie: header,
+      Referer: "https://www.pixiv.net/",
+      Accept: "application/json,text/html,*/*",
+    },
+    header,
+  );
   let profile: SiteProfile | null = null;
   try {
     const ajax = await outboundFetch("https://www.pixiv.net/touch/ajax/user/self/status", { headers });
