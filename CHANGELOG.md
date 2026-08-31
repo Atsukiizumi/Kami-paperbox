@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.5.1] — 2026-08-31
+
+对应 [PR #12](https://github.com/Atsukiizumi/Kami-paperbox/pull/12)。
+
+### 修复
+
+- 「浏览器登录」不再把登录页一打开就发的访客 `PHPSESSID` 当成已登录。那种 Cookie 会立刻关掉窗口、没有头像和用户名，随后 Pixiv 请求 401/403。现在会等到真正登进去（`用户ID_令牌`），并从官方页面读资料。
+- 已经存下来的访客 Cookie 会在下次打开时丢掉。请求也不会再带上无效会话。
+
 ## [0.5.0] — 2026-08-31
 
 对应 [PR #11](https://github.com/Atsukiizumi/Kami-paperbox/pull/11)。
