@@ -18,6 +18,7 @@ import { cn, formatBytes } from "@/lib/utils";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/vault";
 import { listServerVault } from "@/lib/vault-sync";
 import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 
@@ -117,14 +118,15 @@ export function StorageSection() {
   const preview = formatDownloadPath(pathTemplate, SAMPLE_PATH_CONTEXT);
 
   return (
-    <section className="space-y-4 rounded-xl bg-surface p-5">
-      <div>
-        <h2 className="text-sm font-medium">存储</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted">
+    <Card>
+      <CardHeader>
+        <CardTitle>存储</CardTitle>
+        <CardDescription>
           收入纸匣会写入本机 Node 目录（`.data/vault` 的 SQLite + 原图文件），并在浏览器里留一份预览。
           还可以再选一个文件夹，按作者/日期分类拷贝。
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-bg p-3">
         <div className="min-w-0">
@@ -226,6 +228,7 @@ export function StorageSection() {
         浏览器纸匣{persisted ? "已申请持久化" : "会尽量保留"}
         {usage ? ` · 已用 ${usage}` : ""}。
       </p>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { AppErrorComponent, isAbortError } from "@/lib/error-component";
 import { THEME_BOOTSTRAP_SCRIPT, THEMES } from "@/lib/theme";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Kami 纸匣";
@@ -86,10 +87,12 @@ function RootComponent() {
         <AuthProvider>
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
-              <AppShell>
-                <Outlet />
-              </AppShell>
-              <ThemedToaster />
+              <TooltipProvider delayDuration={350} skipDelayDuration={150}>
+                <AppShell>
+                  <Outlet />
+                </AppShell>
+                <ThemedToaster />
+              </TooltipProvider>
             </ThemeProvider>
           </QueryClientProvider>
         </AuthProvider>

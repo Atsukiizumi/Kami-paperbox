@@ -3,7 +3,9 @@ import { ClipboardPaste, LogIn, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SessionRelayDialog } from "@/components/session-relay";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
@@ -94,55 +96,58 @@ function ProxySection() {
   }
 
   return (
-    <section className="space-y-3 rounded-xl bg-surface p-4">
-      <h2 className="text-sm font-medium">网络代理</h2>
-      <p className="text-sm leading-relaxed text-muted">
-        拉取 Pixiv、FANBOX、图站和搜图时走这个地址。支持 http、https、socks5，例如
-        <span className="text-fg"> 127.0.0.1:7890</span> 或{" "}
-        <span className="text-fg">socks5://127.0.0.1:1080</span>。
-        点保存会写入本机 <span className="text-fg">kami.config.json</span>，重启后也还在。
-      </p>
-      <Input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="http://127.0.0.1:7890"
-        autoComplete="off"
-        spellCheck={false}
-        aria-label="代理地址"
-      />
-      <p className="text-xs text-subtle">{sourceLabel(source)}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => void save()} disabled={busy}>
-          保存代理
-        </Button>
-        <Button variant="secondary" onClick={() => void probe()} disabled={busy}>
-          检测连通
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() => {
-            setUrl("");
-            void (async () => {
-              setBusy(true);
-              try {
-                await fetch("/api/proxy", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ clear: true }),
-                });
-                setSource("none");
-                toast.success("已清除本机代理");
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        >
-          清除
-        </Button>
-      </div>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>网络代理</CardTitle>
+        <CardDescription>
+          拉取 Pixiv、FANBOX、图站和搜图时走这个地址。支持 http、https、socks5，例如
+          127.0.0.1:7890 或 socks5://127.0.0.1:1080。点保存会写入本机 kami.config.json，重启后也还在。
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Label htmlFor="proxy-url">代理地址</Label>
+        <Input
+          id="proxy-url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="http://127.0.0.1:7890"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <p className="text-xs text-subtle">{sourceLabel(source)}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void save()} disabled={busy}>
+            保存代理
+          </Button>
+          <Button variant="secondary" onClick={() => void probe()} disabled={busy}>
+            检测连通
+          </Button>
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setUrl("");
+              void (async () => {
+                setBusy(true);
+                try {
+                  await fetch("/api/proxy", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ clear: true }),
+                  });
+                  setSource("none");
+                  toast.success("已清除本机代理");
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          >
+            清除
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -269,11 +274,14 @@ function SettingsPage() {
 
       <StorageSection />
 
-      <section className="space-y-3 rounded-xl bg-surface p-5">
-        <h2 className="text-sm font-medium">账号</h2>
-        <p className="text-sm leading-relaxed text-muted">
-          可以保存多个 Pixiv / FANBOX 登录，顶栏随时切换。Cookie 只留在这台设备上。
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>账号</CardTitle>
+          <CardDescription>
+            可以保存多个 Pixiv / FANBOX 登录，顶栏随时切换。Cookie 只留在这台设备上。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
         <ul className="space-y-1">
           {accounts.map((acc) => (
             <li key={acc.id}>
@@ -323,16 +331,18 @@ function SettingsPage() {
             添加
           </Button>
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3 rounded-xl bg-surface p-5">
-        <h2 className="text-sm font-medium">当前账号 Cookie</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>当前账号 Cookie</CardTitle>
+        </CardHeader>
+        <CardContent>
         {active ? (
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-muted" htmlFor="acc-name">
-                名称
-              </label>
+              <Label htmlFor="acc-name">名称</Label>
               <Input
                 id="acc-name"
                 value={active.name}
@@ -342,9 +352,9 @@ function SettingsPage() {
             <div className="flex items-start gap-3">
               <SiteAvatar profile={siteProfile(active, "pixiv")} size="lg" />
               <div className="min-w-0 flex-1">
-              <label className="text-sm font-medium" htmlFor="pixiv-cookie">
+              <Label className="text-sm font-medium text-fg" htmlFor="pixiv-cookie">
                 Pixiv
-              </label>
+              </Label>
               <p className="mt-0.5 text-sm text-fg">{displayName(active, "pixiv")}</p>
               {active.pixivProfile?.id ? (
                 <p className="text-xs text-subtle">ID {active.pixivProfile.id}</p>
@@ -375,9 +385,9 @@ function SettingsPage() {
             <div className="flex items-start gap-3">
               <SiteAvatar profile={siteProfile(active, "fanbox")} size="lg" />
               <div className="min-w-0 flex-1">
-              <label className="text-sm font-medium" htmlFor="fanbox-cookie">
+              <Label className="text-sm font-medium text-fg" htmlFor="fanbox-cookie">
                 FANBOX
-              </label>
+              </Label>
               <p className="mt-0.5 text-sm text-fg">{displayName(active, "fanbox")}</p>
               {active.fanboxProfile?.id ? (
                 <p className="text-xs text-subtle">ID {active.fanboxProfile.id}</p>
@@ -455,7 +465,8 @@ function SettingsPage() {
             </div>
           </div>
         )}
-      </section>
+        </CardContent>
+      </Card>
 
       <SessionRelayDialog
         site={relaySite}
@@ -466,7 +477,11 @@ function SettingsPage() {
         onDone={applyRelay}
       />
 
-      <section className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>浏览选项</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium">R-18 内容</p>
@@ -488,19 +503,24 @@ function SettingsPage() {
           </div>
           <Switch checked={downloadOriginal} onCheckedChange={setDownloadOriginal} />
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <ProxySection />
 
-      <section className="space-y-3 rounded-xl bg-surface p-5">
-        <h2 className="text-sm font-medium">使用说明</h2>
-        <p className="text-sm leading-relaxed text-muted">
-          公开榜单、Yande / Konachan / Danbooru 不需要登录。备份 Pixiv 收藏、R-18 或已订阅的 FANBOX 时，填入自己的会话 Cookie。Pixiv 动图可播放并保存为 GIF。
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>使用说明</CardTitle>
+          <CardDescription>
+            公开榜单、Yande / Konachan / Danbooru 不需要登录。备份 Pixiv 收藏、R-18 或已订阅的 FANBOX 时，填入自己的会话 Cookie。Pixiv 动图可播放并保存为 GIF。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
         <p className="text-sm leading-relaxed text-muted">
           请尊重作者版权，不要转载或商用。只保存你已经有权查看的内容。
         </p>
-      </section>
+        </CardContent>
+      </Card>
 
       <section className="space-y-2 text-sm text-muted">
         <h2 className="text-sm font-medium text-fg">怎样复制 Cookie</h2>

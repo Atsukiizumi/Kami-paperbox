@@ -7,15 +7,15 @@
  */
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function BackToBrowse() {
   return (
-    <Link
-      to="/"
-      className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-fg"
-    >
-      <ArrowLeft className="size-4" />
-      返回浏览
-    </Link>
+    <Button variant="ghost" size="sm" asChild className="-ml-2">
+      <Link to="/">
+        <ArrowLeft />
+        返回浏览
+      </Link>
+    </Button>
   );
 }
