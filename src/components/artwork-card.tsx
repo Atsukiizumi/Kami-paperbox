@@ -104,6 +104,8 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
               <ProxiedImg
                 src={work.thumb}
                 alt={work.title}
+                priority={index < 8}
+                sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
                 className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
               />
             ) : (

@@ -5,7 +5,7 @@
  * 用法：只通过 source.ts 的 fetchSource 进来，UI 不要直接打这些域名。
  * 为什么：浏览器过不了 CORS / pximg Referer；Cookie 和 Origin 必须由服务端带。
  *        接口清单和抓法见 docs/upstream.md、docs/reverse-engineering.md。
- *        Pixiv 搜索：点标签用 s_tag_full（精确），搜索框用 s_tag（包含）。
+ *        图片代理尽量流式转发，并给一周缓存：封面不该每次都从 pximg 再拉一遍。
  */
 import type { UgoiraMeta } from "./ugoira-meta";
 import { mapUgoiraMeta } from "./ugoira-meta";
@@ -74,6 +74,15 @@ const MEDIA_SUFFIXES = [
 ];
 
 const MAX_MEDIA_BYTES = 48 * 1024 * 1024;
+const MEDIA_CACHE = "public, max-age=604800, stale-while-revalidate=86400, immutable";
+
+function mediaOutHeaders(contentType: string): HeadersInit {
+  return {
+    "Content-Type": contentType || "application/octet-stream",
+    "Cache-Control": MEDIA_CACHE,
+    "X-Content-Type-Options": "nosniff",
+  };
+}
 
 function isPrivateHostname(host: string): boolean {
   const h = host.toLowerCase();
@@ -925,11 +934,6 @@ export async function fetchMediaResponse(
   const host = url.hostname.toLowerCase();
   if (host.endsWith("pximg.net")) {
     headers.Referer = "https://www.pixiv.net/";
-    const c = pixivCookieHeader(cookies.pixiv);
-    if (c) {
-      headers.Cookie = c;
-      withPixivUserId(headers, c);
-    }
   } else if (host === "yande.re" || host.endsWith(".yande.re")) {
     headers.Referer = "https://yande.re/";
   } else if (host.endsWith("konachan.com") || host.endsWith("konachan.net")) {
@@ -947,11 +951,7 @@ export async function fetchMediaResponse(
     }
     return new Response(new Uint8Array(res.body), {
       status: 200,
-      headers: {
-        "Content-Type": res.contentType || "application/octet-stream",
-        "Cache-Control": "private, max-age=86400",
-        "X-Content-Type-Options": "nosniff",
-      },
+      headers: mediaOutHeaders(res.contentType),
     });
   } else {
     headers.Referer = "https://www.fanbox.cc/";
@@ -969,16 +969,15 @@ export async function fetchMediaResponse(
     return new Response("file too large", { status: 413 });
   }
   const contentType = res.headers.get("content-type") || "application/octet-stream";
+  if (res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
+    return new Response(res.body, { status: 200, headers: mediaOutHeaders(contentType) });
+  }
   const buf = new Uint8Array(await res.arrayBuffer());
   if (buf.byteLength > MAX_MEDIA_BYTES) {
     return new Response("file too large", { status: 413 });
   }
   return new Response(buf, {
     status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "private, max-age=86400",
-      "X-Content-Type-Options": "nosniff",
-    },
+    headers: mediaOutHeaders(contentType),
   });
 }

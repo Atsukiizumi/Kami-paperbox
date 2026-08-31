@@ -30,12 +30,14 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&family=Noto+Sans+SC:wght@400;500&display=swap",
       },
     ],
   }),
@@ -68,7 +70,7 @@ function RootComponent() {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
+          queries: { staleTime: 120_000, gcTime: 30 * 60_000, retry: 1, refetchOnWindowFocus: false },
         },
       }),
   );

@@ -8,6 +8,17 @@
 
 暂无。
 
+## [0.7.6] — 2026-08-31
+
+对应 [PR #25](https://github.com/Atsukiizumi/Kami-paperbox/pull/25)。
+
+### 改进
+
+- 封面图代理改为流式转发，并缓存一周，翻页不再每张都重新去源站拉。
+- 首屏 8 张封面优先加载；作品页只把第一张当急件。
+- 翻页保留上一页网格，不再闪骨架屏。
+- 字体只拉 Newsreader + Noto Sans SC 两套，并预连接 Google Fonts。
+
 ## [0.7.5] — 2026-08-31
 
 对应 [PR #24](https://github.com/Atsukiizumi/Kami-paperbox/pull/24)。

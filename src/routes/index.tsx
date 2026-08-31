@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -93,6 +93,7 @@ function Home() {
   const pixivQuery = useQuery({
     queryKey: ["home-pixiv", feed, page, batch, searchWord, searchExact, safeMode, hideAi, pixivCookie],
     enabled: tab === "pixiv",
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const creds = cookiesFromSettings();
       if (searchWord) {
@@ -146,6 +147,7 @@ function Home() {
   const booruQuery = useQuery({
     queryKey: ["home-booru", tab, booruFeed, searchWord, page, safeMode],
     enabled: isBooru(tab),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       if (!isBooru(tab)) throw new Error("not booru");
       return fetchSource({
