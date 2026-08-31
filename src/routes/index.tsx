@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Clipboard, Search } from "lucide-react";
+import { Clipboard, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
@@ -499,8 +499,15 @@ function Home() {
         </Alert>
       ) : null}
 
+      {loading ? (
+        <p className="flex items-center gap-2 text-xs text-subtle">
+          <Loader2 className="size-3.5 animate-spin" />
+          正在加载作品…
+        </p>
+      ) : null}
+
       {loading && items.length === 0 ? (
-        <ArtworkGridSkeleton count={8} />
+        <ArtworkGridSkeleton count={10} />
       ) : (
         <ArtworkGrid
           items={items}

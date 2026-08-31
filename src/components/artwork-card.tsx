@@ -268,19 +268,33 @@ export function ArtworkGrid({
   );
 }
 
-export function ArtworkGridSkeleton({ count = 8 }: { count?: number }) {
+export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
   return (
     <MasonryBoard>
       {Array.from({ length: count }).map((_, i) => {
         const item = SKELETONS[i % SKELETONS.length];
         return (
-          <Skeleton
+          <article
             key={i}
-            className="rounded-xl"
+            className="kami-enter"
             data-layout={item.layout}
             data-aspect={String(item.aspect)}
-            style={{ aspectRatio: item.aspect }}
-          />
+            style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+          >
+            <div className="overflow-hidden rounded-xl bg-surface">
+              <Skeleton
+                className="kami-card-media w-full rounded-none"
+                style={{
+                  aspectRatio: item.aspect,
+                  ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
+                }}
+              />
+              <div className="space-y-2 px-3 py-3">
+                <Skeleton className="h-3 w-4/5 rounded-md" />
+                <Skeleton className="h-2.5 w-2/5 rounded-md" />
+              </div>
+            </div>
+          </article>
         );
       })}
     </MasonryBoard>
