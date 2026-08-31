@@ -10,7 +10,7 @@ export function Skeleton({
 }) {
   return (
     <div
-      className={cn("animate-pulse rounded-xl bg-elevated", className)}
+      className={cn("kami-shimmer rounded-xl", className)}
       style={style}
       aria-hidden
     />

@@ -3,6 +3,57 @@
 
 @custom-variant dark (&:where([data-appearance="dark"], [data-appearance="dark"] *));
 
+@property --color-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0e0d0c;
+}
+@property --color-surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #171614;
+}
+@property --color-elevated {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #211f1c;
+}
+@property --color-fg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f3efe8;
+}
+@property --color-muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #9c958c;
+}
+@property --color-subtle {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6f6a64;
+}
+@property --color-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e8dfd2;
+}
+@property --color-accent-fg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1a1714;
+}
+@property --color-danger {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e8a09a;
+}
+@property --color-ok {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #9cba9a;
+}
+
 @theme {
   --color-bg: #0e0d0c;
   --color-surface: #171614;
@@ -34,6 +85,11 @@
   --shadow-float: 0 18px 40px color-mix(in oklab, #000 40%, transparent);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-micro: 80ms;
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-slow: 400ms;
+  --motion-stagger: 40ms;
 }
 
 html[data-theme="washi"][data-appearance="dark"] {
@@ -178,6 +234,20 @@ html[data-appearance="light"] {
   --shadow-float: 0 18px 40px color-mix(in oklab, var(--color-fg) 12%, transparent);
 }
 
+html.kami-motion {
+  transition:
+    --color-bg var(--motion-slow) var(--ease-out),
+    --color-surface var(--motion-slow) var(--ease-out),
+    --color-elevated var(--motion-slow) var(--ease-out),
+    --color-fg var(--motion-slow) var(--ease-out),
+    --color-muted var(--motion-slow) var(--ease-out),
+    --color-subtle var(--motion-slow) var(--ease-out),
+    --color-accent var(--motion-slow) var(--ease-out),
+    --color-accent-fg var(--motion-slow) var(--ease-out),
+    --color-danger var(--motion-slow) var(--ease-out),
+    --color-ok var(--motion-slow) var(--ease-out);
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -228,7 +298,7 @@ html[data-appearance="light"] {
 @keyframes kami-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -236,8 +306,115 @@ html[data-appearance="light"] {
   }
 }
 
+@keyframes kami-page {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kami-chrome-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kami-chrome-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kami-chrome-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes kami-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.25);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes kami-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 .kami-enter {
-  animation: kami-enter 420ms var(--ease-out) both;
+  animation: kami-enter var(--motion-slow) var(--ease-out) backwards;
+}
+
+.kami-page {
+  animation: kami-page var(--motion-fast) var(--ease-out) backwards;
+}
+
+.kami-chrome-down {
+  animation: kami-chrome-down var(--motion-slow) var(--ease-out) backwards;
+}
+
+.kami-chrome-left {
+  animation: kami-chrome-left var(--motion-slow) var(--ease-out) backwards;
+}
+
+.kami-chrome-up {
+  animation: kami-chrome-up var(--motion-fast) var(--ease-out) backwards;
+}
+
+.kami-pop {
+  animation: kami-pop 300ms var(--ease-out) backwards;
+}
+
+.kami-shimmer {
+  background-color: var(--color-elevated);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-elevated) 0%,
+    color-mix(in oklab, var(--color-fg) 10%, var(--color-elevated)) 50%,
+    var(--color-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: kami-shimmer 1.4s linear infinite;
+}
+
+.kami-logo .kami-logo-fold {
+  transform-box: fill-box;
+  transform-origin: 0 100%;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+a:hover .kami-logo .kami-logo-fold,
+a:focus-visible .kami-logo .kami-logo-fold {
+  transform: rotate(-10deg);
 }
 
 .kami-masonry {
@@ -279,5 +456,16 @@ html[data-appearance="light"] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .kami-page,
+  .kami-enter,
+  .kami-chrome-down,
+  .kami-chrome-left,
+  .kami-chrome-up,
+  .kami-pop {
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
 }

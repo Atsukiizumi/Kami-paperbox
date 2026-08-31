@@ -40,6 +40,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const ready = () => {
       apply();
       listenMedia();
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document.documentElement.classList.add("kami-motion");
+        });
+      });
     };
 
     if (useSettings.persist.hasHydrated()) {

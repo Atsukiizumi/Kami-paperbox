@@ -6,7 +6,7 @@ import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { Button } from "@/components/ui/button";
 import { workOriginUrl } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, cn } from "@/lib/utils";
 import {
   deleteVaultWork,
   downloadBlob,
@@ -81,7 +81,7 @@ function VaultPage() {
           {items.map((item, i) => (
             <article
               key={item.key}
-              className="kami-enter overflow-hidden rounded-xl bg-surface transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-float)]"
+              className="kami-enter overflow-hidden rounded-xl bg-surface transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:shadow-[var(--shadow-float)]"
               style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
             >
               <button
@@ -149,8 +149,10 @@ function VaultPage() {
 
 function VaultThumb({ item }: { item: VaultMeta }) {
   const [src, setSrc] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let url = "";
+    setLoaded(false);
     void getVaultBlob(item.key, 0).then((blob) => {
       if (!blob) return;
       url = URL.createObjectURL(blob);
@@ -162,7 +164,17 @@ function VaultThumb({ item }: { item: VaultMeta }) {
   }, [item.key]);
   return (
     <div className="aspect-[3/4] bg-elevated">
-      {src ? <img src={src} alt="" className="size-full object-cover" /> : null}
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className={cn(
+            "size-full object-cover transition-opacity duration-500 ease-out",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+          onLoad={() => setLoaded(true)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -18,7 +18,7 @@ const NAV = [
 
 function LogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={cn("size-6 text-accent", className)} aria-hidden>
+    <svg viewBox="0 0 24 24" className={cn("kami-logo size-6 text-accent", className)} aria-hidden>
       <path
         d="M5.5 4.5h9L19 9v11H5.5z"
         fill="currentColor"
@@ -28,6 +28,7 @@ function LogoMark({ className }: { className?: string }) {
         strokeLinejoin="round"
       />
       <path
+        className="kami-logo-fold"
         d="M14.5 4.5V9H19"
         fill="none"
         stroke="currentColor"
@@ -56,13 +57,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(true);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";
+  const activeIndex = Math.max(
+    0,
+    NAV.findIndex((item) => isActive(pathname, item.to)),
+  );
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/75 px-3 backdrop-blur-md md:px-4">
+      <header className="kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/75 px-3 backdrop-blur-md md:px-4">
         <button
           type="button"
-          className="hidden size-10 items-center justify-center rounded-lg text-muted hover:bg-elevated hover:text-fg md:inline-flex"
+          className="hidden size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg md:inline-flex"
           aria-label={expanded ? "收起导航" : "展开导航"}
           onClick={() => setExpanded((v) => !v)}
         >
@@ -81,12 +86,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <aside
         className={cn(
-          "fixed bottom-0 left-0 top-14 z-30 hidden flex-col border-r border-border/80 bg-bg/40 md:flex",
-          "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "kami-chrome-left fixed bottom-0 left-0 top-14 z-30 hidden flex-col border-r border-border/80 bg-bg/40 md:flex",
+          "transition-[width] duration-200 ease-out",
           paneWidth,
         )}
       >
-        <nav className="flex flex-col gap-1 p-2">
+        <nav className="relative flex flex-col gap-1 p-2">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-200 ease-out"
+            style={{ transform: `translateY(${activeIndex * 3}rem)` }}
+          />
           {NAV.map((item) => {
             const active = isActive(pathname, item.to);
             const Icon = item.icon;
@@ -96,8 +106,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 to={item.to}
                 title={item.label}
                 className={cn(
-                  "relative flex h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm transition-colors",
-                  active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/60 hover:text-fg",
+                  "relative z-10 flex h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm transition-colors duration-200",
+                  active ? "text-fg" : "text-muted hover:text-fg",
                 )}
               >
                 <Icon className="size-4 shrink-0" />
@@ -105,7 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <>
                     <span className="truncate">{item.label}</span>
                     {item.to === "/queue" && queued > 0 ? (
-                      <span className="ml-auto tabular-nums text-xs text-accent">{queued}</span>
+                      <span className="kami-pop ml-auto tabular-nums text-xs text-accent">{queued}</span>
                     ) : null}
                   </>
                 ) : null}
@@ -121,13 +131,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className={cn(contentPad, "transition-[padding] duration-200")}>
-        <div className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 md:px-10 md:pb-12 md:pt-8">
+        <div
+          key={pathname}
+          className="kami-page mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 md:px-10 md:pb-12 md:pt-8"
+        >
           {children}
         </div>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-        <div className="grid grid-cols-5">
+      <nav className="kami-chrome-up fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+        <div className="relative grid grid-cols-5">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1 left-0 flex w-1/5 justify-center transition-transform duration-200 ease-out"
+            style={{ transform: `translateX(${activeIndex * 100}%)` }}
+          >
+            <span className="h-0.5 w-8 rounded-full bg-accent" />
+          </span>
           {NAV.map((item) => {
             const active = isActive(pathname, item.to);
             const Icon = item.icon;
@@ -136,17 +156,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs",
+                  "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-200",
                   active ? "text-fg" : "text-muted",
                 )}
               >
                 <Icon className="size-5" />
                 {item.label}
-                {active ? (
-                  <span className="absolute inset-x-6 top-1 h-0.5 rounded-full bg-accent" />
-                ) : null}
                 {item.to === "/queue" && queued > 0 ? (
-                  <span className="absolute right-3 top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-xs tabular-nums text-accent-fg">
+                  <span className="kami-pop absolute right-3 top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-xs tabular-nums text-accent-fg">
                     {queued}
                   </span>
                 ) : null}

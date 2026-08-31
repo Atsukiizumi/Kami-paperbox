@@ -215,7 +215,7 @@ export function ImageLightbox({
         >
           <div
             className={cn(
-              "max-h-full max-w-full transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "max-h-full max-w-full transition-[opacity,transform] duration-200 ease-out",
               visible ? "opacity-100" : "opacity-0",
             )}
             style={{

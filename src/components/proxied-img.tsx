@@ -11,6 +11,7 @@ export function ProxiedImg({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   if (!src || failed) {
     return (
       <div
@@ -23,9 +24,14 @@ export function ProxiedImg({
     <img
       src={mediaUrl(src)}
       alt={alt}
-      className={cn("bg-elevated object-cover", className)}
+      className={cn(
+        "bg-elevated object-cover transition-opacity duration-500 ease-out",
+        loaded ? "opacity-100" : "opacity-0",
+        className,
+      )}
       loading="lazy"
       decoding="async"
+      onLoad={() => setLoaded(true)}
       onError={() => setFailed(true)}
     />
   );

@@ -20,7 +20,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
       className="kami-enter group"
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
-      <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[var(--shadow-float)]">
+      <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-float)]">
         <Link
           to="/work/$source/$id"
           params={{ source: work.source, id: work.id }}
@@ -30,7 +30,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
             <ProxiedImg
               src={work.thumb}
               alt={work.title}
-              className="size-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
+              className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
             />
             {work.restricted ? (
               <div className="absolute inset-0 flex items-center justify-center bg-overlay">
