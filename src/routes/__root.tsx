@@ -1,15 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { useState } from "react";
+import { createRootRoute, HeadContent, Outlet, Scripts, type ErrorComponentProps } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/app-shell";
+import { AppErrorComponent, isAbortError } from "@/lib/error-component";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Kami 纸匣";
 
 export const Route = createRootRoute({
+  errorComponent: RootError,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -37,6 +39,14 @@ export const Route = createRootRoute({
   }),
   component: RootComponent,
 });
+
+function RootError({ error, reset }: ErrorComponentProps) {
+  useEffect(() => {
+    if (isAbortError(error)) reset();
+  }, [error, reset]);
+  if (isAbortError(error)) return null;
+  return <AppErrorComponent error={error} />;
+}
 
 function RootComponent() {
   const [queryClient] = useState(
