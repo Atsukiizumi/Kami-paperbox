@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.10] — 2026-08-31
+
+对应 [PR #29](https://github.com/Atsukiizumi/Kami-paperbox/pull/29)。
+
+### 改进
+
+- 封面改为到一张亮一张：卡片先用比例占位，进入视口附近才请求，不再等攒够一批才出图。
+
 ## [0.7.9] — 2026-08-31
 
 对应 [PR #28](https://github.com/Atsukiizumi/Kami-paperbox/pull/28)。
