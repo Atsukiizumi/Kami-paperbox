@@ -1,6 +1,7 @@
 {
   "name": "kami-paperbox",
   "private": true,
+  "license": "MIT",
   "sideEffects": false,
   "type": "module",
   "packageManager": "pnpm@10.15.1",
