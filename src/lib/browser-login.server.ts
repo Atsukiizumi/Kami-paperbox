@@ -1,21 +1,49 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromeCandidates, pickSession } from "./browser-login";
+import {
+  chromeCandidates,
+  loginJobBusy,
+  pickSession,
+  type LoginJobSnapshot,
+  type LoginSite,
+} from "./browser-login";
 import { getActiveProxy } from "./proxy.server";
 import { parseProxyUrl } from "./proxy-url";
 import { resolveIdentities } from "./site-identity.server";
 import type { SiteProfile } from "./site-identity";
 
-export type LoginSite = "pixiv" | "fanbox";
+type PageLike = {
+  authenticate: (c: { username: string; password: string }) => Promise<void>;
+  goto: (url: string, opts?: { waitUntil?: "domcontentloaded"; timeout?: number }) => Promise<unknown>;
+  createCDPSession: () => Promise<{ send: (method: string) => Promise<unknown> }>;
+  bringToFront: () => Promise<void>;
+};
 
-let busy = false;
+type BrowserLike = {
+  connected?: boolean;
+  close: () => Promise<void>;
+  pages: () => Promise<PageLike[]>;
+  newPage: () => Promise<PageLike>;
+};
 
-function findChrome(): string {
-  for (const path of chromeCandidates()) {
-    if (path && existsSync(path)) return path;
-  }
-  throw new Error("找不到 Chrome 或 Edge。安装其中一个，或设置环境变量 KAMI_CHROME 指向浏览器。也可改回手动粘贴 Cookie。");
+const idleJob = (): LoginJobSnapshot => ({
+  status: "idle",
+  site: null,
+  error: null,
+  chrome: null,
+  pixiv: "",
+  fanbox: "",
+  pixivProfile: null,
+  fanboxProfile: null,
+});
+
+let job: LoginJobSnapshot = idleJob();
+let stop = false;
+let closer: (() => Promise<void>) | null = null;
+
+export function getLoginJob(): LoginJobSnapshot {
+  return { ...job };
 }
 
 function proxyArgs(): { args: string[]; user?: string; password?: string } {
@@ -32,51 +60,107 @@ function proxyArgs(): { args: string[]; user?: string; password?: string } {
   };
 }
 
-export async function captureBrowserLogin(site: LoginSite): Promise<{
-  pixiv: string;
-  fanbox: string;
-  pixivProfile: SiteProfile | null;
-  fanboxProfile: SiteProfile | null;
-}> {
-  if (busy) throw new Error("已有登录窗口在进行，先完成或关掉那一个。");
-  busy = true;
+async function launchChrome(profile: string): Promise<{ browser: BrowserLike; chrome: string; proxy: ReturnType<typeof proxyArgs> }> {
+  const { default: puppeteer } = await import("puppeteer-core");
+  const proxy = proxyArgs();
+  const common = {
+    headless: false as const,
+    userDataDir: profile,
+    defaultViewport: null,
+    ignoreDefaultArgs: ["--enable-automation"],
+    timeout: 60_000,
+    pipe: process.platform === "win32",
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-infobars",
+      "--window-size=1100,800",
+      "--window-position=120,80",
+      ...proxy.args,
+    ],
+  };
+
+  const tried: string[] = [];
+  for (const executablePath of chromeCandidates()) {
+    if (!executablePath || !existsSync(executablePath)) continue;
+    tried.push(executablePath);
+    try {
+      const browser = (await puppeteer.launch({ ...common, executablePath })) as unknown as BrowserLike;
+      return { browser, chrome: executablePath, proxy };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[kami] 无法启动 ${executablePath}: ${message}`);
+      if (common.pipe) {
+        try {
+          const browser = (await puppeteer.launch({ ...common, pipe: false, executablePath })) as unknown as BrowserLike;
+          return { browser, chrome: executablePath, proxy };
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          console.warn(`[kami] 无法启动 ${executablePath} (no pipe): ${retryMessage}`);
+        }
+      }
+    }
+  }
+
+  for (const channel of ["chrome", "chrome-beta", "chrome-dev"] as const) {
+    tried.push(`channel:${channel}`);
+    try {
+      const browser = (await puppeteer.launch({ ...common, channel })) as unknown as BrowserLike;
+      return { browser, chrome: channel, proxy };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[kami] 无法启动 channel:${channel}: ${message}`);
+    }
+  }
+
+  if (/Cannot find module 'puppeteer-core'/.test(tried.join(" "))) {
+    throw new Error("缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。");
+  }
+  throw new Error(
+    `找不到可用的 Chrome / Edge。${tried.length ? `已尝试：${tried.join("、")}。` : ""}安装其中一个，或设置环境变量 KAMI_CHROME 指向 chrome.exe / msedge.exe。也可以改用手贴 Cookie。`,
+  );
+}
+
+async function runJob(site: LoginSite): Promise<void> {
   const profile = mkdtempSync(join(tmpdir(), "kami-login-"));
-  let browser: { close: () => Promise<void> } | undefined;
+  let browser: BrowserLike | undefined;
   try {
-    const { default: puppeteer } = await import("puppeteer-core");
-    const executablePath = findChrome();
-    const proxy = proxyArgs();
-    const launched = await puppeteer.launch({
-      headless: false,
-      executablePath,
-      userDataDir: profile,
-      ignoreDefaultArgs: ["--enable-automation"],
-      args: [
-        "--disable-blink-features=AutomationControlled",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--window-size=1100,800",
-        ...proxy.args,
-      ],
-    });
-    browser = launched;
-    const page = (await launched.pages())[0] ?? (await launched.newPage());
-    if (proxy.user) {
-      await page.authenticate({ username: proxy.user, password: proxy.password ?? "" });
+    const launched = await launchChrome(profile);
+    if (stop) throw new Error("已取消登录窗口");
+    browser = launched.browser;
+    closer = async () => {
+      try {
+        await browser?.close();
+      } catch {
+        /* already closed */
+      }
+    };
+    job = { ...job, status: "waiting", chrome: launched.chrome, error: null };
+    console.info(`[kami] 已打开登录窗口: ${launched.chrome}`);
+
+    const page = (await browser.pages())[0] ?? (await browser.newPage());
+    if (launched.proxy.user) {
+      await page.authenticate({ username: launched.proxy.user, password: launched.proxy.password ?? "" });
     }
     const start =
       site === "fanbox"
         ? "https://www.fanbox.cc/login"
         : "https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F&source=pc&view_type=page";
     await page.goto(start, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    try {
+      await page.bringToFront();
+    } catch {
+      /* window might still be in the taskbar */
+    }
     const cdp = await page.createCDPSession();
 
     const deadline = Date.now() + 4 * 60 * 1000;
     let pixiv = "";
     let fanbox = "";
     let triedFanbox = site === "fanbox";
-    while (Date.now() < deadline) {
-      const alive = typeof launched.connected === "boolean" ? launched.connected : true;
+    while (Date.now() < deadline && !stop) {
+      const alive = typeof browser.connected === "boolean" ? browser.connected : true;
       if (!alive) throw new Error("登录窗口已关闭");
       const all = (await cdp.send("Network.getAllCookies")) as {
         cookies?: { name: string; value: string; domain?: string }[];
@@ -97,18 +181,37 @@ export async function captureBrowserLogin(site: LoginSite): Promise<{
       if (site === "fanbox" && fanbox) break;
       await new Promise((r) => setTimeout(r, 900));
     }
+    if (stop) throw new Error("已取消登录窗口");
     if (site === "pixiv" && !pixiv) throw new Error("超时未检测到 Pixiv 登录。请在弹出的官方页面完成登录。");
     if (site === "fanbox" && !fanbox) throw new Error("超时未检测到 FANBOX 登录。请在弹出的官方页面完成登录。");
-    const profiles = await resolveIdentities({ pixiv, fanbox });
-    return { pixiv, fanbox, pixivProfile: profiles.pixiv, fanboxProfile: profiles.fanbox };
+
+    let pixivProfile: SiteProfile | null = null;
+    let fanboxProfile: SiteProfile | null = null;
+    try {
+      const profiles = await resolveIdentities({ pixiv, fanbox });
+      pixivProfile = profiles.pixiv;
+      fanboxProfile = profiles.fanbox;
+    } catch {
+      /* cookies are enough */
+    }
+    job = {
+      ...job,
+      status: "done",
+      error: null,
+      pixiv,
+      fanbox,
+      pixivProfile,
+      fanboxProfile,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : "登录失败";
     if (/Cannot find module 'puppeteer-core'/.test(message)) {
-      throw new Error("缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。");
+      job = { ...job, status: "error", error: "缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。" };
+    } else {
+      job = { ...job, status: "error", error: message };
     }
-    throw err instanceof Error ? err : new Error(message);
   } finally {
-    busy = false;
+    closer = null;
     try {
       await browser?.close();
     } catch {
@@ -116,4 +219,32 @@ export async function captureBrowserLogin(site: LoginSite): Promise<{
     }
     rmSync(profile, { recursive: true, force: true });
   }
+}
+
+export async function startBrowserLogin(site: LoginSite): Promise<LoginJobSnapshot> {
+  if (loginJobBusy(job.status)) {
+    if (job.site === site) return getLoginJob();
+    throw new Error("已有登录窗口在进行，先完成或关掉那一个。");
+  }
+  stop = false;
+  job = { ...idleJob(), status: "launching", site };
+  void runJob(site);
+  const deadline = Date.now() + 25_000;
+  while (Date.now() < deadline && job.status === "launching") {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return getLoginJob();
+}
+
+export async function cancelBrowserLogin(): Promise<LoginJobSnapshot> {
+  stop = true;
+  try {
+    await closer?.();
+  } catch {
+    /* ignore */
+  }
+  if (loginJobBusy(job.status)) {
+    job = { ...job, status: "error", error: "已取消登录窗口" };
+  }
+  return getLoginJob();
 }
