@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Download, Lock, Play } from "lucide-react";
+import { Download, ExternalLink, Lock, Play } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork } from "@/lib/queue-runner";
-import { isBooru } from "@/lib/sites";
+import { isBooru, workOriginUrl } from "@/lib/sites";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
 import { cn } from "@/lib/utils";
@@ -87,6 +87,22 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
         >
           <Download className="size-4" />
         </button>
+        <a
+          href={workOriginUrl(work.source, work.id, work.authorId)}
+          target="_blank"
+          rel="noreferrer"
+          title="原始链接"
+          aria-label="打开原始链接"
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-lg text-muted",
+            "transition-[opacity,transform,background-color,color] duration-150",
+            "hover:bg-elevated hover:text-fg active:scale-[0.96]",
+            "opacity-100 md:opacity-0 md:group-hover:opacity-100",
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ExternalLink className="size-4" />
+        </a>
       </div>
     </article>
   );

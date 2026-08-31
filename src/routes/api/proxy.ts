@@ -20,6 +20,10 @@ function publicState() {
   };
 }
 
+function fail(err: unknown, fallback = "保存失败") {
+  return json({ ok: false, error: err instanceof Error ? err.message : fallback }, 500);
+}
+
 export const Route = createFileRoute("/api/proxy")({
   server: {
     handlers: {
@@ -40,23 +44,34 @@ export const Route = createFileRoute("/api/proxy")({
           }
           if (!proxy) return json({ ok: false, error: "还没有填写代理地址" }, 400);
           const probe = await probeProxy("https://www.pixiv.net/", proxy);
-          return json({ ok: probe.ok, url: proxy, display: maskProxyUrl(proxy), source: readProxyState().source, enabled: true, probe });
+          return json({
+            ok: probe.ok,
+            url: proxy,
+            display: maskProxyUrl(proxy),
+            source: readProxyState().source,
+            enabled: true,
+            probe,
+          });
         }
-        if (body.clear === true || body.url === "") {
-          clearSavedProxy();
+        try {
+          if (body.clear === true || body.url === "") {
+            clearSavedProxy();
+            return json({ ok: true, ...publicState() });
+          }
+          if (typeof body.url !== "string") {
+            return json({ ok: false, error: "请填写代理地址" }, 400);
+          }
+          const parsed = parseProxyUrl(body.url);
+          if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
+          if (!parsed.href) {
+            clearSavedProxy();
+            return json({ ok: true, ...publicState() });
+          }
+          saveProxyUrl(parsed.href);
           return json({ ok: true, ...publicState() });
+        } catch (err) {
+          return fail(err);
         }
-        if (typeof body.url !== "string") {
-          return json({ ok: false, error: "请填写代理地址" }, 400);
-        }
-        const parsed = parseProxyUrl(body.url);
-        if (!parsed.ok) return json({ ok: false, error: parsed.error }, 400);
-        if (!parsed.href) {
-          clearSavedProxy();
-          return json({ ok: true, ...publicState() });
-        }
-        saveProxyUrl(parsed.href);
-        return json({ ok: true, ...publicState() });
       },
     },
   },

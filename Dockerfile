@@ -32,6 +32,8 @@ ENV NITRO_PORT=8080
 
 COPY --from=build --chown=node:node /app/.output ./.output
 COPY --from=build --chown=node:node /app/package.json ./
+COPY --from=build --chown=node:node /app/kami.config.example.json ./kami.config.json
+RUN mkdir -p /app/.data && chown -R node:node /app
 
 USER node
 EXPOSE 8080

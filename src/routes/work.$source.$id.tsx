@@ -327,12 +327,22 @@ function WorkPage() {
             <span className="tabular-nums">收藏 {formatCount(work.bookmarks)}</span>
           ) : null}
         </div>
+        <a
+          href={originUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex max-w-full items-center gap-1 text-xs text-subtle hover:text-fg"
+        >
+          <ExternalLink className="size-3 shrink-0" />
+          <span className="truncate">{originUrl}</span>
+        </a>
       </header>
 
       <div className="flex flex-wrap items-center gap-2">
         <WorkActions
           work={work}
           saving={saving}
+          originUrl={originUrl}
           onSave={() => void saveNow(work, false)}
           onDownload={() => void saveNow(work, true)}
           onBookmark={() => void doBookmark(work)}
@@ -353,12 +363,6 @@ function WorkPage() {
         >
           <ScanSearch className="size-4" />
           搜来源
-        </Button>
-        <Button variant="ghost" asChild>
-          <a href={originUrl} target="_blank" rel="noreferrer">
-            <ExternalLink className="size-4" />
-            原页
-          </a>
         </Button>
       </div>
       {progress ? <p className="text-xs tabular-nums text-subtle">{progress}</p> : null}
@@ -429,10 +433,12 @@ function WorkPage() {
         open={preview !== null}
         onClose={() => setPreview(null)}
         onIndex={setPreview}
+        originUrl={originUrl}
         footer={
           <WorkActions
             work={work}
             compact
+            originUrl={originUrl}
             saving={saving}
             onSave={() => void saveNow(work, false)}
             onDownload={() => void saveNow(work, true)}
