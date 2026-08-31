@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.7.15] — 2026-09-01
+
+对应 [PR #34](https://github.com/Atsukiizumi/Kami-paperbox/pull/34)。
+
+### 改进
+
+- 搜图增加 ascii2d（色合 + 特征）。
+- SauceNAO 不再在安全模式里 hide=3，避免把 90%+ 的真匹配藏掉只剩无关低分。
+
 ## [0.7.14] — 2026-09-01
 
 对应 [PR #33](https://github.com/Atsukiizumi/Kami-paperbox/pull/33)。

@@ -71,6 +71,7 @@ const MEDIA_SUFFIXES = [
   "saucenao.com",
   "iqdb.org",
   "tineye.com",
+  "ascii2d.net",
 ];
 
 const MAX_MEDIA_BYTES = 48 * 1024 * 1024;
@@ -955,6 +956,14 @@ export async function fetchMediaResponse(
       status: 200,
       headers: mediaOutHeaders(res.contentType),
     });
+  } else if (host.endsWith("ascii2d.net")) {
+    headers.Referer = "https://ascii2d.net/";
+  } else if (host.endsWith("saucenao.com")) {
+    headers.Referer = "https://saucenao.com/";
+  } else if (host.endsWith("iqdb.org")) {
+    headers.Referer = "https://iqdb.org/";
+  } else if (host.endsWith("tineye.com")) {
+    headers.Referer = "https://tineye.com/";
   } else {
     headers.Referer = "https://www.fanbox.cc/";
     headers.Origin = "https://www.fanbox.cc";
