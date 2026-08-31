@@ -10,6 +10,8 @@
 
 ## [0.4.0] — 2026-08-31
 
+对应 [PR #7](https://github.com/Atsukiizumi/Kami-paperbox/pull/7)。
+
 ### 新增
 
 - 设置和顶栏可以切换外观：浅色、深色，或跟随系统。
