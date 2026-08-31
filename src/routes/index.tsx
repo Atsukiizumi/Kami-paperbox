@@ -18,7 +18,7 @@ import {
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
-import { isPixivLoggedInSession } from "@/lib/browser-login";
+import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { cn } from "@/lib/utils";
 import type { WorkCard } from "@/lib/types";
@@ -34,7 +34,7 @@ function Home() {
   const recents = useSettings((s) => s.recents);
   const addRecent = useSettings((s) => s.addRecent);
   const pixivCookie = useSettings((s) => s.pixivCookie);
-  const fanboxCookie = useSettings((s) => s.fanboxCookie);
+  const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
   const [query, setQuery] = useState("");

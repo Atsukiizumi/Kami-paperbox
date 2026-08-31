@@ -52,4 +52,11 @@ describe("accounts", () => {
     real.pixivProfile = { id: "12345678", name: "紙匣" };
     assert.equal(displayName(real, "pixiv"), "紙匣");
   });
+
+  it("reuses a pixiv session as fanbox login", () => {
+    const acc = createAccount("主号", "12345678_abcdef0123456789deadbeef");
+    assert.equal(displayName(acc, "fanbox"), "已登录");
+    const guestFanbox = createAccount("主号", "", "fanbox-guest-token-16ok");
+    assert.equal(displayName(guestFanbox, "fanbox"), "会话无效");
+  });
 });

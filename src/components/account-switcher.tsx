@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { SiteAvatar } from "@/components/site-avatar";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
-import { isPixivLoggedInSession } from "@/lib/browser-login";
+import { fanboxSessionFrom, isPixivLoggedInSession } from "@/lib/browser-login";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +22,7 @@ export function AccountSwitcher() {
   const switchAccount = useSettings((s) => s.switchAccount);
   const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const pixivCookie = useSettings((s) => s.pixivCookie);
-  const fanboxCookie = useSettings((s) => s.fanboxCookie);
+  const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const active = accounts.find((a) => a.id === activeAccountId);
   const pixiv = siteProfile(active, "pixiv");
   const fanbox = siteProfile(active, "fanbox");

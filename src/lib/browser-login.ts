@@ -51,6 +51,15 @@ export type LoginInputEvent =
 
 export const LOGIN_VIEW = { width: 980, height: 720 } as const;
 
+export const PIXIV_LOGIN_URL =
+  "https://accounts.pixiv.net/login?return_to=https%3A%2F%2Fwww.pixiv.net%2F&source=pc&view_type=page";
+
+/** Official FANBOX login: Pixiv account picker, then bounce through /auth/start. */
+export const FANBOX_LOGIN_URL =
+  "https://accounts.pixiv.net/login?prompt=select_account&return_to=https%3A%2F%2Fwww.fanbox.cc%2Fauth%2Fstart&source=fanbox";
+
+export const FANBOX_AUTH_START = "https://www.fanbox.cc/auth/start";
+
 /** Logged-in Pixiv PHPSESSID is `{memberId}_{token}`. Guest sessions are a bare token. */
 export const PIXIV_SESSION_RE = /^(\d{2,12})_([A-Za-z0-9]{16,})$/;
 
@@ -77,6 +86,10 @@ export function isPixivLoggedInSession(raw: string): boolean {
   return PIXIV_SESSION_RE.test(pixivSessionValue(raw));
 }
 
+export function isFanboxLoggedInSession(raw: string): boolean {
+  return PIXIV_SESSION_RE.test(fanboxSessionValue(raw));
+}
+
 export function pixivUserIdFromCookie(raw?: string): string | undefined {
   const match = PIXIV_SESSION_RE.exec(pixivSessionValue(raw ?? ""));
   return match?.[1];
@@ -87,16 +100,26 @@ export function sanitizePixivCookie(raw?: string): string {
   return isPixivLoggedInSession(value) ? value : "";
 }
 
+export function sanitizeFanboxCookie(raw?: string): string {
+  const value = fanboxSessionValue(raw ?? "");
+  if (isFanboxLoggedInSession(value)) return value;
+  return sanitizePixivCookie(value);
+}
+
 export function pixivCookieHeader(raw?: string): string | undefined {
   const value = sanitizePixivCookie(raw);
   if (!value) return undefined;
   return `PHPSESSID=${value}`;
 }
 
-export function fanboxCookieHeader(raw?: string): string | undefined {
-  const value = fanboxSessionValue(raw ?? "");
-  if (value.length < 16) return undefined;
-  return `FANBOXSESSID=${value}`;
+export function fanboxSessionFrom(fanbox?: string, pixiv?: string): string {
+  return sanitizeFanboxCookie(fanbox) || sanitizePixivCookie(pixiv);
+}
+
+export function fanboxCookieHeader(raw?: string, pixivFallback?: string): string | undefined {
+  const value = fanboxSessionFrom(raw, pixivFallback);
+  if (!value) return undefined;
+  return `FANBOXSESSID=${value}; PHPSESSID=${value}`;
 }
 
 export function withPixivUserId(
@@ -117,10 +140,12 @@ export function pickSession(cookies: CookieLike[]): BrowserSession {
     if (!value) continue;
     const domain = (cookie.domain ?? "").toLowerCase();
     if (name === "phpsessid" && isPixivLoggedInSession(value)) {
-      if (!domain || domain.includes("pixiv")) pixiv = pixivSessionValue(value);
+      const session = pixivSessionValue(value);
+      if (!domain || domain.includes("pixiv")) pixiv = session;
+      if (domain.includes("fanbox") && !fanbox) fanbox = session;
     }
-    if (name === "fanboxsessid" && value.length >= 16) {
-      if (!domain || domain.includes("fanbox")) fanbox = value;
+    if (name === "fanboxsessid" && isFanboxLoggedInSession(value)) {
+      if (!domain || domain.includes("fanbox") || domain.includes("pixiv")) fanbox = fanboxSessionValue(value);
     }
   }
   return { pixiv, fanbox };
@@ -186,9 +211,10 @@ export function parseCookieDump(raw: string): BrowserSession {
   const headerPixiv = text.match(/PHPSESSID=([^\s;]+)/i)?.[1];
   if (headerPixiv && isPixivLoggedInSession(headerPixiv)) pixiv = pixivSessionValue(headerPixiv);
   const headerFanbox = text.match(/FANBOXSESSID=([^\s;]+)/i)?.[1];
-  if (headerFanbox && headerFanbox.length >= 16) fanbox = headerFanbox;
+  if (headerFanbox && isFanboxLoggedInSession(headerFanbox)) fanbox = fanboxSessionValue(headerFanbox);
 
   if (!pixiv && isPixivLoggedInSession(text)) pixiv = pixivSessionValue(text);
+  if (!fanbox && isFanboxLoggedInSession(text)) fanbox = fanboxSessionValue(text);
 
   return { pixiv, fanbox };
 }

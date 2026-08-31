@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.6.1] — 2026-08-31
+
+对应 [PR #14](https://github.com/Atsukiizumi/Kami-paperbox/pull/14)。
+
+### 修复
+
+- FANBOX 登录改为官方地址：Pixiv 选账号后回转 `www.fanbox.cc/auth/start`，再收回 `FANBOXSESSID`。之前只打开 FANBOX 首页，会拿到访客 Cookie，请求 401。
+- 已经登过 Pixiv 的会话会同时当作 FANBOX 会话使用。访客 `FANBOXSESSID` 不再保存。
+
 ## [0.6.0] — 2026-08-31
 
 对应 [PR #13](https://github.com/Atsukiizumi/Kami-paperbox/pull/13)。

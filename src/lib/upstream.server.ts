@@ -835,7 +835,7 @@ async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promis
 
 export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
-  const fanbox = fanboxCookieHeader(input.fanboxCookie);
+  const fanbox = fanboxCookieHeader(input.fanboxCookie, input.pixivCookie);
   const safe = input.safeMode !== false;
   const hideAi = input.hideAi === true;
   switch (input.op) {
@@ -917,7 +917,7 @@ export async function fetchMediaResponse(
   } else {
     headers.Referer = "https://www.fanbox.cc/";
     headers.Origin = "https://www.fanbox.cc";
-    const c = fanboxCookieHeader(cookies.fanbox);
+    const c = fanboxCookieHeader(cookies.fanbox, cookies.pixiv);
     if (c) headers.Cookie = c;
   }
 

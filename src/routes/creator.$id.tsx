@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { fanboxSessionFrom } from "@/lib/browser-login";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/creator/$id")({ component: CreatorPage });
 
 function CreatorPage() {
   const { id } = Route.useParams();
-  const fanboxCookie = useSettings((s) => s.fanboxCookie);
+  const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
 
   const query = useInfiniteQuery({
