@@ -50,7 +50,7 @@ export function AccountSwitcher() {
         <button
           type="button"
           className={cn(
-            "flex h-10 max-w-56 items-center gap-2 rounded-lg px-2 text-xs text-muted",
+            "flex h-9 max-w-[11rem] shrink-0 items-center gap-2 rounded-lg px-2 text-xs text-muted",
             "transition-colors hover:bg-elevated hover:text-fg",
           )}
         >
@@ -58,17 +58,11 @@ export function AccountSwitcher() {
             {pixivOk ? <SiteAvatar profile={pixiv} size="sm" /> : <UserRound className="size-4" />}
             {fanboxCookie ? <SiteAvatar profile={fanbox} size="sm" className="ring-2 ring-bg" /> : null}
           </span>
-          <span className="flex min-w-0 flex-col items-start leading-tight">
-            <span className="max-w-36 truncate text-fg">{headline}</span>
-            {active ? (
-              <span className="max-w-40 truncate text-[10px] text-subtle">
-                Pixiv {displayName(active, "pixiv")}
-                {" · "}
-                FANBOX {displayName(active, "fanbox")}
-              </span>
-            ) : (
-              <span className="text-[10px] text-subtle">未登录</span>
-            )}
+          <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
+            <span className="max-w-28 truncate text-fg">{headline}</span>
+            <span className="max-w-28 truncate text-[10px] text-subtle">
+              {active ? "已登录" : "未登录"}
+            </span>
           </span>
         </button>
       </DropdownMenuTrigger>

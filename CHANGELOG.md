@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.7.11] — 2026-09-01
+
+对应 [PR #30](https://github.com/Atsukiizumi/Kami-paperbox/pull/30)。
+
+### 改进
+
+- 顶栏图源改用 Radix Select，只显示站点名，不再塞用户头像和名字。
+- 头像改用 Radix Avatar；封面代理不再把宽度撑满顶栏。
+
 ## [0.7.10] — 2026-08-31
 
 对应 [PR #29](https://github.com/Atsukiizumi/Kami-paperbox/pull/29)。

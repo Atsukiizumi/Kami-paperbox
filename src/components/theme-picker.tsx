@@ -164,7 +164,7 @@ export function ThemeMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex size-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg"
+          className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg"
           aria-label={`主题：${current.name}`}
         >
           <Palette className="size-4" />
