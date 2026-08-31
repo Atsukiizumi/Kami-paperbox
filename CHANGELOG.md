@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.1] — 2026-08-31
+
+对应 [PR #20](https://github.com/Atsukiizumi/Kami-paperbox/pull/20)。
+
+### 文档
+
+- 增加 [docs/storage.md](docs/storage.md)：纸匣三层存储、为什么原图是文件、为什么用 SQLite 而不是图数据库、写入顺序和 `/api/vault`。
+
 ## [0.7.0] — 2026-08-31
 
 对应 [PR #19](https://github.com/Atsukiizumi/Kami-paperbox/pull/19)。
