@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.2] — 2026-08-31
+
+对应 [PR #21](https://github.com/Atsukiizumi/Kami-paperbox/pull/21)。
+
+### 修复
+
+- 点收藏 / 红心 / 关注时，不再因为 Pixiv 首页 CSRF 格式变了就误报「无法取得凭证，请重新登录」。已登录账号会从 `meta-global-data` 等位置解析 token，并在作品页、设置页兜底。
+
 ## [0.7.1] — 2026-08-31
 
 对应 [PR #20](https://github.com/Atsukiizumi/Kami-paperbox/pull/20)。
