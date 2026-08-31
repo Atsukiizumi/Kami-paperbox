@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.6.2-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.6.3-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -239,7 +239,16 @@ python3 scripts/pack.py -o kami-paperbox.tar.gz
 
 ### 上游站点怎么读
 
-Pixiv / FANBOX 没有给第三方的公开 API。纸匣是对着官方页面的 Network 面板，把网站自己在用的 XHR 记下来再复打。Cookie 怎么认、请求头为什么会 401、接口清单和代码落点，写在 [docs/upstream.md](docs/upstream.md)。
+Pixiv / FANBOX 没有给第三方的公开 API。纸匣对着官方页面把网站自己的 XHR 记下来再复打。
+
+- 逐步实操（DevTools、无头拦包、拆 JS、curl、Cookie）：[docs/reverse-engineering.md](docs/reverse-engineering.md)
+- 已经在用的接口清单和代码落点：[docs/upstream.md](docs/upstream.md)
+
+无头环境拦 XHR：
+
+```bash
+node scripts/sniff-xhr.mjs "https://www.pixiv.net/ranking.php?mode=daily&content=illust"
+```
 
 ### 屋子里都有谁
 

@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.6.3] — 2026-08-31
+
+对应 [PR #16](https://github.com/Atsukiizumi/Kami-paperbox/pull/16)。
+
+### 文档
+
+- 增加 [docs/reverse-engineering.md](docs/reverse-engineering.md)：从 DevTools 点击、无头 Chrome 拦 XHR、拆前端 JS、curl 复打和消融请求头，到 Cookie / FANBOX 回转，按步骤写清。
+- 增加 `node scripts/sniff-xhr.mjs <url>`，在没有图形界面时打印页面打出的接口。
+
 ## [0.6.2] — 2026-08-31
 
 对应 [PR #15](https://github.com/Atsukiizumi/Kami-paperbox/pull/15)。
