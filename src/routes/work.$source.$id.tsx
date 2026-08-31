@@ -28,6 +28,7 @@ import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, mediaUrl } from "@/lib/utils";
 import { archiveWork } from "@/lib/persist-files";
+import { patchCachedWork } from "@/lib/work-cache";
 import { useMemo, useState } from "react";
 import { parseSource, siteLabel, workOriginUrl, isBooru } from "@/lib/sites";
 import { canonicalTag } from "@/lib/site-tags";
@@ -188,6 +189,7 @@ function WorkPage() {
 
   function patchWork(partial: Partial<WorkDetail>) {
     queryClient.setQueryData<WorkDetail>(workKey, (old) => (old ? { ...old, ...partial } : old));
+    patchCachedWork(queryClient, src, id, partial);
   }
 
   async function doLike(detail: WorkDetail) {

@@ -4,6 +4,7 @@
  * 作用：从 Pixiv illust JSON 读出是否已红心/收藏/关注。
  * 用法：socialFromPixivIllust(body)；真正 POST 在 social.server.ts。
  */
+import { decodeHtmlEntities } from "./utils.ts";
 export type SocialState = {
   liked: boolean;
   bookmarked: boolean;
@@ -85,19 +86,11 @@ function tokenFromRecord(rec: Record<string, unknown> | null | undefined, depth 
   return undefined;
 }
 
-function decodeEntities(value: string): string {
-  return value
-    .replace(/"/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&/g, "&");
-}
-
 function attributeValue(tag: string, name: string): string | undefined {
   const single = tag.match(new RegExp(`${name}='([^']*)'`, "i"));
-  if (single?.[1] != null) return decodeEntities(single[1]);
+  if (single?.[1] != null) return decodeHtmlEntities(single[1]);
   const double = tag.match(new RegExp(`${name}="([^"]*)"`, "i"));
-  if (double?.[1] != null) return decodeEntities(double[1]);
+  if (double?.[1] != null) return decodeHtmlEntities(double[1]);
   return undefined;
 }
 
@@ -133,7 +126,7 @@ export function extractPixivCsrfToken(html: string): string | undefined {
   const next = tokenFromRecord(parseNextData(html));
   if (next) return next;
 
-  const decoded = decodeEntities(html);
+  const decoded = decodeHtmlEntities(html);
   for (const re of [
     /"token"\s*:\s*"([A-Za-z0-9_-]{16,128})"/g,
     /"csrfToken"\s*:\s*"([A-Za-z0-9_-]{16,128})"/g,

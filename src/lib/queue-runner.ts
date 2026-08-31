@@ -108,3 +108,16 @@ export function enqueueWork(work: {
   });
   void runQueue();
 }
+
+/** After a refresh, "running" rows are dead. Put them back in line and start the loop. */
+export function resumeQueue() {
+  const items = useQueue.getState().items;
+  if (items.some((item) => item.status === "running")) {
+    useQueue.setState({
+      items: items.map((item) =>
+        item.status === "running" ? { ...item, status: "queued", error: undefined } : item,
+      ),
+    });
+  }
+  void runQueue();
+}

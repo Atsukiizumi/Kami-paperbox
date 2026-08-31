@@ -8,6 +8,16 @@
 
 暂无。
 
+## [0.7.19] — 2026-09-01
+
+对应 [PR #38](https://github.com/Atsukiizumi/Kami-paperbox/pull/38)。
+
+### 修复
+
+- 刷新后卡在「进行中」的下载会重新排队并继续。
+- 浏览页红心会写回列表缓存。
+- HTML 实体解码、Cookie 长度上限、whoami 失败不再冲掉已有资料。
+
 ## [0.7.18] — 2026-09-01
 
 对应 [PR #37](https://github.com/Atsukiizumi/Kami-paperbox/pull/37)。

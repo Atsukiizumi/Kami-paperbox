@@ -36,3 +36,16 @@ export function formatBytes(n: number): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/** Decode the HTML entities we actually see in Pixiv / SauceNAO markup. Ampersand last. */
+export function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/\u0026quot;/g, '"')
+    .replace(/\u0026#34;/g, '"')
+    .replace(/\u0026#39;/g, "'")
+    .replace(/\u0026apos;/g, "'")
+    .replace(/\u0026lt;/g, "<")
+    .replace(/\u0026gt;/g, ">")
+    .replace(/\u0026nbsp;/g, " ")
+    .replace(/\u0026amp;/g, "&");
+}

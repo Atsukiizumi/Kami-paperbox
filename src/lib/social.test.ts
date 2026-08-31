@@ -29,7 +29,7 @@ describe("pixiv social", () => {
 
   it("reads csrf from html-entity encoded meta", () => {
     const html =
-      '<meta id="meta-global-data" content="{"token":"zz11yy22xx33ww44vv55uu66"}">';
+      "<meta id=\"meta-global-data\" content=\"{\u0026quot;token\u0026quot;:\u0026quot;zz11yy22xx33ww44vv55uu66\u0026quot;}\">";
     assert.equal(extractPixivCsrfToken(html), "zz11yy22xx33ww44vv55uu66");
   });
 
