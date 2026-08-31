@@ -2,7 +2,7 @@
  * 图片代理。
  *
  * 作用：浏览器只请求本站 `/api/media?u=`，由服务端带 Referer/Cookie 去拉 pximg / fanbox。
- * 为什么：直接把 i.pximg.net 丢给 <img> 会 403。
+ * 为什么：直接把 i.pximg.net 丢给 <img> 会 403。封面走流式 + 一周缓存。
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { fetchMediaResponse } from "@/lib/upstream.server";

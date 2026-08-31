@@ -414,6 +414,8 @@ function WorkPage() {
                 <ProxiedImg
                   src={page.regular || page.original}
                   alt={`${work.title} ${i + 1}`}
+                  priority={i === 0}
+                  sizes="(max-width: 1100px) 100vw, 900px"
                   className="mx-auto max-h-[85vh] w-full object-contain"
                 />
               </button>
