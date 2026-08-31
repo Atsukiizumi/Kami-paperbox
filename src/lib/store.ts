@@ -10,6 +10,7 @@ import {
   createAccount,
   migrateLegacySettings,
 } from "./accounts";
+import { sanitizePixivCookie } from "./browser-login";
 import type { SiteProfile } from "./site-identity";
 import {
   DEFAULT_APPEARANCE,
@@ -228,7 +229,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -236,6 +237,14 @@ export const useSettings = create<SettingsState>()(
           fanboxCookie: typeof p.fanboxCookie === "string" ? p.fanboxCookie : "",
           accounts: Array.isArray(p.accounts) ? (p.accounts as Account[]) : undefined,
           activeAccountId: typeof p.activeAccountId === "string" ? p.activeAccountId : null,
+        });
+        legacy.accounts = legacy.accounts.map((a) => {
+          const pixivCookie = sanitizePixivCookie(a.pixivCookie);
+          return {
+            ...a,
+            pixivCookie,
+            pixivProfile: pixivCookie ? a.pixivProfile : null,
+          };
         });
         const cookies = cookiesOf(legacy.accounts, legacy.activeAccountId);
         const searchEngine = isSearchEngine(String(p.searchEngine))
@@ -291,8 +300,9 @@ export function cookiesFromSettings(): {
   hideAi: boolean;
 } {
   const s = useSettings.getState();
+  const pixiv = sanitizePixivCookie(s.pixivCookie);
   return {
-    pixivCookie: s.pixivCookie || undefined,
+    pixivCookie: pixiv || undefined,
     fanboxCookie: s.fanboxCookie || undefined,
     safeMode: s.safeMode,
     hideAi: s.hideAi,

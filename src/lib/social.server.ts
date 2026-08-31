@@ -1,37 +1,27 @@
 import { bookmarkTagsOf } from "./social";
 import type { SocialInput, SocialOk } from "./types";
 import { outboundFetch } from "./curl-fetch.server";
+import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 let pixivTokenCache: { cookie: string; token: string; at: number } | null = null;
 
-function pixivCookieHeader(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const v = raw.trim();
-  if (!v) return undefined;
-  return v.toLowerCase().startsWith("phpsessid=") ? v : `PHPSESSID=${v}`;
-}
-
-function fanboxCookieHeader(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const v = raw.trim();
-  if (!v) return undefined;
-  return v.toLowerCase().startsWith("fanboxsessid=") ? v : `FANBOXSESSID=${v}`;
-}
-
 async function pixivToken(cookie: string): Promise<string> {
   if (pixivTokenCache && pixivTokenCache.cookie === cookie && Date.now() - pixivTokenCache.at < 8 * 60 * 1000) {
     return pixivTokenCache.token;
   }
   const res = await outboundFetch("https://www.pixiv.net/", {
-    headers: {
-      "User-Agent": UA,
-      Cookie: cookie,
-      Referer: "https://www.pixiv.net/",
-      Accept: "text/html",
-    },
+    headers: withPixivUserId(
+      {
+        "User-Agent": UA,
+        Cookie: cookie,
+        Referer: "https://www.pixiv.net/",
+        Accept: "text/html",
+      },
+      cookie,
+    ),
     redirect: "follow",
   });
   const html = await res.text();
@@ -60,14 +50,17 @@ async function pixivJson(
   form = false,
 ): Promise<Record<string, unknown>> {
   const token = await pixivToken(cookie);
-  const headers: Record<string, string> = {
-    "User-Agent": UA,
-    Cookie: cookie,
-    Referer: "https://www.pixiv.net/",
-    Origin: "https://www.pixiv.net",
-    Accept: "application/json, text/plain, */*",
-    "x-csrf-token": token,
-  };
+  const headers = withPixivUserId(
+    {
+      "User-Agent": UA,
+      Cookie: cookie,
+      Referer: "https://www.pixiv.net/",
+      Origin: "https://www.pixiv.net",
+      Accept: "application/json, text/plain, */*",
+      "x-csrf-token": token,
+    },
+    cookie,
+  );
   let payload: string;
   if (form) {
     headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8";

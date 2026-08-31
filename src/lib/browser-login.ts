@@ -24,8 +24,61 @@ export type LoginJobSnapshot = {
   fanboxProfile: { id: string; name: string; avatar?: string } | null;
 };
 
+/** Logged-in Pixiv PHPSESSID is `{memberId}_{token}`. Guest sessions are a bare token. */
+export const PIXIV_SESSION_RE = /^(\d{2,12})_([A-Za-z0-9]{16,})$/;
+
 export function loginJobBusy(status: LoginJobStatus): boolean {
   return status === "launching" || status === "waiting";
+}
+
+export function stripCookieName(raw: string, name: string): string {
+  const v = raw.trim();
+  if (!v) return "";
+  const prefix = `${name}=`;
+  return v.toLowerCase().startsWith(prefix.toLowerCase()) ? v.slice(prefix.length).trim() : v;
+}
+
+export function pixivSessionValue(raw: string): string {
+  return stripCookieName(raw, "PHPSESSID");
+}
+
+export function fanboxSessionValue(raw: string): string {
+  return stripCookieName(raw, "FANBOXSESSID");
+}
+
+export function isPixivLoggedInSession(raw: string): boolean {
+  return PIXIV_SESSION_RE.test(pixivSessionValue(raw));
+}
+
+export function pixivUserIdFromCookie(raw?: string): string | undefined {
+  const match = PIXIV_SESSION_RE.exec(pixivSessionValue(raw ?? ""));
+  return match?.[1];
+}
+
+export function sanitizePixivCookie(raw?: string): string {
+  const value = pixivSessionValue(raw ?? "");
+  return isPixivLoggedInSession(value) ? value : "";
+}
+
+export function pixivCookieHeader(raw?: string): string | undefined {
+  const value = sanitizePixivCookie(raw);
+  if (!value) return undefined;
+  return `PHPSESSID=${value}`;
+}
+
+export function fanboxCookieHeader(raw?: string): string | undefined {
+  const value = fanboxSessionValue(raw ?? "");
+  if (value.length < 16) return undefined;
+  return `FANBOXSESSID=${value}`;
+}
+
+export function withPixivUserId(
+  headers: Record<string, string>,
+  raw?: string,
+): Record<string, string> {
+  const id = pixivUserIdFromCookie(raw);
+  if (id) headers["x-userid"] = id;
+  return headers;
 }
 
 export function pickSession(cookies: CookieLike[]): BrowserSession {
@@ -36,12 +89,19 @@ export function pickSession(cookies: CookieLike[]): BrowserSession {
     const value = cookie.value.trim();
     if (!value) continue;
     const domain = (cookie.domain ?? "").toLowerCase();
-    if (name === "phpsessid" && value.length >= 16) {
-      if (!domain || domain.includes("pixiv")) pixiv = value;
+    if (name === "phpsessid" && isPixivLoggedInSession(value)) {
+      if (!domain || domain.includes("pixiv")) pixiv = pixivSessionValue(value);
     }
-    if (name === "fanboxsessid" && value.length >= 8) fanbox = value;
+    if (name === "fanboxsessid" && value.length >= 16) {
+      if (!domain || domain.includes("fanbox")) fanbox = value;
+    }
   }
   return { pixiv, fanbox };
+}
+
+export function canShowLoginWindow(platform = process.platform, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (platform === "win32" || platform === "darwin") return true;
+  return Boolean(env.DISPLAY?.trim() || env.WAYLAND_DISPLAY?.trim());
 }
 
 export function chromeCandidates(platform = process.platform, env: NodeJS.ProcessEnv = process.env): string[] {

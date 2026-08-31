@@ -18,6 +18,7 @@ import {
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { isPixivLoggedInSession } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { cn } from "@/lib/utils";
 import type { WorkCard } from "@/lib/types";
@@ -61,14 +62,15 @@ function Home() {
     setBrowseQuery("");
   }, [browseQuery, setBrowseQuery]);
 
+  const loggedIn = isPixivLoggedInSession(pixivCookie);
   useEffect(() => {
-    if (pixivCookie && (feed === "daily" || feed === "recommend")) {
+    if (loggedIn && (feed === "daily" || feed === "recommend")) {
       setFeed("recommend");
     }
-    if (!pixivCookie && (feed === "recommend" || feed === "following")) {
+    if (!loggedIn && (feed === "recommend" || feed === "following")) {
       setFeed("daily");
     }
-  }, [pixivCookie]);
+  }, [loggedIn]);
 
   useEffect(() => {
     if (fanboxCookie && fanboxFeed === "creator" && creatorId === "official") {
@@ -211,7 +213,7 @@ function Home() {
 
   function choosePixivFeed(next: PixivFeed) {
     const needsLogin = next === "recommend" || next === "following" || rankingNeedsLogin(next);
-    if (needsLogin && !pixivCookie) {
+    if (needsLogin && !loggedIn) {
       toast.error("先在设置里添加 Pixiv 账号");
       return;
     }
@@ -344,7 +346,7 @@ function Home() {
                   !searchWord && feed === item.id
                     ? "bg-accent text-accent-fg"
                     : "bg-elevated text-muted hover:text-fg",
-                  !pixivCookie && "opacity-70",
+                  !loggedIn && "opacity-70",
                 )}
               >
                 {item.label}
