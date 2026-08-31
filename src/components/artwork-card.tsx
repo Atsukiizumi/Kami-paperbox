@@ -8,6 +8,7 @@
  */
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, ExternalLink, Heart, Lock, Play } from "lucide-react";
 import { toast } from "sonner";
 import { cardAspect, cardLayout, type CardLayout } from "@/lib/card-aspect";
@@ -15,6 +16,7 @@ import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
+import { patchCachedWork } from "@/lib/work-cache";
 import { isBooru, workOriginUrl } from "@/lib/sites";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
@@ -40,6 +42,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
   const aspect = hasMedia ? cardAspect(work.width, work.height) : 5 / 3;
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const queryClient = useQueryClient();
   const [liked, setLiked] = useState(Boolean(work.liked));
   const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
@@ -74,6 +77,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
     try {
       await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
       setLiked(true);
+      patchCachedWork(queryClient, work.source, work.id, { liked: true });
       toast.success("已点红心");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "红心失败");

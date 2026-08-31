@@ -19,8 +19,8 @@ const cursorSchema = z
 
 const fetchSchema = z.intersection(
   z.object({
-    pixivCookie: z.string().max(2048).optional(),
-    fanboxCookie: z.string().max(2048).optional(),
+    pixivCookie: z.string().max(8192).optional(),
+    fanboxCookie: z.string().max(8192).optional(),
     safeMode: z.boolean().optional(),
     hideAi: z.boolean().optional(),
   }),
@@ -94,8 +94,8 @@ export const fetchSource = createServerFn({ method: "POST" })
 
 const socialSchema = z.intersection(
   z.object({
-    pixivCookie: z.string().max(2048).optional(),
-    fanboxCookie: z.string().max(2048).optional(),
+    pixivCookie: z.string().max(8192).optional(),
+    fanboxCookie: z.string().max(8192).optional(),
   }),
   z.discriminatedUnion("op", [
     z.object({ op: z.literal("pixivLike"), id: z.string().regex(/^\d{1,12}$/) }),

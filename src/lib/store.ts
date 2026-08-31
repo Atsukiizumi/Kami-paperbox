@@ -239,19 +239,24 @@ export const useSettings = create<SettingsState>()(
           get().applyProfiles({ pixiv: null, fanbox: null });
           return;
         }
-        const res = await fetch("/api/whoami", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ pixiv: pixivCookie, fanbox: fanboxCookie }),
-        });
-        const data = (await res.json()) as {
-          pixiv?: SiteProfile | null;
-          fanbox?: SiteProfile | null;
-        };
-        get().applyProfiles({
-          pixiv: pixivCookie ? (data.pixiv ?? null) : null,
-          fanbox: fanboxCookie ? (data.fanbox ?? null) : null,
-        });
+        try {
+          const res = await fetch("/api/whoami", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ pixiv: pixivCookie, fanbox: fanboxCookie }),
+          });
+          if (!res.ok) return;
+          const data = (await res.json()) as {
+            pixiv?: SiteProfile | null;
+            fanbox?: SiteProfile | null;
+          };
+          get().applyProfiles({
+            pixiv: pixivCookie ? (data.pixiv ?? null) : null,
+            fanbox: fanboxCookie ? (data.fanbox ?? null) : null,
+          });
+        } catch {
+          /* keep whatever profile we already have */
+        }
       },
     }),
     {

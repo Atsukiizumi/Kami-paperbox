@@ -40,6 +40,12 @@ describe("reverse search parsers", () => {
     assert.equal(hits[1]?.author, "unamaso");
   });
 
+  it("decodes SauceNAO titles that use HTML entities", () => {
+    const html = `<div class="result"><table class="resulttable"><tr><td><div class="resultsimilarityinfo">88%</div><div class="resulttitle"><strong>A \u0026amp; B</strong></div><a href="https://www.pixiv.net/artworks/1">1</a></td></tr></table></div>`;
+    const hits = parseSauceNaoHtml(html, false);
+    assert.equal(hits[0]?.title, "A & B");
+  });
+
   it("parses SauceNAO JSON results the same way as the website", () => {
     const hits = parseSauceNaoJson({
       results: [

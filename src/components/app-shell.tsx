@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
 import { playEnter } from "@/lib/motion";
+import { resumeQueue } from "@/lib/queue-runner";
 import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
@@ -60,6 +61,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
   const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    const boot = () => resumeQueue();
+    if (useQueue.persist.hasHydrated()) {
+      boot();
+      return;
+    }
+    return useQueue.persist.onFinishHydration(boot);
+  }, []);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";
   const activeIndex = Math.max(

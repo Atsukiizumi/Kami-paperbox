@@ -5,6 +5,7 @@
  * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
  */
 import type { Source } from "./types";
+import { decodeHtmlEntities } from "./utils.ts";
 
 export type SearchEngine = "saucenao" | "ascii2d" | "iqdb" | "tineye";
 
@@ -42,13 +43,7 @@ export function parseSearchEngine(v: string | null | undefined): SearchEngine {
 }
 
 function decodeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+  return decodeHtmlEntities(s);
 }
 
 function absUrl(base: string, raw: string): string {
