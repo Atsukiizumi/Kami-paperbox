@@ -7,5 +7,6 @@ export function getRouter() {
     routeTree,
     defaultErrorComponent: AppErrorComponent,
     scrollRestoration: true,
+    defaultViewTransition: true,
   });
 }
