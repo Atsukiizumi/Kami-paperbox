@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQueue } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
@@ -66,25 +67,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/75 px-3 backdrop-blur-md md:px-4">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
         <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="hidden size-10 md:inline-flex"
+            className="hidden size-9 md:inline-flex"
             aria-label={expanded ? "收起导航" : "展开导航"}
             onClick={() => setExpanded((v) => !v)}
           >
             <PanelLeft />
           </Button>
         </Hint>
-        <Link to="/" className="flex min-w-0 items-center gap-2.5 px-1">
+        <Link to="/" className="flex shrink-0 items-center gap-2 px-1">
           <LogoMark />
-          <span className="truncate font-display text-base tracking-tight">Kami 纸匣</span>
+          <span className="hidden font-display text-base tracking-tight sm:inline">Kami 纸匣</span>
         </Link>
+        <Separator className="hidden h-5 w-px shrink-0 bg-border sm:block" />
         <SiteSwitcher />
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
           <ThemeMenu />
           <AccountSwitcher />
         </div>

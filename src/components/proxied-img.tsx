@@ -62,7 +62,7 @@ export function ProxiedImg({
   }
 
   return (
-    <span ref={hostRef} className="relative block size-full overflow-hidden bg-elevated">
+    <span ref={hostRef} className={cn("relative block size-full overflow-hidden bg-elevated", className)}>
       {loaded ? null : <span className="kami-shimmer pointer-events-none absolute inset-0" aria-hidden />}
       {active ? (
         <img
@@ -70,9 +70,8 @@ export function ProxiedImg({
           alt={alt}
           sizes={sizes}
           className={cn(
-            "relative size-full object-cover transition-opacity duration-200 ease-out",
+            "size-full object-cover transition-opacity duration-200 ease-out",
             loaded ? "opacity-100" : "opacity-0",
-            className,
           )}
           loading="eager"
           fetchPriority={priority ? "high" : "auto"}
