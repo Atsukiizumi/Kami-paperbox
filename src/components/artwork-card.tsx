@@ -9,6 +9,7 @@ import { isAiWork } from "@/lib/pixiv-feed";
 import { cn } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { ProxiedImg } from "./proxied-img";
+import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
 const SKELETONS: { aspect: number; layout: CardLayout }[] = [
@@ -139,17 +140,17 @@ export function ArtworkGrid({
     );
   }
   return (
-    <div className="kami-masonry">
+    <MasonryBoard>
       {items.map((work, i) => (
         <ArtworkCard key={`${work.source}-${work.id}`} work={work} index={i} />
       ))}
-    </div>
+    </MasonryBoard>
   );
 }
 
 export function ArtworkGridSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <div className="kami-masonry">
+    <MasonryBoard>
       {Array.from({ length: count }).map((_, i) => {
         const item = SKELETONS[i % SKELETONS.length];
         return (
@@ -161,6 +162,6 @@ export function ArtworkGridSkeleton({ count = 8 }: { count?: number }) {
           />
         );
       })}
-    </div>
+    </MasonryBoard>
   );
 }

@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.4.3] — 2026-08-31
+
+对应 [PR #10](https://github.com/Atsukiizumi/Kami-paperbox/pull/10)。
+
+### 变更
+
+- 浏览拼版改成流水排布：竖图填进最短的一列，横图仍跨列放大，不再在格子之间留下大块空白。
+
+
 ## [0.4.2] — 2026-08-31
 
 对应 [PR #9](https://github.com/Atsukiizumi/Kami-paperbox/pull/9)。
