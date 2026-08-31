@@ -18,11 +18,38 @@ export type LoginJobSnapshot = {
   site: LoginSite | null;
   error: string | null;
   chrome: string | null;
+  relay: boolean;
+  pageUrl: string;
+  viewWidth: number;
+  viewHeight: number;
+  frame: string | null;
   pixiv: string;
   fanbox: string;
   pixivProfile: { id: string; name: string; avatar?: string } | null;
   fanboxProfile: { id: string; name: string; avatar?: string } | null;
 };
+
+export type LoginInputEvent =
+  | {
+      type: "mouse";
+      action: "pressed" | "released" | "moved" | "wheel";
+      x: number;
+      y: number;
+      button?: number;
+      deltaX?: number;
+      deltaY?: number;
+    }
+  | {
+      type: "key";
+      action: "down" | "up";
+      key: string;
+    }
+  | {
+      type: "text";
+      text: string;
+    };
+
+export const LOGIN_VIEW = { width: 980, height: 720 } as const;
 
 /** Logged-in Pixiv PHPSESSID is `{memberId}_{token}`. Guest sessions are a bare token. */
 export const PIXIV_SESSION_RE = /^(\d{2,12})_([A-Za-z0-9]{16,})$/;
@@ -99,9 +126,80 @@ export function pickSession(cookies: CookieLike[]): BrowserSession {
   return { pixiv, fanbox };
 }
 
+function parseCookieJson(text: string): BrowserSession {
+  const start = text[0];
+  if (start !== "[" && start !== "{") return { pixiv: "", fanbox: "" };
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (Array.isArray(parsed)) {
+      return pickSession(
+        parsed.map((row) => {
+          const rec = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+          return {
+            name: String(rec.name ?? rec.Name ?? ""),
+            value: String(rec.value ?? rec.Value ?? ""),
+            domain: String(rec.domain ?? rec.Domain ?? ""),
+          };
+        }),
+      );
+    }
+    if (parsed && typeof parsed === "object") {
+      const rec = parsed as Record<string, unknown>;
+      return pickSession(
+        Object.entries(rec).map(([name, value]) => ({
+          name,
+          value:
+            typeof value === "string"
+              ? value
+              : String((value as { value?: unknown } | null)?.value ?? ""),
+        })),
+      );
+    }
+  } catch {
+    /* not json */
+  }
+  return { pixiv: "", fanbox: "" };
+}
+
+/** Accepts PHPSESSID=…, Cookie-Editor JSON, Netscape cookies.txt, or a bare logged-in value. */
+export function parseCookieDump(raw: string): BrowserSession {
+  const text = raw.trim();
+  if (!text) return { pixiv: "", fanbox: "" };
+
+  const fromJson = parseCookieJson(text);
+  if (fromJson.pixiv || fromJson.fanbox) return fromJson;
+
+  let pixiv = "";
+  let fanbox = "";
+
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const tabs = trimmed.split("\t");
+    if (tabs.length >= 7) {
+      const picked = pickSession([{ name: tabs[5] ?? "", value: tabs[6] ?? "", domain: tabs[0] }]);
+      pixiv = picked.pixiv || pixiv;
+      fanbox = picked.fanbox || fanbox;
+    }
+  }
+
+  const headerPixiv = text.match(/PHPSESSID=([^\s;]+)/i)?.[1];
+  if (headerPixiv && isPixivLoggedInSession(headerPixiv)) pixiv = pixivSessionValue(headerPixiv);
+  const headerFanbox = text.match(/FANBOXSESSID=([^\s;]+)/i)?.[1];
+  if (headerFanbox && headerFanbox.length >= 16) fanbox = headerFanbox;
+
+  if (!pixiv && isPixivLoggedInSession(text)) pixiv = pixivSessionValue(text);
+
+  return { pixiv, fanbox };
+}
+
 export function canShowLoginWindow(platform = process.platform, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.GROK_AGENT || env.GROK_SESSION_ID || env.VERCEL || env.K_SERVICE) return false;
   if (platform === "win32" || platform === "darwin") return true;
-  return Boolean(env.DISPLAY?.trim() || env.WAYLAND_DISPLAY?.trim());
+  return Boolean(
+    (env.DISPLAY?.trim() || env.WAYLAND_DISPLAY?.trim()) &&
+      (env.XDG_CURRENT_DESKTOP?.trim() || env.DESKTOP_SESSION?.trim() || env.WAYLAND_DISPLAY?.trim()),
+  );
 }
 
 export function chromeCandidates(platform = process.platform, env: NodeJS.ProcessEnv = process.env): string[] {
@@ -140,5 +238,6 @@ export function chromeCandidates(platform = process.platform, env: NodeJS.Proces
     "/usr/bin/chromium",
     "/usr/bin/microsoft-edge",
     "/snap/bin/chromium",
+    "/opt/pw-browsers/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell",
   ];
 }

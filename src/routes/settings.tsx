@@ -1,13 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogIn, Plus, Trash2, X } from "lucide-react";
-import { isAbortError } from "@/lib/error-component";
+import { ClipboardPaste, LogIn, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { SessionRelayDialog } from "@/components/session-relay";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
-import { isPixivLoggedInSession } from "@/lib/browser-login";
+import {
+  isPixivLoggedInSession,
+  parseCookieDump,
+  pixivUserIdFromCookie,
+  type LoginSite,
+} from "@/lib/browser-login";
 import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
@@ -161,7 +166,7 @@ function SettingsPage() {
   const applyProfiles = useSettings((s) => s.applyProfiles);
   const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const [newName, setNewName] = useState("");
-  const [loginBusy, setLoginBusy] = useState<"pixiv" | "fanbox" | null>(null);
+  const [relaySite, setRelaySite] = useState<LoginSite | null>(null);
 
   const active = accounts.find((a) => a.id === activeAccountId);
 
@@ -179,81 +184,54 @@ function SettingsPage() {
     }
   }
 
-  async function browserLogin(site: "pixiv" | "fanbox") {
-    if (!active) {
-      addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
+  async function applyDump(raw: string) {
+    const parsed = parseCookieDump(raw);
+    if (!parsed.pixiv && !parsed.fanbox) {
+      if (raw.trim() && !isPixivLoggedInSession(raw) && /phpsessid/i.test(raw)) {
+        toast.error("这是访客 Cookie（没有用户ID_令牌）。请先在 Pixiv 登录，再复制 PHPSESSID。");
+        return;
+      }
+      toast.error("没有识别到 PHPSESSID / FANBOXSESSID。");
+      return;
     }
-    setLoginBusy(site);
-    toast.message("正在打开系统浏览器的官方登录页…网页里嵌不进 Pixiv。");
+    if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
+    if (parsed.pixiv) setPixivCookie(parsed.pixiv);
+    if (parsed.fanbox) setFanboxCookie(parsed.fanbox);
     try {
-      try {
-        const res = await fetch("/api/login-browser", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ site }),
-        });
-        const data = (await res.json()) as {
-          status?: string;
-          error?: string;
-          ok?: boolean;
-          pixiv?: string;
-          fanbox?: string;
-          pixivProfile?: { id: string; name: string; avatar?: string } | null;
-          fanboxProfile?: { id: string; name: string; avatar?: string } | null;
-        };
-        if (data.status === "error") throw new Error(data.error || "登录失败");
-        if (data.status === "done") {
-          await applyLoginJob(data);
-          return;
-        }
-      } catch (err) {
-        if (!isAbortError(err) && !(err instanceof TypeError)) throw err;
-      }
-
-      const deadline = Date.now() + 4 * 60 * 1000;
-      let sawWaiting = false;
-      while (Date.now() < deadline) {
-        const res = await fetch("/api/login-browser", { cache: "no-store" });
-        const data = (await res.json()) as {
-          status?: string;
-          error?: string;
-          chrome?: string | null;
-          pixiv?: string;
-          fanbox?: string;
-          pixivProfile?: { id: string; name: string; avatar?: string } | null;
-          fanboxProfile?: { id: string; name: string; avatar?: string } | null;
-        };
-        if (data.status === "waiting" && !sawWaiting) {
-          sawWaiting = true;
-          toast.message(
-            data.chrome
-              ? `请在弹出的窗口里登录。找不到的话看任务栏（${data.chrome}）。`
-              : "请在弹出的 Chrome / Edge 窗口里登录。找不到的话看一下任务栏。",
-          );
-        }
-        if (data.status === "done") {
-          await applyLoginJob(data);
-          return;
-        }
-        if (data.status === "error") throw new Error(data.error || "登录失败");
-        await new Promise((r) => setTimeout(r, 900));
-      }
-      throw new Error("等待登录超时。请确认弹出窗口里已经登录，或改用手贴 Cookie。");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "登录失败");
-    } finally {
-      setLoginBusy(null);
+      await useSettings.getState().syncSessions();
+      await useSettings.getState().refreshIdentities();
+      const id = pixivUserIdFromCookie(parsed.pixiv);
+      toast.success(
+        [parsed.pixiv ? `Pixiv${id ? ` ID ${id}` : ""}` : "", parsed.fanbox ? "FANBOX" : ""].filter(Boolean).join(" · ") +
+          " 已写入",
+      );
+    } catch {
+      toast.error("Cookie 已填入，但还没能核对资料");
     }
   }
 
-  async function applyLoginJob(data: {
+  async function pasteDump() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        toast.error("剪贴板是空的");
+        return;
+      }
+      await applyDump(text);
+    } catch {
+      toast.error("读不到剪贴板，请直接粘贴到输入框");
+    }
+  }
+
+  async function applyRelay(data: {
     pixiv?: string;
     fanbox?: string;
     pixivProfile?: { id: string; name: string; avatar?: string } | null;
     fanboxProfile?: { id: string; name: string; avatar?: string } | null;
   }) {
+    if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
     if (data.pixiv && !isPixivLoggedInSession(data.pixiv)) {
-      toast.error("抓到的是访客 Cookie，还没有真正登录。请在弹出窗口里完成 Pixiv 登录。");
+      toast.error("抓到的是访客 Cookie，还没有真正登录。");
       return;
     }
     if (data.pixiv) setPixivCookie(data.pixiv);
@@ -270,18 +248,9 @@ function SettingsPage() {
     );
   }
 
-  async function cancelBrowserLogin() {
-    try {
-      await fetch("/api/login-browser", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-    } catch {
-      /* ignore */
-    }
-    setLoginBusy(null);
-    toast.message("已取消浏览器登录");
+  function openRelay(site: LoginSite) {
+    if (!active) addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
+    setRelaySite(site);
   }
 
   return (
@@ -341,7 +310,7 @@ function SettingsPage() {
             onClick={() => {
               addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
               setNewName("");
-              toast.success("已添加账号，填入 Cookie 后点保存");
+              toast.success("已添加账号，登录或粘贴 Cookie 后保存");
             }}
           >
             <Plus className="size-4" />
@@ -373,6 +342,8 @@ function SettingsPage() {
               <p className="mt-0.5 text-sm text-fg">{displayName(active, "pixiv")}</p>
               {active.pixivProfile?.id ? (
                 <p className="text-xs text-subtle">ID {active.pixivProfile.id}</p>
+              ) : pixivUserIdFromCookie(pixivCookie) ? (
+                <p className="text-xs text-subtle">已识别用户 ID {pixivUserIdFromCookie(pixivCookie)}</p>
               ) : null}
               <p className="text-xs text-subtle">{mask(pixivCookie)}</p>
               <Input
@@ -384,6 +355,14 @@ function SettingsPage() {
                 placeholder="从 pixiv.net Cookie 复制 PHPSESSID"
                 value={pixivCookie}
                 onChange={(e) => setPixivCookie(e.target.value.trim())}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  const parsed = parseCookieDump(text);
+                  if (parsed.pixiv || parsed.fanbox) {
+                    e.preventDefault();
+                    void applyDump(text);
+                  }
+                }}
               />
               </div>
             </div>
@@ -407,36 +386,34 @@ function SettingsPage() {
                 placeholder="从 fanbox.cc 复制 FANBOXSESSID"
                 value={fanboxCookie}
                 onChange={(e) => setFanboxCookie(e.target.value.trim())}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  const parsed = parseCookieDump(text);
+                  if (parsed.pixiv || parsed.fanbox) {
+                    e.preventDefault();
+                    void applyDump(text);
+                  }
+                }}
               />
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                disabled={loginBusy !== null}
-                onClick={() => void browserLogin("pixiv")}
-              >
+              <Button variant="secondary" onClick={() => openRelay("pixiv")}>
                 <LogIn className="size-4" />
-                {loginBusy === "pixiv" ? "等待 Pixiv 登录…" : "浏览器登录 Pixiv"}
+                登录 Pixiv
               </Button>
-              <Button
-                variant="secondary"
-                disabled={loginBusy !== null}
-                onClick={() => void browserLogin("fanbox")}
-              >
+              <Button variant="secondary" onClick={() => openRelay("fanbox")}>
                 <LogIn className="size-4" />
-                {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
+                登录 FANBOX
               </Button>
-              {loginBusy ? (
-                <Button variant="danger" onClick={() => void cancelBrowserLogin()}>
-                  <X className="size-4" />
-                  取消弹窗
-                </Button>
-              ) : null}
+              <Button variant="ghost" onClick={() => void pasteDump()}>
+                <ClipboardPaste className="size-4" />
+                从剪贴板粘贴
+              </Button>
             </div>
             <p className="text-xs leading-relaxed text-subtle">
-              网页嵌不进 Pixiv 登录框。会在本机弹出 Chrome / Edge 打开官方页，等你真正登进去再抓会话。没登录时 Pixiv
-              也会发一枚临时 Cookie，那种不算数，窗口会一直留着。找不到窗口就看任务栏；没有桌面时请改用手贴。
+              「登录」会在这个页面里打开官方登录页（由后端中转），登完自动收回 Cookie。也可以把 PHPSESSID、Cookie
+              导出 JSON 或 Netscape cookies.txt 粘进来。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>
@@ -454,34 +431,33 @@ function SettingsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted">还没有账号。可以先弹出官方登录页，成功后会自动建一个。</p>
+            <p className="text-sm text-muted">还没有账号。登录成功后会自动建一个。</p>
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                disabled={loginBusy !== null}
-                onClick={() => void browserLogin("pixiv")}
-              >
+              <Button variant="secondary" onClick={() => openRelay("pixiv")}>
                 <LogIn className="size-4" />
-                {loginBusy === "pixiv" ? "等待 Pixiv 登录…" : "浏览器登录 Pixiv"}
+                登录 Pixiv
               </Button>
-              <Button
-                variant="secondary"
-                disabled={loginBusy !== null}
-                onClick={() => void browserLogin("fanbox")}
-              >
+              <Button variant="secondary" onClick={() => openRelay("fanbox")}>
                 <LogIn className="size-4" />
-                {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
+                登录 FANBOX
               </Button>
-              {loginBusy ? (
-                <Button variant="danger" onClick={() => void cancelBrowserLogin()}>
-                  <X className="size-4" />
-                  取消弹窗
-                </Button>
-              ) : null}
+              <Button variant="ghost" onClick={() => void pasteDump()}>
+                <ClipboardPaste className="size-4" />
+                从剪贴板粘贴
+              </Button>
             </div>
           </div>
         )}
       </section>
+
+      <SessionRelayDialog
+        site={relaySite}
+        open={relaySite !== null}
+        onOpenChange={(next) => {
+          if (!next) setRelaySite(null);
+        }}
+        onDone={applyRelay}
+      />
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -524,7 +500,7 @@ function SettingsPage() {
         <ol className="list-decimal space-y-1 pl-5">
           <li>在电脑浏览器登录 pixiv.net 或 fanbox.cc。</li>
           <li>打开开发者工具 → Application / 存储 → Cookies。</li>
-          <li>复制 PHPSESSID 或 FANBOXSESSID 的值，粘贴到当前账号。</li>
+          <li>复制 PHPSESSID 或 FANBOXSESSID 的值，粘贴到当前账号。也可以整段 Cookie 头、Cookie-Editor JSON 或 cookies.txt。</li>
           <li>Pixiv 已登录的 PHPSESSID 形如 12345678_后面一串，没有下划线的是访客 Cookie，不能用。</li>
           <li>Cookie 只存在你的浏览器里，不会进数据库。</li>
         </ol>

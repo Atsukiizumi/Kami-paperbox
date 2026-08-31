@@ -5,6 +5,7 @@ import {
   chromeCandidates,
   isPixivLoggedInSession,
   loginJobBusy,
+  parseCookieDump,
   pickSession,
   pixivCookieHeader,
   pixivUserIdFromCookie,
@@ -52,6 +53,31 @@ test("logged-in session helper and header", () => {
   );
 });
 
+test("parses cookie dumps from headers, json, and netscape files", () => {
+  const header = parseCookieDump("PHPSESSID=12345678_abcdef0123456789deadbeef; path=/");
+  assert.equal(header.pixiv, "12345678_abcdef0123456789deadbeef");
+
+  const json = parseCookieDump(
+    JSON.stringify([
+      { name: "PHPSESSID", value: "42_abcdef0123456789deadbeef", domain: ".pixiv.net" },
+      { name: "FANBOXSESSID", value: "fanbox-token-16ok", domain: ".fanbox.cc" },
+    ]),
+  );
+  assert.equal(json.pixiv, "42_abcdef0123456789deadbeef");
+  assert.equal(json.fanbox, "fanbox-token-16ok");
+
+  const netscape = parseCookieDump(
+    [
+      "# Netscape HTTP Cookie File",
+      ".pixiv.net\tTRUE\t/\tTRUE\t0\tPHPSESSID\t99_abcdef0123456789deadbeef",
+    ].join("\n"),
+  );
+  assert.equal(netscape.pixiv, "99_abcdef0123456789deadbeef");
+
+  const guest = parseCookieDump("PHPSESSID=abcdef0123456789deadbeef");
+  assert.equal(guest.pixiv, "");
+});
+
 test("windows chrome candidates include edge", () => {
   const list = chromeCandidates("win32", {
     PROGRAMFILES: "C:\\Program Files",
@@ -64,10 +90,13 @@ test("windows chrome candidates include edge", () => {
   assert.ok(list.some((p) => p.includes("Chrome SxS")));
 });
 
-test("login window needs a desktop on linux", () => {
+test("login window needs a real desktop, not a grok/server display", () => {
   assert.equal(canShowLoginWindow("linux", {}), false);
-  assert.equal(canShowLoginWindow("linux", { DISPLAY: ":0" }), true);
+  assert.equal(canShowLoginWindow("linux", { DISPLAY: ":0" }), false);
+  assert.equal(canShowLoginWindow("linux", { DISPLAY: ":0", XDG_CURRENT_DESKTOP: "GNOME" }), true);
+  assert.equal(canShowLoginWindow("linux", { GROK_AGENT: "1", DISPLAY: ":0", XDG_CURRENT_DESKTOP: "GNOME" }), false);
   assert.equal(canShowLoginWindow("win32", {}), true);
+  assert.equal(canShowLoginWindow("win32", { GROK_AGENT: "1" }), false);
 });
 
 test("login job busy flags", () => {
