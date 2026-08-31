@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogIn, Plus, Trash2 } from "lucide-react";
+import { LogIn, Plus, Trash2, X } from "lucide-react";
+import { isAbortError } from "@/lib/error-component";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -175,39 +176,100 @@ function SettingsPage() {
       addAccount(newName.trim() || `账号 ${accounts.length + 1}`);
     }
     setLoginBusy(site);
-    toast.message("会弹出系统浏览器的官方登录页，请在那边完成登录。网页里嵌不进 Pixiv。");
+    toast.message("正在打开系统浏览器的官方登录页…网页里嵌不进 Pixiv。");
     try {
-      const res = await fetch("/api/login-browser", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ site }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        pixiv?: string;
-        fanbox?: string;
-        pixivProfile?: { id: string; name: string; avatar?: string } | null;
-        fanboxProfile?: { id: string; name: string; avatar?: string } | null;
-      };
-      if (!res.ok || !data.ok) throw new Error(data.error || "登录失败");
-      if (data.pixiv) setPixivCookie(data.pixiv);
-      if (data.fanbox) setFanboxCookie(data.fanbox);
-      applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
-      if (!data.pixivProfile && !data.fanboxProfile) await refreshIdentities();
-      await useSettings.getState().syncSessions();
-      const pixivName = data.pixivProfile?.name;
-      const fanboxName = data.fanboxProfile?.name;
-      toast.success(
-        [pixivName ? `Pixiv ${pixivName}` : data.pixiv ? "Pixiv 已登录" : "", fanboxName ? `FANBOX ${fanboxName}` : data.fanbox && !pixivName ? "FANBOX 已登录" : ""]
-          .filter(Boolean)
-          .join(" · ") || "已写入会话",
-      );
+      try {
+        const res = await fetch("/api/login-browser", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ site }),
+        });
+        const data = (await res.json()) as {
+          status?: string;
+          error?: string;
+          ok?: boolean;
+          pixiv?: string;
+          fanbox?: string;
+          pixivProfile?: { id: string; name: string; avatar?: string } | null;
+          fanboxProfile?: { id: string; name: string; avatar?: string } | null;
+        };
+        if (data.status === "error") throw new Error(data.error || "登录失败");
+        if (data.status === "done") {
+          await applyLoginJob(data);
+          return;
+        }
+      } catch (err) {
+        if (!isAbortError(err) && !(err instanceof TypeError)) throw err;
+      }
+
+      const deadline = Date.now() + 4 * 60 * 1000;
+      let sawWaiting = false;
+      while (Date.now() < deadline) {
+        const res = await fetch("/api/login-browser", { cache: "no-store" });
+        const data = (await res.json()) as {
+          status?: string;
+          error?: string;
+          chrome?: string | null;
+          pixiv?: string;
+          fanbox?: string;
+          pixivProfile?: { id: string; name: string; avatar?: string } | null;
+          fanboxProfile?: { id: string; name: string; avatar?: string } | null;
+        };
+        if (data.status === "waiting" && !sawWaiting) {
+          sawWaiting = true;
+          toast.message(
+            data.chrome
+              ? `请在弹出的窗口里登录。找不到的话看任务栏（${data.chrome}）。`
+              : "请在弹出的 Chrome / Edge 窗口里登录。找不到的话看一下任务栏。",
+          );
+        }
+        if (data.status === "done") {
+          await applyLoginJob(data);
+          return;
+        }
+        if (data.status === "error") throw new Error(data.error || "登录失败");
+        await new Promise((r) => setTimeout(r, 900));
+      }
+      throw new Error("等待登录超时。请确认弹出窗口里已经登录，或改用手贴 Cookie。");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "登录失败");
     } finally {
       setLoginBusy(null);
     }
+  }
+
+  async function applyLoginJob(data: {
+    pixiv?: string;
+    fanbox?: string;
+    pixivProfile?: { id: string; name: string; avatar?: string } | null;
+    fanboxProfile?: { id: string; name: string; avatar?: string } | null;
+  }) {
+    if (data.pixiv) setPixivCookie(data.pixiv);
+    if (data.fanbox) setFanboxCookie(data.fanbox);
+    applyProfiles({ pixiv: data.pixivProfile ?? null, fanbox: data.fanboxProfile ?? null });
+    if (!data.pixivProfile && !data.fanboxProfile) await refreshIdentities();
+    await useSettings.getState().syncSessions();
+    const pixivName = data.pixivProfile?.name;
+    const fanboxName = data.fanboxProfile?.name;
+    toast.success(
+      [pixivName ? `Pixiv ${pixivName}` : data.pixiv ? "Pixiv 已登录" : "", fanboxName ? `FANBOX ${fanboxName}` : data.fanbox && !pixivName ? "FANBOX 已登录" : ""]
+        .filter(Boolean)
+        .join(" · ") || "已写入会话",
+    );
+  }
+
+  async function cancelBrowserLogin() {
+    try {
+      await fetch("/api/login-browser", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+    } catch {
+      /* ignore */
+    }
+    setLoginBusy(null);
+    toast.message("已取消浏览器登录");
   }
 
   return (
@@ -349,10 +411,16 @@ function SettingsPage() {
                 <LogIn className="size-4" />
                 {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
               </Button>
+              {loginBusy ? (
+                <Button variant="danger" onClick={() => void cancelBrowserLogin()}>
+                  <X className="size-4" />
+                  取消弹窗
+                </Button>
+              ) : null}
             </div>
             <p className="text-xs leading-relaxed text-subtle">
               网页无法嵌入 Pixiv 登录框，也不能跨站读取 Cookie。会在本机弹出 Chrome / Edge
-              打开官方登录页；密码只打在官方站点上。登录成功后只把会话 Cookie 写回当前账号。
+              打开官方登录页；密码只打在官方站点上。登录成功后只把会话 Cookie 写回当前账号。找不到窗口的话，看任务栏。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>
@@ -388,6 +456,12 @@ function SettingsPage() {
                 <LogIn className="size-4" />
                 {loginBusy === "fanbox" ? "等待 FANBOX 登录…" : "浏览器登录 FANBOX"}
               </Button>
+              {loginBusy ? (
+                <Button variant="danger" onClick={() => void cancelBrowserLogin()}>
+                  <X className="size-4" />
+                  取消弹窗
+                </Button>
+              ) : null}
             </div>
           </div>
         )}
