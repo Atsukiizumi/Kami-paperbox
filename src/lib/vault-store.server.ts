@@ -6,7 +6,9 @@
  * 为什么：
  *   - IndexedDB 有配额、清站点数据就没了，量大以后也不好查。
  *   - 用户选的文件夹不能 SQL 查询，所以目录必须在程序自己的库里。
- *   - 用 Node 22 自带的 `node:sqlite`，不必编译 better-sqlite3。
+ *   - 用 Node 22 自带的 `node:sqlite`，不必编 better-sqlite3，也不上图数据库。
+ *     作者/标签是作品上的字段；真要走「相关作品」再加边表即可。
+ *   - 原图是普通 jpg/png/gif 文件，不把像素塞进 SQLite。
  *   - Vercel 不能写磁盘：mkdir 失败就当不可用，浏览器回退 IndexedDB。
  */
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";

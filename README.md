@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.7.0-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.7.1-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -122,7 +122,7 @@ http://user:pass@127.0.0.1:7890
 ### 纸匣与队列 🗂️
 
 - **保存**：原图（或动图合成的 GIF）写入本机 Node 目录（`.data/vault`），浏览器里留一份预览。纸匣页可按标题、作者、标签、路径搜索。
-- **目录**：`pnpm dev` / `pnpm start` 就是这台 Node 服务器。元数据是 SQLite（`.data/vault/vault.sqlite`），文件在 `.data/vault/files`。Docker 已经把 `.data` 做成数据卷。Vercel 不能写磁盘，会自动只用浏览器缓存。
+- **目录**：`pnpm dev` / `pnpm start` 就是这台 Node 服务器。元数据是 SQLite（`.data/vault/vault.sqlite`），文件在 `.data/vault/files`。不是图数据库，作者/标签只是关系表上的字段。Docker 已经把 `.data` 做成数据卷。Vercel 不能写磁盘，会自动只用浏览器缓存。细节见 [docs/storage.md](docs/storage.md)。
 - **目标文件夹**：设置里用 Chrome / Edge 选一个本机文件夹，保存和下载可按规则再写一份到磁盘
 - **分类规则**：扁平、作者、日期、日期+时间、作者+日期、站点+作者，或自己写 `{author}` `{date}` `{title}` 等占位符
 - **下载**：有目标文件夹则按规则写入；否则走浏览器下载（路径里的斜杠会收成下划线）
@@ -244,6 +244,7 @@ Pixiv / FANBOX 没有给第三方的公开 API。纸匣对着官方页面把网�
 
 - 逐步实操（DevTools、无头拦包、拆 JS、curl、Cookie）：[docs/reverse-engineering.md](docs/reverse-engineering.md)
 - 已经在用的接口清单和代码落点：[docs/upstream.md](docs/upstream.md)
+- 纸匣怎么存（SQLite + 原图文件，为什么不是图数据库）：[docs/storage.md](docs/storage.md)
 - 注释约定（作用 / 用法 / 为什么）：[docs/comments.md](docs/comments.md)
 
 无头环境拦 XHR：
@@ -281,6 +282,7 @@ kami.config.example.json        监听地址 / 代理样板（复制为 kami.con
 .env.example                    环境变量样板
 .gitignore                      排除本机配置、依赖、构建产物
 CHANGELOG.md                    更新日志
+docs/storage.md                 纸匣怎么存（SQLite + 文件，不是图库）
 Dockerfile                      生产镜像
 docker-compose.yml              一键启动
 ```
