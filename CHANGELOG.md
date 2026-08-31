@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.6.4] — 2026-08-31
+
+对应 [PR #17](https://github.com/Atsukiizumi/Kami-paperbox/pull/17)。
+
+### 改进
+
+- 浏览拼版改成按行撑满：同一行等高，横图变宽、竖图变窄，中间不再留出大块空位。
+- FANBOX 动态 / 已支持 / 创作者可以「加载更多」；封面、正文图片按投稿顺序读取；没有封面的投稿显示摘要而不是空盒子。
+
 ## [0.6.3] — 2026-08-31
 
 对应 [PR #16](https://github.com/Atsukiizumi/Kami-paperbox/pull/16)。

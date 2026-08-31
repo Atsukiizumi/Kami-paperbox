@@ -24,6 +24,7 @@ export type WorkCard = {
   illustType?: number;
   aiType?: number;
   rating?: string;
+  excerpt?: string;
 };
 
 export type WorkPage = {

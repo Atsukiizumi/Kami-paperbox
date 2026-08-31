@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -21,7 +21,7 @@ import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { cn } from "@/lib/utils";
-import type { WorkCard } from "@/lib/types";
+import type { FanboxCursor, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -104,23 +104,31 @@ function Home() {
     },
   });
 
-  const fanboxQuery = useQuery({
-    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, page, safeMode, fanboxCookie],
+  const fanboxQuery = useInfiniteQuery({
+    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, fanboxCookie],
     enabled: tab === "fanbox",
-    queryFn: async () => {
+    initialPageParam: (searchWord ? 1 : undefined) as number | FanboxCursor | undefined,
+    queryFn: async ({ pageParam }) => {
       const creds = cookiesFromSettings();
       if (searchWord) {
-        return fetchSource({ data: { op: "fanboxTagged", tag: searchWord, page, ...creds } });
+        const pageNo = typeof pageParam === "number" ? pageParam : 1;
+        return fetchSource({ data: { op: "fanboxTagged", tag: searchWord, page: pageNo, ...creds } });
       }
+      const cursor = pageParam && typeof pageParam === "object" ? pageParam : undefined;
       if (fanboxFeed === "home") {
-        return fetchSource({ data: { op: "fanboxHome", ...creds } });
+        return fetchSource({ data: { op: "fanboxHome", cursor, ...creds } });
       }
       if (fanboxFeed === "supporting") {
-        return fetchSource({ data: { op: "fanboxSupporting", ...creds } });
+        return fetchSource({ data: { op: "fanboxSupporting", cursor, ...creds } });
       }
       return fetchSource({
-        data: { op: "fanboxCreator", id: creatorId, ...creds },
+        data: { op: "fanboxCreator", id: creatorId, cursor, ...creds },
       });
+    },
+    getNextPageParam: (last) => {
+      if (last.op === "fanboxTagged") return last.nextPage ?? undefined;
+      if ("cursor" in last) return last.cursor ?? undefined;
+      return undefined;
     },
   });
 
@@ -238,15 +246,16 @@ function Home() {
   const rankingDate =
     pixivQuery.data && pixivQuery.data.op === "pixivRanking" ? pixivQuery.data.date : "";
   const fanboxItems: WorkCard[] =
-    fanboxQuery.data &&
-    (fanboxQuery.data.op === "fanboxCreator" ||
-      fanboxQuery.data.op === "fanboxHome" ||
-      fanboxQuery.data.op === "fanboxSupporting" ||
-      fanboxQuery.data.op === "fanboxTagged")
-      ? fanboxQuery.data.items
-      : [];
-  const fanboxProfile =
-    fanboxQuery.data && fanboxQuery.data.op === "fanboxCreator" ? fanboxQuery.data.profile : null;
+    fanboxQuery.data?.pages.flatMap((p) =>
+      p.op === "fanboxCreator" ||
+      p.op === "fanboxHome" ||
+      p.op === "fanboxSupporting" ||
+      p.op === "fanboxTagged"
+        ? p.items
+        : [],
+    ) ?? [];
+  const fanboxCreatorPage = fanboxQuery.data?.pages.find((p) => p.op === "fanboxCreator");
+  const fanboxProfile = fanboxCreatorPage && fanboxCreatorPage.op === "fanboxCreator" ? fanboxCreatorPage.profile : null;
   const booruItems: WorkCard[] =
     booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.items : [];
   const items = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
@@ -260,7 +269,6 @@ function Home() {
         : null;
 
   const showPixivPager = Boolean(searchWord) || feed === "following" || isPixivRankMode(feed);
-  const showFanboxPager = tab === "fanbox" && Boolean(searchWord);
   const showBooruPager =
     isBooru(tab) && (Boolean(searchWord) || booruFeed === "recent" || tab === "danbooru");
   const rankModes = PIXIV_RANK_MODES.filter((m) => !m.nsfw || !safeMode);
@@ -573,18 +581,14 @@ function Home() {
         </div>
       ) : null}
 
-      {showFanboxPager && fanboxItems.length > 0 ? (
-        <div className="flex justify-center gap-2 pt-2">
+      {tab === "fanbox" && fanboxItems.length > 0 && fanboxQuery.hasNextPage ? (
+        <div className="flex justify-center pt-2">
           <Button
             variant="secondary"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={fanboxQuery.isFetchingNextPage}
+            onClick={() => void fanboxQuery.fetchNextPage()}
           >
-            上一页
-          </Button>
-          <span className="flex h-11 items-center px-2 text-sm tabular-nums text-muted">{page}</span>
-          <Button variant="secondary" disabled={loading} onClick={() => setPage((p) => p + 1)}>
-            下一页
+            {fanboxQuery.isFetchingNextPage ? "加载中…" : "加载更多"}
           </Button>
         </div>
       ) : null}

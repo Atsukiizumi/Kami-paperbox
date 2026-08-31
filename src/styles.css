@@ -443,17 +443,6 @@ a:focus-visible .kami-logo .kami-logo-fold {
   }
 }
 
-.kami-masonry > [data-layout="wide"],
-.kami-masonry > [data-layout="banner"] {
-  grid-column: span 2;
-}
-
-@media (min-width: 1024px) {
-  .kami-masonry > [data-layout="banner"] {
-    grid-column: span 3;
-  }
-}
-
 .kami-masonry[data-packed] {
   display: block;
   position: relative;
@@ -467,6 +456,15 @@ a:focus-visible .kami-logo .kami-logo-fold {
   top: var(--masonry-y, 0px);
   width: var(--masonry-w, 100%);
   margin: 0;
+}
+
+.kami-masonry[data-packed] .kami-card-media {
+  aspect-ratio: auto;
+  height: var(--masonry-media-h);
+}
+
+.kami-masonry[data-packed] > :not(:has(.kami-card-media)) {
+  height: var(--masonry-media-h);
 }
 
 @media (prefers-reduced-motion: reduce) {

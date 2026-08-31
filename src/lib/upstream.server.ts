@@ -485,85 +485,133 @@ async function pixivUser(
   return { op: "pixivUser", profile, items, total: ids.length, offset };
 }
 
+function sizeFromFanboxUrl(url: string): { width?: number; height?: number } {
+  const m = url.match(/\/c\/(\d{2,5})x(\d{2,5})(?:[/_]|$)/);
+  if (!m) return {};
+  const width = Number(m[1]);
+  const height = Number(m[2]);
+  if (width < 32 || height < 32 || width > 8000 || height > 8000) return {};
+  return { width, height };
+}
+
+function fanboxCoverOf(raw: Record<string, unknown>): { url: string; width?: number; height?: number } {
+  let url = "";
+  let width: number | undefined;
+  let height: number | undefined;
+  const cover = raw.cover;
+  if (typeof cover === "string") {
+    url = cover;
+  } else if (cover && typeof cover === "object") {
+    const rec = asRecord(cover);
+    url = asString(rec.url || rec.originUrl || rec.thumbnailUrl);
+    width = asNumber(rec.width) || undefined;
+    height = asNumber(rec.height) || undefined;
+  }
+  if (!url) url = asString(raw.coverImageUrl || raw.imageForShare);
+  if ((!width || !height) && url) {
+    const parsed = sizeFromFanboxUrl(url);
+    width = width || parsed.width;
+    height = height || parsed.height;
+  }
+  return { url, width, height };
+}
+
+function pushFanboxImage(pages: WorkPage[], raw: Record<string, unknown>) {
+  const original = asString(raw.originalUrl || raw.url);
+  if (!original) return;
+  const name = asString(raw.id);
+  const ext = asString(raw.extension, "jpg");
+  pages.push({
+    thumb: asString(raw.thumbnailUrl || original),
+    regular: original,
+    original,
+    name: name ? `${name}.${ext}` : undefined,
+  });
+}
+
+function pushFanboxFile(pages: WorkPage[], raw: Record<string, unknown>) {
+  const url = asString(raw.url);
+  if (!url) return;
+  pages.push({
+    thumb: url,
+    regular: url,
+    original: url,
+    name: asString(raw.name, "file"),
+    bytes: asNumber(raw.size) || undefined,
+  });
+}
+
 function mapFanboxPostCard(raw: Record<string, unknown>): WorkCard | null {
   const id = asString(raw.id);
   if (!id) return null;
   const user = asRecord(raw.user);
-  const cover = asRecord(raw.cover);
+  const cover = fanboxCoverOf(raw);
   const tags = Array.isArray(raw.tags)
     ? raw.tags.filter((t): t is string => typeof t === "string")
     : [];
+  const excerpt = asString(raw.excerpt).replace(/<[^>]+>/g, "").slice(0, 280);
   return {
     source: "fanbox",
     id,
     title: asString(raw.title),
     author: asString(user.name),
     authorId: asString(raw.creatorId || user.userId),
-    thumb: asString(cover.url || raw.coverImageUrl),
+    thumb: cover.url,
     pageCount: 1,
     tags,
-    width: asNumber(cover.width) || undefined,
-    height: asNumber(cover.height) || undefined,
+    width: cover.width,
+    height: cover.height,
     restricted: asBool(raw.isRestricted),
     feeRequired: asNumber(raw.feeRequired, 0),
     date: asString(raw.publishedDatetime) || undefined,
+    excerpt: excerpt || undefined,
   };
 }
 
 function extractFanboxPages(post: Record<string, unknown>): WorkPage[] {
   const pages: WorkPage[] = [];
+  const seen = new Set<string>();
+  const add = (page: WorkPage) => {
+    if (!page.original || seen.has(page.original)) return;
+    seen.add(page.original);
+    pages.push(page);
+  };
+  const addImage = (raw: Record<string, unknown>) => {
+    const buf: WorkPage[] = [];
+    pushFanboxImage(buf, raw);
+    for (const p of buf) add(p);
+  };
+  const addFile = (raw: Record<string, unknown>) => {
+    const buf: WorkPage[] = [];
+    pushFanboxFile(buf, raw);
+    for (const p of buf) add(p);
+  };
+
   const body = asRecord(post.body);
   const imageMap = asRecord(body.imageMap);
-  for (const value of Object.values(imageMap)) {
-    const img = asRecord(value);
-    const original = asString(img.originalUrl);
-    if (!original) continue;
-    pages.push({
-      thumb: asString(img.thumbnailUrl || original),
-      regular: original,
-      original,
-      name: `${asString(img.id, "img")}.${asString(img.extension, "jpg")}`,
-    });
-  }
   const fileMap = asRecord(body.fileMap);
-  for (const value of Object.values(fileMap)) {
-    const file = asRecord(value);
-    const url = asString(file.url);
-    if (!url) continue;
-    pages.push({
-      thumb: url,
-      regular: url,
-      original: url,
-      name: asString(file.name, "file"),
-      bytes: asNumber(file.size) || undefined,
-    });
-  }
-  const images = Array.isArray(body.images) ? body.images : [];
-  for (const value of images) {
-    const img = asRecord(value);
-    const original = asString(img.originalUrl || img.url);
-    if (!original) continue;
-    pages.push({
-      thumb: asString(img.thumbnailUrl || original),
-      regular: original,
-      original,
-    });
-  }
-  const files = Array.isArray(body.files) ? body.files : [];
-  for (const value of files) {
-    const file = asRecord(value);
-    const url = asString(file.url);
-    if (!url) continue;
-    pages.push({
-      thumb: url,
-      regular: url,
-      original: url,
-      name: asString(file.name, "file"),
-    });
+  const blocks = Array.isArray(body.blocks) ? body.blocks : [];
+  if (blocks.length > 0) {
+    for (const raw of blocks) {
+      const rec = asRecord(raw);
+      const type = asString(rec.type);
+      if (type === "image") addImage(asRecord(imageMap[asString(rec.imageId)]));
+      else if (type === "file") addFile(asRecord(fileMap[asString(rec.fileId)]));
+    }
   }
   if (pages.length === 0) {
-    const cover = asString(post.coverImageUrl);
-    if (cover) pages.push({ thumb: cover, regular: cover, original: cover });
+    for (const value of Object.values(imageMap)) addImage(asRecord(value));
+    const images = Array.isArray(body.images) ? body.images : [];
+    for (const value of images) addImage(asRecord(value));
+    for (const value of Object.values(fileMap)) addFile(asRecord(value));
+    const files = Array.isArray(body.files) ? body.files : [];
+    for (const value of files) addFile(asRecord(value));
+  }
+  if (pages.length === 0) {
+    const cover = fanboxCoverOf(post);
+    if (cover.url) {
+      add({ thumb: cover.url, regular: cover.url, original: cover.url });
+    }
   }
   return pages;
 }
@@ -654,13 +702,13 @@ async function fanboxPost(
   const user = asRecord(post.user);
   const restricted = asBool(post.isRestricted);
   const pages = restricted ? [] : extractFanboxPages(post);
-  const cover = asString(post.coverImageUrl);
+  const cover = asString(post.coverImageUrl) || fanboxCoverOf(post).url;
   const work: WorkDetail = {
     source: "fanbox",
     id: asString(post.id || id),
     title: asString(post.title),
     author: asString(user.name),
-    authorId: asString(post.creatorId),
+    authorId: asString(post.creatorId || user.userId),
     thumb: cover || pages[0]?.thumb || "",
     pageCount: pages.length || 1,
     tags: Array.isArray(post.tags)

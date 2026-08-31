@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { masonryColumns, masonrySpan, packMasonry } from "./masonry-flow.ts";
+import { masonryColumns, masonrySpan, packJustified, packMasonry } from "./masonry-flow.ts";
 
 test("masonryColumns follows container width", () => {
   assert.equal(masonryColumns(360, 12), 2);
@@ -62,4 +62,78 @@ test("packMasonry sits a wide card next to leftover tiles", () => {
   assert.equal(small?.y, 90);
   assert.equal(small?.x, 0);
   assert.equal(packed.height, 120);
+});
+
+test("packJustified fills a row with no leftover gap", () => {
+  const packed = packJustified({
+    containerWidth: 430,
+    gap: 10,
+    items: [{ aspect: 1 }, { aspect: 1 }, { aspect: 1 }, { aspect: 1 }],
+    idealHeight: 100,
+    captionBand: 0,
+  });
+  assert.equal(packed.placements.length, 4);
+  assert.equal(packed.placements[0]?.y, 0);
+  assert.equal(packed.placements[3]?.y, 0);
+  const right =
+    (packed.placements[3]?.x ?? 0) + (packed.placements[3]?.width ?? 0);
+  assert.equal(right, 430);
+  for (const p of packed.placements) {
+    assert.equal(Math.round(p.height), 100);
+  }
+  assert.equal(packed.height, 100);
+});
+
+test("packJustified mixes portrait and landscape without a hole", () => {
+  const packed = packJustified({
+    containerWidth: 640,
+    gap: 12,
+    items: [
+      { aspect: 0.6 },
+      { aspect: 1.8 },
+      { aspect: 0.75 },
+      { aspect: 1.4 },
+      { aspect: 0.5 },
+      { aspect: 2.2 },
+    ],
+    idealHeight: 200,
+    captionBand: 76,
+  });
+  assert.equal(packed.placements.length, 6);
+  const rows = new Map<number, typeof packed.placements>();
+  for (const p of packed.placements) {
+    const key = Math.round(p.y);
+    const list = rows.get(key) ?? [];
+    list.push(p);
+    rows.set(key, list);
+  }
+  for (const [y, row] of rows) {
+    const heights = new Set(row.map((p) => Math.round(p.height)));
+    assert.equal(heights.size, 1, `row at ${y} should share height`);
+    const ordered = [...row].sort((a, b) => a.x - b.x);
+    for (let i = 1; i < ordered.length; i += 1) {
+      const prev = ordered[i - 1]!;
+      const next = ordered[i]!;
+      assert.ok(next.x + 0.5 >= prev.x + prev.width, "cards should not overlap");
+    }
+    const last = ordered[ordered.length - 1]!;
+    if (y === 0) {
+      assert.equal(Math.round(last.x + last.width), 640);
+    }
+  }
+  assert.ok(packed.height > 200);
+});
+
+test("packJustified does not blow up a leftover last row", () => {
+  const packed = packJustified({
+    containerWidth: 800,
+    gap: 12,
+    items: [{ aspect: 0.75 }],
+    idealHeight: 220,
+    captionBand: 0,
+  });
+  const only = packed.placements[0];
+  assert.ok(only);
+  assert.ok(only.height <= 220 * 1.01);
+  assert.ok(only.width < 400);
 });
