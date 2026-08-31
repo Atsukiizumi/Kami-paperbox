@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.9] — 2026-08-31
+
+对应 [PR #28](https://github.com/Atsukiizumi/Kami-paperbox/pull/28)。
+
+### 改进
+
+- 浏览网格等待源站和封面时代替空白灰块：骨架扫光 + 「正在加载作品」。封面没到之前卡片里也会扫。
+
 ## [0.7.8] — 2026-08-31
 
 对应 [PR #27](https://github.com/Atsukiizumi/Kami-paperbox/pull/27)。

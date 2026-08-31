@@ -363,10 +363,10 @@ html.kami-motion {
 
 @keyframes kami-shimmer {
   from {
-    background-position: 100% 0;
+    background-position: 200% 0;
   }
   to {
-    background-position: -100% 0;
+    background-position: -200% 0;
   }
 }
 
@@ -397,13 +397,16 @@ html.kami-motion {
 .kami-shimmer {
   background-color: var(--color-elevated);
   background-image: linear-gradient(
-    90deg,
-    var(--color-elevated) 0%,
-    color-mix(in oklab, var(--color-fg) 10%, var(--color-elevated)) 50%,
-    var(--color-elevated) 100%
+    105deg,
+    color-mix(in oklab, var(--color-elevated) 100%, transparent) 0%,
+    color-mix(in oklab, var(--color-fg) 6%, var(--color-elevated)) 38%,
+    color-mix(in oklab, var(--color-fg) 28%, var(--color-elevated)) 50%,
+    color-mix(in oklab, var(--color-fg) 6%, var(--color-elevated)) 62%,
+    color-mix(in oklab, var(--color-elevated) 100%, transparent) 100%
   );
-  background-size: 200% 100%;
-  animation: kami-shimmer 1.4s linear infinite;
+  background-size: 220% 100%;
+  animation: kami-shimmer 1.5s var(--ease-out) infinite;
+  animation-delay: var(--shimmer-delay, 0s);
 }
 
 .kami-logo .kami-logo-fold {
