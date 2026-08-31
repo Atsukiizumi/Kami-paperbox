@@ -4,7 +4,8 @@
  * 作用：从本机目录（IndexedDB）列出作品，可搜索、按站点/作者过滤、预览、导出、删除。
  * 用法：路由 `/vault`。点卡片放大；「导出」按设置写入文件夹或下载。
  * 为什么：磁盘文件夹按作者/日期铺开之后没法搜，所以查询走目录里的元数据
- *        （标题、作者、标签、相对路径），文件本身仍在 IndexedDB / 本机文件夹。
+ *        （标题、作者、标签、相对路径）。本机 Node 跑着时优先读 `.data/vault` 的 SQLite；
+ *        否则回退浏览器 IndexedDB。
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, ExternalLink, Trash2 } from "lucide-react";
@@ -25,6 +26,7 @@ import {
   type VaultMeta,
 } from "@/lib/vault";
 import { filterVaultItems, vaultAuthors, vaultTotals } from "@/lib/vault-query";
+import { listServerVault } from "@/lib/vault-sync";
 import type { Source } from "@/lib/types";
 
 export const Route = createFileRoute("/vault")({ component: VaultPage });
@@ -33,6 +35,7 @@ function VaultPage() {
   const folderLabel = useSettings((s) => s.folderLabel);
   const vaultMirrorFolder = useSettings((s) => s.vaultMirrorFolder);
   const [all, setAll] = useState<VaultMeta[]>([]);
+  const [origin, setOrigin] = useState<"server" | "browser">("browser");
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
   const [author, setAuthor] = useState("");
@@ -41,6 +44,13 @@ function VaultPage() {
   const [pages, setPages] = useState<LightboxItem[]>([]);
 
   async function refresh() {
+    const remote = await listServerVault();
+    if (remote) {
+      setOrigin("server");
+      setAll(remote.items);
+      return;
+    }
+    setOrigin("browser");
     setAll(await listVault());
   }
 
@@ -97,9 +107,11 @@ function VaultPage() {
       <header>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
         <p className="mt-1 text-sm text-muted">
-          {folderLabel && vaultMirrorFolder
-            ? `预览在浏览器目录里，文件同时写入「${folderLabel}」。可用下面的搜索按标题、作者、标签或路径查找。`
-            : "保存在这台设备的浏览器目录里，不会同步到云端。点开可放大预览。"}
+          {origin === "server"
+            ? "目录在本机 Node（`.data/vault` 的 SQLite），原图写在旁边的 files。清浏览器也不会丢。"
+            : folderLabel && vaultMirrorFolder
+              ? `预览在浏览器目录里，文件同时写入「${folderLabel}」。可用下面的搜索按标题、作者、标签或路径查找。`
+              : "保存在这台设备的浏览器目录里。启动本机 Node 后会同时写入 `.data/vault`。"}
         </p>
       </header>
 

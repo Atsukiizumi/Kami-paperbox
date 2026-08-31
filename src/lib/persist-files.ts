@@ -1,11 +1,11 @@
 /**
  * 保存/导出的落盘入口。
  *
- * 作用：收入纸匣时同时写入 IndexedDB；若设置了本机文件夹，再按路径模板镜像一份，
- *      并把相对路径写回目录，方便以后按文件夹搜。
+ * 作用：收入纸匣时写入浏览器 IndexedDB，并推到本机 Node 目录（SQLite + 原图文件）；
+ *      若设置了文件夹，再按路径模板镜像一份。
  * 用法：archiveWork(work, pages, { download })；只导出用 exportVaultItem。
- * 为什么双写：浏览器里要能预览（IDB Blob），备份和按作者归档要靠真实文件夹。
- *        文件夹一多就没法搜，所以路径必须记进目录，而不是只丢在磁盘上。
+ * 为什么三写：浏览器要能立刻预览；Node `.data/vault` 才扛得住量和查询；
+ *        用户文件夹方便在资源管理器里翻，但路径必须记进目录才能搜。
  */
 import { extFromNameOrType } from "./ugoira-meta";
 import {
@@ -20,6 +20,7 @@ import {
 import { useSettings } from "./store";
 import type { VaultMeta, WorkDetail, WorkPage } from "./types";
 import { downloadBlob, patchVaultMeta, saveVaultWork } from "./vault";
+import { patchServerVault, pushVaultToServer } from "./vault-sync";
 
 export type ArchiveWork = {
   source: string;
@@ -82,19 +83,25 @@ export async function archiveWork(
   work: WorkDetail,
   pages: { blob: Blob; page: WorkPage }[],
   opts: { download: boolean },
-): Promise<{ folder: boolean; folderSkipped: boolean }> {
-  await saveVaultWork(work, pages);
+): Promise<{ folder: boolean; folderSkipped: boolean; server: boolean }> {
+  const meta = await saveVaultWork(work, pages);
+  const files = pages.map((item) => ({
+    blob: item.blob,
+    ext: extFromNameOrType(item.page.name, item.blob.type),
+  }));
   const settings = useSettings.getState();
   const at = new Date();
   const wantFolder =
     Boolean(settings.folderLabel) && (settings.vaultMirrorFolder || (opts.download && settings.downloadToFolder));
   let folder = false;
+  let relativePath: string | undefined;
   if (wantFolder) {
     try {
       const path = await writeWorkToFolder(work, pages, at);
       folder = Boolean(path);
       if (path) {
-        await patchVaultMeta(`${work.source}:${work.id}`, {
+        relativePath = path;
+        await patchVaultMeta(meta.key, {
           relativePath: path,
           folderLabel: settings.folderLabel,
         });
@@ -103,6 +110,12 @@ export async function archiveWork(
       folder = false;
     }
   }
+  const serverMeta = {
+    ...meta,
+    relativePath: relativePath ?? meta.relativePath,
+    folderLabel: relativePath ? settings.folderLabel : meta.folderLabel,
+  };
+  const server = Boolean(await pushVaultToServer(serverMeta, files));
   if (opts.download && !folder) {
     for (let i = 0; i < pages.length; i += 1) {
       const item = pages[i];
@@ -112,7 +125,7 @@ export async function archiveWork(
       downloadBlob(item.blob, flattenDownloadName(relative));
     }
   }
-  return { folder, folderSkipped: wantFolder && !folder };
+  return { folder, folderSkipped: wantFolder && !folder, server };
 }
 
 export async function exportVaultItem(
@@ -127,6 +140,7 @@ export async function exportVaultItem(
       const path = await writeWorkToFolder(item, pages, at);
       if (path) {
         await patchVaultMeta(item.key, { relativePath: path, folderLabel: settings.folderLabel });
+        await patchServerVault(item.key, { relativePath: path, folderLabel: settings.folderLabel });
         return { folder: true };
       }
     } catch {

@@ -16,6 +16,7 @@ import {
 import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/vault";
+import { listServerVault } from "@/lib/vault-sync";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
@@ -37,6 +38,7 @@ export function StorageSection() {
   const [granted, setGranted] = useState(false);
   const [persisted, setPersisted] = useState(false);
   const [usage, setUsage] = useState("");
+  const [serverLine, setServerLine] = useState("");
   const templateRef = useRef<HTMLInputElement>(null);
 
   async function refreshStatus() {
@@ -50,6 +52,14 @@ export function StorageSection() {
           ? `${formatBytes(estimate.usage)} / ${formatBytes(estimate.quota)}`
           : formatBytes(estimate.usage),
       );
+    }
+    const remote = await listServerVault();
+    if (remote) {
+      setServerLine(
+        `Node 目录 · ${remote.totals.count} 条 · ${formatBytes(remote.totals.bytes)} · .data/vault`,
+      );
+    } else {
+      setServerLine("");
     }
   }
 
@@ -111,7 +121,8 @@ export function StorageSection() {
       <div>
         <h2 className="text-sm font-medium">存储</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          纸匣默认存在这台设备的浏览器里，关页再开还在。想同时落到磁盘上，就选一个文件夹，并指定分类规则。
+          收入纸匣会写入本机 Node 目录（`.data/vault` 的 SQLite + 原图文件），并在浏览器里留一份预览。
+          还可以再选一个文件夹，按作者/日期分类拷贝。
         </p>
       </div>
 
@@ -211,8 +222,9 @@ export function StorageSection() {
       </div>
 
       <p className="text-xs text-subtle">
+        {serverLine ? `${serverLine}。` : "Node 目录暂时不可用，只写浏览器。"}
         浏览器纸匣{persisted ? "已申请持久化" : "会尽量保留"}
-        {usage ? ` · 已用 ${usage}` : ""}。清站点数据仍会丢掉浏览器里的一份。
+        {usage ? ` · 已用 ${usage}` : ""}。
       </p>
     </section>
   );
