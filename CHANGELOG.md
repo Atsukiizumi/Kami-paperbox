@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.7.3] — 2026-08-31
+
+对应 [PR #22](https://github.com/Atsukiizumi/Kami-paperbox/pull/22)。
+
+### 新增
+
+- 浏览卡片封面可以直接保存进纸匣；Pixiv 卡片还可以点红心，不必先打开作品页。
+
 ## [0.7.2] — 2026-08-31
 
 对应 [PR #21](https://github.com/Atsukiizumi/Kami-paperbox/pull/21)。

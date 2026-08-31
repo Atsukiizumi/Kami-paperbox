@@ -1,15 +1,20 @@
 /**
  * 浏览卡片。
  *
- * 作用：封面 + 两行标题 + 作者/标签；data-aspect 给拼版用。
+ * 作用：封面 + 两行标题 + 作者/标签；封面上可直接保存、Pixiv 可点红心。
  * 用法：ArtworkGrid 包一层 MasonryBoard。无封面（FANBOX 文本投稿）改显示摘要。
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
+ *        保存/红心叠在封面上，不占标题宽度。
  */
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Download, ExternalLink, Lock, Play } from "lucide-react";
+import { Archive, Download, ExternalLink, Heart, Lock, Play } from "lucide-react";
+import { toast } from "sonner";
 import { cardAspect, cardLayout, type CardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
-import { enqueueWork } from "@/lib/queue-runner";
+import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
+import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { mutateSource } from "@/lib/source";
 import { isBooru, workOriginUrl } from "@/lib/sites";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
@@ -34,6 +39,49 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
   const hasMedia = Boolean(work.thumb);
   const aspect = hasMedia ? cardAspect(work.width, work.height) : 5 / 3;
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
+  const pixivCookie = useSettings((s) => s.pixivCookie);
+  const [liked, setLiked] = useState(Boolean(work.liked));
+  const [saving, setSaving] = useState(false);
+  const [liking, setLiking] = useState(false);
+
+  async function saveCard(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (saving || work.restricted) return;
+    setSaving(true);
+    try {
+      await saveWorkNow(work, { download: false });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function likeCard(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (work.source !== "pixiv" || liking) return;
+    if (liked) {
+      toast.success("已经点过红心");
+      return;
+    }
+    if (!pixivCookie) {
+      toast.error("先在设置里添加 Pixiv 账号");
+      return;
+    }
+    setLiking(true);
+    try {
+      await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
+      setLiked(true);
+      toast.success("已点红心");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "红心失败");
+    } finally {
+      setLiking(false);
+    }
+  }
+
   return (
     <article
       className="kami-enter group"
@@ -42,6 +90,7 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
       style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
     >
       <div className="overflow-hidden rounded-xl bg-surface transition-[box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-float)]">
+        <div className="relative">
         <Link
           to="/work/$source/$id"
           params={{ source: work.source, id: work.id }}
@@ -91,10 +140,30 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
               <Badge className="absolute bottom-2 left-2 bg-bg/80 text-fg">¥{work.feeRequired}</Badge>
             ) : null}
             {work.rating && isBooru(work.source) && isNsfwRating(work.rating, work.source) ? (
-              <Badge className="absolute bottom-2 right-2 bg-bg/80 text-fg">R-18</Badge>
+              <Badge className="absolute bottom-2 left-2 bg-bg/80 text-fg">R-18</Badge>
             ) : null}
           </div>
         </Link>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end gap-1 p-2 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100">
+          <CardIconButton
+            label="收入纸匣"
+            disabled={saving || work.restricted}
+            onClick={(e) => void saveCard(e)}
+          >
+            <Archive className={cn("size-4", saving && "animate-pulse")} />
+          </CardIconButton>
+          {work.source === "pixiv" ? (
+            <CardIconButton
+              label={liked ? "已红心" : "红心"}
+              disabled={liking}
+              active={liked}
+              onClick={(e) => void likeCard(e)}
+            >
+              <Heart className={cn("size-4", liked && "fill-current text-danger")} />
+            </CardIconButton>
+          ) : null}
+        </div>
+        </div>
         <div className="flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
           <Link
             to="/work/$source/$id"
@@ -141,6 +210,38 @@ export function ArtworkCard({ work, index = 0 }: { work: WorkCard; index?: numbe
         </div>
       </div>
     </article>
+  );
+}
+
+function CardIconButton({
+  label,
+  children,
+  onClick,
+  disabled,
+  active,
+}: {
+  label: string;
+  children: ReactNode;
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      className={cn(
+        "pointer-events-auto flex size-9 items-center justify-center rounded-full bg-bg/85 text-fg shadow-sm",
+        "transition-[transform,background-color,color] duration-150",
+        "hover:bg-bg active:scale-[0.96] disabled:opacity-50",
+        active && "text-danger",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 

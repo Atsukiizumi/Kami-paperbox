@@ -2,7 +2,7 @@
  * 下载队列执行器。
  *
  * 作用：串行处理排队作品：拉详情 → 收图 → archiveWork。
- * 用法：enqueueWork 入队后会自己 kick；页面刷新后若还有 queued 再 kick 一次。
+ * 用法：enqueueWork 入队后会自己 kick；浏览卡片点保存走 saveWorkNow({ download: false })。
  * 为什么：并行会打爆源站和浏览器下载。状态在 localStorage，文件在纸匣。
  */
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import type { Source, WorkDetail } from "./types";
 
 let running = false;
 
-async function loadWork(source: Source, id: string): Promise<WorkDetail> {
+export async function loadWork(source: Source, id: string): Promise<WorkDetail> {
   const creds = cookiesFromSettings();
   if (source === "pixiv") {
     const r = await fetchSource({ data: { op: "pixivIllust", id, ...creds } });
@@ -36,24 +36,39 @@ async function loadWork(source: Source, id: string): Promise<WorkDetail> {
   return r.work;
 }
 
+export async function saveWorkNow(
+  work: { source: Source; id: string; title?: string; restricted?: boolean },
+  opts: { download: boolean },
+): Promise<void> {
+  if (work.restricted) throw new Error("需要有效订阅才能保存这篇投稿");
+  const detail = await loadWork(work.source, work.id);
+  const original = useSettings.getState().downloadOriginal;
+  const saved = await collectWorkFiles(detail, { original });
+  const result = await archiveWork(detail, saved, { download: opts.download });
+  const gif = saved.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
+  const title = detail.title || work.title || work.id;
+  if (result.folder) {
+    toast.success(gif ? `GIF 已收入纸匣并写入文件夹：${title}` : `已收入纸匣并写入文件夹：${title}`);
+  } else if (opts.download) {
+    toast.success(
+      (gif ? `GIF 已下载并收入纸匣：${title}` : `已收入纸匣：${title}`) +
+        (result.folderSkipped ? "，文件夹未授权" : ""),
+    );
+  } else {
+    toast.success(
+      (gif ? `GIF 已收入纸匣：${title}` : `已收入纸匣：${title}`) +
+        (result.folderSkipped ? "，文件夹未授权" : ""),
+    );
+  }
+}
+
 async function processOne(key: string) {
   const item = useQueue.getState().items.find((x) => x.key === key);
   if (!item) return;
   useQueue.getState().patch(key, { status: "running", progress: 0, error: undefined });
   try {
-    const work = await loadWork(item.source, item.id);
-    const original = useSettings.getState().downloadOriginal;
-    const saved = await collectWorkFiles(work, {
-      original,
-      onProgress: (done, total) => useQueue.getState().patch(key, { progress: done, total }),
-    });
-    const result = await archiveWork(work, saved, { download: true });
-    useQueue.getState().patch(key, { status: "done", progress: saved.length, total: saved.length });
-    const gif = saved.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
-    const title = work.title;
-    if (result.folder) toast.success(gif ? `已写入文件夹：${title}` : `已收入纸匣并写入文件夹：${title}`);
-    else if (result.folderSkipped) toast.success(gif ? `GIF 已保存，文件夹未授权` : `已收入纸匣：${title}`);
-    else toast.success(gif ? `已保存 GIF：${title}` : `已收入纸匣：${title}`);
+    await saveWorkNow(item, { download: true });
+    useQueue.getState().patch(key, { status: "done", progress: 1, total: 1 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "保存失败";
     useQueue.getState().patch(key, { status: "error", error: message });
