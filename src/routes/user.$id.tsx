@@ -8,7 +8,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { formatCount } from "@/lib/utils";
-import { useState } from "react";
+import { rememberAuthor } from "@/lib/view-history";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserMinus, UserPlus } from "lucide-react";
 
@@ -32,6 +33,17 @@ function UserPage() {
       return r;
     },
   });
+
+  useEffect(() => {
+    const profile = query.data?.profile;
+    if (!query.isSuccess || !profile) return;
+    rememberAuthor({
+      source: "pixiv",
+      id: profile.id,
+      name: profile.name,
+      avatar: profile.avatar,
+    });
+  }, [id, query.isSuccess, query.data?.profile]);
 
   if (query.isLoading) {
     return (
