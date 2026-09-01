@@ -1,11 +1,11 @@
 /**
  * 作品页操作条。
  *
- * 作用：纸匣、下载、队列、红心等收在一条纸质条里，跟浏览卡片那条胶囊同一套气质。
- * 用法：详情页和灯箱 footer；compact 给灯箱，不放队列和搜来源。
- * 为什么：一排独立 shadcn 按钮像后台，不像纸匣。
+ * 作用：纸匣立刻收藏；下载推进队列（排队写盘）；红心等社交。
+ * 用法：详情页和灯箱 footer。compact 不放搜来源。
+ * 为什么：下载若当场 saveNow，队列页是空的，看起来像没下。
  */
-import { Archive, Download, ExternalLink, Heart, ListOrdered, ScanSearch, Star, UserMinus, UserPlus } from "lucide-react";
+import { Archive, Download, ExternalLink, Heart, ScanSearch, Star, UserMinus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkDetail } from "@/lib/types";
 import type { ReactNode } from "react";
@@ -17,7 +17,6 @@ export function WorkActions({
   originUrl,
   onSave,
   onDownload,
-  onQueue,
   onSearchOrigin,
   onBookmark,
   onLike,
@@ -31,7 +30,6 @@ export function WorkActions({
   originUrl?: string;
   onSave: () => void;
   onDownload: () => void;
-  onQueue?: () => void;
   onSearchOrigin?: () => void;
   onBookmark?: () => void;
   onLike?: () => void;
@@ -52,21 +50,15 @@ export function WorkActions({
         <Archive className="size-4" />
         {inVault ? "已在纸匣" : "纸匣"}
       </ActionChip>
-      <ActionChip label="下载到本机" disabled={blocked} onClick={onDownload}>
+      <ActionChip
+        label={inQueue ? "已在下载队列" : "加入下载队列"}
+        active={inQueue}
+        disabled={blocked}
+        onClick={onDownload}
+      >
         <Download className="size-4" />
-        下载
+        {inQueue ? "已在队列" : "下载"}
       </ActionChip>
-      {!compact && onQueue ? (
-        <ActionChip
-          label={inQueue ? "已在队列" : "加入队列"}
-          active={inQueue}
-          disabled={blocked}
-          onClick={onQueue}
-        >
-          <ListOrdered className="size-4" />
-          {inQueue ? "已在队列" : "队列"}
-        </ActionChip>
-      ) : null}
       {work.source === "pixiv" && onBookmark ? (
         <ActionChip
           label={work.bookmarked ? "已收藏" : "收藏"}
