@@ -27,6 +27,7 @@ import {
   DANBOORU_UA,
   booruListUrl,
   booruPostUrl,
+  booruSuggestUrl,
   composeBooruTags,
   mapBooruCard,
   mapBooruDetail,
@@ -37,6 +38,7 @@ import type {
   FanboxCursor,
   FetchInput,
   FetchOk,
+  Source,
   UserProfile,
   WorkCard,
   WorkDetail,
@@ -44,6 +46,7 @@ import type {
 } from "./types";
 import { outboundFetch } from "./curl-fetch.server";
 import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
+import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -902,6 +905,43 @@ async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promis
   return { op: "booruPost", work };
 }
 
+async function tagSuggest(source: Source, word: string, pixiv?: string): Promise<FetchOk> {
+  const prefix = word.trim();
+  if (!prefix) return { op: "tagSuggest", items: [] };
+  if (source === "fanbox") return { op: "tagSuggest", items: [] };
+  if (source === "pixiv") {
+    const encoded = encodeURIComponent(prefix);
+    try {
+      const ajax = parsePixivSuggest(
+        await upstreamJson(`https://www.pixiv.net/ajax/search/suggest?word=${encoded}&lang=zh`, {
+          cookie: pixiv,
+          origin: "pixiv",
+        }),
+      );
+      if (ajax.length) return { op: "tagSuggest", items: ajax };
+    } catch {
+      /* cps.php 还在 */
+    }
+    try {
+      const cps = parsePixivSuggest(
+        await upstreamJson(`https://www.pixiv.net/rpc/cps.php?keyword=${encoded}&lang=zh`, {
+          cookie: pixiv,
+          origin: "pixiv",
+        }),
+      );
+      return { op: "tagSuggest", items: cps };
+    } catch {
+      return { op: "tagSuggest", items: [] };
+    }
+  }
+  try {
+    const json = await booruJson(source, booruSuggestUrl(source, prefix));
+    return { op: "tagSuggest", items: parseBooruSuggest(source, json) };
+  } catch {
+    return { op: "tagSuggest", items: [] };
+  }
+}
+
 export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
   const fanbox = fanboxCookieHeader(input.fanboxCookie, input.pixivCookie);
@@ -936,6 +976,8 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return booruList(input.site, input.feed, input.tags ?? "", input.page, safe);
     case "booruPost":
       return booruPost(input.site, input.id, safe);
+    case "tagSuggest":
+      return tagSuggest(input.source, input.word, pixiv);
     default: {
       const _never: never = input;
       throw new Error(`未知操作: ${JSON.stringify(_never)}`);

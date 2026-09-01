@@ -13,6 +13,11 @@ export type { PixivRankMode, PixivFeed } from "./pixiv-feed";
 export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
 export type BooruSite = "yande" | "konachan" | "danbooru";
 
+export type TagSuggestItem = {
+  tag: string;
+  extra?: string;
+};
+
 export type WorkCard = {
   source: Source;
   id: string;
@@ -109,7 +114,8 @@ export type FetchOk =
   | { op: "fanboxPost"; work: WorkDetail }
   | { op: "fanboxTagged"; items: WorkCard[]; nextPage: number | null }
   | { op: "booruList"; site: BooruSite; items: WorkCard[]; nextPage: number | null }
-  | { op: "booruPost"; work: WorkDetail };
+  | { op: "booruPost"; work: WorkDetail }
+  | { op: "tagSuggest"; items: TagSuggestItem[] };
 
 export type FetchInput = {
   pixivCookie?: string;
@@ -131,6 +137,7 @@ export type FetchInput = {
   | { op: "fanboxTagged"; tag: string; page: number }
   | { op: "booruList"; site: BooruSite; feed: "recent" | "popular"; tags?: string; page: number }
   | { op: "booruPost"; site: BooruSite; id: string }
+  | { op: "tagSuggest"; source: Source; word: string }
 );
 
 export type SocialInput = {

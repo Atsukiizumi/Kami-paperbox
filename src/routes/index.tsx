@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { SavedTagBar } from "@/components/saved-tags";
+import { SearchSuggest } from "@/components/search-suggest";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
@@ -307,7 +308,7 @@ function Home() {
         }}
       >
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-subtle" />
           <Input
             id="kami-search"
             value={query}
@@ -315,6 +316,17 @@ function Home() {
             placeholder={tagPlaceholder(tab)}
             className="pl-10"
             enterKeyHint="search"
+            autoComplete="off"
+            aria-autocomplete="list"
+          />
+          <SearchSuggest
+            source={tab}
+            query={query}
+            saved={[...savedTags, ...recents]}
+            onPick={(word) => {
+              setQuery(word);
+              goFromInput(word);
+            }}
           />
         </div>
         <div className="flex gap-2">
@@ -542,7 +554,7 @@ function collectWorks(pages: FetchOk[] | undefined): WorkCard[] {
   const seen = new Set<string>();
   const out: WorkCard[] = [];
   for (const page of pages ?? []) {
-    if (!("items" in page)) continue;
+    if (!("items" in page) || page.op === "tagSuggest") continue;
     for (const work of page.items) {
       const key = `${work.source}-${work.id}`;
       if (seen.has(key)) continue;

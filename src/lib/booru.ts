@@ -238,6 +238,25 @@ export function booruListUrl(
   return `${origin}/post.json?${qs}`;
 }
 
+export function booruSuggestUrl(site: BooruSite, prefix: string): string {
+  const origin = BOORU_ORIGIN[site];
+  const q = prefix.trim();
+  if (site === "danbooru") {
+    const qs = new URLSearchParams({
+      "search[query]": q,
+      "search[type]": "tag_query",
+      limit: "10",
+    });
+    return `${origin}/autocomplete.json?${qs}`;
+  }
+  const qs = new URLSearchParams({
+    limit: "10",
+    order: "count",
+    name: `${q}*`,
+  });
+  return `${origin}/tag.json?${qs}`;
+}
+
 export function pickRelatedTag(tags: string[]): string {
   const skip = /^(rating:|order:|score:|id:|parent:|source:|status:|widescreen|highres|commentary|translated)/i;
   return (

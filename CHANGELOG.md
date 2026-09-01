@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.17] — 2026-09-01
+
+对应 [PR #57](https://github.com/Atsukiizumi/Kami-paperbox/pull/57)。
+
+### 改进
+
+- 浏览搜索加标签联想：Pixiv / 图站走源站补全，已保存的标签也会出现。方向键选择。
+
 ## [0.8.16] — 2026-09-01
 
 对应 [PR #56](https://github.com/Atsukiizumi/Kami-paperbox/pull/56)。

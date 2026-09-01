@@ -22,7 +22,7 @@ function patchItems(items: WorkCard[], source: Source, id: string, patch: Partia
 }
 
 function patchFetch(old: FetchOk | undefined, source: Source, id: string, patch: Partial<WorkCard>): FetchOk | undefined {
-  if (!old || !("items" in old)) return old;
+  if (!old || !("items" in old) || old.op === "tagSuggest") return old;
   const items = patchItems(old.items, source, id, patch);
   return items === old.items ? old : { ...old, items };
 }
