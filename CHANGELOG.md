@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.26] — 2026-09-01
+
+对应 [PR #67](https://github.com/Atsukiizumi/Kami-paperbox/pull/67)。
+
+### 修复
+
+- Issue 模板补上 GitHub 的 `type: Bug` / `type: Feature`。新版创建页按类型筛模板，缺这个选择器就是空的。
+
 ## [0.8.25] — 2026-09-01
 
 对应 [PR #66](https://github.com/Atsukiizumi/Kami-paperbox/pull/66)。
