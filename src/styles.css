@@ -447,6 +447,24 @@ html.kami-motion {
     box-shadow 400ms var(--ease-out);
 }
 
+.kami-card-caption {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-fg) 5%, transparent), transparent 22%),
+    var(--color-surface);
+}
+
+.kami-action-tray {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-bg) 72%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 10%, transparent);
+  box-shadow: var(--shadow-border);
+  backdrop-filter: blur(12px);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .kami-card-shell:hover {
     transform: translate3d(0, -10px, 0);

@@ -1,22 +1,22 @@
 /**
  * 浏览卡片。
  *
- * 作用：封面 + 两行标题 + 作者/分辨率/标签；封面上可直接保存、Pixiv 可点红心。
+ * 作用：封面 + 两行标题 + 作者/分辨率/标签；封面上可保存、入队，Pixiv 可点红心。
  * 用法：ArtworkGrid 包一层 MasonryBoard。无封面（FANBOX 文本投稿）改显示摘要。
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
- *        保存/红心叠在封面上，不占标题宽度。
+ *        保存/入队/红心叠在封面上，不占标题宽度。
  */
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, Download, Heart, Lock, Play, Trash2 } from "lucide-react";
+import { Archive, Check, Download, Heart, ListOrdered, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
-import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
 import { patchCachedWork, prefetchWork } from "@/lib/work-cache";
 import { isBooru } from "@/lib/sites";
@@ -33,7 +33,7 @@ import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
 const SKELETON_ASPECT = 3 / 4;
-/** 悬停预览要等够久，才能先点到封面上的红心和纸匣。 */
+/** 悬停预览要等够久，才能先点到封面上的红心、纸匣和队列。 */
 const PREVIEW_HOVER_MS = 520;
 
 export function ArtworkCard({
@@ -58,6 +58,11 @@ export function ArtworkCard({
   const setTab = useSettings((s) => s.setTab);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const inVault = useVaultIndex((s) => Boolean(s.keys[workKey(work.source, work.id)]));
+  const inQueue = useQueue((s) =>
+    s.items.some(
+      (x) => x.key === workKey(work.source, work.id) && (x.status === "queued" || x.status === "running"),
+    ),
+  );
   const liked = Boolean(work.liked);
   const resolution = formatResolution(work.width, work.height);
   const [saving, setSaving] = useState(false);
@@ -114,6 +119,19 @@ export function ArtworkCard({
     } finally {
       setSaving(false);
     }
+  }
+
+  function queueCard(e?: MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
+    hidePreview();
+    if (work.restricted) return;
+    if (inQueue) {
+      toast.success("已在队列");
+      return;
+    }
+    enqueueWork(work);
+    toast.success("已加入队列");
   }
 
   async function likeCard(e?: MouseEvent) {
@@ -254,7 +272,8 @@ export function ArtworkCard({
             ) : null}
           </div>
         </Link>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end gap-1 bg-gradient-to-t from-bg/70 via-bg/20 to-transparent p-2 opacity-100 transition-[opacity,transform] duration-200 ease-out md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end p-2 opacity-100 transition-[opacity,transform] duration-200 ease-out md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
+          <div className="kami-action-tray">
           {variant === "vault" ? (
             <>
               {onExport ? (
@@ -283,6 +302,15 @@ export function ArtworkCard({
                   <Archive className={cn("size-4", saving && "animate-pulse")} />
                 )}
               </CardIconButton>
+              <CardIconButton
+                label={inQueue ? "已在队列" : "加入队列"}
+                disabled={work.restricted}
+                active={inQueue}
+                onClick={(e) => queueCard(e)}
+                onHover={hidePreview}
+              >
+                <ListOrdered className="size-4" />
+              </CardIconButton>
               {work.source === "pixiv" ? (
                 <CardIconButton
                   label={liked ? "已红心" : "红心"}
@@ -296,9 +324,10 @@ export function ArtworkCard({
               ) : null}
             </>
           )}
+          </div>
         </div>
         </div>
-        <div className="flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
+        <div className="kami-card-caption flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
           <div className="min-w-0 flex-1 space-y-0.5">
             <Link
               to="/work/$source/$id"
@@ -422,9 +451,9 @@ function CardIconButton({
       title={label}
       disabled={disabled}
       className={cn(
-        "pointer-events-auto flex size-9 items-center justify-center rounded-full bg-bg/85 text-fg shadow-sm",
+        "pointer-events-auto flex size-8 items-center justify-center rounded-full text-fg",
         "transition-[transform,background-color,color] duration-150",
-        "hover:bg-bg active:scale-[0.96] disabled:opacity-50",
+        "hover:bg-elevated active:scale-[0.96] disabled:opacity-50",
         active && "text-accent",
       )}
       onClick={onClick}
