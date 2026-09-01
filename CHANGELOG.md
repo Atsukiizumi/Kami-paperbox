@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.16] — 2026-09-01
+
+对应 [PR #56](https://github.com/Atsukiizumi/Kami-paperbox/pull/56)。
+
+### 改进
+
+- FLIP 中断不再闪回：commit 当前矩阵当新的 First，按时长比例收回。
+
 ## [0.8.15] — 2026-09-01
 
 对应 [PR #55](https://github.com/Atsukiizumi/Kami-paperbox/pull/55)。
