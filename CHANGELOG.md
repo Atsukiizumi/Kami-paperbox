@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.23] — 2026-09-01
+
+对应 [PR #63](https://github.com/Atsukiizumi/Kami-paperbox/pull/63)。
+
+### 修复
+
+- 点 R-18 日/周会去拉 Pixiv 远端榜单。会话写在 Cookie 头里也能认出；账号有资料但会话失效会提示重新登录，不再假装已登录却拦请求。
+
 ## [0.8.22] — 2026-09-01
 
 对应 [PR #62](https://github.com/Atsukiizumi/Kami-paperbox/pull/62)。

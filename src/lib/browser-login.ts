@@ -69,7 +69,7 @@ export const FANBOX_LOGIN_URL =
 export const FANBOX_AUTH_START = "https://www.fanbox.cc/auth/start";
 
 /** Logged-in Pixiv PHPSESSID is `{memberId}_{token}`. Guest sessions are a bare token. */
-export const PIXIV_SESSION_RE = /^(\d{2,12})_([A-Za-z0-9]{16,})$/;
+export const PIXIV_SESSION_RE = /^(\d{1,12})_([A-Za-z0-9._-]{8,})$/;
 
 export function loginJobBusy(status: LoginJobStatus): boolean {
   return status === "launching" || status === "waiting";
@@ -83,7 +83,11 @@ export function stripCookieName(raw: string, name: string): string {
 }
 
 export function pixivSessionValue(raw: string): string {
-  return stripCookieName(raw, "PHPSESSID");
+  const v = raw.trim();
+  if (!v) return "";
+  const embedded = /PHPSESSID=([^;\s]+)/i.exec(v);
+  if (embedded?.[1]) return embedded[1].trim();
+  return stripCookieName(v, "PHPSESSID");
 }
 
 export function fanboxSessionValue(raw: string): string {
