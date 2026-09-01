@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.25] — 2026-09-01
+
+对应 [PR #66](https://github.com/Atsukiizumi/Kami-paperbox/pull/66)。
+
+### 修复
+
+- Issue 模板改成 Markdown。YAML 表单没通过 GitHub 校验时选择器里只剩空白 issue。
+
 ## [0.8.24] — 2026-09-01
 
 对应 [PR #65](https://github.com/Atsukiizumi/Kami-paperbox/pull/65)。
