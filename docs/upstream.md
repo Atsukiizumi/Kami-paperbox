@@ -97,6 +97,7 @@ Accept: application/json
 | --- | --- |
 | 日 / 周 / 月榜 | `GET /ranking.php?mode={mode}&content=illust&p={page}&format=json` |
 | 搜索 | `GET /ajax/search/artworks/{词}?word={词}&order=date_d&mode=safe\|all&p={页}&s_mode=s_tag&type=all&lang=zh` |
+| 搜索联想 | `GET /ajax/search/suggest?word={词}&lang=zh`，空则 `GET /rpc/cps.php?keyword={词}&lang=zh` |
 | 为你推荐 | `GET /ajax/discovery/artworks?mode=safe\|all&limit=60&lang=zh` |
 | 关注动态 | `GET /ajax/follow_latest/illust?mode=safe\|all&p={页}&lang=zh` |
 | 作品 | `GET /ajax/illust/{id}?lang=zh` 以及 `/ajax/illust/{id}/pages?lang=zh` |
@@ -208,8 +209,8 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 
 | 站 | 怎么抓的 | 纸匣怎么打 |
 | --- | --- | --- |
-| Yande / Konachan | 站点自己的 `/post.json` | `https://yande.re/post.json?tags=&page=` |
-| Danbooru | 文档化的 REST | `https://danbooru.donmai.us/posts.json`，User-Agent 用常见爬虫标识 |
+| Yande / Konachan | 站点自己的 `/post.json` | `https://yande.re/post.json?tags=&page=`；联想 ` /tag.json?name={词}*&order=count` |
+| Danbooru | 文档化的 REST | `https://danbooru.donmai.us/posts.json`；联想 `/autocomplete.json?search[query]=` |
 | SauceNAO / IQDB / TinEye | 搜图页的表单和结果 HTML | 上传走服务端，解析结果里的 pixiv / 图站链接 |
 
 图站仍然过滤涉及未成年人的标签，R-18 默认关掉。这些规则在 `src/lib/booru.ts`，和「抓接口」是分开的一层。
