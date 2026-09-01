@@ -80,7 +80,7 @@ export function ArtworkCard({
     previewTimer.current = window.setTimeout(() => {
       const box = mediaRef.current?.getBoundingClientRect();
       if (box) setPreview(box);
-    }, 280);
+    }, 140);
   }
 
   function hidePreview() {
@@ -372,8 +372,14 @@ export function ArtworkCard({
           enqueueWork(work);
         }}
       />
-      {preview && work.thumb ? (
-        <HoverPreview src={work.thumb} alt={work.title} aspect={aspect} anchor={preview} />
+      {work.thumb ? (
+        <HoverPreview
+          open={Boolean(preview)}
+          src={work.thumb}
+          alt={work.title}
+          aspect={aspect}
+          anchor={preview}
+        />
       ) : null}
     </article>
   );

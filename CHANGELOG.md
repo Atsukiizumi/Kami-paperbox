@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.14] — 2026-09-01
+
+对应 [PR #54](https://github.com/Atsukiizumi/Kami-paperbox/pull/54)。
+
+### 改进
+
+- 悬停预览从封面浮到旁边，停住后轻轻漂。卡片抬起也顺一些。
+
 ## [0.8.13] — 2026-09-01
 
 对应 [PR #53](https://github.com/Atsukiizumi/Kami-paperbox/pull/53)。
