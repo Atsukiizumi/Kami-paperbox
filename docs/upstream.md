@@ -102,7 +102,7 @@ Accept: application/json
 | 关注动态 | `GET /ajax/follow_latest/illust?mode=safe\|all&p={页}&lang=zh` |
 | 作品 | `GET /ajax/illust/{id}?lang=zh` 以及 `/ajax/illust/{id}/pages?lang=zh` |
 | 相关作品 | `GET /ajax/illust/{id}/recommend/init?limit=18&lang=zh` |
-| 画师 | `GET /ajax/user/{id}?full=1`、`/ajax/user/{id}/profile/all`、`/ajax/user/{id}/profile/illusts` |
+| 画师 | `GET /ajax/user/{id}?full=1`、`/ajax/user/{id}/profile/all`、`/ajax/user/{id}/profile/illusts`。`illusts` 的数字 key 要按 id 从大到小排（新→旧）。`pickup` 是置顶，单独一栏。 |
 | 动图 | `GET /ajax/illust/{id}/ugoira_meta?lang=zh` |
 | 我是谁 | `GET /touch/ajax/user/self/status`，失败就读首页 HTML |
 

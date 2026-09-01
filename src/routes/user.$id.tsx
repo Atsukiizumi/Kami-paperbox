@@ -55,7 +55,8 @@ function UserPage() {
     );
   }
 
-  const { profile, items, total } = query.data;
+  const { profile, items, pickup, newestId, total, listTotal } = query.data;
+  const pinned = offset === 0 ? pickup : [];
 
   return (
     <div className="space-y-6">
@@ -99,7 +100,26 @@ function UserPage() {
           </Button>
         </div>
       </header>
-      <ArtworkGrid items={items} />
+      {pinned.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted">置顶</h2>
+          <ArtworkGrid
+            items={pinned}
+            marksOf={(work) => {
+              const marks = ["置顶"];
+              if (work.id === newestId) marks.unshift("最新");
+              return marks;
+            }}
+          />
+        </section>
+      ) : null}
+      <section className="space-y-3">
+        {pinned.length > 0 ? <h2 className="text-sm font-medium text-muted">作品</h2> : null}
+        <ArtworkGrid
+          items={items}
+          marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)}
+        />
+      </section>
       <div className="flex justify-center gap-2">
         <Button
           variant="secondary"
@@ -110,7 +130,7 @@ function UserPage() {
         </Button>
         <Button
           variant="secondary"
-          disabled={offset + 60 >= total}
+          disabled={offset + 60 >= listTotal}
           onClick={() => setOffset((o) => o + 60)}
         >
           下一批
