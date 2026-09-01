@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.36] — 2026-09-01
+
+对应 [PR #79](https://github.com/Atsukiizumi/Kami-paperbox/pull/79)。
+
+### 修复
+
+- 详情页和卡片点红心立刻亮起，请求失败再收回。登录后预热 Pixiv CSRF，不再每次先扒一遍首页。
+
 ## [0.8.35] — 2026-09-01
 
 对应 [PR #78](https://github.com/Atsukiizumi/Kami-paperbox/pull/78)。

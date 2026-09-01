@@ -147,6 +147,7 @@ export type SocialInput = {
   fanboxCookie?: string;
 } & (
   | { op: "pixivLike"; id: string }
+  | { op: "pixivWarm" }
   | { op: "pixivBookmark"; id: string; on: boolean; tags?: string[]; bookmarkId?: string }
   | { op: "pixivFollow"; userId: string; on: boolean }
   | { op: "fanboxLike"; id: string }

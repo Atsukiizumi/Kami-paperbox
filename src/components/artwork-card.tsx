@@ -147,12 +147,13 @@ export function ArtworkCard({
       return;
     }
     setLiking(true);
+    setHeartPop(true);
+    patchCachedWork(queryClient, work.source, work.id, { liked: true });
     try {
       await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
-      patchCachedWork(queryClient, work.source, work.id, { liked: true });
-      setHeartPop(true);
-      toast.success("已点红心");
     } catch (err) {
+      patchCachedWork(queryClient, work.source, work.id, { liked: false });
+      setHeartPop(false);
       toast.error(err instanceof Error ? err.message : "红心失败");
     } finally {
       setLiking(false);

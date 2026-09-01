@@ -114,6 +114,7 @@ const socialSchema = z.intersection(
   }),
   z.discriminatedUnion("op", [
     z.object({ op: z.literal("pixivLike"), id: z.string().regex(/^\d{1,12}$/) }),
+    z.object({ op: z.literal("pixivWarm") }),
     z.object({
       op: z.literal("pixivBookmark"),
       id: z.string().regex(/^\d{1,12}$/),
@@ -141,6 +142,13 @@ export const mutateSource = createServerFn({ method: "POST" })
     const { dispatchSocial } = await import("./social.server");
     return dispatchSocial(data);
   });
+
+/** 登录后预拉 CSRF，点红心时只打 like，不再先扒首页。 */
+export function warmPixivCsrf(pixivCookie?: string) {
+  const cookie = pixivCookie?.trim();
+  if (!cookie) return;
+  void mutateSource({ data: { op: "pixivWarm", pixivCookie: cookie } }).catch(() => undefined);
+}
 
 const sessionSchema = z.object({
   pixiv: z.string().max(8192).optional(),
