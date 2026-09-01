@@ -27,6 +27,7 @@ import { canonicalTag } from "@/lib/site-tags";
 import { pickRelatedTag } from "@/lib/booru";
 import { stashReverseImage } from "@/lib/reverse-search";
 import type { WorkDetail } from "@/lib/types";
+import { rememberView } from "@/lib/view-history";
 
 export const Route = createFileRoute("/work/$source/$id")({
   component: WorkPage,
@@ -113,6 +114,11 @@ function WorkPage() {
   });
 
   const work = query.data;
+
+  useEffect(() => {
+    if (!query.isSuccess || !query.data) return;
+    rememberView(query.data);
+  }, [src, id, query.isSuccess, query.data]);
 
   const lightboxItems: LightboxItem[] = useMemo(() => {
     if (!work) return [];
