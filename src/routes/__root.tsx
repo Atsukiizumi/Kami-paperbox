@@ -7,6 +7,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/app-shell";
 import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { AppErrorComponent, isAbortError } from "@/lib/error-component";
+import { AppNotFound } from "@/components/not-found";
 import { hydrateBrowseCache, subscribeBrowsePersist } from "@/lib/browse-cache";
 import { THEME_BOOTSTRAP_SCRIPT, THEMES } from "@/lib/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,6 +46,7 @@ function getQueryClient() {
 
 export const Route = createRootRoute({
   errorComponent: RootError,
+  notFoundComponent: AppNotFound,
   head: () => ({
     meta: [
       { charSet: "utf-8" },

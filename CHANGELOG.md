@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.8.30] — 2026-09-01
+
+对应 [PR #72](https://github.com/Atsukiizumi/Kami-paperbox/pull/72)。
+
+### 修复
+
+- 找不到的地址显示「没有这一页」，不再丢 TanStack 默认英文 Not Found。
+- 把客户端断开（Abort / ECONNRESET）认成取消，不当业务 500。滚动切页时控制台仍可能打一行，那是传输中断。
+
 ## [0.8.29] — 2026-09-01
 
 对应 [PR #71](https://github.com/Atsukiizumi/Kami-paperbox/pull/71)。
