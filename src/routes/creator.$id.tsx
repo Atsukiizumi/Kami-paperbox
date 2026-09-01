@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
-import { DetailNav } from "@/components/back-to-browse";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,6 @@ function CreatorPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <DetailNav />
         <Skeleton className="h-28 w-full rounded-lg" />
         <ArtworkGridSkeleton count={6} />
       </div>
@@ -50,7 +48,6 @@ function CreatorPage() {
   if (query.error || !query.data) {
     return (
       <div className="space-y-3 py-12">
-        <DetailNav />
         <Alert variant="danger">
           <AlertTitle>无法加载创作者</AlertTitle>
           <AlertDescription>
@@ -66,7 +63,6 @@ function CreatorPage() {
 
   return (
     <div className="space-y-6">
-      <DetailNav />
       {profile?.cover ? (
         <div className="overflow-hidden rounded-xl">
           <ProxiedImg src={profile.cover} alt="" className="h-36 w-full object-cover md:h-48" />

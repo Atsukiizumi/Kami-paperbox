@@ -13,6 +13,7 @@ import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
+import { DetailNav, isDetailPath } from "@/components/back-to-browse";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -232,12 +233,14 @@ function PageFrame({ pathname, children }: { pathname: string; children: ReactNo
     if (!el) return;
     playEnter(el);
   }, [pathname]);
+  const detail = isDetailPath(pathname);
   return (
     <div
       ref={ref}
-      className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 md:px-10 md:pb-12 md:pt-8"
+      className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12"
     >
-      {children}
+      {detail ? <DetailNav /> : null}
+      <div className={detail ? "pt-4 md:pt-5" : "pt-6 md:pt-8"}>{children}</div>
     </div>
   );
 }

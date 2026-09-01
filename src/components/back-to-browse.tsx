@@ -1,10 +1,9 @@
 /**
  * 详情页导航。
  *
- * 作用：上一页走浏览器历史；返回浏览回到首页网格。
- * 用法：<DetailNav /> 放作品 / 画师 / 创作者页顶部。
- * 为什么：history 是一叠记录，browse → 作品 → 画师 → 另一张作品，上一页可连点。
- *        返回浏览固定去 `/`，不依赖从哪进来。没有站内历史时上一页不可用。
+ * 作用：上一页走浏览器历史；返回浏览回到首页网格。吸在顶栏下面，滚多深都能点。
+ * 用法：PageFrame 在 /work /user /creator 自动放，页面里不用再插。
+ * 为什么：塞进标题 header 里，header 一滚完粘性就失效。
  */
 import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Compass } from "lucide-react";
@@ -46,11 +45,19 @@ export function BackToBrowse() {
   );
 }
 
+export function isDetailPath(pathname: string) {
+  return (
+    pathname.startsWith("/work/") ||
+    pathname.startsWith("/user/") ||
+    pathname.startsWith("/creator/")
+  );
+}
+
 export function DetailNav() {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <nav className="sticky top-14 z-20 -mx-4 flex flex-wrap items-center gap-1 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10">
       <BackToPrevious />
       <BackToBrowse />
-    </div>
+    </nav>
   );
 }
