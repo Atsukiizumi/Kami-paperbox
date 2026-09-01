@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.45] — 2026-09-02
+
+对应 [PR #88](https://github.com/Atsukiizumi/Kami-paperbox/pull/88)。
+
+### 调整
+
+- 搜索栏空格拆成多标签（并且）。Pixiv、Yande、Konachan、Danbooru 都支持。FANBOX 仍只吃第一个词。
+
 ## [0.8.44] — 2026-09-02
 
 对应 [PR #87](https://github.com/Atsukiizumi/Kami-paperbox/pull/87)。

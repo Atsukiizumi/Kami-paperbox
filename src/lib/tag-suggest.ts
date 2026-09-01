@@ -1,12 +1,12 @@
 /**
  * 搜索联想：解析上游补全 JSON，拼当前输入。
  *
- * 作用：Pixiv / 图站边打边出标签；图站只补最后一个词。
+ * 作用：Pixiv / 图站边打边出标签；空格后只补最后一个词。
  * 用法：parsePixivSuggest / parseBooruSuggest；suggestPrefix + applySuggest 给输入框。
  * 为什么：各站补全 JSON 形状不同，收成 { tag, extra } 再给下拉。
  */
 import { hasBlockedTags, splitTags } from "./booru.ts";
-import { isBooru } from "./sites.ts";
+import { joinSearchTags, splitSearchTags } from "./site-tags.ts";
 import type { BooruSite, Source, TagSuggestItem } from "./types.ts";
 
 export type { TagSuggestItem };
@@ -44,16 +44,17 @@ export function shouldSuggest(raw: string): boolean {
 export function suggestPrefix(source: Source, query: string): string {
   const t = query.trim();
   if (!t) return "";
-  if (isBooru(source)) return t.split(/\s+/).pop() ?? "";
-  return t;
+  if (source === "fanbox") return t;
+  return splitSearchTags(t).pop() ?? t;
 }
 
 export function applySuggest(source: Source, query: string, picked: string): string {
-  if (!isBooru(source)) return picked;
-  const parts = query.trim().split(/\s+/).filter(Boolean);
+  if (source === "fanbox") return picked;
+  if (/\s$/.test(query)) return joinSearchTags([...splitSearchTags(query), picked]);
+  const parts = splitSearchTags(query);
   if (parts.length === 0) return picked;
   parts[parts.length - 1] = picked;
-  return parts.join(" ");
+  return joinSearchTags(parts);
 }
 
 function pushUnique(out: TagSuggestItem[], item: TagSuggestItem) {

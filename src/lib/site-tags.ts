@@ -3,8 +3,7 @@
  *
  * 作用：把「点一个 tag 去搜索 / 保存快捷标签」收成同一套规则。
  * 用法：canonicalTag 入库和发请求；displayTag 给人看；tagHint 写在搜索框下。
- * 为什么：Pixiv 一个词（空格=同时包含，点标签用精确匹配）；
- *        Yande / Konachan / Danbooru 空格是 AND，标签里的空格写成下划线；
+ * 为什么：Pixiv / 图站空格=同时包含多个标签；点单个标签才走精确匹配。
  *        FANBOX 接口一次只吃一个标签。混用会搜空。
  */
 import type { Source } from "./types";
@@ -41,18 +40,41 @@ export function parseSavedTags(raw: unknown): Record<Source, string[]> {
   return out;
 }
 
+export function splitSearchTags(raw: string): string[] {
+  const out: string[] = [];
+  const re = /"([^"]*)"|'([^']*)'|([^,\s]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw))) {
+    const tag = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+    if (tag) out.push(tag);
+  }
+  return out;
+}
+
+export function joinSearchTags(tags: readonly string[]): string {
+  return tags.filter(Boolean).join(" ");
+}
+
 export function canonicalTag(source: Source, raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
+  if (source === "fanbox") {
+    return (splitSearchTags(trimmed)[0] ?? trimmed).slice(0, 80);
+  }
   if (isBooru(source)) {
-    return trimmed
-      .split(/[\s,]+/)
-      .map((part) => part.replace(/_+/g, "_").replace(/^_+|_+$/g, "").toLowerCase())
+    return splitSearchTags(trimmed)
+      .map((part) =>
+        part
+          .replace(/\s+/g, "_")
+          .replace(/_+/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .toLowerCase(),
+      )
       .filter(Boolean)
       .slice(0, 6)
       .join(" ");
   }
-  return trimmed.replace(/\s+/g, " ").slice(0, 80);
+  return joinSearchTags(splitSearchTags(trimmed)).slice(0, 200);
 }
 
 export function displayTag(source: Source, tag: string): string {
@@ -77,27 +99,27 @@ export function toggleSavedTag(list: readonly string[], source: Source, raw: str
 export function tagHint(source: Source): string {
   switch (source) {
     case "pixiv":
-      return "Pixiv：点标签是精确匹配；搜索框里空格表示同时包含这些词。";
+      return "Pixiv：空格拆成多个标签（并且）。点单个标签仍是精确匹配。";
     case "fanbox":
       return "FANBOX：一次搜索一个标签。";
     case "yande":
     case "konachan":
-      return "图站：空格表示并且。标签里的空格写成下划线，例如 hatsune_miku。";
+      return "图站：空格拆成多个标签（并且）。标签里的空格写成下划线，例如 hatsune_miku。";
     case "danbooru":
-      return "Danbooru：一次只用一个主标签（安全模式会自动加 rating:g）。空格写成下划线。";
+      return "Danbooru：空格=并且。未登录最多两个标签（安全模式会占一个 rating）。";
   }
 }
 
 export function tagPlaceholder(source: Source): string {
   switch (source) {
     case "pixiv":
-      return "搜索标签（空格=同时包含），或粘贴作品 / 画师链接";
+      return "多个标签用空格分开，或粘贴作品 / 画师链接";
     case "fanbox":
       return "搜索一个标签，或输入创作者 ID / 链接";
     case "yande":
     case "konachan":
     case "danbooru":
-      return "搜索标签，空格=并且（空格写成 _ ），或粘贴作品链接";
+      return "多个标签用空格分开（空格写成 _ ），或粘贴作品链接";
   }
 }
 
