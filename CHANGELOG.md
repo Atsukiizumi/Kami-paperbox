@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.9] — 2026-09-01
+
+对应 [PR #49](https://github.com/Atsukiizumi/Kami-paperbox/pull/49)。
+
+### 改进
+
+- 画师 / 创作者头像铺满圆形。简介过长先收成三行，可点开。
+
 ## [0.8.8] — 2026-09-01
 
 对应 [PR #48](https://github.com/Atsukiizumi/Kami-paperbox/pull/48)。

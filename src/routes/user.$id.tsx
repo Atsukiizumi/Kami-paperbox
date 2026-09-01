@@ -2,13 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { DetailNav } from "@/components/back-to-browse";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { ProxiedImg } from "@/components/proxied-img";
+import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -69,26 +63,15 @@ function UserPage() {
   return (
     <div className="space-y-6">
       <DetailNav />
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{profile.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-      <header className="flex gap-4">
-        <div className="size-16 overflow-hidden rounded-full bg-elevated">
-          <ProxiedImg src={profile.avatar} alt="" className="size-full" />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-2xl">{profile.name}</h1>
+      <header className="flex items-start gap-4 md:gap-5">
+        <ProfileAvatar src={profile.avatar} name={profile.name} />
+        <div className="min-w-0 flex-1 space-y-2">
+          <h1 className="font-display text-2xl leading-tight tracking-tight md:text-3xl">{profile.name}</h1>
           <p className="text-xs tabular-nums text-muted">
             {formatCount(total)} 件作品
             {profile.following ? ` · 关注 ${formatCount(profile.following)}` : ""}
           </p>
-          {profile.comment ? (
-            <p className="line-clamp-3 text-sm text-muted">{profile.comment}</p>
-          ) : null}
+          {profile.comment ? <FoldableText text={profile.comment} /> : null}
           <Button
             size="sm"
             variant={profile.isFollowed ? "secondary" : "default"}

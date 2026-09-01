@@ -84,7 +84,13 @@ export function ProxiedImg({
       )}
     >
       {loaded ? null : (
-        <span className="kami-shimmer pointer-events-none absolute inset-0 min-h-40" aria-hidden />
+        <span
+          className={cn(
+            "kami-shimmer pointer-events-none absolute inset-0",
+            cover ? undefined : "min-h-40",
+          )}
+          aria-hidden
+        />
       )}
       {active ? (
         <img
@@ -93,7 +99,7 @@ export function ProxiedImg({
           sizes={sizes}
           className={cn(
             "transition-[opacity,transform] duration-500 ease-out",
-            cover ? "size-full object-cover" : "mx-auto h-auto w-full object-contain",
+            cover ? "absolute inset-0 size-full object-cover" : "mx-auto h-auto w-full object-contain",
             loaded ? "scale-100 opacity-100" : "scale-[1.03] opacity-0",
             cover ? undefined : className,
           )}
@@ -108,7 +114,7 @@ export function ProxiedImg({
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className="block min-h-40 w-full" />
+        <span className={cn("block", cover ? "size-full" : "min-h-40 w-full")} />
       )}
     </span>
   );
