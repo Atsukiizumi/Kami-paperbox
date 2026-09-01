@@ -10,7 +10,7 @@
 
 ## [0.8.24] — 2026-09-01
 
-对应 [PR #64](https://github.com/Atsukiizumi/Kami-paperbox/pull/64)。
+对应 [PR #65](https://github.com/Atsukiizumi/Kami-paperbox/pull/65)。
 
 ### 改进
 
