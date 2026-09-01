@@ -11,7 +11,7 @@ import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { cardAspect, cardLayout, type CardLayout } from "@/lib/card-aspect";
+import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
@@ -28,16 +28,7 @@ import { ProxiedImg } from "./proxied-img";
 import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
-const SKELETONS: { aspect: number; layout: CardLayout }[] = [
-  { aspect: 0.75, layout: "tile" },
-  { aspect: 1.6, layout: "wide" },
-  { aspect: 0.62, layout: "tile" },
-  { aspect: 0.8, layout: "tile" },
-  { aspect: 1.45, layout: "wide" },
-  { aspect: 0.52, layout: "tile" },
-  { aspect: 2.4, layout: "banner" },
-  { aspect: 0.68, layout: "tile" },
-];
+const SKELETON_ASPECT = 3 / 4;
 
 export function ArtworkCard({
   work,
@@ -340,37 +331,32 @@ export function ArtworkGrid({
 
 export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <MasonryBoard>
-      {Array.from({ length: count }).map((_, i) => {
-        const item = SKELETONS[i % SKELETONS.length];
-        return (
-          <article
-            key={i}
-            className="kami-enter"
-            data-layout={item.layout}
-            data-aspect={String(item.aspect)}
-            style={
-              {
-                animationDelay: `${Math.min(i, 12) * 40}ms`,
-                ["--card-aspect"]: String(item.aspect),
-              } as CSSProperties
-            }
-          >
-            <div className="overflow-hidden rounded-xl bg-surface">
-              <Skeleton
-                className="kami-card-media w-full rounded-none"
-                style={{
-                  ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
-                }}
-              />
-              <div className="space-y-2 px-3 py-3">
-                <Skeleton className="h-3 w-4/5 rounded-md" />
-                <Skeleton className="h-2.5 w-2/5 rounded-md" />
-              </div>
+    <div className="kami-skeleton-grid">
+      {Array.from({ length: count }).map((_, i) => (
+        <article
+          key={i}
+          className="kami-enter"
+          style={
+            {
+              animationDelay: `${Math.min(i, 12) * 40}ms`,
+              ["--card-aspect"]: String(SKELETON_ASPECT),
+            } as CSSProperties
+          }
+        >
+          <div className="overflow-hidden rounded-xl bg-surface">
+            <Skeleton
+              className="kami-card-media w-full rounded-none"
+              style={{
+                ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
+              }}
+            />
+            <div className="space-y-2 px-3 py-3">
+              <Skeleton className={cn("h-3 rounded-md", i % 3 === 0 ? "w-3/5" : "w-4/5")} />
+              <Skeleton className={cn("h-2.5 rounded-md", i % 2 === 0 ? "w-2/5" : "w-1/2")} />
             </div>
-          </article>
-        );
-      })}
-    </MasonryBoard>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
