@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.5] — 2026-09-01
+
+对应 [PR #45](https://github.com/Atsukiizumi/Kami-paperbox/pull/45)。
+
+### 修复
+
+- 单独成行的横图会重新铺满这一行，不再被收成小条。
+
 ## [0.8.4] — 2026-09-01
 
 对应 [PR #44](https://github.com/Atsukiizumi/Kami-paperbox/pull/44)。

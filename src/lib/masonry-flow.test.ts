@@ -181,3 +181,19 @@ test("packJustified does not stretch a lone portrait across the row", () => {
   );
   assert.ok(portrait.width / portrait.height < 1.05);
 });
+
+test("packJustified lets a lone landscape keep the row", () => {
+  const packed = packJustified({
+    containerWidth: 960,
+    gap: 12,
+    items: [{ aspect: 16 / 9 }, { aspect: 0.5 }, { aspect: 0.55 }],
+    idealHeight: 220,
+    minWidth: 188,
+    captionBand: 0,
+  });
+  const wide = packed.placements[0];
+  assert.ok(wide);
+  assert.ok(wide.width > 700, `landscape width ${wide.width} should stay wide`);
+  assert.ok(wide.height >= 200);
+  assert.ok(wide.height <= 480);
+});
