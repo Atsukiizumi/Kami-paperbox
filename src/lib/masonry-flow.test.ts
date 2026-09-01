@@ -118,7 +118,7 @@ test("packJustified mixes portrait and landscape without a hole", () => {
       assert.ok(next.x + 0.5 >= prev.x + prev.width, "cards should not overlap");
     }
     const last = ordered[ordered.length - 1]!;
-    if (y === 0) {
+    if (ordered.length > 1) {
       assert.equal(Math.round(last.x + last.width), 640);
     }
   }
@@ -155,4 +155,29 @@ test("packJustified keeps portrait cards wide enough for a title", () => {
   }
   const firstRow = packed.placements.filter((p) => p.y === 0);
   assert.ok(firstRow.length <= 4);
+});
+
+test("packJustified does not stretch a lone portrait across the row", () => {
+  const packed = packJustified({
+    containerWidth: 960,
+    gap: 12,
+    items: [
+      { aspect: 3.1 },
+      { aspect: 0.47 },
+      { aspect: 1.1 },
+      { aspect: 0.8 },
+      { aspect: 1 },
+      { aspect: 0.9 },
+    ],
+    idealHeight: 220,
+    minWidth: 188,
+    captionBand: 88,
+  });
+  const portrait = packed.placements[1];
+  assert.ok(portrait);
+  assert.ok(
+    portrait.width < 480,
+    `portrait width ${portrait.width} should not eat the row`,
+  );
+  assert.ok(portrait.width / portrait.height < 1.05);
 });
