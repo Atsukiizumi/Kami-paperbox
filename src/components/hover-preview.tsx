@@ -1,26 +1,24 @@
 /**
  * 卡片悬停放大预览。
  *
- * 作用：从封面浮到旁边，按真实比例看整张图。
- * 用法：open + 卡片 getBoundingClientRect；pointer-events: none。
- * 为什么：节点铺在终点尺寸上，用 FLIP（transform）从卡片长过去。
- *        中断时 commitStyles，从当前矩阵接着播，不 cancel 回起点。
+ * 作用：封面从格子里长出来，用更大一档的图。
+ * 用法：open + 卡片 getBoundingClientRect；源卡片自己把封面 opacity 隐掉。
+ * 为什么：以前浮到旁边等于两张一样的图叠在网格上。从中心放大，才是同一张在变大。
  */
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { animateDrift, animateFlip, cancelAnimations } from "@/lib/motion";
+import { animateFlip, cancelAnimations } from "@/lib/motion";
+import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { ProxiedImg } from "./proxied-img";
 
 function place(anchor: DOMRect, aspect: number) {
-  const maxW = Math.min(520, window.innerWidth - 24);
-  const width = Math.min(maxW, Math.max(300, Math.round(anchor.width * 1.85)));
-  const height = Math.min(window.innerHeight - 24, Math.round(width / Math.max(aspect, 0.4)));
-  let left = anchor.right + 16;
-  let top = anchor.top;
-  if (left + width > window.innerWidth - 12) left = anchor.left - 16 - width;
-  if (left < 12) left = 12;
-  if (top + height > window.innerHeight - 12) top = window.innerHeight - 12 - height;
-  if (top < 12) top = 12;
+  const maxW = Math.min(window.innerWidth - 32, 560);
+  const width = Math.min(maxW, Math.max(anchor.width * 1.32, Math.min(anchor.width + 80, maxW)));
+  const height = Math.min(window.innerHeight - 32, Math.round(width / Math.max(aspect, 0.4)));
+  let left = anchor.left + (anchor.width - width) / 2;
+  let top = anchor.top + (anchor.height - height) / 2;
+  left = Math.max(16, Math.min(left, window.innerWidth - width - 16));
+  top = Math.max(16, Math.min(top, window.innerHeight - height - 16));
   return { left, top, width, height };
 }
 
@@ -38,7 +36,6 @@ export function HoverPreview({
   anchor: DOMRect | null;
 }) {
   const outer = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
   const held = useRef<{ src: string; alt: string; aspect: number; from: DOMRect } | null>(null);
   const [shown, setShown] = useState(false);
 
@@ -49,31 +46,22 @@ export function HoverPreview({
 
   useLayoutEffect(() => {
     const shell = outer.current;
-    const float = inner.current;
     const pack = held.current;
-    if (!shell || !float || !pack) return;
+    if (!shell || !pack) return;
 
-    // 只停内层轻漂。外层若在飞，交给 animateFlip commitStyles，cleanup 里 cancel 会闪回。
-    cancelAnimations(float);
     let live = true;
     const to = place(pack.from, pack.aspect);
 
     if (open) {
       setShown(true);
-      const rise = animateFlip(shell, pack.from, to, { duration: 480, opacityFrom: 0.4 });
-      void rise.finished
-        .then(() => {
-          if (!live || !inner.current) return;
-          animateDrift(inner.current, 8);
-        })
-        .catch(() => undefined);
+      animateFlip(shell, pack.from, to, { duration: 420, opacityFrom: 1 });
       return () => {
         live = false;
       };
     }
 
     const back = animateFlip(shell, pack.from, to, {
-      duration: 320,
+      duration: 280,
       reverse: true,
       opacityFrom: 0,
       opacityTo: 1,
@@ -93,23 +81,28 @@ export function HoverPreview({
   if (!shown && !open) return null;
   if (!shot || typeof document === "undefined") return null;
   const to = place(shot.from, shot.aspect);
+  const hd = upgradeThumbUrl(shot.src);
 
   return createPortal(
-    <div
-      ref={outer}
-      className="pointer-events-none fixed z-[55] overflow-hidden rounded-xl bg-bg shadow-[var(--shadow-float)]"
-      style={{
-        left: to.left,
-        top: to.top,
-        width: to.width,
-        height: to.height,
-        transformOrigin: "0 0",
-      }}
-    >
-      <div ref={inner} className="size-full">
-        <ProxiedImg src={shot.src} alt={shot.alt} fit="cover" className="absolute inset-0 size-full" />
+    <>
+      <div
+        className="pointer-events-none fixed inset-0 z-[54] bg-bg/40"
+        style={{ opacity: open ? 1 : 0, transition: "opacity 220ms ease" }}
+      />
+      <div
+        ref={outer}
+        className="pointer-events-none fixed z-[55] overflow-hidden rounded-xl bg-bg shadow-[var(--shadow-float)]"
+        style={{
+          left: to.left,
+          top: to.top,
+          width: to.width,
+          height: to.height,
+          transformOrigin: "0 0",
+        }}
+      >
+        <ProxiedImg src={hd} alt={shot.alt} fit="cover" className="absolute inset-0 size-full" />
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }

@@ -194,7 +194,10 @@ export function ArtworkCard({
                 priority={index < 4}
                 sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
                 viewTransitionName={`kami-${work.source}-${work.id}`}
-                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                className={cn(
+                  "size-full object-cover transition-[transform,opacity] duration-200 ease-out",
+                  preview ? "opacity-0" : "group-hover:scale-[1.04]",
+                )}
               />
             ) : (
               <div className="flex size-full items-end bg-surface px-3 py-3">
