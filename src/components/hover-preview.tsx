@@ -3,12 +3,12 @@
  *
  * 作用：从封面浮到旁边，按真实比例看整张图。
  * 用法：open + 卡片 getBoundingClientRect；pointer-events: none。
- * 为什么：封面 object-cover 会裁图。用 WAAPI 做位移，不靠 CSS animation
- *        （预览环境常把 prefers-reduced-motion 打成 0ms）。
+ * 为什么：节点铺在终点尺寸上，用 FLIP（transform）从卡片长过去。
+ *        不改 left/width，合成线程就能跑；轻漂放在内层，互不抢 transform。
  */
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EASE_OUT } from "@/lib/motion";
+import { animateDrift, animateFlip, cancelAnimations } from "@/lib/motion";
 import { ProxiedImg } from "./proxied-img";
 
 function place(anchor: DOMRect, aspect: number) {
@@ -37,9 +37,9 @@ export function HoverPreview({
   aspect: number;
   anchor: DOMRect | null;
 }) {
-  const node = useRef<HTMLDivElement>(null);
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const held = useRef<{ src: string; alt: string; aspect: number; from: DOMRect } | null>(null);
-  const drift = useRef<Animation | null>(null);
   const [shown, setShown] = useState(false);
 
   if (open && src && anchor) {
@@ -48,80 +48,48 @@ export function HoverPreview({
   const shot = held.current;
 
   useLayoutEffect(() => {
-    const el = node.current;
+    const shell = outer.current;
+    const float = inner.current;
     const pack = held.current;
-    if (!el || !pack) return;
+    if (!shell || !float || !pack) return;
 
-    drift.current?.cancel();
-    drift.current = null;
+    cancelAnimations(shell);
+    cancelAnimations(float);
     let live = true;
+    const to = place(pack.from, pack.aspect);
 
     if (open) {
       setShown(true);
-      const to = place(pack.from, pack.aspect);
-      const from = pack.from;
-      const rise = el.animate(
-        [
-          {
-            left: `${from.left}px`,
-            top: `${from.top}px`,
-            width: `${from.width}px`,
-            height: `${from.height}px`,
-            opacity: 0.4,
-          },
-          {
-            left: `${to.left}px`,
-            top: `${to.top - 6}px`,
-            width: `${to.width}px`,
-            height: `${to.height}px`,
-            opacity: 1,
-          },
-        ],
-        { duration: 520, easing: EASE_OUT, fill: "forwards" },
-      );
+      const rise = animateFlip(shell, pack.from, to, { duration: 480, opacityFrom: 0.4 });
       void rise.finished
         .then(() => {
-          if (!live || !node.current) return;
-          drift.current = node.current.animate(
-            [
-              { transform: "translate3d(0, 0, 0)" },
-              { transform: "translate3d(0, -8px, 0)" },
-            ],
-            { duration: 2800, easing: "ease-in-out", direction: "alternate", iterations: Infinity },
-          );
+          if (!live || !inner.current) return;
+          animateDrift(inner.current, 8);
         })
         .catch(() => undefined);
       return () => {
         live = false;
-        rise.cancel();
-        drift.current?.cancel();
+        cancelAnimations(shell);
+        cancelAnimations(float);
       };
     }
 
-    const to = place(pack.from, pack.aspect);
-    const back = el.animate(
-      [
-        {
-          left: `${to.left}px`,
-          top: `${to.top}px`,
-          width: `${to.width}px`,
-          height: `${to.height}px`,
-          opacity: 1,
-        },
-        {
-          left: `${pack.from.left}px`,
-          top: `${pack.from.top}px`,
-          width: `${pack.from.width}px`,
-          height: `${pack.from.height}px`,
-          opacity: 0,
-        },
-      ],
-      { duration: 280, easing: EASE_OUT, fill: "forwards" },
-    );
-    void back.finished.then(() => { if (live) setShown(false); }).catch(() => { if (live) setShown(false); });
+    const back = animateFlip(shell, pack.from, to, {
+      duration: 260,
+      reverse: true,
+      opacityFrom: 0,
+      opacityTo: 1,
+    });
+    void back.finished
+      .then(() => {
+        if (live) setShown(false);
+      })
+      .catch(() => {
+        if (live) setShown(false);
+      });
     return () => {
       live = false;
-      back.cancel();
+      cancelAnimations(shell);
     };
   }, [open, src]);
 
@@ -131,11 +99,19 @@ export function HoverPreview({
 
   return createPortal(
     <div
-      ref={node}
+      ref={outer}
       className="pointer-events-none fixed z-[55] overflow-hidden rounded-xl bg-bg shadow-[var(--shadow-float)]"
-      style={{ left: to.left, top: to.top, width: to.width, height: to.height }}
+      style={{
+        left: to.left,
+        top: to.top,
+        width: to.width,
+        height: to.height,
+        transformOrigin: "0 0",
+      }}
     >
-      <ProxiedImg src={shot.src} alt={shot.alt} fit="cover" className="absolute inset-0 size-full" />
+      <div ref={inner} className="size-full">
+        <ProxiedImg src={shot.src} alt={shot.alt} fit="cover" className="absolute inset-0 size-full" />
+      </div>
     </div>,
     document.body,
   );

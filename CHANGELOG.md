@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.15] — 2026-09-01
+
+对应 [PR #55](https://github.com/Atsukiizumi/Kami-paperbox/pull/55)。
+
+### 改进
+
+- 悬停预览改成 FLIP：只动 transform / opacity，不再每帧改宽高。轻漂放在内层。
+
 ## [0.8.14] — 2026-09-01
 
 对应 [PR #54](https://github.com/Atsukiizumi/Kami-paperbox/pull/54)。
