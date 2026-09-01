@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.28] — 2026-09-01
+
+对应 [PR #69](https://github.com/Atsukiizumi/Kami-paperbox/pull/69)。
+
+### 修复
+
+- Issue 模板名改为「问题报告」「功能提议」（GitHub 要求至少 3 个字符）。顺手删掉设置页自动生成的英文默认模板。
+
 ## [0.8.27] — 2026-09-01
 
 对应 [PR #68](https://github.com/Atsukiizumi/Kami-paperbox/pull/68)。
