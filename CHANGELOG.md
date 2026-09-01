@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.8.3] — 2026-09-01
+
+对应 [PR #43](https://github.com/Atsukiizumi/Kami-paperbox/pull/43)。
+
+### 改进
+
+- 搜图会先缩小再传，并限制各引擎的请求间隔，降低人机验证和控流。
+- 可填 SauceNAO API key；被拦时一键改用 IQDB。
+
 ## [0.8.2] — 2026-09-01
 
 对应 [PR #42](https://github.com/Atsukiizumi/Kami-paperbox/pull/42)。

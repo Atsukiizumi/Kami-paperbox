@@ -152,6 +152,36 @@ function ProxySection() {
   );
 }
 
+function SearchKeySection() {
+  const apiKey = useSettings((s) => s.saucenaoApiKey);
+  const setSaucenaoApiKey = useSettings((s) => s.setSaucenaoApiKey);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>搜图</CardTitle>
+        <CardDescription>
+          SauceNAO 匿名每天次数很少，也容易被当成机器人。填 API key 后走官方接口，间隔可以更短。
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Label htmlFor="saucenao-key">SauceNAO API key</Label>
+        <Input
+          id="saucenao-key"
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={apiKey}
+          onChange={(e) => setSaucenaoApiKey(e.target.value)}
+          placeholder="在 saucenao.com/user.php 复制"
+        />
+        <p className="text-xs text-subtle">
+          只存在这台设备。没有 key 时纸匣会把图缩小、拉开请求间隔；被拦了可以改用 IQDB。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SettingsPage() {
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const fanboxCookie = useSettings((s) => s.fanboxCookie);
@@ -249,6 +279,8 @@ function SettingsPage() {
       <ThemeSection />
 
       <StorageSection />
+
+      <SearchKeySection />
 
       <Card>
         <CardHeader>

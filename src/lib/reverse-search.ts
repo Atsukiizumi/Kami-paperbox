@@ -20,6 +20,10 @@ export const DEFAULT_SEARCH_ENGINE: SearchEngine = "saucenao";
 export const MAX_SEARCH_BYTES = 8 * 1024 * 1024;
 export const SEARCH_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"]);
 
+export function engineLabel(id: SearchEngine): string {
+  return SEARCH_ENGINES.find((e) => e.id === id)?.label ?? id;
+}
+
 const BLOCKED = new Set(["loli", "shota", "toddlercon", "lolicon", "shotacon"]);
 
 export type ReverseHit = {

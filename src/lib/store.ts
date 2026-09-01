@@ -77,6 +77,7 @@ type SettingsState = {
   folderLabel: string;
   tab: Tab;
   searchEngine: SearchEngine;
+  saucenaoApiKey: string;
   recents: string[];
   browseQuery: string;
   browseExact: boolean;
@@ -98,6 +99,7 @@ type SettingsState = {
   setFolderLabel: (v: string) => void;
   setTab: (v: Tab) => void;
   setSearchEngine: (v: SearchEngine) => void;
+  setSaucenaoApiKey: (v: string) => void;
   addRecent: (v: string) => void;
   setBrowseQuery: (v: string, exact?: boolean) => void;
   toggleSavedTag: (source: Source, tag: string) => void;
@@ -141,6 +143,7 @@ export const useSettings = create<SettingsState>()(
       folderLabel: "",
       tab: "pixiv",
       searchEngine: DEFAULT_SEARCH_ENGINE,
+      saucenaoApiKey: "",
       recents: [],
       browseQuery: "",
       browseExact: false,
@@ -197,6 +200,7 @@ export const useSettings = create<SettingsState>()(
       setTab: (tab) => set({ tab }),
       setSearchEngine: (searchEngine) =>
         set({ searchEngine: isSearchEngine(searchEngine) ? searchEngine : DEFAULT_SEARCH_ENGINE }),
+      setSaucenaoApiKey: (saucenaoApiKey) => set({ saucenaoApiKey: saucenaoApiKey.trim().slice(0, 80) }),
       addRecent: (v) =>
         set((s) => ({
           recents: [v, ...s.recents.filter((x) => x !== v)].slice(0, 8),
@@ -292,7 +296,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 9,
+      version: 10,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -334,6 +338,7 @@ export const useSettings = create<SettingsState>()(
           onboarded:
             p.onboarded === true ||
             legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
+          saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
         };
         if (version >= 2 && legacy.accounts.length) {
           return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
@@ -353,6 +358,7 @@ export const useSettings = create<SettingsState>()(
         folderLabel: s.folderLabel,
         tab: s.tab,
         searchEngine: s.searchEngine,
+        saucenaoApiKey: s.saucenaoApiKey,
         recents: s.recents,
         savedTags: s.savedTags,
         accounts: s.accounts,
