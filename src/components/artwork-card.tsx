@@ -33,6 +33,8 @@ import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
 const SKELETON_ASPECT = 3 / 4;
+/** 悬停预览要等够久，才能先点到封面上的红心和纸匣。 */
+const PREVIEW_HOVER_MS = 520;
 
 export function ArtworkCard({
   work,
@@ -82,7 +84,7 @@ export function ArtworkCard({
     previewTimer.current = window.setTimeout(() => {
       const box = mediaRef.current?.getBoundingClientRect();
       if (box) setPreview(box);
-    }, 140);
+    }, PREVIEW_HOVER_MS);
   }
 
   function hidePreview() {
@@ -256,12 +258,12 @@ export function ArtworkCard({
           {variant === "vault" ? (
             <>
               {onExport ? (
-                <CardIconButton label="导出" onClick={onExport}>
+                <CardIconButton label="导出" onClick={onExport} onHover={hidePreview}>
                   <Download className="size-4" />
                 </CardIconButton>
               ) : null}
               {onDelete ? (
-                <CardIconButton label="从纸匣移除" onClick={onDelete}>
+                <CardIconButton label="从纸匣移除" onClick={onDelete} onHover={hidePreview}>
                   <Trash2 className="size-4" />
                 </CardIconButton>
               ) : null}
@@ -273,6 +275,7 @@ export function ArtworkCard({
                 disabled={saving || work.restricted}
                 active={inVault}
                 onClick={(e) => void saveCard(e)}
+                onHover={hidePreview}
               >
                 {inVault ? (
                   <Check className={cn("size-4", savedPop && "kami-pop-heart")} />
@@ -286,6 +289,7 @@ export function ArtworkCard({
                   disabled={liking}
                   active={liked}
                   onClick={(e) => void likeCard(e)}
+                  onHover={hidePreview}
                 >
                   <Heart className={cn("size-4", liked && "fill-current text-danger", heartPop && "kami-pop-heart")} />
                 </CardIconButton>
@@ -426,12 +430,14 @@ function CardIconButton({
   label,
   children,
   onClick,
+  onHover,
   disabled,
   active,
 }: {
   label: string;
   children: ReactNode;
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  onHover?: () => void;
   disabled?: boolean;
   active?: boolean;
 }) {
@@ -448,6 +454,7 @@ function CardIconButton({
         active && "text-accent",
       )}
       onClick={onClick}
+      onMouseEnter={onHover}
     >
       {children}
     </button>
