@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ScanSearch } from "lucide-react";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { DetailNav } from "@/components/back-to-browse";
@@ -9,7 +8,6 @@ import { WorkActions } from "@/components/work-actions";
 import { ProxiedImg } from "@/components/proxied-img";
 import { UgoiraPlayer } from "@/components/ugoira-player";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -23,7 +21,7 @@ import { WorkTagList } from "@/components/saved-tags";
 import { enqueueWork } from "@/lib/queue-runner";
 import { collectWorkFiles } from "@/lib/save-work";
 import { fetchSource, mutateSource } from "@/lib/source";
-import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
@@ -59,6 +57,9 @@ function WorkPage() {
   const [progress, setProgress] = useState("");
   const [preview, setPreview] = useState<number | null>(null);
   const inVault = useVaultIndex((s) => Boolean(s.keys[vaultWorkKey(src, id)]));
+  const inQueue = useQueue((s) =>
+    s.items.some((x) => x.key === vaultWorkKey(src, id) && (x.status === "queued" || x.status === "running")),
+  );
 
   const query = useQuery({
     queryKey: ["work", src, id, safeMode, pixivCookie, fanboxCookie],
@@ -372,34 +373,27 @@ function WorkPage() {
         ) : null}
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <WorkActions
+      <WorkActions
           work={work}
           saving={saving}
           inVault={inVault}
+          inQueue={inQueue}
           originUrl={originUrl}
           onSave={() => void saveNow(work, false)}
           onDownload={() => void saveNow(work, true)}
+          onQueue={() => {
+            if (inQueue) {
+              toast.success("已在队列");
+              return;
+            }
+            enqueueWork(work);
+            toast.success("已加入队列");
+          }}
+          onSearchOrigin={() => void searchFromWork(work)}
           onBookmark={() => void doBookmark(work)}
           onLike={() => void doLike(work)}
           onFollow={() => void doFollow(work)}
         />
-        <Button
-          variant="ghost"
-          disabled={saving || work.restricted}
-          onClick={() => enqueueWork(work)}
-        >
-          加入队列
-        </Button>
-        <Button
-          variant="ghost"
-          disabled={work.restricted}
-          onClick={() => void searchFromWork(work)}
-        >
-          <ScanSearch className="size-4" />
-          搜来源
-        </Button>
-      </div>
       {progress ? <p className="text-xs tabular-nums text-subtle">{progress}</p> : null}
 
       {work.restricted ? (

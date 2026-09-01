@@ -465,6 +465,76 @@ html.kami-motion {
   backdrop-filter: blur(12px);
 }
 
+.kami-work-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--color-surface) 86%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-fg) 10%, transparent);
+  box-shadow: var(--shadow-border);
+  backdrop-filter: blur(12px);
+}
+
+.kami-work-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.25rem;
+  padding: 0 0.8rem;
+  border-radius: 14px;
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: var(--color-fg);
+  text-decoration: none;
+  transition:
+    background-color var(--motion-quick) var(--ease-out),
+    color var(--motion-quick) var(--ease-out),
+    transform var(--motion-quick) var(--ease-out),
+    opacity var(--motion-quick) var(--ease-out);
+}
+
+.kami-work-action:hover {
+  background: var(--color-elevated);
+}
+
+.kami-work-action:active {
+  transform: scale(0.97);
+}
+
+.kami-work-action:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.kami-work-action-primary {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
+.kami-work-action-primary:hover {
+  background: var(--color-accent);
+  opacity: 0.92;
+}
+
+.kami-work-action-on {
+  color: var(--color-accent);
+}
+
+.kami-work-action-heart {
+  color: var(--color-danger);
+}
+
+.kami-work-actions-compact .kami-work-action {
+  height: 2rem;
+  padding: 0 0.65rem;
+  font-size: 0.75rem;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .kami-card-shell:hover {
     transform: translate3d(0, -10px, 0);
