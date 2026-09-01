@@ -6,9 +6,11 @@ import { ProxiedImg } from "@/components/proxied-img";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { prepareSearchImage } from "@/lib/prepare-search-image";
 import {
-  DEFAULT_SEARCH_ENGINE,
+  engineLabel,
   MAX_SEARCH_BYTES,
   SEARCH_ENGINES,
   SEARCH_TYPES,
@@ -16,6 +18,7 @@ import {
   type ReverseHit,
   type SearchEngine,
 } from "@/lib/reverse-search";
+import { fallbackSearchEngine, isSearchLimited } from "@/lib/reverse-search-guard";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +31,9 @@ function SearchPage() {
   const safeMode = useSettings((s) => s.safeMode);
   const persisted = useSettings((s) => s.searchEngine);
   const setSearchEngine = useSettings((s) => s.setSearchEngine);
-  const [engine, setEngine] = useState<SearchEngine>(persisted || DEFAULT_SEARCH_ENGINE);
+  const apiKey = useSettings((s) => s.saucenaoApiKey);
+  const setSaucenaoApiKey = useSettings((s) => s.setSaucenaoApiKey);
+  const [engine, setEngine] = useState<SearchEngine>(persisted || "saucenao");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [items, setItems] = useState<ReverseHit[]>([]);
@@ -62,10 +67,12 @@ function SearchPage() {
     setLoading(true);
     setError("");
     try {
+      const prepared = await prepareSearchImage(target);
       const body = new FormData();
-      body.set("file", target);
+      body.set("file", prepared);
       body.set("engine", nextEngine);
       body.set("safe", safeMode ? "1" : "0");
+      if (apiKey) body.set("apiKey", apiKey);
       const res = await fetch("/api/reverse-search", { method: "POST", body });
       const data = (await res.json()) as ApiOk | ApiErr;
       if (!data.ok) throw new Error(data.error || "搜图失败");
@@ -116,7 +123,7 @@ function SearchPage() {
       <header className="space-y-1">
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">搜图</h1>
         <p className="text-sm text-muted">
-          上传本地图片，在 SauceNAO、ascii2d、IQDB、TinEye 查来源。默认 SauceNAO。
+          上传本地图片，在 SauceNAO、ascii2d、IQDB、TinEye 查来源。纸匣会先缩小再传，并控制间隔，减少验证码。
         </p>
       </header>
 
@@ -175,7 +182,7 @@ function SearchPage() {
           </button>
           <div className="min-w-0 flex-1 space-y-3">
             <p className="text-sm text-muted">
-              拖到这里，或点选文件。也可以 Ctrl+V 粘贴。单张不超过 8 MB。
+              拖到这里，或点选文件。也可以 Ctrl+V 粘贴。会压成约 768px 的 JPEG 再交给搜图站。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
@@ -196,12 +203,48 @@ function SearchPage() {
                 {file.name} · {(file.size / 1024).toFixed(0)} KB
               </p>
             ) : null}
+            {engine === "saucenao" ? (
+              <div className="space-y-1">
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="SauceNAO API key（可选，匿名很容易被限流）"
+                  value={apiKey}
+                  onChange={(e) => setSaucenaoApiKey(e.target.value)}
+                />
+                <p className="text-xs text-subtle">
+                  在{" "}
+                  <a href="https://saucenao.com/user.php" target="_blank" rel="noreferrer" className="text-fg hover:underline">
+                    saucenao.com/user.php
+                  </a>{" "}
+                  注册后复制。只留在这台设备上。
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       </Card>
 
       {error && items.length === 0 ? (
-        <p className="text-sm text-muted">{error}</p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted">{error}</p>
+          {file && isSearchLimited(error) ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => {
+                const next = fallbackSearchEngine(engine);
+                setEngine(next);
+                setSearchEngine(next);
+                void run(file, next);
+              }}
+            >
+              改用 {engineLabel(fallbackSearchEngine(engine))} 再试
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {loading && items.length === 0 ? (
@@ -217,10 +260,6 @@ function SearchPage() {
       ) : null}
     </div>
   );
-}
-
-function engineLabel(id: SearchEngine) {
-  return SEARCH_ENGINES.find((e) => e.id === id)?.label ?? id;
 }
 
 function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {

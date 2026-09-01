@@ -36,6 +36,7 @@ export const Route = createFileRoute("/api/reverse-search")({
         }
         const engine = parseSearchEngine(String(form.get("engine") ?? ""));
         const safeMode = String(form.get("safe") ?? "1") !== "0";
+        const apiKey = String(form.get("apiKey") ?? "").trim().slice(0, 80);
         try {
           const bytes = new Uint8Array(await file.arrayBuffer());
           const result = await runReverseSearch({
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/api/reverse-search")({
             filename: file.name || "upload.jpg",
             type: SEARCH_TYPES.has(type) ? type : "image/jpeg",
             safeMode,
+            apiKey: apiKey || undefined,
           });
           return json({ ok: true, ...result });
         } catch (err) {
