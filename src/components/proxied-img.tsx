@@ -5,6 +5,7 @@
  * 用法：封面 fit="cover"（默认）；作品页 / 灯箱 fit="contain" 才不会裁掉。
  * 为什么：pximg 直接给浏览器会 403。封面要铺满卡片，作品页要整张看见。
  *        已加载过的地址记在内存里，返回浏览不再闪扫光。
+ *        warmMedia 预热放大图（HTTP 缓存 + 内存），悬停弹层直接命中。
  */
 import { useEffect, useRef, useState } from "react";
 import { cn, mediaUrl } from "@/lib/utils";
@@ -15,6 +16,26 @@ function thumbKey(src: string) {
   return mediaUrl(src);
 }
 
+export function isMediaWarm(src: string | undefined) {
+  return Boolean(src && warmThumbs.has(thumbKey(src)));
+}
+
+/** 预热代理图：写入 HTTP 缓存和内存集合，悬停预览才不会再扫一遍。 */
+export function warmMedia(src: string | undefined) {
+  if (!src || typeof Image === "undefined") return;
+  const key = thumbKey(src);
+  if (warmThumbs.has(key)) return;
+  const img = new Image();
+  img.decoding = "async";
+  try {
+    img.fetchPriority = "low";
+  } catch {
+    /* Safari 旧版 */
+  }
+  img.addEventListener("load", () => warmThumbs.add(key), { once: true });
+  img.src = mediaUrl(src);
+}
+
 export function ProxiedImg({
   src,
   alt,
@@ -23,6 +44,7 @@ export function ProxiedImg({
   sizes,
   fit = "cover",
   viewTransitionName,
+  warmSrc,
 }: {
   src?: string;
   alt: string;
@@ -31,6 +53,7 @@ export function ProxiedImg({
   sizes?: string;
   fit?: "cover" | "contain";
   viewTransitionName?: string;
+  warmSrc?: string;
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
@@ -110,6 +133,7 @@ export function ProxiedImg({
           onLoad={() => {
             warmThumbs.add(thumbKey(src));
             setLoaded(true);
+            if (warmSrc) warmMedia(warmSrc);
           }}
           onError={() => setFailed(true)}
         />
