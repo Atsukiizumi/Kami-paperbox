@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.43] — 2026-09-01
+
+对应 [PR #86](https://github.com/Atsukiizumi/Kami-paperbox/pull/86)。
+
+### 文档
+
+- README 改为「高速迭代中」，不再罗列功能。
+
 ## [0.8.42] — 2026-09-01
 
 对应 [PR #85](https://github.com/Atsukiizumi/Kami-paperbox/pull/85)。
