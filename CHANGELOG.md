@@ -8,6 +8,18 @@
 
 暂无。
 
+## [0.8.46] — 2026-09-02
+
+对应 [PR #89](https://github.com/Atsukiizumi/Kami-paperbox/pull/89)。
+
+### 新增
+
+- 历史浏览记下看过的作者（Pixiv 画师、FANBOX 创作者），和作品分开列。
+
+### 文档
+
+- README 补回 AI powered by Grok。
+
 ## [0.8.45] — 2026-09-02
 
 对应 [PR #88](https://github.com/Atsukiizumi/Kami-paperbox/pull/88)。

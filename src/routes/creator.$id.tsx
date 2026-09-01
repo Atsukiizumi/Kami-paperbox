@@ -9,7 +9,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
+import { rememberAuthor } from "@/lib/view-history";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/creator/$id")({ component: CreatorPage });
 
@@ -35,6 +37,17 @@ function CreatorPage() {
     },
     getNextPageParam: (last) => last.cursor ?? undefined,
   });
+
+  useEffect(() => {
+    const profile = query.data?.pages[0]?.profile;
+    if (!query.isSuccess || !profile) return;
+    rememberAuthor({
+      source: "fanbox",
+      id: profile.id,
+      name: profile.name,
+      avatar: profile.avatar,
+    });
+  }, [id, query.isSuccess, query.data?.pages]);
 
   if (query.isLoading) {
     return (
