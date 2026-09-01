@@ -1,0 +1,31 @@
+name: "功能"
+description: "想加的、哪里别扭、随口一提也行。"
+title: "[功能] "
+labels: [
+  "enhancement"
+]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: "想要什么"
+      description: "一句话也行"
+      placeholder: "浏览页悬停封面能放大看一眼 不用点进去"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: "为什么"
+      description: "有就写 没有就空着"
+      placeholder: "现在只能点进作品页 刷榜太慢"
+    validations:
+      required: false
+  - type: textarea
+    id: basic_example
+    attributes:
+      label: "大概长什么样"
+      description: "交互、参考、随手草图。没有就空着。"
+      placeholder: "鼠标停在卡片上约半秒 旁边浮一层更大的图"
+    validations:
+      required: false
