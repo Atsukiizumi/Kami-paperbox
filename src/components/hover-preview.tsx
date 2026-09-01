@@ -4,7 +4,7 @@
  * 作用：从封面浮到旁边，按真实比例看整张图。
  * 用法：open + 卡片 getBoundingClientRect；pointer-events: none。
  * 为什么：节点铺在终点尺寸上，用 FLIP（transform）从卡片长过去。
- *        不改 left/width，合成线程就能跑；轻漂放在内层，互不抢 transform。
+ *        中断时 commitStyles，从当前矩阵接着播，不 cancel 回起点。
  */
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -53,7 +53,7 @@ export function HoverPreview({
     const pack = held.current;
     if (!shell || !float || !pack) return;
 
-    cancelAnimations(shell);
+    // 只停内层轻漂。外层若在飞，交给 animateFlip commitStyles，cleanup 里 cancel 会闪回。
     cancelAnimations(float);
     let live = true;
     const to = place(pack.from, pack.aspect);
@@ -69,13 +69,11 @@ export function HoverPreview({
         .catch(() => undefined);
       return () => {
         live = false;
-        cancelAnimations(shell);
-        cancelAnimations(float);
       };
     }
 
     const back = animateFlip(shell, pack.from, to, {
-      duration: 260,
+      duration: 320,
       reverse: true,
       opacityFrom: 0,
       opacityTo: 1,
@@ -89,7 +87,6 @@ export function HoverPreview({
       });
     return () => {
       live = false;
-      cancelAnimations(shell);
     };
   }, [open, src]);
 
