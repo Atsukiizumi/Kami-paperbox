@@ -196,6 +196,7 @@ function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
   if (alwaysBlockedPixiv(item)) return null;
   const id = asString(item.id || item.illust_id);
   if (!id) return null;
+  const social = socialFromPixivIllust(item);
   return {
     source: "pixiv",
     id,
@@ -212,7 +213,8 @@ function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
     date: asString(item.createDate || item.date) || undefined,
     illustType: asNumber(item.illustType ?? item.illust_type, 0),
     aiType: pixivAiType(item) || undefined,
-    liked: socialFromPixivIllust(item).liked || undefined,
+    liked: social.liked || social.bookmarked || undefined,
+    bookmarked: social.bookmarked || undefined,
   };
 }
 

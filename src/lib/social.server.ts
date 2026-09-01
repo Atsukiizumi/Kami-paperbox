@@ -6,7 +6,7 @@
  * 为什么：这些接口要 Origin + Cookie + token，只能服务端发。
  *        CSRF 现在藏在 meta-global-data（可能是实体编码），不能再用「只认十六进制」的旧正则。
  */
-import { bookmarkTagsOf, extractPixivCsrfToken, pixivHtmlLooksLoggedOut } from "./social";
+import { bookmarkTagsOf, extractPixivCsrfToken, isAlreadySocialError, pixivHtmlLooksLoggedOut } from "./social";
 import type { SocialInput, SocialOk } from "./types";
 import { outboundFetch } from "./curl-fetch.server";
 import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
@@ -174,9 +174,37 @@ export async function dispatchSocial(input: SocialInput): Promise<SocialOk> {
       return { ok: true };
     }
     case "pixivLike": {
+      // Pixiv 页面上的♡是收藏。いいね只加计数，收藏列表里看不见。
       if (!pixiv) throw new Error("需要登录 Pixiv");
-      await pixivJson("https://www.pixiv.net/ajax/illusts/like", pixiv, { illust_id: input.id }, false, input.id);
-      return { ok: true, liked: true };
+      let bookmarkId: string | undefined;
+      try {
+        const json = await pixivJson(
+          "https://www.pixiv.net/ajax/illusts/bookmarks/add",
+          pixiv,
+          {
+            illust_id: input.id,
+            restrict: 0,
+            comment: "",
+            tags: bookmarkTagsOf(input.tags ?? []),
+          },
+          false,
+          input.id,
+        );
+        const body = (json.body && typeof json.body === "object" ? json.body : json) as Record<string, unknown>;
+        const last = body.last_bookmark_id ?? body.lastBookmarkId ?? body.bookmarkId ?? body.id;
+        if (last != null) bookmarkId = String(last);
+      } catch (err) {
+        if (!(err instanceof Error) || !isAlreadySocialError(err.message)) throw err;
+      }
+      try {
+        await pixivJson("https://www.pixiv.net/ajax/illusts/like", pixiv, { illust_id: input.id }, false, input.id);
+      } catch (err) {
+        if (!(err instanceof Error) || !isAlreadySocialError(err.message)) {
+          // 收藏已经写上了，いいね失败不把♡收回。
+          if (!bookmarkId) throw err;
+        }
+      }
+      return { ok: true, liked: true, bookmarked: true, bookmarkId };
     }
     case "pixivBookmark": {
       if (!pixiv) throw new Error("需要登录 Pixiv");

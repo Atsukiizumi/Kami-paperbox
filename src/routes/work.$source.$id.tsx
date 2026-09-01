@@ -210,15 +210,24 @@ function WorkPage() {
     }
     likingRef.current = true;
     const prevLikes = detail.likes;
-    patchWork({ liked: true, likes: (prevLikes ?? 0) + 1 });
+    const prevBookmarked = detail.bookmarked;
+    const prevBookmarkId = detail.bookmarkId;
+    patchWork({ liked: true, bookmarked: true, likes: (prevLikes ?? 0) + 1 });
     try {
       if (src === "pixiv") {
-        await mutateSource({ data: { op: "pixivLike", id: detail.id, ...cookiesFromSettings() } });
+        const r = await mutateSource({
+          data: { op: "pixivLike", id: detail.id, tags: detail.tags, ...cookiesFromSettings() },
+        });
+        patchWork({
+          liked: true,
+          bookmarked: r.bookmarked ?? true,
+          bookmarkId: r.bookmarkId ?? prevBookmarkId,
+        });
       } else if (src === "fanbox") {
         await mutateSource({ data: { op: "fanboxLike", id: detail.id, ...cookiesFromSettings() } });
       }
     } catch (err) {
-      patchWork({ liked: false, likes: prevLikes });
+      patchWork({ liked: false, bookmarked: prevBookmarked, bookmarkId: prevBookmarkId, likes: prevLikes });
       toast.error(err instanceof Error ? err.message : "红心失败");
     } finally {
       likingRef.current = false;

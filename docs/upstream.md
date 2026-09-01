@@ -122,7 +122,7 @@ Accept: application/json
 
 | 操作 | 地址 | 要点 |
 | --- | --- | --- |
-| 红心 | `POST /ajax/illusts/like` | JSON `{ illust_id }` |
+| 红心 | `POST /ajax/illusts/bookmarks/add` 再附带 `/ajax/illusts/like` | Pixiv 页面上的♡是收藏；いいね只加计数。JSON `{ illust_id, restrict: 0, tags }` |
 | 收藏 | `POST /ajax/illusts/bookmarks/add` | JSON，`restrict: 0`，tags 用作品标签 |
 | 取消收藏 | `POST /ajax/illusts/bookmarks/delete` | `{ bookmarkIds: […] }` |
 | 关注 | `POST /bookmark_add.php` | 表单 `mode=add&type=user&user_id=` |

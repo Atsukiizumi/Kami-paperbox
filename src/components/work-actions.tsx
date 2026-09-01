@@ -70,9 +70,14 @@ export function WorkActions({
         </ActionChip>
       ) : null}
       {(work.source === "pixiv" || work.source === "fanbox") && onLike ? (
-        <ActionChip label={work.liked ? "已红心" : "红心"} active={work.liked} danger={work.liked} onClick={onLike}>
-          <Heart className={cn("size-4", work.liked && "fill-current")} />
-          {work.liked ? "已红心" : "红心"}
+        <ActionChip
+          label={work.liked || work.bookmarked ? "已红心" : "红心"}
+          active={Boolean(work.liked || work.bookmarked)}
+          danger={Boolean(work.liked || work.bookmarked)}
+          onClick={onLike}
+        >
+          <Heart className={cn("size-4", (work.liked || work.bookmarked) && "fill-current")} />
+          {work.liked || work.bookmarked ? "已红心" : "红心"}
         </ActionChip>
       ) : null}
       {(work.source === "pixiv" || work.source === "fanbox") && onFollow ? (

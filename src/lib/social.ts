@@ -37,6 +37,11 @@ export function socialFromPixivIllust(body: Record<string, unknown>): SocialStat
   };
 }
 
+/** Pixiv 站点上的♡是收藏，不是いいね。红心要打 bookmarks/add。 */
+export function isAlreadySocialError(message: string): boolean {
+  return /already|既に|ブックマーク済|いいね済|duplicat/i.test(message);
+}
+
 export function bookmarkTagsOf(tags: readonly string[]): string[] {
   return tags
     .map((t) => t.trim())

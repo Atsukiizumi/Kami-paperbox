@@ -39,6 +39,7 @@ export type WorkCard = {
   rating?: string;
   excerpt?: string;
   liked?: boolean;
+  bookmarked?: boolean;
 };
 
 export type WorkPage = {
@@ -146,7 +147,7 @@ export type SocialInput = {
   pixivCookie?: string;
   fanboxCookie?: string;
 } & (
-  | { op: "pixivLike"; id: string }
+  | { op: "pixivLike"; id: string; tags?: string[] }
   | { op: "pixivWarm" }
   | { op: "pixivBookmark"; id: string; on: boolean; tags?: string[]; bookmarkId?: string }
   | { op: "pixivFollow"; userId: string; on: boolean }
