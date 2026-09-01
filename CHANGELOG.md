@@ -8,6 +8,18 @@
 
 暂无。
 
+## [0.8.34] — 2026-09-01
+
+对应 [PR #77](https://github.com/Atsukiizumi/Kami-paperbox/pull/77)。
+
+### 新增
+
+- 封面操作条在纸匣旁加入队。已在队列再点会提示，不重复排。
+
+### 调整
+
+- 红心 / 纸匣 / 队列收成一条磨砂纸质胶囊，标题区加了一层纸边。
+
 ## [0.8.33] — 2026-09-01
 
 对应 [PR #76](https://github.com/Atsukiizumi/Kami-paperbox/pull/76)。
