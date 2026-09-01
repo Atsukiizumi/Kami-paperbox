@@ -34,7 +34,17 @@ const fetchSchema = z.intersection(
       op: z.literal("pixivSearch"),
       word: z.string().min(1).max(80),
       page: z.number().int().min(1).max(20),
-      exact: z.boolean().optional(),
+      filter: z
+        .object({
+          scope: z.enum(["s_tag", "s_tag_full", "s_tc"]).optional(),
+          type: z.enum(["all", "illust", "manga", "ugoira"]).optional(),
+          order: z.enum(["date_d", "date", "popular_d"]).optional(),
+          age: z.enum(["all", "safe", "r18"]).optional(),
+          when: z.enum(["any", "d", "w", "m"]).optional(),
+          bookmarks: z.enum(["0", "100", "250", "500", "1000", "5000"]).optional(),
+          ratio: z.enum(["all", "landscape", "portrait", "square"]).optional(),
+        })
+        .optional(),
     }),
     z.object({ op: z.literal("pixivRecommend") }),
     z.object({

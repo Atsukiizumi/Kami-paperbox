@@ -22,6 +22,7 @@ import {
   rankingMeta,
   type PixivRankMode,
 } from "./pixiv-feed";
+import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } from "./pixiv-search";
 import {
   BOORU_ORIGIN,
   DANBOORU_UA,
@@ -321,15 +322,10 @@ async function pixivSearch(
   cookie?: string,
   safeMode = true,
   hideAi = false,
-  exact = false,
+  filter?: Partial<PixivSearchFilter>,
 ): Promise<FetchOk> {
-  const mode = safeMode ? "safe" : "all";
-  const encoded = encodeURIComponent(word);
-  const ai = hideAi ? "&ai_type=1" : "";
-  const sMode = exact ? "s_tag_full" : "s_tag";
-  const url =
-    `https://www.pixiv.net/ajax/search/artworks/${encoded}` +
-    `?word=${encoded}&order=date_d&mode=${mode}&p=${page}&s_mode=${sMode}&type=all${ai}&lang=zh`;
+  const parsed = parsePixivSearchFilter(filter);
+  const url = buildPixivSearchUrl(word, page, parsed, { safeMode, hideAi });
   const json = asRecord(await upstreamJson(url, { cookie, origin: "pixiv" }));
   if (json.error) throw new Error(asString(json.message, "搜索失败"));
   const body = asRecord(json.body);
@@ -953,7 +949,7 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "pixivRanking":
       return pixivRanking(input.mode, input.page, pixiv, safe, hideAi);
     case "pixivSearch":
-      return pixivSearch(input.word, input.page, pixiv, safe, hideAi, input.exact === true);
+      return pixivSearch(input.word, input.page, pixiv, safe, hideAi, input.filter);
     case "pixivRecommend":
       return pixivRecommend(pixiv, safe, hideAi);
     case "pixivFollowing":

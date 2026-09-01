@@ -6,9 +6,11 @@
  */
 import type { UgoiraMeta } from "./ugoira-meta";
 import type { PixivRankMode } from "./pixiv-feed";
+import type { PixivSearchFilter } from "./pixiv-search";
 
 export type { UgoiraMeta } from "./ugoira-meta";
 export type { PixivRankMode, PixivFeed } from "./pixiv-feed";
+export type { PixivSearchFilter } from "./pixiv-search";
 
 export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
 export type BooruSite = "yande" | "konachan" | "danbooru";
@@ -124,7 +126,7 @@ export type FetchInput = {
   hideAi?: boolean;
 } & (
   | { op: "pixivRanking"; mode: PixivRankMode; page: number }
-  | { op: "pixivSearch"; word: string; page: number; exact?: boolean }
+  | { op: "pixivSearch"; word: string; page: number; filter?: PixivSearchFilter }
   | { op: "pixivRecommend" }
   | { op: "pixivFollowing"; page: number }
   | { op: "pixivRelated"; id: string }

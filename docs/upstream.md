@@ -96,7 +96,7 @@ Accept: application/json
 | 纸匣在做什么 | 网站自己打的地址 |
 | --- | --- |
 | 日 / 周 / 月榜 | `GET /ranking.php?mode={mode}&content=illust&p={page}&format=json` |
-| 搜索 | `GET /ajax/search/artworks/{词}?word={词}&order=date_d&mode=safe\|all&p={页}&s_mode=s_tag&type=all&lang=zh` |
+| 搜索 | `GET /ajax/search/artworks/{词}?word={词}&order=date_d\|date\|popular_d&mode=safe\|all\|r18&p={页}&s_mode=s_tag\|s_tag_full\|s_tc&type=all\|illust\|manga\|ugoira&lang=zh`，可选 `scd=YYYY-MM-DD`、`blt={收藏下限}`、`ratio=0.5\|-0.5\|0`、`ai_type=1` |
 | 搜索联想 | `GET /ajax/search/suggest?word={词}&lang=zh`，空则 `GET /rpc/cps.php?keyword={词}&lang=zh` |
 | 为你推荐 | `GET /ajax/discovery/artworks?mode=safe\|all&limit=60&lang=zh` |
 | 关注动态 | `GET /ajax/follow_latest/illust?mode=safe\|all&p={页}&lang=zh` |

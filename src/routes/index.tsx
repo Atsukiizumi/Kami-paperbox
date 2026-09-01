@@ -7,6 +7,7 @@ import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { SavedTagBar } from "@/components/saved-tags";
 import { SearchSuggest } from "@/components/search-suggest";
+import { PixivSearchFilter } from "@/components/pixiv-search-filter";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,12 @@ import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import type { FanboxCursor, FetchOk, WorkCard } from "@/lib/types";
+import {
+  DEFAULT_PIXIV_SEARCH,
+  PIXIV_SEARCH_ORDERS,
+  scopeFromExact,
+  type PixivSearchFilter as PixivSearchFilterValue,
+} from "@/lib/pixiv-search";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -48,7 +55,7 @@ function Home() {
   const [query, setQuery] = useState("");
   const [feed, setFeed] = useState<PixivFeed>("daily");
   const [searchWord, setSearchWord] = useState("");
-  const [searchExact, setSearchExact] = useState(false);
+  const [searchFilter, setSearchFilter] = useState<PixivSearchFilterValue>(DEFAULT_PIXIV_SEARCH);
   const [creatorId, setCreatorId] = useState("official");
   const [fanboxFeed, setFanboxFeed] = useState<FanboxFeed>("creator");
   const [booruFeed, setBooruFeed] = useState<"recent" | "popular">("recent");
@@ -61,7 +68,7 @@ function Home() {
   useEffect(() => {
     setSearchWord("");
     setQuery("");
-    setSearchExact(false);
+    setSearchFilter(DEFAULT_PIXIV_SEARCH);
   }, [tab]);
 
   useEffect(() => {
@@ -69,7 +76,7 @@ function Home() {
     const word = canonicalTag(tab, browseQuery) || browseQuery.trim();
     setSearchWord(word);
     setQuery(word);
-    setSearchExact(browseExact);
+    setSearchFilter((cur) => ({ ...cur, scope: scopeFromExact(browseExact) }));
     setBrowseQuery("");
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
@@ -93,14 +100,14 @@ function Home() {
   }, [fanboxCookie]);
 
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchExact, safeMode, hideAi, pixivCookie],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie],
     enabled: tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const creds = cookiesFromSettings();
       if (searchWord) {
         return fetchSource({
-          data: { op: "pixivSearch", word: searchWord, page: pageParam, exact: searchExact, ...creds },
+          data: { op: "pixivSearch", word: searchWord, page: pageParam, filter: searchFilter, ...creds },
         });
       }
       if (feed === "recommend") {
@@ -174,11 +181,15 @@ function Home() {
 
   function runTagSearch(source: typeof tab, word: string, exact: boolean) {
     const next = canonicalTag(source, word) || word.trim();
-    if (!next) return;
+    if (!next) {
+      setSearchWord("");
+      setQuery("");
+      return;
+    }
     if (source !== tab) setTab(source);
     setSearchWord(next);
     setQuery(next);
-    setSearchExact(exact);
+    setSearchFilter((cur) => ({ ...cur, scope: scopeFromExact(exact) }));
     if (isBooru(source)) setBooruFeed("recent");
   }
 
@@ -252,7 +263,7 @@ function Home() {
     }
     setFeed(next);
     setSearchWord("");
-    setSearchExact(false);
+    setSearchFilter((cur) => ({ ...cur, scope: "s_tag" }));
   }
 
   const pixivItems = collectWorks(pixivQuery.data?.pages);
@@ -326,7 +337,9 @@ function Home() {
           <SearchSuggest
             source={tab}
             query={query}
-            saved={[...savedTags, ...recents]}
+            saved={savedTags}
+            recents={recents}
+            inputId="kami-search"
             onPick={(word) => {
               setQuery(word);
               goFromInput(word);
@@ -334,6 +347,21 @@ function Home() {
           />
         </div>
         <div className="flex gap-2">
+          {tab === "pixiv" ? (
+            <PixivSearchFilter
+              filter={searchFilter}
+              safeMode={safeMode}
+              onApply={(next) => {
+                if (next.age === "r18" && safeMode) setSafeMode(false);
+                setSearchFilter(next);
+                const word = canonicalTag(tab, query) || query.trim();
+                if (word) {
+                  setSearchWord(word);
+                  setQuery(word);
+                }
+              }}
+            />
+          ) : null}
           <Button type="button" variant="secondary" onClick={() => void pasteClipboard()}>
             <Clipboard className="size-4" />
             粘贴
@@ -351,23 +379,6 @@ function Home() {
         onToggle={(tag) => toggleSavedTag(tab, tag)}
         onSaveCurrent={() => toggleSavedTag(tab, searchWord)}
       />
-
-      {recents.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {recents.map((item) => (
-            <Button
-              key={item}
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="max-w-full truncate rounded-full"
-              onClick={() => goFromInput(item)}
-            >
-              {item}
-            </Button>
-          ))}
-        </div>
-      ) : null}
 
       {tab === "pixiv" ? (
         <div className="space-y-3">
@@ -396,6 +407,22 @@ function Home() {
               >
                 搜索「{searchWord}」×
               </Button>
+            ) : null}
+            {searchWord ? (
+              <ToggleGroup
+                type="single"
+                value={searchFilter.order}
+                onValueChange={(v) => {
+                  if (v) setSearchFilter((cur) => ({ ...cur, order: v as PixivSearchFilterValue["order"] }));
+                }}
+                className="ml-auto"
+              >
+                {PIXIV_SEARCH_ORDERS.map((item) => (
+                  <ToggleGroupItem key={item.id} value={item.id}>
+                    {item.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             ) : null}
             {rankingDate && !searchWord && isPixivRankMode(feed) ? (
               <span className="ml-auto text-xs tabular-nums text-subtle">
