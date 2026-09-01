@@ -103,7 +103,10 @@ export type FetchOk =
       op: "pixivUser";
       profile: UserProfile;
       items: WorkCard[];
+      pickup: WorkCard[];
+      newestId?: string;
       total: number;
+      listTotal: number;
       offset: number;
     }
   | {

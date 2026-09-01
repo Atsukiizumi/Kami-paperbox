@@ -23,6 +23,7 @@ import {
   type PixivRankMode,
 } from "./pixiv-feed";
 import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } from "./pixiv-search";
+import { pixivIdsNewestFirst, pixivPickupItems } from "./pixiv-profile";
 import {
   BOORU_ORIGIN,
   DANBOORU_UA,
@@ -468,9 +469,18 @@ async function pixivUser(
   if (userWrap.error) throw new Error(asString(userWrap.message, "画师不存在"));
   const user = asRecord(userWrap.body);
   const all = asRecord(asRecord(allJson).body);
-  const illusts = asRecord(all.illusts);
-  const manga = asRecord(all.manga);
-  const ids = [...Object.keys(illusts), ...Object.keys(manga)].filter((k) => /^\d+$/.test(k));
+  const pickup: WorkCard[] = [];
+  const pickupIds = new Set<string>();
+  for (const rec of pixivPickupItems(all.pickup)) {
+    if (safeMode && nsfwPixiv(rec)) continue;
+    const card = mapPixivCard(rec);
+    if (!keepPixivCard(card, hideAi)) continue;
+    pickup.push(card);
+    pickupIds.add(card.id);
+  }
+  const allIds = pixivIdsNewestFirst(all.illusts, all.manga);
+  const newestId = allIds[0];
+  const ids = allIds.filter((workId) => !pickupIds.has(workId));
   const slice = ids.slice(offset, offset + 60);
   let items: WorkCard[] = [];
   if (slice.length > 0) {
@@ -494,10 +504,10 @@ async function pixivUser(
     avatar: asString(user.imageBig || user.image),
     comment: asString(user.comment),
     following: asNumber(user.following) || undefined,
-    totalWorks: ids.length,
+    totalWorks: ids.length + pickup.length,
     isFollowed: asBool(user.isFollowed),
   };
-  return { op: "pixivUser", profile, items, total: ids.length, offset };
+  return { op: "pixivUser", profile, items, pickup, newestId, total: ids.length + pickup.length, listTotal: ids.length, offset };
 }
 
 function sizeFromFanboxUrl(url: string): { width?: number; height?: number } {

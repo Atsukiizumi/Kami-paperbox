@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.44] — 2026-09-02
+
+对应 [PR #87](https://github.com/Atsukiizumi/Kami-paperbox/pull/87)。
+
+### 调整
+
+- 画师页作品改为从新到旧；最新一张标「最新」；Pixiv 置顶（pickup）单独一栏。
+
 ## [0.8.43] — 2026-09-01
 
 对应 [PR #86](https://github.com/Atsukiizumi/Kami-paperbox/pull/86)。

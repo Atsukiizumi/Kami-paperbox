@@ -41,12 +41,14 @@ export function ArtworkCard({
   work,
   index = 0,
   variant = "browse",
+  marks,
   onExport,
   onDelete,
 }: {
   work: WorkCard;
   index?: number;
   variant?: "browse" | "vault";
+  marks?: string[];
   onExport?: (e: MouseEvent) => void;
   onDelete?: (e: MouseEvent) => void;
 }) {
@@ -240,16 +242,30 @@ export function ArtworkCard({
                 <Lock className="size-6 text-fg" />
               </div>
             ) : null}
+            {marks && marks.length > 0 ? (
+              <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
+                {marks.map((label) => (
+                  <Badge key={label} className="bg-accent text-accent-fg">
+                    {label}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
             {work.illustType === 2 ? (
-              <span className="absolute left-2 top-2 flex size-8 items-center justify-center rounded-full bg-bg/80 text-fg">
+              <span
+                className={cn(
+                  "absolute flex size-8 items-center justify-center rounded-full bg-bg/80 text-fg",
+                  marks && marks.length > 0 ? "left-2 top-10" : "left-2 top-2",
+                )}
+              >
                 <Play className="size-3.5" />
               </span>
             ) : null}
             {isAiWork(work) ? (
               <Badge
                 className={cn(
-                  "absolute top-2 bg-bg/80 text-fg",
-                  work.illustType === 2 ? "left-12" : "left-2",
+                  "absolute bg-bg/80 text-fg",
+                  marks && marks.length > 0 ? "left-2 top-10" : work.illustType === 2 ? "left-12 top-2" : "left-2 top-2",
                 )}
               >
                 AI
@@ -517,9 +533,11 @@ function CardIconButton({
 export function ArtworkGrid({
   items,
   empty,
+  marksOf,
 }: {
   items: WorkCard[];
   empty?: string;
+  marksOf?: (work: WorkCard) => string[] | undefined;
 }) {
   if (items.length === 0) {
     return (
@@ -529,7 +547,7 @@ export function ArtworkGrid({
   return (
     <MasonryBoard>
       {items.map((work, i) => (
-        <ArtworkCard key={`${work.source}-${work.id}`} work={work} index={i} />
+        <ArtworkCard key={`${work.source}-${work.id}`} work={work} index={i} marks={marksOf?.(work)} />
       ))}
     </MasonryBoard>
   );
