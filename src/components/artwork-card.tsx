@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, Download, Heart, ListOrdered, Lock, Play, Trash2 } from "lucide-react";
+import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
@@ -29,6 +29,7 @@ import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { ProxiedImg, warmMedia } from "./proxied-img";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
+import { pageThumbUrls } from "@/lib/page-thumbs";
 import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
@@ -50,6 +51,7 @@ export function ArtworkCard({
   onDelete?: (e: MouseEvent) => void;
 }) {
   const hasMedia = Boolean(work.thumb);
+  const pages = pageThumbUrls(work.thumb, work.pageCount);
   const aspect = hasMedia ? cardAspect(work.width, work.height) : 5 / 3;
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   const pixivCookie = useSettings((s) => s.pixivCookie);
@@ -71,13 +73,15 @@ export function ArtworkCard({
   const [savedPop, setSavedPop] = useState(false);
   const [menu, setMenu] = useState<CardMenuPos | null>(null);
   const [preview, setPreview] = useState<DOMRect | null>(null);
+  const [pageI, setPageI] = useState(0);
   const hoverTimer = useRef(0);
   const previewTimer = useRef(0);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const cover = pages[Math.min(pageI, Math.max(0, pages.length - 1))] ?? work.thumb;
 
   function armPrefetch() {
     window.clearTimeout(hoverTimer.current);
-    if (work.thumb) warmMedia(upgradeThumbUrl(work.thumb));
+    if (work.thumb) warmMedia(upgradeThumbUrl(cover || work.thumb));
     hoverTimer.current = window.setTimeout(() => {
       prefetchWork(queryClient, work.source, work.id);
     }, 160);
@@ -212,7 +216,7 @@ export function ArtworkCard({
           >
             {hasMedia ? (
               <ProxiedImg
-                src={work.thumb}
+                src={cover}
                 alt={work.title}
                 priority={index < 4}
                 sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
@@ -258,6 +262,49 @@ export function ArtworkCard({
                   <Badge className="bg-bg/80 font-normal tabular-nums text-fg">{resolution}</Badge>
                 ) : null}
               </div>
+            ) : null}
+            {pages.length > 1 ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                {pages.map((_, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      "h-1 rounded-full bg-bg/80",
+                      i === pageI ? "w-3" : "w-1 opacity-70",
+                    )}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {pages.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="上一页图"
+                  className="absolute left-1 top-1/2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-bg/70 text-fg opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hidePreview();
+                    setPageI((i) => (i - 1 + pages.length) % pages.length);
+                  }}
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="下一页图"
+                  className="absolute right-1 top-1/2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-bg/70 text-fg opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hidePreview();
+                    setPageI((i) => (i + 1) % pages.length);
+                  }}
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </>
             ) : null}
             {inVault ? (
               <Badge className="absolute bottom-2 right-2 gap-1 bg-bg/80 text-fg">
@@ -388,7 +435,7 @@ export function ArtworkCard({
       {work.thumb ? (
         <HoverPreview
           open={Boolean(preview)}
-          src={work.thumb}
+          src={cover}
           alt={work.title}
           aspect={aspect}
           anchor={preview}

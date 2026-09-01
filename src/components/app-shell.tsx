@@ -13,7 +13,8 @@ import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
-import { DetailNav, isDetailPath } from "@/components/back-to-browse";
+import { DetailNav, isDetailPath, isMainNavPath } from "@/components/back-to-browse";
+import { Home as BrowsePage } from "@/routes/index";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -90,6 +91,28 @@ export function AppShell({ children }: { children: ReactNode }) {
       offSettings();
     };
   }, []);
+  const isHome = pathname === "/";
+  const overlay = isDetailPath(pathname);
+  const [keepBrowse, setKeepBrowse] = useState(isHome);
+  const browseScroll = useRef(0);
+  const wasHome = useRef(isHome);
+
+  useEffect(() => {
+    if (isHome) setKeepBrowse(true);
+    if (isMainNavPath(pathname)) setKeepBrowse(false);
+  }, [isHome, pathname]);
+
+  useLayoutEffect(() => {
+    if (wasHome.current && !isHome) {
+      browseScroll.current = window.scrollY;
+    }
+    if (!wasHome.current && isHome) {
+      window.scrollTo(0, browseScroll.current);
+    }
+    wasHome.current = isHome;
+  }, [isHome]);
+
+  const mountBrowse = isHome || (overlay && keepBrowse);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";
   const activeIndex = Math.max(
@@ -184,7 +207,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className={cn(contentPad, "transition-[padding] duration-300 ease-out")}>
-        <PageFrame pathname={pathname}>{children}</PageFrame>
+        <PageFrame pathname={pathname} isHome={isHome} mountBrowse={mountBrowse}>
+          {children}
+        </PageFrame>
       </main>
       <Onboarding />
       <DropToSearch />
@@ -226,21 +251,38 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function PageFrame({ pathname, children }: { pathname: string; children: ReactNode }) {
+function PageFrame({
+  pathname,
+  isHome,
+  mountBrowse,
+  children,
+}: {
+  pathname: string;
+  isHome: boolean;
+  mountBrowse: boolean;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
+  const detail = isDetailPath(pathname);
   useLayoutEffect(() => {
+    if (!detail) return;
     const el = ref.current;
     if (!el) return;
     playEnter(el);
-  }, [pathname]);
-  const detail = isDetailPath(pathname);
+  }, [pathname, detail]);
   return (
-    <div
-      ref={ref}
-      className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12"
-    >
+    <div className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
+      {mountBrowse ? (
+        <div hidden={!isHome} aria-hidden={!isHome} className={isHome ? "pt-6 md:pt-8" : "hidden"}>
+          <BrowsePage />
+        </div>
+      ) : null}
       {detail ? <DetailNav /> : null}
-      <div className={detail ? "pt-4 md:pt-5" : "pt-6 md:pt-8"}>{children}</div>
+      {!isHome ? (
+        <div ref={ref} className={detail ? "pt-4 md:pt-5" : "pt-6 md:pt-8"}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

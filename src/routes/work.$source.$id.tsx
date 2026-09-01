@@ -9,13 +9,6 @@ import { UgoiraPlayer } from "@/components/ugoira-player";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { WorkTagList } from "@/components/saved-tags";
 import { enqueueWork } from "@/lib/queue-runner";
 import { collectWorkFiles } from "@/lib/save-work";
@@ -29,7 +22,7 @@ import { workKey as vaultWorkKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { parseSource, siteLabel, workOriginUrl, isBooru } from "@/lib/sites";
+import { parseSource, workOriginUrl, isBooru } from "@/lib/sites";
 import { canonicalTag } from "@/lib/site-tags";
 import { pickRelatedTag } from "@/lib/booru";
 import { stashReverseImage } from "@/lib/reverse-search";
@@ -318,6 +311,7 @@ function WorkPage() {
     );
   }
 
+
   const originUrl = workOriginUrl(src, work.id, work.authorId);
 
   function searchTag(tag: string) {
@@ -327,81 +321,70 @@ function WorkPage() {
     void navigate({ to: "/" });
   }
 
+  function queueNow() {
+    if (!work) return;
+    if (inQueue) {
+      toast.success("已在队列");
+      return;
+    }
+    enqueueWork(work);
+    toast.success("已加入下载队列");
+  }
+
+  const actions = (
+    <WorkActions
+      work={work}
+      saving={saving}
+      inVault={inVault}
+      inQueue={inQueue}
+      originUrl={originUrl}
+      onSave={() => void saveNow(work, false)}
+      onDownload={queueNow}
+      onSearchOrigin={() => void searchFromWork(work)}
+      onBookmark={() => void doBookmark(work)}
+      onLike={() => void doLike(work)}
+      onFollow={() => void doFollow(work)}
+    />
+  );
+
   return (
-    <article className="space-y-6">
-      <header className="space-y-3">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>{siteLabel(src)}</BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{work.title}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <h1 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">{work.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          {src === "pixiv" ? (
-            <Link to="/user/$id" params={{ id: work.authorId }} className="text-fg hover:underline">
-              {work.author}
-            </Link>
-          ) : src === "fanbox" ? (
-            <Link
-              to="/creator/$id"
-              params={{ id: work.authorId }}
-              className="text-fg hover:underline"
-            >
-              {work.author}
-            </Link>
-          ) : (
-            <span className="text-fg">{work.author}</span>
-          )}
-          {work.pageCount > 1 ? <Badge>{work.pageCount} 页</Badge> : null}
-          {formatResolution(work.width, work.height) ? (
-            <span className="tabular-nums">{formatResolution(work.width, work.height)}</span>
-          ) : null}
-          {work.illustType === 2 || work.ugoira ? <Badge>动图 GIF</Badge> : null}
-          {work.aiType === 2 ? <Badge>AI</Badge> : null}
-          {work.views ? <span className="tabular-nums">浏览 {formatCount(work.views)}</span> : null}
-          {work.bookmarks ? (
-            <span className="tabular-nums">收藏 {formatCount(work.bookmarks)}</span>
-          ) : null}
-        </div>
-        {work.tags.length > 0 ? (
-          <WorkTagList
-            source={src}
-            tags={work.tags}
-            saved={savedTags}
-            onSearch={searchTag}
-            onToggle={(tag) => toggleSavedTag(src, tag)}
-          />
+    <article>
+      <div className="kami-work-sticky -mx-4 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10">
+        {actions}
+      </div>
+      {progress ? <p className="px-1 pt-2 text-xs tabular-nums text-subtle">{progress}</p> : null}
+
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3">
+        <h1 className="font-display text-xl leading-tight tracking-tight md:text-2xl">{work.title}</h1>
+        {src === "pixiv" ? (
+          <Link to="/user/$id" params={{ id: work.authorId }} className="text-sm text-muted hover:text-fg hover:underline">
+            {work.author}
+          </Link>
+        ) : src === "fanbox" ? (
+          <Link
+            to="/creator/$id"
+            params={{ id: work.authorId }}
+            className="text-sm text-muted hover:text-fg hover:underline"
+          >
+            {work.author}
+          </Link>
+        ) : (
+          <span className="text-sm text-muted">{work.author}</span>
+        )}
+        {work.pageCount > 1 ? <Badge>{work.pageCount} 页</Badge> : null}
+        {formatResolution(work.width, work.height) ? (
+          <span className="text-xs tabular-nums text-subtle">{formatResolution(work.width, work.height)}</span>
+        ) : null}
+        {work.illustType === 2 || work.ugoira ? <Badge>动图 GIF</Badge> : null}
+        {work.aiType === 2 ? <Badge>AI</Badge> : null}
+        {work.views ? <span className="text-xs tabular-nums text-subtle">浏览 {formatCount(work.views)}</span> : null}
+        {work.bookmarks ? (
+          <span className="text-xs tabular-nums text-subtle">收藏 {formatCount(work.bookmarks)}</span>
         ) : null}
       </header>
 
-      <WorkActions
-          work={work}
-          saving={saving}
-          inVault={inVault}
-          inQueue={inQueue}
-          originUrl={originUrl}
-          onSave={() => void saveNow(work, false)}
-          onDownload={() => {
-            if (inQueue) {
-              toast.success("已在队列");
-              return;
-            }
-            enqueueWork(work);
-            toast.success("已加入下载队列");
-          }}
-          onSearchOrigin={() => void searchFromWork(work)}
-          onBookmark={() => void doBookmark(work)}
-          onLike={() => void doLike(work)}
-          onFollow={() => void doFollow(work)}
-        />
-      {progress ? <p className="text-xs tabular-nums text-subtle">{progress}</p> : null}
-
       {work.restricted ? (
-        <Alert>
+        <Alert className="mb-4">
           <AlertTitle>需要订阅</AlertTitle>
           <AlertDescription>
             这篇投稿需要订阅才能查看附件。在设置里填入你的 FANBOXSESSID（需已订阅该创作者）后再打开。
@@ -409,15 +392,9 @@ function WorkPage() {
         </Alert>
       ) : null}
 
-      {work.description ? (
-        <p className="max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-muted">
-          {work.description.slice(0, 1200)}
-        </p>
-      ) : null}
-
-      <div className="space-y-4">
+      <div className="kami-work-stage -mx-4 md:-mx-10">
         {work.ugoira ? (
-          <figure className="overflow-hidden rounded-lg bg-surface">
+          <figure className="overflow-hidden">
             <UgoiraPlayer
               zipUrl={work.ugoira.src}
               frames={work.ugoira.frames}
@@ -427,7 +404,7 @@ function WorkPage() {
           </figure>
         ) : (
           work.pages.map((page, i) => (
-            <figure key={`${page.original}-${i}`} className="kami-enter rounded-lg bg-surface">
+            <figure key={`${page.original}-${i}`} className="kami-enter">
               <button
                 type="button"
                 className="block w-full cursor-zoom-in"
@@ -438,13 +415,13 @@ function WorkPage() {
                   alt={`${work.title} ${i + 1}`}
                   fit="contain"
                   priority={i === 0}
-                  sizes="(max-width: 1100px) 100vw, 900px"
+                  sizes="100vw"
                   viewTransitionName={i === 0 ? `kami-${work.source}-${work.id}` : undefined}
-                  className="max-h-[85vh]"
+                  className="mx-auto max-h-[92vh]"
                 />
               </button>
-              {formatResolution(page.width, page.height) ? (
-                <figcaption className="px-3 py-2 text-xs tabular-nums text-muted">
+              {formatResolution(page.width, page.height) || work.pages.length > 1 ? (
+                <figcaption className="px-3 py-1.5 text-center text-xs tabular-nums text-subtle">
                   {formatResolution(page.width, page.height)}
                   {work.pages.length > 1 ? ` · ${i + 1}/${work.pages.length}` : ""}
                 </figcaption>
@@ -452,6 +429,23 @@ function WorkPage() {
             </figure>
           ))
         )}
+      </div>
+
+      <div className="mx-auto max-w-3xl space-y-4 pt-6">
+        {work.tags.length > 0 ? (
+          <WorkTagList
+            source={src}
+            tags={work.tags}
+            saved={savedTags}
+            onSearch={searchTag}
+            onToggle={(tag) => toggleSavedTag(src, tag)}
+          />
+        ) : null}
+        {work.description ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
+            {work.description.slice(0, 1200)}
+          </p>
+        ) : null}
       </div>
 
       <ImageLightbox
@@ -470,14 +464,7 @@ function WorkPage() {
             inVault={inVault}
             inQueue={inQueue}
             onSave={() => void saveNow(work, false)}
-            onDownload={() => {
-              if (inQueue) {
-                toast.success("已在队列");
-                return;
-              }
-              enqueueWork(work);
-              toast.success("已加入下载队列");
-            }}
+            onDownload={queueNow}
             onBookmark={() => void doBookmark(work)}
             onLike={() => void doLike(work)}
             onFollow={() => void doFollow(work)}
@@ -486,7 +473,7 @@ function WorkPage() {
       />
 
       {(src === "pixiv" || isBooru(src)) && (relatedQuery.data?.length ?? 0) > 0 ? (
-        <section className="space-y-3 pt-4">
+        <section className="space-y-3 pt-8">
           <h2 className="text-lg font-semibold">相关推荐</h2>
           <ArtworkGrid items={relatedQuery.data ?? []} />
         </section>
