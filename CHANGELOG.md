@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.27] — 2026-09-01
+
+对应 [PR #68](https://github.com/Atsukiizumi/Kami-paperbox/pull/68)。
+
+### 修复
+
+- Issue 表单改成和 stevemao/github-issue-templates 一样的写法（无 `type:`，文件名 `BUG-REPORT.yml` / `FEATURE-REQUEST.yml`）。带 Issue Type 的表单不会出现在 Templates and forms 列表里。
+
 ## [0.8.26] — 2026-09-01
 
 对应 [PR #67](https://github.com/Atsukiizumi/Kami-paperbox/pull/67)。
