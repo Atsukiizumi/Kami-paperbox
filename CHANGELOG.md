@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.42] — 2026-09-01
+
+对应 [PR #85](https://github.com/Atsukiizumi/Kami-paperbox/pull/85)。
+
+### 新增
+
+- 历史浏览：打开过的作品记在侧栏「历史」，最多 200 条，再点能回去。
+
 ## [0.8.41] — 2026-09-01
 
 对应 [PR #84](https://github.com/Atsukiizumi/Kami-paperbox/pull/84)。

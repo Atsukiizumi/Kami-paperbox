@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
+import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
@@ -22,6 +22,7 @@ import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
   { to: "/", label: "浏览", icon: Compass },
+  { to: "/history", label: "历史", icon: Clock },
   { to: "/search", label: "搜图", icon: ScanSearch },
   { to: "/queue", label: "队列", icon: ListOrdered },
   { to: "/vault", label: "纸匣", icon: Archive },
@@ -215,10 +216,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <DropToSearch />
 
       <nav className="kami-chrome-up fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-        <div className="relative grid grid-cols-5">
+        <div className="relative grid grid-cols-6">
           <span
             aria-hidden
-            className="pointer-events-none absolute top-1 left-0 flex w-1/5 justify-center transition-transform duration-200 ease-out"
+            className="pointer-events-none absolute top-1 left-0 flex w-1/6 justify-center transition-transform duration-200 ease-out"
             style={{ transform: `translateX(${activeIndex * 100}%)` }}
           >
             <span className="h-0.5 w-8 rounded-full bg-accent" />

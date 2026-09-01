@@ -52,10 +52,12 @@ export function isMainNavPath(pathname: string) {
     pathname === "/vault" ||
     pathname === "/settings" ||
     pathname === "/search" ||
+    pathname === "/history" ||
     pathname.startsWith("/queue/") ||
     pathname.startsWith("/vault/") ||
     pathname.startsWith("/settings/") ||
-    pathname.startsWith("/search/")
+    pathname.startsWith("/search/") ||
+    pathname.startsWith("/history/")
   );
 }
 

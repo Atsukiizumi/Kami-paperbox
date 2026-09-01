@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.8.41-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.8.42-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -19,7 +19,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 
 | | |
 | --- | --- |
-| 浏览 | 顶栏切换图源，一次只看一个站。卡片上可直接保存进纸匣，已收入会标出来；Pixiv 还能点红心。 |
+| 浏览 | 顶栏切换图源，一次只看一个站。卡片上可直接保存进纸匣，已收入会标出来；Pixiv 还能点红心。打开过的作品记在「历史」。 |
 | 作品 | 大图可以缩放、拖动、键盘翻页。标题下展示标签，点一下就按当前站点搜索。底下有保存、下载。Pixiv 还能收藏（带着 tag）、红心、关注。 |
 | 搜图 | 上传、拖进去、或者粘贴一张本地图。会先缩小再问 [SauceNAO](https://saucenao.com/)、[ascii2d](https://ascii2d.net/)、[IQDB](https://iqdb.org/)、[TinEye](https://tineye.com/)。SauceNAO 建议填 API key，匿名很容易被限流。作品页有「搜来源」。 |
 | 标签 | 五个站都会把 tag 带回来。作品页点标签按该站规则搜索（Pixiv 精确匹配，图站空格=并且、空格写成下划线）。星星可保存成各站自己的快捷标签，浏览页一点就能搜。 |
@@ -30,7 +30,7 @@ Pixiv、pixiv FANBOX、Yande（yande.re）、Konachan、Danbooru 都请到同一
 | 外观 | 顶栏或设置里切换浅色 / 深色 / 跟随系统，并内置和纸、青墨、朱砂、松烟、苔色五套主题。 |
 | 动效 | 换页淡入、卡片错落出现、导航指示条滑动、主题配色过渡。系统若开了减少动态，会自动收住。 |
 
-导航就这几页：**浏览 / 搜图 / 队列 / 纸匣 / 设置**。迷路不了啦。
+导航就这几页：**浏览 / 历史 / 搜图 / 队列 / 纸匣 / 设置**。迷路不了啦。
 
 ---
 
@@ -277,7 +277,7 @@ node scripts/sniff-xhr.mjs "https://www.pixiv.net/ranking.php?mode=daily&content
 ### 屋子里都有谁
 
 ```
-src/routes/                     浏览、搜图、作品、队列、纸匣、设置
+src/routes/                     浏览、历史、搜图、作品、队列、纸匣、设置
 src/routes/api/media.ts         图片代理
 src/routes/api/reverse-search.ts 搜图上传
 src/components/site-switcher.tsx 顶栏图源切换
@@ -299,6 +299,7 @@ src/lib/folder-access.ts        本机目标文件夹
 src/lib/persist-files.ts        纸匣 + 文件夹双写
 src/lib/ugoira.ts               动图播放与 GIF 合成
 src/lib/store.ts                设置、账号、队列
+src/lib/view-history.ts         浏览历史
 scripts/pack.py                 源码打包
 kami.config.example.json        监听地址 / 代理样板（复制为 kami.config.json）
 .env.example                    环境变量样板
