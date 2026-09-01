@@ -7,7 +7,7 @@
  *        保存/红心叠在封面上，不占标题宽度。
  */
 import { useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
 import { patchCachedWork } from "@/lib/work-cache";
 import { isBooru, workOriginUrl } from "@/lib/sites";
+import { canonicalTag, displayTag } from "@/lib/site-tags";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
 import { workKey } from "@/lib/vault";
@@ -48,6 +49,9 @@ export function ArtworkCard({
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const setTab = useSettings((s) => s.setTab);
+  const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const inVault = useVaultIndex((s) => Boolean(s.keys[workKey(work.source, work.id)]));
   const liked = Boolean(work.liked);
   const resolution = formatResolution(work.width, work.height);
@@ -98,6 +102,14 @@ export function ArtworkCard({
     } finally {
       setLiking(false);
     }
+  }
+
+  function searchTag(tag: string) {
+    const word = canonicalTag(work.source, tag) || tag.trim();
+    if (!word) return;
+    setTab(work.source);
+    setBrowseQuery(word, true);
+    void navigate({ to: "/" });
   }
 
   return (
@@ -223,27 +235,38 @@ export function ArtworkCard({
         </div>
         </div>
         <div className="flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
-          <Link
-            to="/work/$source/$id"
-            params={{ source: work.source, id: work.id }}
-            className="min-w-0 flex-1 space-y-0.5"
-          >
-            <h3 className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg">
-              {work.title || "无题"}
-            </h3>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <Link
+              to="/work/$source/$id"
+              params={{ source: work.source, id: work.id }}
+              className="block"
+            >
+              <h3 className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg">
+                {work.title || "无题"}
+              </h3>
+            </Link>
             <p className="line-clamp-1 text-xs text-muted">
-              {work.author}
+              <CardAuthor work={work} onSearch={searchTag} />
               {resolution ? <span className="text-subtle"> · {resolution}</span> : null}
             </p>
-            <p className="line-clamp-1 text-xs text-subtle">
+            <p className="flex min-w-0 items-center gap-x-1 overflow-hidden text-xs text-subtle">
               {work.tags.length > 0
-                ? work.tags
-                    .slice(0, 3)
-                    .map((t) => t.replace(/_/g, " "))
-                    .join(" · ")
+                ? work.tags.slice(0, 3).map((tag, i) => (
+                    <span key={`${tag}-${i}`} className="flex min-w-0 items-center gap-x-1">
+                      {i > 0 ? <span className="shrink-0">·</span> : null}
+                      <button
+                        type="button"
+                        title={`搜索「${displayTag(work.source, tag)}」`}
+                        className="truncate transition-colors hover:text-fg hover:underline"
+                        onClick={() => searchTag(tag)}
+                      >
+                        {displayTag(work.source, tag)}
+                      </button>
+                    </span>
+                  ))
                 : "\u00a0"}
             </p>
-          </Link>
+          </div>
           {variant === "browse" ? (
           <button
             type="button"
@@ -274,6 +297,38 @@ export function ArtworkCard({
       </div>
     </article>
   );
+}
+
+function CardAuthor({
+  work,
+  onSearch,
+}: {
+  work: WorkCard;
+  onSearch: (tag: string) => void;
+}) {
+  const className = "transition-colors hover:text-fg hover:underline";
+  if (work.source === "pixiv" && work.authorId) {
+    return (
+      <Link to="/user/$id" params={{ id: work.authorId }} className={className}>
+        {work.author}
+      </Link>
+    );
+  }
+  if (work.source === "fanbox" && work.authorId) {
+    return (
+      <Link to="/creator/$id" params={{ id: work.authorId }} className={className}>
+        {work.author}
+      </Link>
+    );
+  }
+  if (isBooru(work.source) && work.author) {
+    return (
+      <button type="button" className={className} onClick={() => onSearch(work.author)}>
+        {work.author}
+      </button>
+    );
+  }
+  return <span>{work.author}</span>;
 }
 
 function CardIconButton({
