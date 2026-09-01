@@ -7,6 +7,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/app-shell";
 import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { AppErrorComponent, isAbortError } from "@/lib/error-component";
+import { hydrateBrowseCache, subscribeBrowsePersist } from "@/lib/browse-cache";
 import { THEME_BOOTSTRAP_SCRIPT, THEMES } from "@/lib/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "../styles.css?url";
@@ -29,10 +30,16 @@ function makeQueryClient() {
 }
 
 let browserQueryClient: QueryClient | undefined;
+let persistStop: (() => void) | undefined;
 
 function getQueryClient() {
   if (typeof document === "undefined") return makeQueryClient();
-  browserQueryClient ??= makeQueryClient();
+  if (!browserQueryClient) {
+    browserQueryClient = makeQueryClient();
+    hydrateBrowseCache(browserQueryClient);
+    persistStop?.();
+    persistStop = subscribeBrowsePersist(browserQueryClient);
+  }
   return browserQueryClient;
 }
 
