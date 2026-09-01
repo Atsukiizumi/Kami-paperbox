@@ -65,7 +65,7 @@ export function ArtworkCard({
       (x) => x.key === workKey(work.source, work.id) && (x.status === "queued" || x.status === "running"),
     ),
   );
-  const liked = Boolean(work.liked);
+  const liked = Boolean(work.liked || work.bookmarked);
   const resolution = formatResolution(work.width, work.height);
   const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
@@ -152,11 +152,13 @@ export function ArtworkCard({
     }
     setLiking(true);
     setHeartPop(true);
-    patchCachedWork(queryClient, work.source, work.id, { liked: true });
+    patchCachedWork(queryClient, work.source, work.id, { liked: true, bookmarked: true });
     try {
-      await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
+      await mutateSource({
+        data: { op: "pixivLike", id: work.id, tags: work.tags, ...cookiesFromSettings() },
+      });
     } catch (err) {
-      patchCachedWork(queryClient, work.source, work.id, { liked: false });
+      patchCachedWork(queryClient, work.source, work.id, { liked: false, bookmarked: false });
       setHeartPop(false);
       toast.error(err instanceof Error ? err.message : "红心失败");
     } finally {

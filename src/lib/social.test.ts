@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { bookmarkTagsOf, extractPixivCsrfToken, pixivHtmlLooksLoggedOut, socialFromPixivIllust } from "./social.ts";
+import { bookmarkTagsOf, extractPixivCsrfToken, isAlreadySocialError, pixivHtmlLooksLoggedOut, socialFromPixivIllust } from "./social.ts";
 
 describe("pixiv social", () => {
   it("reads bookmark and like flags from illust ajax", () => {
@@ -16,6 +16,12 @@ describe("pixiv social", () => {
     assert.equal(on.bookmarked, true);
     assert.equal(on.bookmarkId, "99");
     assert.equal(on.followed, true);
+  });
+
+  it("treats already-bookmarked as a no-op", () => {
+    assert.equal(isAlreadySocialError("You've already bookmarked this illust"), true);
+    assert.equal(isAlreadySocialError("既にブックマーク済みです"), true);
+    assert.equal(isAlreadySocialError("无法解析 Pixiv CSRF"), false);
   });
 
   it("keeps a short tag list for quick bookmark", () => {

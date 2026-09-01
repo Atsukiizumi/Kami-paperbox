@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.41] — 2026-09-01
+
+对应 [PR #84](https://github.com/Atsukiizumi/Kami-paperbox/pull/84)。
+
+### 修复
+
+- 红心改为写入 Pixiv 收藏（站点上的♡）。之前只打了いいね，收藏列表和作品页的心都不会亮。
+
 ## [0.8.40] — 2026-09-01
 
 对应 [PR #83](https://github.com/Atsukiizumi/Kami-paperbox/pull/83)。

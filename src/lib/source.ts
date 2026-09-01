@@ -113,7 +113,11 @@ const socialSchema = z.intersection(
     fanboxCookie: z.string().max(8192).optional(),
   }),
   z.discriminatedUnion("op", [
-    z.object({ op: z.literal("pixivLike"), id: z.string().regex(/^\d{1,12}$/) }),
+    z.object({
+      op: z.literal("pixivLike"),
+      id: z.string().regex(/^\d{1,12}$/),
+      tags: z.array(z.string().max(40)).max(12).optional(),
+    }),
     z.object({ op: z.literal("pixivWarm") }),
     z.object({
       op: z.literal("pixivBookmark"),
