@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.21] — 2026-09-01
+
+对应 [PR #61](https://github.com/Atsukiizumi/Kami-paperbox/pull/61)。
+
+### 修复
+
+- 封面打空：pximg 并发闸、429 重试，失败的格子会再拉几次，不再一张失败就留黑块。
+
 ## [0.8.20] — 2026-09-01
 
 对应 [PR #60](https://github.com/Atsukiizumi/Kami-paperbox/pull/60)。

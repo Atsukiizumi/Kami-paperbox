@@ -47,6 +47,7 @@ import type {
 import { outboundFetch } from "./curl-fetch.server";
 import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
 import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
+import { sleep, withMediaGate } from "./media-gate";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -1033,7 +1034,14 @@ export async function fetchMediaResponse(
     if (c) headers.Cookie = c;
   }
 
-  const res = await outboundFetch(url.toString(), { headers, redirect: "follow", signal });
+  const gated = host.endsWith("pximg.net") || host.endsWith("fanbox.cc");
+  const pull = () => outboundFetch(url.toString(), { headers, redirect: "follow", signal });
+  let res = gated ? await withMediaGate(pull, signal) : await pull();
+  if (signal?.aborted) return new Response(null, { status: 204 });
+  if (!res.ok && (res.status === 429 || res.status === 503)) {
+    await sleep(500, signal);
+    res = gated ? await withMediaGate(pull, signal) : await pull();
+  }
   if (signal?.aborted) return new Response(null, { status: 204 });
   if (!res.ok) {
     return new Response("upstream error", { status: res.status === 404 ? 404 : 502 });

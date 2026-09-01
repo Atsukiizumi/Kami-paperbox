@@ -5,12 +5,13 @@
  * 用法：封面 fit="cover"（默认）；作品页 / 灯箱 fit="contain" 才不会裁掉。
  * 为什么：pximg 直接给浏览器会 403。封面要铺满卡片，作品页要整张看见。
  *        已加载过的地址记在内存里，返回浏览不再闪扫光。
- *        warmMedia 预热放大图（HTTP 缓存 + 内存），悬停弹层直接命中。
+ *        失败会重试几次：并发一高代理会 204/429，一次 onError 不该把格子留空。
  */
 import { useEffect, useRef, useState } from "react";
 import { cn, mediaUrl } from "@/lib/utils";
 
 const warmThumbs = new Set<string>();
+const MAX_TRIES = 4;
 
 function thumbKey(src: string) {
   return mediaUrl(src);
@@ -36,6 +37,12 @@ export function warmMedia(src: string | undefined) {
   img.src = mediaUrl(src);
 }
 
+function inWarmBand(el: HTMLElement) {
+  const r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  return r.bottom > -800 && r.top < (typeof window === "undefined" ? 800 : window.innerHeight + 800);
+}
+
 export function ProxiedImg({
   src,
   alt,
@@ -57,6 +64,7 @@ export function ProxiedImg({
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
+  const [tryNo, setTryNo] = useState(0);
   const cached = Boolean(src && warmThumbs.has(thumbKey(src)));
   const [loaded, setLoaded] = useState(cached);
   const [active, setActive] = useState(priority || cached);
@@ -65,6 +73,7 @@ export function ProxiedImg({
   useEffect(() => {
     const hit = Boolean(src && warmThumbs.has(thumbKey(src)));
     setFailed(false);
+    setTryNo(0);
     setLoaded(hit);
     setActive(priority || hit);
   }, [src, priority]);
@@ -76,16 +85,37 @@ export function ProxiedImg({
       setActive(true);
       return;
     }
+    if (inWarmBand(host)) {
+      setActive(true);
+      return;
+    }
+    const arm = () => {
+      if (inWarmBand(host)) {
+        setActive(true);
+        return true;
+      }
+      return false;
+    };
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;
         setActive(true);
         io.disconnect();
       },
-      { rootMargin: "800px 0px", threshold: 0.01 },
+      { rootMargin: "800px 0px", threshold: 0 },
     );
     io.observe(host);
-    return () => io.disconnect();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (arm()) {
+        io.disconnect();
+        ro?.disconnect();
+      }
+    });
+    ro?.observe(host);
+    return () => {
+      io.disconnect();
+      ro?.disconnect();
+    };
   }, [src, priority, active]);
 
   if (!src || failed) {
@@ -117,6 +147,7 @@ export function ProxiedImg({
       )}
       {active ? (
         <img
+          key={tryNo}
           src={mediaUrl(src)}
           alt={alt}
           sizes={sizes}
@@ -135,7 +166,13 @@ export function ProxiedImg({
             setLoaded(true);
             if (warmSrc) warmMedia(warmSrc);
           }}
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (tryNo + 1 >= MAX_TRIES) {
+              setFailed(true);
+              return;
+            }
+            window.setTimeout(() => setTryNo((n) => n + 1), 400 * 2 ** tryNo);
+          }}
         />
       ) : (
         <span className={cn("block", cover ? "size-full" : "min-h-40 w-full")} />
