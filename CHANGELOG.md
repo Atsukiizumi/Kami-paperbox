@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.35] — 2026-09-01
+
+对应 [PR #78](https://github.com/Atsukiizumi/Kami-paperbox/pull/78)。
+
+### 调整
+
+- 作品页操作收成一条纸质条：纸匣、下载、队列、收藏、红心、关注、搜来源、原站。灯箱里用同一套，略小一号。
+
 ## [0.8.34] — 2026-09-01
 
 对应 [PR #77](https://github.com/Atsukiizumi/Kami-paperbox/pull/77)。
