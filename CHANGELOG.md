@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.10] — 2026-09-01
+
+对应 [PR #50](https://github.com/Atsukiizumi/Kami-paperbox/pull/50)。
+
+### 改进
+
+- 浏览卡片上的作者和标签可点：Pixiv / FANBOX 进主页，标签拿去搜索。
+
 ## [0.8.9] — 2026-09-01
 
 对应 [PR #49](https://github.com/Atsukiizumi/Kami-paperbox/pull/49)。
