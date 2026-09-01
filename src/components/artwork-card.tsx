@@ -27,7 +27,8 @@ import { workKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
 import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
-import { ProxiedImg } from "./proxied-img";
+import { ProxiedImg, warmMedia } from "./proxied-img";
+import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { MasonryBoard } from "./masonry-board";
 import { Skeleton } from "./ui/skeleton";
 
@@ -69,6 +70,7 @@ export function ArtworkCard({
 
   function armPrefetch() {
     window.clearTimeout(hoverTimer.current);
+    if (work.thumb) warmMedia(upgradeThumbUrl(work.thumb));
     hoverTimer.current = window.setTimeout(() => {
       prefetchWork(queryClient, work.source, work.id);
     }, 160);
@@ -194,6 +196,7 @@ export function ArtworkCard({
                 priority={index < 4}
                 sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
                 viewTransitionName={`kami-${work.source}-${work.id}`}
+                warmSrc={upgradeThumbUrl(work.thumb)}
                 className={cn(
                   "size-full object-cover transition-[transform,opacity] duration-200 ease-out",
                   preview ? "opacity-0" : "group-hover:scale-[1.04]",

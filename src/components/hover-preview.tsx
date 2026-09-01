@@ -100,7 +100,13 @@ export function HoverPreview({
           transformOrigin: "0 0",
         }}
       >
-        <ProxiedImg src={hd} alt={shot.alt} fit="cover" className="absolute inset-0 size-full" />
+        <ProxiedImg
+          src={hd}
+          alt={shot.alt}
+          fit="cover"
+          priority
+          className="absolute inset-0 size-full"
+        />
       </div>
     </>,
     document.body,

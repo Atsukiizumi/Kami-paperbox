@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.19] — 2026-09-01
+
+对应 [PR #59](https://github.com/Atsukiizumi/Kami-paperbox/pull/59)。
+
+### 改进
+
+- 封面加载完就预热放大图；悬停再点一次内存和 HTTP 缓存，弹层不再扫光。
+
 ## [0.8.18] — 2026-09-01
 
 对应 [PR #58](https://github.com/Atsukiizumi/Kami-paperbox/pull/58)。
