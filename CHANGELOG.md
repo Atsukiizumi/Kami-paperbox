@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.7] — 2026-09-01
+
+对应 [PR #47](https://github.com/Atsukiizumi/Kami-paperbox/pull/47)。
+
+### 修复
+
+- 加载占位改成整齐的等宽格子，不再用乱长宽比去拼版。
+
 ## [0.8.6] — 2026-09-01
 
 对应 [PR #46](https://github.com/Atsukiizumi/Kami-paperbox/pull/46)。
