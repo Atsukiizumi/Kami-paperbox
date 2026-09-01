@@ -443,18 +443,18 @@ html.kami-motion {
   background: var(--color-surface);
   box-shadow: var(--shadow-border);
   transition:
-    transform 280ms var(--ease-out),
-    box-shadow 280ms var(--ease-out);
+    transform 400ms var(--ease-out),
+    box-shadow 400ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .kami-card-shell:hover {
-    transform: translate3d(0, -6px, 0);
+    transform: translate3d(0, -10px, 0);
     box-shadow: var(--shadow-float);
   }
 
   .kami-card-shell:active {
-    transform: translate3d(0, -2px, 0);
+    transform: translate3d(0, -3px, 0);
   }
 }
 
