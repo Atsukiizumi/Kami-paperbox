@@ -62,6 +62,8 @@ export function ArtworkCard({
   const resolution = formatResolution(work.width, work.height);
   const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
+  const [heartPop, setHeartPop] = useState(false);
+  const [savedPop, setSavedPop] = useState(false);
 
   async function saveCard(e: MouseEvent) {
     e.preventDefault();
@@ -74,6 +76,7 @@ export function ArtworkCard({
     setSaving(true);
     try {
       await saveWorkNow(work, { download: false });
+      setSavedPop(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {
@@ -97,6 +100,7 @@ export function ArtworkCard({
     try {
       await mutateSource({ data: { op: "pixivLike", id: work.id, ...cookiesFromSettings() } });
       patchCachedWork(queryClient, work.source, work.id, { liked: true });
+      setHeartPop(true);
       toast.success("已点红心");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "红心失败");
@@ -131,7 +135,8 @@ export function ArtworkCard({
                 alt={work.title}
                 priority={index < 4}
                 sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
-                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+                viewTransitionName={`kami-${work.source}-${work.id}`}
+                className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
               />
             ) : (
               <div className="flex size-full items-end bg-surface px-3 py-3">
@@ -207,7 +212,7 @@ export function ArtworkCard({
                 onClick={(e) => void saveCard(e)}
               >
                 {inVault ? (
-                  <Check className="size-4" />
+                  <Check className={cn("size-4", savedPop && "kami-pop-heart")} />
                 ) : (
                   <Archive className={cn("size-4", saving && "animate-pulse")} />
                 )}
@@ -219,7 +224,7 @@ export function ArtworkCard({
                   active={liked}
                   onClick={(e) => void likeCard(e)}
                 >
-                  <Heart className={cn("size-4", liked && "fill-current text-danger")} />
+                  <Heart className={cn("size-4", liked && "fill-current text-danger", heartPop && "kami-pop-heart")} />
                 </CardIconButton>
               ) : null}
             </>

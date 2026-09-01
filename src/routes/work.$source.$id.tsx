@@ -453,6 +453,7 @@ function WorkPage() {
                   fit="contain"
                   priority={i === 0}
                   sizes="(max-width: 1100px) 100vw, 900px"
+                  viewTransitionName={i === 0 ? `kami-${work.source}-${work.id}` : undefined}
                   className="max-h-[85vh]"
                 />
               </button>
