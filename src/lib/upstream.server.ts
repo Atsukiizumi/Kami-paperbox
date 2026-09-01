@@ -50,6 +50,7 @@ import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browse
 import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 import { sleep, withMediaGate } from "./media-gate";
 import { getThrottle } from "./throttle.server";
+import { closeOnAbort } from "./abort";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -1054,17 +1055,10 @@ export async function fetchMediaResponse(
   }
   const contentType = res.headers.get("content-type") || "application/octet-stream";
   if (res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
-    if (signal) {
-      const body = res.body;
-      signal.addEventListener(
-        "abort",
-        () => {
-          void body.cancel().catch(() => undefined);
-        },
-        { once: true },
-      );
-    }
-    return new Response(res.body, { status: 200, headers: mediaOutHeaders(contentType) });
+    return new Response(closeOnAbort(res.body, signal), {
+      status: 200,
+      headers: mediaOutHeaders(contentType),
+    });
   }
   const buf = new Uint8Array(await res.arrayBuffer());
   if (buf.byteLength > MAX_MEDIA_BYTES) {
