@@ -2,12 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { DetailNav } from "@/components/back-to-browse";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
+import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,28 +67,19 @@ function CreatorPage() {
   return (
     <div className="space-y-6">
       <DetailNav />
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{profile?.name ?? id}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
       {profile?.cover ? (
-        <div className="overflow-hidden rounded-lg">
+        <div className="overflow-hidden rounded-xl">
           <ProxiedImg src={profile.cover} alt="" className="h-36 w-full object-cover md:h-48" />
         </div>
       ) : null}
-      <header className="flex gap-4">
-        <div className="size-16 overflow-hidden rounded-full bg-elevated">
-          <ProxiedImg src={profile?.avatar} alt="" className="size-full" />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-2xl">{profile?.name ?? id}</h1>
+      <header className="flex items-start gap-4 md:gap-5">
+        <ProfileAvatar src={profile?.avatar} name={profile?.name ?? id} />
+        <div className="min-w-0 flex-1 space-y-2">
+          <h1 className="font-display text-2xl leading-tight tracking-tight md:text-3xl">
+            {profile?.name ?? id}
+          </h1>
           <p className="text-xs text-muted">@{profile?.id ?? id}</p>
-          {profile?.description ? (
-            <p className="line-clamp-4 text-sm text-muted">{profile.description}</p>
-          ) : null}
+          {profile?.description ? <FoldableText text={profile.description} lines={4} /> : null}
         </div>
       </header>
       <ArtworkGrid items={items} />
