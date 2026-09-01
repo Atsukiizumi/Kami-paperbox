@@ -1,4 +1,4 @@
-name: "问题"
+name: "问题报告"
 description: "坏了、显示不对、请求失败。按测试步骤写。"
 title: "[问题] "
 labels: [
