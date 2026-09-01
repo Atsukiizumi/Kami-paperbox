@@ -1,5 +1,16 @@
 {
   "host": "0.0.0.0",
   "port": 8080,
-  "proxy": ""
+  "proxy": "",
+  "throttle": {
+    "mediaConcurrency": 6,
+    "mediaRetry": 1,
+    "mediaRetryMs": 500,
+    "search": {
+      "saucenao": 8000,
+      "ascii2d": 15000,
+      "iqdb": 6000,
+      "tineye": 12000
+    }
+  }
 }

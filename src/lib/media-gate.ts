@@ -2,11 +2,11 @@
  * 出站图片并发闸。
  *
  * 作用：同一时刻只让有限条 pximg 请求在飞，多出来的排队。
- * 用法：await withMediaGate(() => outboundFetch(...), signal)。
- * 为什么：浏览页几十张封面 + 预热大图会一起打 i.pximg.net，容易 429，
- *        浏览器对 /api/media 又几乎不限并发（HTTP/2）。
+ * 用法：await withMediaGate(() => outboundFetch(...), signal, getThrottle().mediaConcurrency)。
+ * 为什么：浏览页几十张封面会一起打 i.pximg.net，容易 429。并发上限写在
+ *        kami.config.json 的 throttle.mediaConcurrency，默认 6。
  */
-const LIMIT = 6;
+const DEFAULT_LIMIT = 6;
 let active = 0;
 const waiters: Array<() => void> = [];
 
@@ -14,9 +14,10 @@ export function mediaGateActive() {
   return active;
 }
 
-function acquire(signal?: AbortSignal): Promise<void> {
+function acquire(signal?: AbortSignal, limit = DEFAULT_LIMIT): Promise<void> {
+  const cap = Math.min(32, Math.max(1, limit));
   if (signal?.aborted) return Promise.reject(new DOMException("aborted", "AbortError"));
-  if (active < LIMIT) {
+  if (active < cap) {
     active += 1;
     return Promise.resolve();
   }
@@ -46,8 +47,12 @@ function release() {
   if (next) next();
 }
 
-export async function withMediaGate<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-  await acquire(signal);
+export async function withMediaGate<T>(
+  fn: () => Promise<T>,
+  signal?: AbortSignal,
+  limit = DEFAULT_LIMIT,
+): Promise<T> {
+  await acquire(signal, limit);
   try {
     return await fn();
   } finally {

@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.8.21-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.8.22-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -119,6 +119,26 @@ http://user:pass@127.0.0.1:7890
 
 设置中保存的地址优先。Docker 访问宿主机代理示例：`KAMI_PROXY=http://host.docker.internal:7890`。
 
+### 控流 `throttle`
+
+封面并发、429 重试、搜图间隔写在 `kami.config.json`，改完保存即可，不必重启。
+
+```json
+"throttle": {
+  "mediaConcurrency": 6,
+  "mediaRetry": 1,
+  "mediaRetryMs": 500,
+  "search": { "saucenao": 8000, "ascii2d": 15000, "iqdb": 6000, "tineye": 12000 }
+}
+```
+
+| 字段 | 含义 | 建议 |
+| --- | --- | --- |
+| `mediaConcurrency` | 同时去 pximg / FANBOX 拉图的条数，1–32 | 封面经常空、像被限流：降到 `3`。网络很稳可以 `10` |
+| `mediaRetry` | 遇到 429 / 503 再试几次 | 默认 `1` |
+| `mediaRetryMs` | 每次重试间隔（毫秒） | 默认 `500` |
+| `search.*` | 各搜图引擎两次请求的最短间隔（毫秒） | 触发验证就加大 |
+
 ### 纸匣与队列 🗂️
 
 - **保存**：原图（或动图合成的 GIF）写入本机 Node 目录（`.data/vault`），浏览器里留一份预览。纸匣页可按标题、作者、标签、路径搜索。
@@ -200,7 +220,7 @@ pnpm dev
 
 | 样板 | 本地复制为 | 用途 |
 | --- | --- | --- |
-| `kami.config.example.json` | `kami.config.json` | 监听地址、代理 |
+| `kami.config.example.json` | `kami.config.json` | 监听地址、代理、控流 |
 | `.env.example` | `.env` | 可选环境变量 |
 
 第一次 `pnpm dev` 如果还没有 `kami.config.json`，会自动从样板复制一份。

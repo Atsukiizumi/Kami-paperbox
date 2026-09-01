@@ -48,6 +48,7 @@ import { outboundFetch } from "./curl-fetch.server";
 import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
 import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 import { sleep, withMediaGate } from "./media-gate";
+import { getThrottle } from "./throttle.server";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -1035,12 +1036,17 @@ export async function fetchMediaResponse(
   }
 
   const gated = host.endsWith("pximg.net") || host.endsWith("fanbox.cc");
+  const throttle = getThrottle();
   const pull = () => outboundFetch(url.toString(), { headers, redirect: "follow", signal });
-  let res = gated ? await withMediaGate(pull, signal) : await pull();
+  const run = () => (gated ? withMediaGate(pull, signal, throttle.mediaConcurrency) : pull());
+  let res = await run();
   if (signal?.aborted) return new Response(null, { status: 204 });
-  if (!res.ok && (res.status === 429 || res.status === 503)) {
-    await sleep(500, signal);
-    res = gated ? await withMediaGate(pull, signal) : await pull();
+  let attempt = 0;
+  while (!res.ok && (res.status === 429 || res.status === 503) && attempt < throttle.mediaRetry) {
+    attempt += 1;
+    await sleep(throttle.mediaRetryMs * attempt, signal);
+    res = await run();
+    if (signal?.aborted) return new Response(null, { status: 204 });
   }
   if (signal?.aborted) return new Response(null, { status: 204 });
   if (!res.ok) {

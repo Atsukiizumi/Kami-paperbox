@@ -103,6 +103,7 @@ function ProxySection() {
         <CardDescription>
           拉取 Pixiv、FANBOX、图站和搜图时走这个地址。支持 http、https、socks5，例如
           127.0.0.1:7890 或 socks5://127.0.0.1:1080。点保存会写入本机 kami.config.json，重启后也还在。
+          封面控流（同时拉几张图）在同一文件的 throttle.mediaConcurrency。
         </CardDescription>
       </CardHeader>
       <CardContent>

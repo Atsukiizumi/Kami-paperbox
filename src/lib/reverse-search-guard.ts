@@ -15,9 +15,14 @@ export const SEARCH_GAP_MS: Record<SearchEngine, number> = {
   tineye: 12_000,
 };
 
-export function searchGapMs(engine: SearchEngine, hasApiKey = false): number {
-  if (engine === "saucenao" && hasApiKey) return 2_500;
-  return SEARCH_GAP_MS[engine];
+export function searchGapMs(
+  engine: SearchEngine,
+  hasApiKey = false,
+  overrides?: Partial<Record<SearchEngine, number>>,
+): number {
+  const base = overrides?.[engine] ?? SEARCH_GAP_MS[engine];
+  if (engine === "saucenao" && hasApiKey) return Math.min(base, 2_500);
+  return base;
 }
 
 export function fallbackSearchEngine(engine: SearchEngine): SearchEngine {
