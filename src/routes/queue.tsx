@@ -43,7 +43,7 @@ function QueuePage() {
           {items.map((item, i) => (
             <li
               key={item.key}
-              className="kami-enter flex items-center gap-3 rounded-xl bg-surface p-3"
+              className="kami-enter flex items-center gap-3 rounded-xl bg-surface p-3 transition-colors hover:bg-elevated"
               style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
             >
               <Link
@@ -55,7 +55,7 @@ function QueuePage() {
                 <ProxiedImg src={item.thumb} alt="" className="size-full" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{item.title}</p>
+                <p className="truncate text-sm font-medium" title={item.title}>{item.title}</p>
                 <p className="truncate text-xs text-muted">{item.author}</p>
                 <Progress
                   value={item.total > 0 ? Math.round((item.progress / item.total) * 100) : 0}

@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
-import { AppHotkeys } from "@/components/hotkeys";
 import { DropToSearch } from "@/components/drop-to-search";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -185,7 +184,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <PageFrame pathname={pathname}>{children}</PageFrame>
       </main>
       <Onboarding />
-      <AppHotkeys />
       <DropToSearch />
 
       <nav className="kami-chrome-up fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">

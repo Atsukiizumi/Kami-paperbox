@@ -325,7 +325,6 @@ function Home() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={tagPlaceholder(tab)}
-            title="按 / 聚焦搜索"
             className="pl-10"
             enterKeyHint="search"
           />
