@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.20] — 2026-09-01
+
+对应 [PR #60](https://github.com/Atsukiizumi/Kami-paperbox/pull/60)。
+
+### 改进
+
+- 浏览页把榜单 / 推荐写入本地缓存。刷新先上屏历史数据，超过 30 分钟才后台更新。
+
 ## [0.8.19] — 2026-09-01
 
 对应 [PR #59](https://github.com/Atsukiizumi/Kami-paperbox/pull/59)。
