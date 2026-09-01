@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.4] — 2026-09-01
+
+对应 [PR #44](https://github.com/Atsukiizumi/Kami-paperbox/pull/44)。
+
+### 修复
+
+- 竖图卡片不再被拉成整行，封面也不会只剩左边一条。
+
 ## [0.8.3] — 2026-09-01
 
 对应 [PR #43](https://github.com/Atsukiizumi/Kami-paperbox/pull/43)。

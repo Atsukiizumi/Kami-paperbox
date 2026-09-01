@@ -6,6 +6,7 @@
  *      MasonryBoard 会读卡片的 data-aspect，把 x/y/width/媒体高度写到 CSS 变量。
  * 为什么按行撑满而不是瀑布流跨列：横图跨两列会在竖图旁边留空（红框那种洞）。
  *        最小宽度（masonryMinCard）避免竖图被挤成一条，标题只剩「私…」。
+ *        单独一张竖图绝不拉满整行：否则封面只剩左边一条。
  * packMasonry 仍留给测试/旧逻辑，界面不再调用。
  */
 export const MASONRY_GAP = 12;
@@ -168,8 +169,12 @@ export function packJustified({
     const gaps = gap * Math.max(0, n - 1);
     const rawH = (width - gaps) / sum;
     let h = rawH;
-    let fill = true;
-    if (lastRow && rawH > ideal * 1.12) {
+    let fill = n > 1;
+    if (n === 1) {
+      const a = aspects[indices[0] ?? 0] ?? FALLBACK_ASPECT;
+      h = Math.min(rawH, Math.max(ideal, floor / a));
+      fill = false;
+    } else if (lastRow && rawH > ideal * 1.12) {
       let minH = ideal;
       for (const idx of indices) {
         const a = aspects[idx] ?? FALLBACK_ASPECT;

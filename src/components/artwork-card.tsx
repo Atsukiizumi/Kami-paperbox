@@ -6,7 +6,7 @@
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/红心叠在封面上，不占标题宽度。
  */
-import { useState, type MouseEvent, type ReactNode } from "react";
+import { useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
@@ -110,7 +110,12 @@ export function ArtworkCard({
       className="kami-enter group"
       data-layout={layout}
       data-aspect={String(aspect)}
-      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+      style={
+        {
+          animationDelay: `${Math.min(index, 12) * 40}ms`,
+          ["--card-aspect"]: String(aspect),
+        } as CSSProperties
+      }
     >
       <div className="kami-card-shell">
         <div className="relative">
@@ -119,10 +124,7 @@ export function ArtworkCard({
           params={{ source: work.source, id: work.id }}
           className="block"
         >
-          <div
-            className="kami-card-media relative overflow-hidden bg-elevated"
-            style={{ aspectRatio: aspect }}
-          >
+          <div className="kami-card-media relative overflow-hidden bg-elevated">
             {hasMedia ? (
               <ProxiedImg
                 src={work.thumb}
@@ -342,13 +344,17 @@ export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
             className="kami-enter"
             data-layout={item.layout}
             data-aspect={String(item.aspect)}
-            style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+            style={
+              {
+                animationDelay: `${Math.min(i, 12) * 40}ms`,
+                ["--card-aspect"]: String(item.aspect),
+              } as CSSProperties
+            }
           >
             <div className="overflow-hidden rounded-xl bg-surface">
               <Skeleton
                 className="kami-card-media w-full rounded-none"
                 style={{
-                  aspectRatio: item.aspect,
                   ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
                 }}
               />

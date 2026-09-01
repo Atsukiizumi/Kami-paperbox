@@ -502,8 +502,13 @@ a:focus-visible .kami-logo .kami-logo-fold {
   margin: 0;
 }
 
+.kami-card-media {
+  aspect-ratio: var(--card-aspect, 3 / 4);
+}
+
 .kami-masonry[data-packed] .kami-card-media {
   aspect-ratio: auto;
+  width: 100%;
   height: var(--masonry-media-h);
 }
 
