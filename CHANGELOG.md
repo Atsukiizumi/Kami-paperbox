@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.32] — 2026-09-01
+
+对应 [PR #75](https://github.com/Atsukiizumi/Kami-paperbox/pull/75)。
+
+### 修复
+
+- 卡片悬停预览改为停约半秒再弹出，红心和纸匣来得及点。
+
 ## [0.8.31] — 2026-09-01
 
 对应 [PR #74](https://github.com/Atsukiizumi/Kami-paperbox/pull/74)。关 [#73](https://github.com/Atsukiizumi/Kami-paperbox/issues/73)。
