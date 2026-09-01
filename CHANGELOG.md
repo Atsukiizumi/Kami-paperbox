@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.38] — 2026-09-01
+
+对应 [PR #81](https://github.com/Atsukiizumi/Kami-paperbox/pull/81)。
+
+### 修复
+
+- 作品页「下载」改为加入下载队列，不再偷偷当场存完。纸匣仍然立刻收藏；队列页能看到进度。
+
 ## [0.8.37] — 2026-09-01
 
 对应 [PR #80](https://github.com/Atsukiizumi/Kami-paperbox/pull/80)。

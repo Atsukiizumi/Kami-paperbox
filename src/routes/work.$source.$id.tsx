@@ -389,14 +389,13 @@ function WorkPage() {
           inQueue={inQueue}
           originUrl={originUrl}
           onSave={() => void saveNow(work, false)}
-          onDownload={() => void saveNow(work, true)}
-          onQueue={() => {
+          onDownload={() => {
             if (inQueue) {
               toast.success("已在队列");
               return;
             }
             enqueueWork(work);
-            toast.success("已加入队列");
+            toast.success("已加入下载队列");
           }}
           onSearchOrigin={() => void searchFromWork(work)}
           onBookmark={() => void doBookmark(work)}
@@ -473,8 +472,16 @@ function WorkPage() {
             originUrl={originUrl}
             saving={saving}
             inVault={inVault}
+            inQueue={inQueue}
             onSave={() => void saveNow(work, false)}
-            onDownload={() => void saveNow(work, true)}
+            onDownload={() => {
+              if (inQueue) {
+                toast.success("已在队列");
+                return;
+              }
+              enqueueWork(work);
+              toast.success("已加入下载队列");
+            }}
             onBookmark={() => void doBookmark(work)}
             onLike={() => void doLike(work)}
             onFollow={() => void doFollow(work)}

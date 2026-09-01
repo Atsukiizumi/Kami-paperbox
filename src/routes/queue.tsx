@@ -35,7 +35,7 @@ function QueuePage() {
         <Alert>
           <AlertTitle>队列是空的</AlertTitle>
           <AlertDescription>
-            在作品页或卡片上点「加入队列」或「保存」，会按顺序收入纸匣并尝试下载原图。
+            在作品页点「下载」，或卡片上点队列，会按顺序收入纸匣并写到文件夹。纸匣按钮只收藏、不进队列。
           </AlertDescription>
         </Alert>
       ) : (
