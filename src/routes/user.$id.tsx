@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
-import { DetailNav } from "@/components/back-to-browse";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +36,6 @@ function UserPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <DetailNav />
         <Skeleton className="h-20 w-full rounded-lg" />
         <ArtworkGridSkeleton count={6} />
       </div>
@@ -47,7 +45,6 @@ function UserPage() {
   if (query.error || !query.data) {
     return (
       <div className="space-y-3 py-12">
-        <DetailNav />
         <Alert variant="danger">
           <AlertTitle>无法加载画师</AlertTitle>
           <AlertDescription>
@@ -62,7 +59,6 @@ function UserPage() {
 
   return (
     <div className="space-y-6">
-      <DetailNav />
       <header className="flex items-start gap-4 md:gap-5">
         <ProfileAvatar src={profile.avatar} name={profile.name} />
         <div className="min-w-0 flex-1 space-y-2">

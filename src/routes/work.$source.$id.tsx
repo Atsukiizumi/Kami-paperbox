@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
-import { DetailNav } from "@/components/back-to-browse";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { WorkActions } from "@/components/work-actions";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -300,7 +299,6 @@ function WorkPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <DetailNav />
         <Skeleton className="h-8 w-48" />
         <Skeleton className="aspect-[3/4] w-full max-w-md rounded-xl" />
       </div>
@@ -310,7 +308,6 @@ function WorkPage() {
   if (query.error || !work) {
     return (
       <div className="space-y-3 py-10">
-        <DetailNav />
         <Alert variant="danger">
           <AlertTitle>无法打开作品</AlertTitle>
           <AlertDescription>
@@ -333,7 +330,6 @@ function WorkPage() {
   return (
     <article className="space-y-6">
       <header className="space-y-3">
-        <DetailNav />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>{siteLabel(src)}</BreadcrumbItem>

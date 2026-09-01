@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.39] — 2026-09-01
+
+对应 [PR #82](https://github.com/Atsukiizumi/Kami-paperbox/pull/82)。
+
+### 调整
+
+- 作品 / 画师 / 创作者页的「上一页」「返回浏览」吸在顶栏下面，滚下去也能点。
+
 ## [0.8.38] — 2026-09-01
 
 对应 [PR #81](https://github.com/Atsukiizumi/Kami-paperbox/pull/81)。
