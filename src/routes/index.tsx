@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Clipboard, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { SavedTagBar } from "@/components/saved-tags";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
@@ -24,7 +25,7 @@ import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
-import type { FanboxCursor, WorkCard } from "@/lib/types";
+import type { FanboxCursor, FetchOk, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -42,8 +43,6 @@ function Home() {
   const hideAi = useSettings((s) => s.hideAi);
   const [query, setQuery] = useState("");
   const [feed, setFeed] = useState<PixivFeed>("daily");
-  const [page, setPage] = useState(1);
-  const [batch, setBatch] = useState(0);
   const [searchWord, setSearchWord] = useState("");
   const [searchExact, setSearchExact] = useState(false);
   const [creatorId, setCreatorId] = useState("official");
@@ -59,7 +58,6 @@ function Home() {
     setSearchWord("");
     setQuery("");
     setSearchExact(false);
-    setPage(1);
   }, [tab]);
 
   useEffect(() => {
@@ -68,7 +66,6 @@ function Home() {
     setSearchWord(word);
     setQuery(word);
     setSearchExact(browseExact);
-    setPage(1);
     setBrowseQuery("");
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
@@ -91,29 +88,35 @@ function Home() {
     }
   }, [fanboxCookie]);
 
-  const pixivQuery = useQuery({
-    queryKey: ["home-pixiv", feed, page, batch, searchWord, searchExact, safeMode, hideAi, pixivCookie],
+  const pixivQuery = useInfiniteQuery({
+    queryKey: ["home-pixiv", feed, searchWord, searchExact, safeMode, hideAi, pixivCookie],
     enabled: tab === "pixiv",
-    placeholderData: keepPreviousData,
-    queryFn: async () => {
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
       const creds = cookiesFromSettings();
       if (searchWord) {
         return fetchSource({
-          data: { op: "pixivSearch", word: searchWord, page, exact: searchExact, ...creds },
+          data: { op: "pixivSearch", word: searchWord, page: pageParam, exact: searchExact, ...creds },
         });
       }
       if (feed === "recommend") {
         return fetchSource({ data: { op: "pixivRecommend", ...creds } });
       }
       if (feed === "following") {
-        return fetchSource({ data: { op: "pixivFollowing", page, ...creds } });
+        return fetchSource({ data: { op: "pixivFollowing", page: pageParam, ...creds } });
       }
       if (!isPixivRankMode(feed)) {
         return fetchSource({ data: { op: "pixivRecommend", ...creds } });
       }
       return fetchSource({
-        data: { op: "pixivRanking", mode: feed, page, ...creds },
+        data: { op: "pixivRanking", mode: feed, page: pageParam, ...creds },
       });
+    },
+    getNextPageParam: (last, pages) => {
+      if (last.op === "pixivRecommend") {
+        return last.items.length > 0 && pages.length < 8 ? pages.length + 1 : undefined;
+      }
+      return "nextPage" in last ? (last.nextPage ?? undefined) : undefined;
     },
   });
 
@@ -145,11 +148,11 @@ function Home() {
     },
   });
 
-  const booruQuery = useQuery({
-    queryKey: ["home-booru", tab, booruFeed, searchWord, page, safeMode],
+  const booruQuery = useInfiniteQuery({
+    queryKey: ["home-booru", tab, booruFeed, searchWord, safeMode],
     enabled: isBooru(tab),
-    placeholderData: keepPreviousData,
-    queryFn: async () => {
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
       if (!isBooru(tab)) throw new Error("not booru");
       return fetchSource({
         data: {
@@ -157,11 +160,12 @@ function Home() {
           site: tab,
           feed: searchWord ? "recent" : booruFeed,
           tags: searchWord || undefined,
-          page,
+          page: pageParam,
           ...cookiesFromSettings(),
         },
       });
     },
+    getNextPageParam: (last) => (last.op === "booruList" ? (last.nextPage ?? undefined) : undefined),
   });
 
   function runTagSearch(source: typeof tab, word: string, exact: boolean) {
@@ -171,7 +175,6 @@ function Home() {
     setSearchWord(next);
     setQuery(next);
     setSearchExact(exact);
-    setPage(1);
     if (isBooru(source)) setBooruFeed("recent");
   }
 
@@ -245,21 +248,13 @@ function Home() {
     setFeed(next);
     setSearchWord("");
     setSearchExact(false);
-    setPage(1);
   }
 
-  const pixivItems: WorkCard[] =
-    pixivQuery.data &&
-    (pixivQuery.data.op === "pixivRanking" ||
-      pixivQuery.data.op === "pixivSearch" ||
-      pixivQuery.data.op === "pixivRecommend" ||
-      pixivQuery.data.op === "pixivFollowing")
-      ? pixivQuery.data.items
-      : [];
-  const pixivHasNext =
-    pixivQuery.data && "nextPage" in pixivQuery.data ? pixivQuery.data.nextPage != null : false;
+  const pixivItems = collectWorks(pixivQuery.data?.pages);
   const rankingDate =
-    pixivQuery.data && pixivQuery.data.op === "pixivRanking" ? pixivQuery.data.date : "";
+    pixivQuery.data?.pages[0] && pixivQuery.data.pages[0].op === "pixivRanking"
+      ? pixivQuery.data.pages[0].date
+      : "";
   const fanboxItems: WorkCard[] =
     fanboxQuery.data?.pages.flatMap((p) =>
       p.op === "fanboxCreator" ||
@@ -271,23 +266,16 @@ function Home() {
     ) ?? [];
   const fanboxCreatorPage = fanboxQuery.data?.pages.find((p) => p.op === "fanboxCreator");
   const fanboxProfile = fanboxCreatorPage && fanboxCreatorPage.op === "fanboxCreator" ? fanboxCreatorPage.profile : null;
-  const booruItems: WorkCard[] =
-    booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.items : [];
-  const booruHasNext =
-    booruQuery.data && booruQuery.data.op === "booruList" ? booruQuery.data.nextPage != null : false;
+  const booruItems = collectWorks(booruQuery.data?.pages);
   const items = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
   const activeQuery = tab === "pixiv" ? pixivQuery : tab === "fanbox" ? fanboxQuery : booruQuery;
-  const loading = activeQuery.isFetching && items.length === 0;
+  const loading = activeQuery.isLoading || (activeQuery.isFetching && items.length === 0 && !activeQuery.isFetchingNextPage);
   const error =
     activeQuery.error instanceof Error
       ? activeQuery.error.message
       : activeQuery.error
         ? "加载失败"
         : null;
-
-  const showPixivPager = Boolean(searchWord) || feed === "following" || isPixivRankMode(feed);
-  const showBooruPager =
-    isBooru(tab) && (Boolean(searchWord) || booruFeed === "recent" || tab === "danbooru");
   const rankModes = PIXIV_RANK_MODES.filter((m) => !m.nsfw || !safeMode);
 
   return (
@@ -388,7 +376,6 @@ function Home() {
                 className="rounded-full"
                 onClick={() => {
                   setSearchWord("");
-                  setPage(1);
                 }}
               >
                 搜索「{searchWord}」×
@@ -440,7 +427,6 @@ function Home() {
               className="rounded-full"
               onClick={() => {
                 setSearchWord("");
-                setPage(1);
               }}
             >
               标签「{searchWord}」×
@@ -462,7 +448,6 @@ function Home() {
               if (!v) return;
               setBooruFeed(v as "recent" | "popular");
               setSearchWord("");
-              setPage(1);
             }}
           >
             <ToggleGroupItem value="recent">最新</ToggleGroupItem>
@@ -475,7 +460,6 @@ function Home() {
               className="rounded-full"
               onClick={() => {
                 setSearchWord("");
-                setPage(1);
               }}
             >
               标签「{searchWord}」×
@@ -526,63 +510,14 @@ function Home() {
         />
       )}
 
-      {tab === "pixiv" && feed === "recommend" && !searchWord && pixivItems.length > 0 ? (
-        <div className="flex justify-center">
-          <Button
-            variant="secondary"
-            disabled={loading}
-            onClick={() => {
-              setBatch((n) => n + 1);
-            }}
-          >
-            换一批
-          </Button>
-        </div>
-      ) : null}
-
-      {tab === "pixiv" && showPixivPager && pixivItems.length > 0 ? (
-        <div className="flex justify-center gap-2 pt-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            上一页
-          </Button>
-          <span className="flex h-11 items-center px-2 text-sm tabular-nums text-muted">{page}</span>
-          <Button variant="secondary" disabled={loading || !pixivHasNext} onClick={() => setPage((p) => p + 1)}>
-            下一页
-          </Button>
-        </div>
-      ) : null}
-
-      {showBooruPager && booruItems.length > 0 ? (
-        <div className="flex justify-center gap-2 pt-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            上一页
-          </Button>
-          <span className="flex h-11 items-center px-2 text-sm tabular-nums text-muted">{page}</span>
-          <Button variant="secondary" disabled={loading || !booruHasNext} onClick={() => setPage((p) => p + 1)}>
-            下一页
-          </Button>
-        </div>
-      ) : null}
-
-      {tab === "fanbox" && fanboxItems.length > 0 && fanboxQuery.hasNextPage ? (
-        <div className="flex justify-center pt-2">
-          <Button
-            variant="secondary"
-            disabled={fanboxQuery.isFetchingNextPage}
-            onClick={() => void fanboxQuery.fetchNextPage()}
-          >
-            {fanboxQuery.isFetchingNextPage ? "加载中…" : "加载更多"}
-          </Button>
-        </div>
-      ) : null}
+      <InfiniteSentinel
+        disabled={!activeQuery.hasNextPage || items.length === 0}
+        onVisible={() => {
+          if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
+            void activeQuery.fetchNextPage();
+          }
+        }}
+      />
 
       {tab === "fanbox" && fanboxProfile && fanboxFeed === "creator" && !searchWord ? (
         <div className="flex justify-center">
@@ -601,4 +536,19 @@ function Home() {
 function rankingNeedsLogin(feed: PixivFeed): boolean {
   if (!isPixivRankMode(feed)) return false;
   return Boolean(PIXIV_RANK_MODES.find((m) => m.id === feed)?.login);
+}
+
+function collectWorks(pages: FetchOk[] | undefined): WorkCard[] {
+  const seen = new Set<string>();
+  const out: WorkCard[] = [];
+  for (const page of pages ?? []) {
+    if (!("items" in page)) continue;
+    for (const work of page.items) {
+      const key = `${work.source}-${work.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(work);
+    }
+  }
+  return out;
 }

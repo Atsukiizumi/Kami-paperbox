@@ -33,11 +33,11 @@ export function patchCachedWork(
   id: string,
   patch: Partial<WorkCard> & Partial<WorkDetail>,
 ) {
-  const listKeys = [["home-pixiv"], ["home-booru"], ["related"], ["user"]];
+  const listKeys = [["related"], ["user"]];
   for (const queryKey of listKeys) {
     queryClient.setQueriesData<FetchOk>({ queryKey }, (old) => patchFetch(old, source, id, patch));
   }
-  const pageKeys = [["home-fanbox"], ["creator"]];
+  const pageKeys = [["home-pixiv"], ["home-booru"], ["home-fanbox"], ["creator"]];
   for (const queryKey of pageKeys) {
     queryClient.setQueriesData<InfiniteData<FetchOk>>({ queryKey }, (old) => {
       if (!old?.pages) return old;
