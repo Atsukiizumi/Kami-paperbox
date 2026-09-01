@@ -54,6 +54,12 @@ export function ImageLightbox({
   }, [index, open]);
 
   useEffect(() => {
+    if (!shown || items.length < 2) return;
+    const el = document.querySelector<HTMLElement>(`[data-strip="${index}"]`);
+    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [index, shown, items.length]);
+
+  useEffect(() => {
     if (!shown) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -242,6 +248,30 @@ export function ImageLightbox({
           </div>
         </div>
       </div>
+      {items.length > 1 ? (
+        <div className="kami-lightbox-strip" onClick={(e) => e.stopPropagation()}>
+          {items.map((it, i) => (
+            <button
+              key={`${it.src}-${i}`}
+              type="button"
+              data-strip={i}
+              aria-label={`第 ${i + 1} 页`}
+              aria-current={i === index}
+              className={cn(
+                "size-14 shrink-0 overflow-hidden rounded-md border transition-transform",
+                i === index ? "border-accent ring-1 ring-accent" : "border-transparent opacity-70 hover:opacity-100",
+              )}
+              onClick={() => onIndex(i)}
+            >
+              {it.ugoira ? (
+                <span className="flex size-full items-center justify-center bg-elevated text-[10px] text-muted">GIF</span>
+              ) : (
+                <img src={it.src} alt="" className="size-full object-cover" draggable={false} />
+              )}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {footer ? (
         <div
           className="flex shrink-0 flex-wrap items-center justify-center gap-1 border-t border-border bg-bg/80 px-2 py-2"

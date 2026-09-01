@@ -437,6 +437,28 @@ html.kami-motion {
   animation-delay: var(--shimmer-delay, 0s);
 }
 
+.kami-detail-nav {
+  min-height: 2.75rem;
+}
+
+.kami-work-sticky {
+  position: sticky;
+  top: calc(3.5rem + 2.75rem);
+  z-index: 21;
+}
+
+.kami-work-stage {
+  background: color-mix(in oklab, var(--color-bg) 70%, var(--color-surface));
+}
+
+.kami-lightbox-strip {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 0.4rem 0.75rem 0.65rem;
+}
+
 .kami-card-shell {
   overflow: hidden;
   border-radius: var(--radius-lg);

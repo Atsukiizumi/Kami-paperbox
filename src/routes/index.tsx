@@ -35,11 +35,11 @@ import {
   type PixivSearchFilter as PixivSearchFilterValue,
 } from "@/lib/pixiv-search";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({ component: () => null });
 
 type FanboxFeed = "home" | "supporting" | "creator";
 
-function Home() {
+export function Home() {
   const navigate = useNavigate();
   const tab = useSettings((s) => s.tab);
   const setTab = useSettings((s) => s.setTab);
