@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.11] — 2026-09-01
+
+对应 [PR #51](https://github.com/Atsukiizumi/Kami-paperbox/pull/51)。
+
+### 改进
+
+- `/` 聚焦搜索，Esc 从详情返回。悬停卡片会预取作品。把图拖进窗口即可搜图。队列项可点进作品。
+
 ## [0.8.10] — 2026-09-01
 
 对应 [PR #50](https://github.com/Atsukiizumi/Kami-paperbox/pull/50)。
