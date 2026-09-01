@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.8] — 2026-09-01
+
+对应 [PR #48](https://github.com/Atsukiizumi/Kami-paperbox/pull/48)。
+
+### 改进
+
+- 详情页去掉作品网址和标签说明。上一页走浏览器历史（可连点），返回浏览回到首页。
+
 ## [0.8.7] — 2026-09-01
 
 对应 [PR #47](https://github.com/Atsukiizumi/Kami-paperbox/pull/47)。

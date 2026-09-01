@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ExternalLink, ScanSearch } from "lucide-react";
+import { ScanSearch } from "lucide-react";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
-import { BackToBrowse } from "@/components/back-to-browse";
+import { DetailNav } from "@/components/back-to-browse";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { WorkActions } from "@/components/work-actions";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -290,7 +290,7 @@ function WorkPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <BackToBrowse />
+        <DetailNav />
         <Skeleton className="h-8 w-48" />
         <Skeleton className="aspect-[3/4] w-full max-w-md rounded-xl" />
       </div>
@@ -300,7 +300,7 @@ function WorkPage() {
   if (query.error || !work) {
     return (
       <div className="space-y-3 py-10">
-        <BackToBrowse />
+        <DetailNav />
         <Alert variant="danger">
           <AlertTitle>无法打开作品</AlertTitle>
           <AlertDescription>
@@ -323,12 +323,9 @@ function WorkPage() {
   return (
     <article className="space-y-6">
       <header className="space-y-3">
+        <DetailNav />
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem>
-              <BackToBrowse />
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
             <BreadcrumbItem>{siteLabel(src)}</BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -364,15 +361,6 @@ function WorkPage() {
             <span className="tabular-nums">收藏 {formatCount(work.bookmarks)}</span>
           ) : null}
         </div>
-        <a
-          href={originUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex max-w-full items-center gap-1 text-xs text-subtle hover:text-fg"
-        >
-          <ExternalLink className="size-3 shrink-0" />
-          <span className="truncate">{originUrl}</span>
-        </a>
         {work.tags.length > 0 ? (
           <WorkTagList
             source={src}

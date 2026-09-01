@@ -25,8 +25,7 @@ export function WorkTagList({
 }) {
   if (tags.length === 0) return null;
   return (
-    <div className="space-y-1.5 pt-1">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5 pt-1">
         {tags.map((tag) => {
           const key = canonicalTag(source, tag) || tag;
           const pinned = isSavedTag(saved, source, tag);
@@ -59,8 +58,6 @@ export function WorkTagList({
           );
         })}
       </div>
-      <p className="text-xs text-subtle">{tagHint(source)}</p>
-    </div>
   );
 }
 
