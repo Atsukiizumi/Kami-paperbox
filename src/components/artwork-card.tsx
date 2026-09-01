@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
+import { Archive, Check, Download, Heart, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
@@ -19,7 +19,7 @@ import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
 import { patchCachedWork, prefetchWork } from "@/lib/work-cache";
-import { isBooru, workOriginUrl } from "@/lib/sites";
+import { isBooru } from "@/lib/sites";
 import { canonicalTag, displayTag } from "@/lib/site-tags";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
@@ -334,32 +334,6 @@ export function ArtworkCard({
                 : "\u00a0"}
             </p>
           </div>
-          {variant === "browse" ? (
-          <button
-            type="button"
-            aria-label="加入队列"
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg text-muted",
-              "transition-[opacity,transform,background-color,color] duration-150",
-              "hover:bg-elevated hover:text-fg active:scale-[0.96]",
-              "opacity-100 md:opacity-0 md:group-hover:opacity-100",
-            )}
-            onClick={() => enqueueWork(work)}
-          >
-            <Download className="size-4" />
-          </button>
-          ) : null}
-          <a
-            href={workOriginUrl(work.source, work.id, work.authorId)}
-            target="_blank"
-            rel="noreferrer"
-            title="原始链接"
-            aria-label="打开原始链接"
-            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted transition-[opacity,transform,background-color,color] duration-150 hover:bg-elevated hover:text-fg active:scale-[0.96] opacity-100 md:opacity-0 md:group-hover:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ExternalLink className="size-4" />
-          </a>
         </div>
       </div>
       <CardMenu
