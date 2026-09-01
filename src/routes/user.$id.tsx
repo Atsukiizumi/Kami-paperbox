@@ -1,13 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
-import { BackToBrowse } from "@/components/back-to-browse";
+import { DetailNav } from "@/components/back-to-browse";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,7 @@ function UserPage() {
   if (query.isLoading) {
     return (
       <div className="space-y-4">
-        <BackToBrowse />
+        <DetailNav />
         <Skeleton className="h-20 w-full rounded-lg" />
         <ArtworkGridSkeleton count={6} />
       </div>
@@ -54,7 +53,7 @@ function UserPage() {
   if (query.error || !query.data) {
     return (
       <div className="space-y-3 py-12">
-        <BackToBrowse />
+        <DetailNav />
         <Alert variant="danger">
           <AlertTitle>无法加载画师</AlertTitle>
           <AlertDescription>
@@ -69,12 +68,9 @@ function UserPage() {
 
   return (
     <div className="space-y-6">
+      <DetailNav />
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem>
-            <BackToBrowse />
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbPage>{profile.name}</BreadcrumbPage>
           </BreadcrumbItem>
