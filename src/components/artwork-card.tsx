@@ -6,12 +6,13 @@
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/红心叠在封面上，不占标题宽度。
  */
-import { useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
+import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
@@ -61,7 +62,10 @@ export function ArtworkCard({
   const [heartPop, setHeartPop] = useState(false);
   const [savedPop, setSavedPop] = useState(false);
   const [menu, setMenu] = useState<CardMenuPos | null>(null);
+  const [preview, setPreview] = useState<DOMRect | null>(null);
   const hoverTimer = useRef(0);
+  const previewTimer = useRef(0);
+  const mediaRef = useRef<HTMLDivElement>(null);
 
   function armPrefetch() {
     window.clearTimeout(hoverTimer.current);
@@ -70,8 +74,23 @@ export function ArtworkCard({
     }, 160);
   }
 
+  function showPreview() {
+    if (!hasMedia || work.restricted || menu || !canHoverPreview()) return;
+    window.clearTimeout(previewTimer.current);
+    previewTimer.current = window.setTimeout(() => {
+      const box = mediaRef.current?.getBoundingClientRect();
+      if (box) setPreview(box);
+    }, 280);
+  }
+
+  function hidePreview() {
+    window.clearTimeout(previewTimer.current);
+    setPreview(null);
+  }
+
   function cancelPrefetch() {
     window.clearTimeout(hoverTimer.current);
+    hidePreview();
   }
 
   async function saveCard(e?: MouseEvent) {
@@ -126,6 +145,16 @@ export function ArtworkCard({
     void navigate({ to: "/" });
   }
 
+  useEffect(() => {
+    if (!preview) return;
+    const hide = () => {
+      window.clearTimeout(previewTimer.current);
+      setPreview(null);
+    };
+    window.addEventListener("scroll", hide, true);
+    return () => window.removeEventListener("scroll", hide, true);
+  }, [preview]);
+
   return (
     <article
       className="kami-enter group"
@@ -141,6 +170,7 @@ export function ArtworkCard({
       onMouseLeave={cancelPrefetch}
       onContextMenu={(e) => {
         e.preventDefault();
+        hidePreview();
         setMenu({ x: e.clientX, y: e.clientY });
       }}
     >
@@ -151,7 +181,12 @@ export function ArtworkCard({
           params={{ source: work.source, id: work.id }}
           className="block"
         >
-          <div className="kami-card-media relative overflow-hidden bg-elevated">
+          <div
+            ref={mediaRef}
+            className="kami-card-media relative overflow-hidden bg-elevated"
+            onMouseEnter={showPreview}
+            onMouseLeave={hidePreview}
+          >
             {hasMedia ? (
               <ProxiedImg
                 src={work.thumb}
@@ -337,6 +372,9 @@ export function ArtworkCard({
           enqueueWork(work);
         }}
       />
+      {preview && work.thumb ? (
+        <HoverPreview src={work.thumb} alt={work.title} aspect={aspect} anchor={preview} />
+      ) : null}
     </article>
   );
 }

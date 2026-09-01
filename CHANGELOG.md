@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.13] — 2026-09-01
+
+对应 [PR #53](https://github.com/Atsukiizumi/Kami-paperbox/pull/53)。
+
+### 改进
+
+- 浏览榜单、搜索、FANBOX 改为往下加页。鼠标停在封面上会在旁边放大整张图。
+
 ## [0.8.12] — 2026-09-01
 
 对应 [PR #52](https://github.com/Atsukiizumi/Kami-paperbox/pull/52)。
