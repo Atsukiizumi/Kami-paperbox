@@ -3,7 +3,7 @@
 [![AI powered by Grok](https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c)](https://grok.com)
 [![xAI](https://img.shields.io/badge/built_with-Grok_Build-0e0d0c?style=flat-square&labelColor=e8dfd2)](https://x.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Changelog](https://img.shields.io/badge/changelog-0.8.36-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-0.8.37-e8dfd2?style=flat-square&labelColor=0e0d0c)](CHANGELOG.md)
 
 ねえねえ、这边这边〜🌸
 
@@ -263,6 +263,7 @@ python3 scripts/pack.py -o kami-paperbox.tar.gz
 Pixiv / FANBOX 没有给第三方的公开 API。纸匣对着官方页面把网站自己的 XHR 记下来再复打。
 
 - 逐步实操（DevTools、无头拦包、拆 JS、curl、Cookie）：[docs/reverse-engineering.md](docs/reverse-engineering.md)
+- Pixiv 认证（网页 Cookie / App OAuth / 开放平台）：[docs/pixiv-auth.md](docs/pixiv-auth.md)
 - 已经在用的接口清单和代码落点：[docs/upstream.md](docs/upstream.md)
 - 纸匣怎么存（SQLite + 原图文件，为什么不是图数据库）：[docs/storage.md](docs/storage.md)
 - 注释约定（作用 / 用法 / 为什么）：[docs/comments.md](docs/comments.md)
