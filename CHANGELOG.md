@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.37] — 2026-09-01
+
+对应 [PR #80](https://github.com/Atsukiizumi/Kami-paperbox/pull/80)。
+
+### 文档
+
+- 补 Pixiv 认证说明：网页 Cookie、App OAuth、开放平台三条线，纸匣只走网页会话。
+
 ## [0.8.36] — 2026-09-01
 
 对应 [PR #79](https://github.com/Atsukiizumi/Kami-paperbox/pull/79)。

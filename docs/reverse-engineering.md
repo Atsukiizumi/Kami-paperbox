@@ -552,6 +552,7 @@ curl -sS -A "Mozilla/5.0 …" \
 | 文档 | 内容 |
 | --- | --- |
 | 本文件 [reverse-engineering.md](reverse-engineering.md) | **怎么动手**（DevTools、无头拦包、拆 JS、curl、Cookie、实战） |
+| [pixiv-auth.md](pixiv-auth.md) | **Pixiv 认证三条线**（网页 Cookie、App OAuth、开放平台）和纸匣走哪条 |
 | [upstream.md](upstream.md) | **纸匣已经在用的接口清单**和请求头、代码落点 |
 
 上游随时会改。页面和 Network（或 `sniff-xhr.mjs` 的输出）永远比文档新。文档过时就按第 0 节再走一遍循环，改代码，不要改成「猜 URL」。

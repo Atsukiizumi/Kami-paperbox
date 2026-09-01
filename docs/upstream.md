@@ -2,7 +2,7 @@
 
 纸匣不接官方开放平台。Pixiv、FANBOX 也没有给第三方用的公开 API 文档。页面上看到的榜单、推荐、投稿，全部是网站自己的 XHR。纸匣做的事就是：**跟着官方页面走一遍，把浏览器已经在用的那几条请求记下来，原样复打。**
 
-**动手步骤**（DevTools 点哪里、无头 Chrome 怎么拦、curl 怎么复打、Cookie 怎么认）见 [reverse-engineering.md](reverse-engineering.md)。下面这份是纸匣已经在用的接口清单。
+**动手步骤**（DevTools 点哪里、无头 Chrome 怎么拦、curl 怎么复打、Cookie 怎么认）见 [reverse-engineering.md](reverse-engineering.md)。Pixiv 网页 Cookie / App OAuth / 开放平台三条认证线见 [pixiv-auth.md](pixiv-auth.md)。下面这份是纸匣已经在用的接口清单。
 
 密码不经过纸匣。登录只发生在 `accounts.pixiv.net` / `www.fanbox.cc`。纸匣要的是登录之后浏览器里留下的会话 Cookie，以及之后那些 JSON 接口。
 
