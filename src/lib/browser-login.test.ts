@@ -53,6 +53,8 @@ test("ignores short or empty values", () => {
 test("logged-in session helper and header", () => {
   assert.equal(isPixivLoggedInSession("12345678_abcdef0123456789deadbeef"), true);
   assert.equal(isPixivLoggedInSession("PHPSESSID=42_abcdef0123456789deadbeef"), true);
+  assert.equal(isPixivLoggedInSession("PHPSESSID=42_abcdef0123456789deadbeef; p_ab_id=2"), true);
+  assert.equal(isPixivLoggedInSession("1_abcdefghijklmnop"), true);
   assert.equal(isPixivLoggedInSession("abcdef0123456789deadbeef"), false);
   assert.equal(pixivUserIdFromCookie("PHPSESSID=42_abcdef0123456789deadbeef"), "42");
   assert.equal(sanitizePixivCookie("abcdef0123456789deadbeef"), "");

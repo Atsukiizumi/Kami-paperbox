@@ -61,7 +61,7 @@ export function AccountSwitcher() {
           <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
             <span className="max-w-28 truncate text-fg">{headline}</span>
             <span className="max-w-28 truncate text-[10px] text-subtle">
-              {active ? "已登录" : "未登录"}
+              {pixivOk || fanboxCookie ? "已登录" : active ? "会话无效" : "未登录"}
             </span>
           </span>
         </button>

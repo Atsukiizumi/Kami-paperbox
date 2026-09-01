@@ -39,6 +39,9 @@ function Home() {
   const recents = useSettings((s) => s.recents);
   const addRecent = useSettings((s) => s.addRecent);
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const accounts = useSettings((s) => s.accounts);
+  const activeAccountId = useSettings((s) => s.activeAccountId);
+  const setSafeMode = useSettings((s) => s.setSafeMode);
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
@@ -70,7 +73,7 @@ function Home() {
     setBrowseQuery("");
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
-  const loggedIn = isPixivLoggedInSession(pixivCookie);
+  const loggedIn = isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
   useEffect(() => {
     if (loggedIn && (feed === "daily" || feed === "recommend")) {
       setFeed("recommend");
@@ -236,14 +239,15 @@ function Home() {
   }
 
   function choosePixivFeed(next: PixivFeed) {
+    const nsfw = isPixivRankMode(next) && PIXIV_RANK_MODES.find((m) => m.id === next)?.nsfw;
+    if (nsfw && safeMode) setSafeMode(false);
     const needsLogin = next === "recommend" || next === "following" || rankingNeedsLogin(next);
     if (needsLogin && !loggedIn) {
-      toast.error("先在设置里添加 Pixiv 账号");
-      return;
-    }
-    const nsfw = isPixivRankMode(next) && PIXIV_RANK_MODES.find((m) => m.id === next)?.nsfw;
-    if (nsfw && safeMode) {
-      toast.error("打开 R-18 后才能看该榜");
+      toast.error(
+        accounts.length
+          ? "当前账号的 Pixiv 会话无效，请到设置重新登录"
+          : "先在设置里添加 Pixiv 账号",
+      );
       return;
     }
     setFeed(next);
