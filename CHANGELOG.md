@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.33] — 2026-09-01
+
+对应 [PR #76](https://github.com/Atsukiizumi/Kami-paperbox/pull/76)。
+
+### 调整
+
+- 卡片标题旁不再放「加入队列」和「原始链接」。入队和打开原站仍在右键菜单。
+
 ## [0.8.32] — 2026-09-01
 
 对应 [PR #75](https://github.com/Atsukiizumi/Kami-paperbox/pull/75)。
