@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.31] — 2026-09-01
+
+对应 [PR #74](https://github.com/Atsukiizumi/Kami-paperbox/pull/74)。关 [#73](https://github.com/Atsukiizumi/Kami-paperbox/issues/73)。
+
+### 修复
+
+- 封面流被掐掉时正常结束，不再被 h3 打成未处理 500 AbortError。开发服也滤掉这类终端噪音。
+
 ## [0.8.30] — 2026-09-01
 
 对应 [PR #72](https://github.com/Atsukiizumi/Kami-paperbox/pull/72)。

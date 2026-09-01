@@ -11,6 +11,8 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
+// @ts-expect-error JS plugin alongside the TS vite config
+import { swallowAbortPlugin } from "./scripts/swallow-abort-plugin.mjs";
 // @ts-expect-error JS module
 import { readKamiConfig } from "./scripts/kami-config.mjs";
 
@@ -193,6 +195,7 @@ export default defineConfig(({ command, isPreview }) => ({
     appEnvPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
+    swallowAbortPlugin(),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build" || isPreview
