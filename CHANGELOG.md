@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.24] — 2026-09-01
+
+对应 [PR #64](https://github.com/Atsukiizumi/Kami-paperbox/pull/64)。
+
+### 改进
+
+- GitHub 问题分「问题 / 功能」两套模板；PR 也有模板。问题按复现步骤写，功能随便提。
+
 ## [0.8.23] — 2026-09-01
 
 对应 [PR #63](https://github.com/Atsukiizumi/Kami-paperbox/pull/63)。

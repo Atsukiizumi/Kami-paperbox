@@ -1,0 +1,140 @@
+name: 问题
+description: 坏了、显示不对、请求失败。按测试步骤写，方便复现。
+title: "[问题] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        当一次测试写。别人照着步骤做，应该能看到同样的结果。
+        修过的先翻 [CHANGELOG](https://github.com/Atsukiizumi/Kami-paperbox/blob/main/CHANGELOG.md)。
+
+  - type: input
+    id: summary
+    attributes:
+      label: 一句话
+      placeholder: 浏览页点 R-18 日会提示未登录，实际已经登录
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重程度
+      options:
+        - 阻断（做不下去 / 数据可能丢）
+        - 严重（主路径错，有绕过）
+        - 一般（难用，主路径还能走）
+        - 轻微（文案、样式、偶发）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 出现频率
+      options:
+        - 必现
+        - 经常（一半以上）
+        - 偶发
+        - 只遇到一次
+    validations:
+      required: true
+
+  - type: dropdown
+    id: site
+    attributes:
+      label: 图源
+      options:
+        - Pixiv
+        - FANBOX
+        - Yande
+        - Konachan
+        - Danbooru
+        - 搜图
+        - 纸匣 / 队列
+        - 设置 / 登录
+        - 不限 / 不知道
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 系统、浏览器、怎么跑的（pnpm dev / Docker / 已部署）、大概版本。
+      placeholder: Windows 11 · Chrome 130 · pnpm dev · 0.8.23
+    validations:
+      required: true
+
+  - type: dropdown
+    id: login
+    attributes:
+      label: 登录
+      options:
+        - 未登录
+        - 已登录 Pixiv
+        - 已登录 FANBOX
+        - Pixiv + FANBOX
+        - 不清楚
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: 前置
+      description: 开始点之前，账号、过滤、代理、页面要处于什么状态。
+      placeholder: |
+        已登录自用账号
+        浏览页 Pixiv，R-18 开关打开
+        未开代理
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 步骤
+      description: 从打开页面写起。一步一个动作，不要写「再试一次」。
+      placeholder: |
+        1. 打开浏览页，图源选 Pixiv
+        2. 打开 R-18 开关
+        3. 点「R-18 日」
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望
+      placeholder: 拉到 Pixiv 的 R-18 日榜，卡片换成该榜作品。
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际
+      description: 看到什么、提示原文、状态码。和期望不一样的地方写清楚。
+      placeholder: |
+        顶部 toast「先在设置里添加 Pixiv 账号」
+        榜单仍是普通日榜
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图 / 日志
+      description: 拖图进来。控制台报错、Network 里失败的请求（URL + 状态码）也贴。
+      placeholder: |
+        截图：
+        控制台：
+        请求：GET /api/...  → 401
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充
+      description: 无痕是否一样、换账号是否一样、改过 kami.config.json 没有。没有就空着。
