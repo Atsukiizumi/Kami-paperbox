@@ -6,11 +6,12 @@
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/红心叠在封面上，不占标题宽度。
  */
-import { useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, Download, ExternalLink, Heart, Lock, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
@@ -59,10 +60,23 @@ export function ArtworkCard({
   const [liking, setLiking] = useState(false);
   const [heartPop, setHeartPop] = useState(false);
   const [savedPop, setSavedPop] = useState(false);
+  const [menu, setMenu] = useState<CardMenuPos | null>(null);
+  const hoverTimer = useRef(0);
 
-  async function saveCard(e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  function armPrefetch() {
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => {
+      prefetchWork(queryClient, work.source, work.id);
+    }, 160);
+  }
+
+  function cancelPrefetch() {
+    window.clearTimeout(hoverTimer.current);
+  }
+
+  async function saveCard(e?: MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (saving || work.restricted) return;
     if (inVault) {
       toast.success("已在纸匣");
@@ -79,9 +93,9 @@ export function ArtworkCard({
     }
   }
 
-  async function likeCard(e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+  async function likeCard(e?: MouseEvent) {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (work.source !== "pixiv" || liking) return;
     if (liked) {
       toast.success("已经点过红心");
@@ -123,8 +137,12 @@ export function ArtworkCard({
           ["--card-aspect"]: String(aspect),
         } as CSSProperties
       }
-      onMouseEnter={() => prefetchWork(queryClient, work.source, work.id)}
-      onFocus={() => prefetchWork(queryClient, work.source, work.id)}
+      onMouseEnter={armPrefetch}
+      onMouseLeave={cancelPrefetch}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
     >
       <div className="kami-card-shell">
         <div className="relative">
@@ -243,7 +261,10 @@ export function ArtworkCard({
               params={{ source: work.source, id: work.id }}
               className="block"
             >
-              <h3 className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg">
+              <h3
+                className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg"
+                title={work.title || "无题"}
+              >
                 {work.title || "无题"}
               </h3>
             </Link>
@@ -297,6 +318,25 @@ export function ArtworkCard({
           </a>
         </div>
       </div>
+      <CardMenu
+        work={work}
+        pos={menu}
+        inVault={inVault}
+        liked={liked}
+        onClose={() => setMenu(null)}
+        onSave={() => {
+          setMenu(null);
+          void saveCard();
+        }}
+        onLike={() => {
+          setMenu(null);
+          void likeCard();
+        }}
+        onQueue={() => {
+          setMenu(null);
+          enqueueWork(work);
+        }}
+      />
     </article>
   );
 }

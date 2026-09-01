@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.12] — 2026-09-01
+
+对应 [PR #52](https://github.com/Atsukiizumi/Kami-paperbox/pull/52)。
+
+### 改进
+
+- 去掉键盘快捷键。卡片右键可打开、保存、红心、入队、复制链接。悬停稍停再预取，避免扫过就打请求。
+
 ## [0.8.11] — 2026-09-01
 
 对应 [PR #51](https://github.com/Atsukiizumi/Kami-paperbox/pull/51)。
