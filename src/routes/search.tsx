@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SEARCH_FILE_EVENT } from "@/components/drop-to-search";
 import { prepareSearchImage } from "@/lib/prepare-search-image";
 import {
   engineLabel,
@@ -104,8 +105,16 @@ function SearchPage() {
       ev.preventDefault();
       applyFile(item);
     }
+    function onDropped(ev: Event) {
+      const file = (ev as CustomEvent<File>).detail;
+      if (file instanceof File) applyFile(file);
+    }
     window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
+    window.addEventListener(SEARCH_FILE_EVENT, onDropped);
+    return () => {
+      window.removeEventListener("paste", onPaste);
+      window.removeEventListener(SEARCH_FILE_EVENT, onDropped);
+    };
   }, [applyFile]);
 
   useEffect(() => () => {

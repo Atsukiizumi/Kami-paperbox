@@ -16,7 +16,7 @@ import type { WorkCard } from "@/lib/types";
 import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
-import { patchCachedWork } from "@/lib/work-cache";
+import { patchCachedWork, prefetchWork } from "@/lib/work-cache";
 import { isBooru, workOriginUrl } from "@/lib/sites";
 import { canonicalTag, displayTag } from "@/lib/site-tags";
 import { isNsfwRating } from "@/lib/booru";
@@ -123,6 +123,8 @@ export function ArtworkCard({
           ["--card-aspect"]: String(aspect),
         } as CSSProperties
       }
+      onMouseEnter={() => prefetchWork(queryClient, work.source, work.id)}
+      onFocus={() => prefetchWork(queryClient, work.source, work.id)}
     >
       <div className="kami-card-shell">
         <div className="relative">

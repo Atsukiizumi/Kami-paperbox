@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,11 @@ function QueuePage() {
               className="kami-enter flex items-center gap-3 rounded-xl bg-surface p-3"
               style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
             >
+              <Link
+                to="/work/$source/$id"
+                params={{ source: item.source, id: item.id }}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
               <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-elevated">
                 <ProxiedImg src={item.thumb} alt="" className="size-full" />
               </div>
@@ -65,6 +70,7 @@ function QueuePage() {
                   {item.status === "error" && item.error}
                 </p>
               </div>
+              </Link>
               {item.status === "error" ? (
                 <Button
                   variant="ghost"
