@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.22] — 2026-09-01
+
+对应 [PR #62](https://github.com/Atsukiizumi/Kami-paperbox/pull/62)。
+
+### 改进
+
+- 控流可在 `kami.config.json` 的 `throttle` 里改：封面并发、429 重试、搜图间隔。保存即生效。
+
 ## [0.8.21] — 2026-09-01
 
 对应 [PR #61](https://github.com/Atsukiizumi/Kami-paperbox/pull/61)。

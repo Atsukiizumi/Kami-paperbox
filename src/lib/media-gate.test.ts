@@ -8,7 +8,7 @@ test("withMediaGate keeps at most 6 tasks in flight", async () => {
     withMediaGate(async () => {
       peak = Math.max(peak, mediaGateActive());
       await new Promise((r) => setTimeout(r, 20));
-    }),
+    }, undefined, 6),
   );
   await Promise.all(jobs);
   assert.ok(peak <= 6, `peak ${peak}`);

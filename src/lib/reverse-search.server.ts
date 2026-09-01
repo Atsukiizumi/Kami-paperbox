@@ -17,6 +17,7 @@ import {
 } from "./reverse-search-guard";
 import { outboundFetch } from "./curl-fetch.server";
 import { sleep } from "./utils";
+import { getThrottle } from "./throttle.server";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -57,7 +58,7 @@ function mergeCookie(prev: string, setCookies: string[]): string {
 }
 
 async function pace(engine: SearchEngine, hasApiKey: boolean) {
-  const gap = searchGapMs(engine, hasApiKey);
+  const gap = searchGapMs(engine, hasApiKey, getThrottle().search);
   const last = lastSearchAt.get(engine) ?? 0;
   const wait = last + gap - Date.now();
   lastSearchAt.set(engine, Date.now() + Math.max(0, wait));
