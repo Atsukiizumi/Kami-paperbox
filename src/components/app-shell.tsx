@@ -9,6 +9,7 @@ import { resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
+import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
@@ -72,6 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (!queueReady || !settingsReady) return;
       void useSettings.getState().syncSessions().catch(() => undefined);
       void useVaultIndex.getState().refresh().catch(() => undefined);
+      warmPixivCsrf(useSettings.getState().pixivCookie);
       resumeQueue();
     };
     const offQueue = onPersisted(useQueue, () => {

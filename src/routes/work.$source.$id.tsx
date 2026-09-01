@@ -20,7 +20,7 @@ import {
 import { WorkTagList } from "@/components/saved-tags";
 import { enqueueWork } from "@/lib/queue-runner";
 import { collectWorkFiles } from "@/lib/save-work";
-import { fetchSource, mutateSource } from "@/lib/source";
+import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
@@ -29,7 +29,7 @@ import { archiveWork } from "@/lib/persist-files";
 import { workKey as vaultWorkKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { parseSource, siteLabel, workOriginUrl, isBooru } from "@/lib/sites";
 import { canonicalTag } from "@/lib/site-tags";
 import { pickRelatedTag } from "@/lib/booru";
@@ -56,10 +56,15 @@ function WorkPage() {
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState("");
   const [preview, setPreview] = useState<number | null>(null);
+  const likingRef = useRef(false);
   const inVault = useVaultIndex((s) => Boolean(s.keys[vaultWorkKey(src, id)]));
   const inQueue = useQueue((s) =>
     s.items.some((x) => x.key === vaultWorkKey(src, id) && (x.status === "queued" || x.status === "running")),
   );
+
+  useEffect(() => {
+    if (src === "pixiv") warmPixivCsrf(pixivCookie);
+  }, [src, pixivCookie]);
 
   const query = useQuery({
     queryKey: ["work", src, id, safeMode, pixivCookie, fanboxCookie],
@@ -199,28 +204,32 @@ function WorkPage() {
   }
 
   async function doLike(detail: WorkDetail) {
-    if (detail.liked) {
-      toast.success("已经点过红心");
+    if (detail.liked || likingRef.current) {
+      if (detail.liked) toast.success("已经点过红心");
       return;
     }
+    if (src === "pixiv" && !pixivCookie) {
+      toast.error("先在设置里添加 Pixiv 账号");
+      return;
+    }
+    if (src === "fanbox" && !fanboxCookie) {
+      toast.error("先在设置里添加 FANBOX 账号");
+      return;
+    }
+    likingRef.current = true;
+    const prevLikes = detail.likes;
+    patchWork({ liked: true, likes: (prevLikes ?? 0) + 1 });
     try {
       if (src === "pixiv") {
-        if (!pixivCookie) {
-          toast.error("先在设置里添加 Pixiv 账号");
-          return;
-        }
         await mutateSource({ data: { op: "pixivLike", id: detail.id, ...cookiesFromSettings() } });
       } else if (src === "fanbox") {
-        if (!fanboxCookie) {
-          toast.error("先在设置里添加 FANBOX 账号");
-          return;
-        }
         await mutateSource({ data: { op: "fanboxLike", id: detail.id, ...cookiesFromSettings() } });
       }
-      patchWork({ liked: true, likes: (detail.likes ?? 0) + 1 });
-      toast.success("已点红心");
     } catch (err) {
+      patchWork({ liked: false, likes: prevLikes });
       toast.error(err instanceof Error ? err.message : "红心失败");
+    } finally {
+      likingRef.current = false;
     }
   }
 

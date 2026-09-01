@@ -16,8 +16,20 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 let pixivTokenCache: { cookie: string; token: string; at: number } | null = null;
+let pixivTokenInflight: Promise<string> | null = null;
 
 async function pixivToken(cookie: string, hintPath?: string): Promise<string> {
+  if (pixivTokenCache && pixivTokenCache.cookie === cookie && Date.now() - pixivTokenCache.at < 8 * 60 * 1000) {
+    return pixivTokenCache.token;
+  }
+  if (pixivTokenInflight) return pixivTokenInflight;
+  pixivTokenInflight = fetchPixivToken(cookie, hintPath).finally(() => {
+    pixivTokenInflight = null;
+  });
+  return pixivTokenInflight;
+}
+
+async function fetchPixivToken(cookie: string, hintPath?: string): Promise<string> {
   if (pixivTokenCache && pixivTokenCache.cookie === cookie && Date.now() - pixivTokenCache.at < 8 * 60 * 1000) {
     return pixivTokenCache.token;
   }
@@ -156,6 +168,11 @@ export async function dispatchSocial(input: SocialInput): Promise<SocialOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
   const fanbox = fanboxCookieHeader(input.fanboxCookie, input.pixivCookie);
   switch (input.op) {
+    case "pixivWarm": {
+      if (!pixiv) return { ok: true };
+      await pixivToken(pixiv);
+      return { ok: true };
+    }
     case "pixivLike": {
       if (!pixiv) throw new Error("需要登录 Pixiv");
       await pixivJson("https://www.pixiv.net/ajax/illusts/like", pixiv, { illust_id: input.id }, false, input.id);
