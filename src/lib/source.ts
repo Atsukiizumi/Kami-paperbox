@@ -32,7 +32,7 @@ const fetchSchema = z.intersection(
     }),
     z.object({
       op: z.literal("pixivSearch"),
-      word: z.string().min(1).max(80),
+      word: z.string().min(1).max(200),
       page: z.number().int().min(1).max(20),
       filter: z
         .object({
@@ -84,7 +84,7 @@ const fetchSchema = z.intersection(
       op: z.literal("booruList"),
       site: z.enum(["yande", "konachan", "danbooru"]),
       feed: z.enum(["recent", "popular"]),
-      tags: z.string().max(80).optional(),
+      tags: z.string().max(240).optional(),
       page: z.number().int().min(1).max(50),
     }),
     z.object({

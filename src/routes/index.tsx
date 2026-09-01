@@ -303,10 +303,10 @@ export function Home() {
           </h1>
           <p className="max-w-lg text-sm text-muted">
             {tab === "pixiv"
-              ? "标签搜索、打开作品。登录后可收藏、红心和关注。点标签是精确匹配。"
+              ? "空格分开多个标签。登录后可收藏、红心和关注。点单个标签是精确匹配。"
               : tab === "fanbox"
                 ? "一次搜索一个标签，或打开创作者。"
-                : `用标签搜索 ${siteLabel(tab)}。空格表示并且，标签里的空格写成下划线。`}
+                : `空格分开多个标签搜索 ${siteLabel(tab)}。标签里的空格写成下划线。`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 pt-1">

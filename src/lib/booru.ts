@@ -64,9 +64,10 @@ export function composeBooruTags(site: BooruSite, user: string, safeMode: boolea
     .filter((p) => !BLOCKED_TAGS.has(p.replace(/^[-~]/, "").toLowerCase()))
     .slice(0, 6);
   if (site === "danbooru") {
-    const first = parts.find((p) => !p.startsWith("order:")) ?? "";
-    if (safeMode) return [first, "rating:g"].filter(Boolean).join(" ");
-    return first;
+    // 未登录最多 2 个标签。用户词优先，rating:g 只在还有空位时加上。
+    const picked = parts.slice(0, 2);
+    if (safeMode && picked.length < 2) picked.push("rating:g");
+    return picked.join(" ").trim();
   }
   const extra = safeMode ? ["rating:s", "-loli", "-shota", "-toddlercon"] : ["-loli", "-shota", "-toddlercon"];
   return [...parts, ...extra].join(" ").trim();

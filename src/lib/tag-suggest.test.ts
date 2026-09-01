@@ -9,13 +9,15 @@ import {
   suggestPrefix,
 } from "./tag-suggest.ts";
 
-test("suggestPrefix uses the last booru token", () => {
-  assert.equal(suggestPrefix("pixiv", "初音 ミク"), "初音 ミク");
+test("suggestPrefix uses the last token except on FANBOX", () => {
+  assert.equal(suggestPrefix("pixiv", "初音 ミ"), "ミ");
   assert.equal(suggestPrefix("yande", "hatsune mi"), "mi");
+  assert.equal(suggestPrefix("fanbox", "風景 忽略"), "風景 忽略");
 });
 
-test("applySuggest replaces the last booru token", () => {
+test("applySuggest replaces the last token and appends after a space", () => {
   assert.equal(applySuggest("pixiv", "初音", "初音ミク"), "初音ミク");
+  assert.equal(applySuggest("pixiv", "东方 ", "永江衣玖"), "东方 永江衣玖");
   assert.equal(applySuggest("yande", "hatsune mi", "miku"), "hatsune miku");
 });
 

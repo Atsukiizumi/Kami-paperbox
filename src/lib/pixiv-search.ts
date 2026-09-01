@@ -8,6 +8,8 @@
  *        参数名跟 tags 页 URL 一致，方便对照。
  */
 
+import { joinSearchTags, splitSearchTags } from "./site-tags.ts";
+
 export const PIXIV_SEARCH_SCOPES = [
   { id: "s_tag", label: "标签（部分一致）" },
   { id: "s_tag_full", label: "标签（完全一致）" },
@@ -143,6 +145,18 @@ export function countActivePixivSearch(filter: PixivSearchFilter): number {
 }
 
 /**
+ * 空格拆成多个标签。精确匹配时给每个词加上引号，避免被当成一个长标签。
+ */
+export function formatPixivSearchWord(word: string, scope: PixivSearchScope): string {
+  const tags = splitSearchTags(word).map((t) => t.replace(/"/g, "").trim()).filter(Boolean);
+  if (tags.length === 0) return word.trim();
+  if (scope === "s_tag_full" && tags.length > 1) {
+    return tags.map((t) => `"${t}"`).join(" ");
+  }
+  return joinSearchTags(tags);
+}
+
+/**
  * 打开安全模式时年龄强制 safe，避免 filter 里勾了 R-18 还打出去。
  * 收藏数 `blt` 和热门 `popular_d` 是 Premium 能力，没开时 Pixiv 可能当没这参数。
  */
@@ -152,10 +166,11 @@ export function buildPixivSearchUrl(
   filter: PixivSearchFilter,
   opts: { safeMode: boolean; hideAi: boolean; now?: Date },
 ): string {
-  const encoded = encodeURIComponent(word);
+  const q = formatPixivSearchWord(word, filter.scope);
+  const encoded = encodeURIComponent(q);
   const mode = opts.safeMode ? "safe" : filter.age;
   const params = new URLSearchParams();
-  params.set("word", word);
+  params.set("word", q);
   params.set("order", filter.order);
   params.set("mode", mode);
   params.set("p", String(page));

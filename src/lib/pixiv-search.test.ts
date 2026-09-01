@@ -4,6 +4,7 @@ import {
   DEFAULT_PIXIV_SEARCH,
   buildPixivSearchUrl,
   countActivePixivSearch,
+  formatPixivSearchWord,
   localIsoDate,
   parsePixivSearchFilter,
   scdForWhen,
@@ -11,6 +12,11 @@ import {
 } from "./pixiv-search.ts";
 
 describe("pixiv search filter", () => {
+  it("quotes each tag when exact-matching more than one", () => {
+    assert.equal(formatPixivSearchWord("东方 永江衣玖", "s_tag"), "东方 永江衣玖");
+    assert.equal(formatPixivSearchWord("东方 永江衣玖", "s_tag_full"), '"东方" "永江衣玖"');
+  });
+
   it("maps tag clicks to exact match and typing to partial", () => {
     assert.equal(scopeFromExact(true), "s_tag_full");
     assert.equal(scopeFromExact(false), "s_tag");
