@@ -100,8 +100,18 @@ export function parseBooruSuggest(site: BooruSite, json: unknown): TagSuggestIte
 }
 
 export function mergeSuggest(local: string[], remote: TagSuggestItem[]): TagSuggestItem[] {
+  return mergeSuggestLists(local, [], remote);
+}
+
+/** 已保存优先，最近次之，源站补全在后。同一词只出现一次。 */
+export function mergeSuggestLists(
+  saved: string[],
+  recents: string[],
+  remote: TagSuggestItem[],
+): TagSuggestItem[] {
   const out: TagSuggestItem[] = [];
-  for (const tag of local) pushUnique(out, { tag, extra: "已保存" });
+  for (const tag of saved) pushUnique(out, { tag, extra: "已保存" });
+  for (const tag of recents) pushUnique(out, { tag, extra: "最近" });
   for (const item of remote) pushUnique(out, item);
   return out.slice(0, 10);
 }

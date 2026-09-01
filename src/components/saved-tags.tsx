@@ -99,16 +99,21 @@ export function SavedTagBar({
             >
               <button
                 type="button"
+                title={on ? "取消这次搜索" : `搜索「${displayTag(source, tag)}」`}
                 className="truncate px-3 py-1 hover:text-fg"
-                onClick={() => onSearch(tag)}
+                onClick={() => onSearch(on ? "" : tag)}
               >
                 {displayTag(source, tag)}
               </button>
               <button
                 type="button"
-                aria-label={`移除 ${displayTag(source, tag)}`}
+                aria-label={`取消保存 ${displayTag(source, tag)}`}
+                title="从快捷标签去掉"
                 className="pr-2 opacity-70 hover:opacity-100"
-                onClick={() => onToggle(tag)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle(tag);
+                }}
               >
                 ×
               </button>
@@ -120,6 +125,7 @@ export function SavedTagBar({
             type="button"
             className="rounded-full border border-border px-3 py-1 text-xs text-muted hover:text-fg"
             onClick={onSaveCurrent}
+            title="只把当前这次搜索钉在快捷标签，点 × 可去掉"
           >
             保存「{displayTag(source, currentKey)}」
           </button>
