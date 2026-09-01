@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.6] — 2026-09-01
+
+对应 [PR #46](https://github.com/Atsukiizumi/Kami-paperbox/pull/46)。
+
+### 改进
+
+- 浏览网格重排会滑过去，点进作品封面会衔接到详情，红心和收入有回弹。切主题、滚动条、灯箱也顺了一些。
+
 ## [0.8.5] — 2026-09-01
 
 对应 [PR #45](https://github.com/Atsukiizumi/Kami-paperbox/pull/45)。

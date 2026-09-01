@@ -10,9 +10,9 @@ export const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 export function playEnter(el: HTMLElement, delay = 0) {
   el.style.opacity = "0";
-  el.style.transform = "translate3d(0, 28px, 0)";
+  el.style.transform = "translate3d(0, 16px, 0)";
   const start = () => {
-    el.style.transition = `opacity 480ms ${EASE_OUT} ${delay}ms, transform 480ms ${EASE_OUT} ${delay}ms`;
+    el.style.transition = `opacity 420ms ${EASE_OUT} ${delay}ms, transform 420ms ${EASE_OUT} ${delay}ms`;
     el.style.opacity = "1";
     el.style.transform = "translate3d(0, 0, 0)";
   };

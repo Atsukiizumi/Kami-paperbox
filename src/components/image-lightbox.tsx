@@ -44,7 +44,7 @@ export function ImageLightbox({
       return () => window.cancelAnimationFrame(id);
     }
     setVisible(false);
-    const t = window.setTimeout(() => setShown(false), 180);
+    const t = window.setTimeout(() => setShown(false), 300);
     return () => window.clearTimeout(t);
   }, [open]);
 
@@ -107,7 +107,7 @@ export function ImageLightbox({
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex flex-col bg-overlay transition-opacity duration-200 ease-out",
+        "fixed inset-0 z-50 flex flex-col bg-overlay transition-opacity duration-300 ease-out",
         visible ? "opacity-100" : "opacity-0",
       )}
       role="dialog"
@@ -217,7 +217,7 @@ export function ImageLightbox({
         >
           <div
             className={cn(
-              "max-h-full max-w-full transition-[opacity,transform] duration-200 ease-out",
+              "max-h-full max-w-full transition-[opacity,transform] duration-300 ease-out",
               visible ? "opacity-100" : "opacity-0",
             )}
             style={{

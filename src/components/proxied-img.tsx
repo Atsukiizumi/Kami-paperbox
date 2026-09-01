@@ -22,6 +22,7 @@ export function ProxiedImg({
   priority = false,
   sizes,
   fit = "cover",
+  viewTransitionName,
 }: {
   src?: string;
   alt: string;
@@ -29,6 +30,7 @@ export function ProxiedImg({
   priority?: boolean;
   sizes?: string;
   fit?: "cover" | "contain";
+  viewTransitionName?: string;
 }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
@@ -92,9 +94,10 @@ export function ProxiedImg({
           className={cn(
             "transition-[opacity,transform] duration-500 ease-out",
             cover ? "size-full object-cover" : "mx-auto h-auto w-full object-contain",
-            loaded ? "scale-100 opacity-100" : "scale-[1.04] opacity-0",
+            loaded ? "scale-100 opacity-100" : "scale-[1.03] opacity-0",
             cover ? undefined : className,
           )}
+          style={viewTransitionName ? { viewTransitionName } : undefined}
           loading="eager"
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"

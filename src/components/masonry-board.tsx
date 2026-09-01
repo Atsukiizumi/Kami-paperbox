@@ -53,15 +53,25 @@ function packBoard(root: HTMLElement) {
   });
 
   root.setAttribute("data-packed", "");
+  const settled = root.hasAttribute("data-settled");
   children.forEach((el, i) => {
     const place = packed.placements[i];
     if (!place) return;
+    const fresh = !el.hasAttribute("data-placed");
+    if (fresh) el.style.transition = "none";
     el.style.setProperty("--masonry-x", `${place.x}px`);
     el.style.setProperty("--masonry-y", `${place.y}px`);
     el.style.setProperty("--masonry-w", `${place.width}px`);
     el.style.setProperty("--masonry-media-h", `${place.height}px`);
+    el.setAttribute("data-placed", "");
+    if (fresh && settled) {
+      requestAnimationFrame(() => el.style.removeProperty("transition"));
+    }
   });
   root.style.setProperty("--masonry-h", `${packed.height}px`);
+  if (!settled) {
+    requestAnimationFrame(() => root.setAttribute("data-settled", ""));
+  }
 }
 
 export function MasonryBoard({
