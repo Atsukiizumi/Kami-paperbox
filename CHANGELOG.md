@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.18] — 2026-09-01
+
+对应 [PR #58](https://github.com/Atsukiizumi/Kami-paperbox/pull/58)。
+
+### 改进
+
+- 悬停预览从卡片中心放大，封面先隐掉，并用 master1200 / sample，不再旁边叠一张糊图。
+
 ## [0.8.17] — 2026-09-01
 
 对应 [PR #57](https://github.com/Atsukiizumi/Kami-paperbox/pull/57)。
