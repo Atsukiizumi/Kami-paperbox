@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.8.49] — 2026-09-02
+
+对应 [PR #92](https://github.com/Atsukiizumi/Kami-paperbox/pull/92)。
+
+### 调整
+
+- 纸匣改为瀑布流竖列，封面保持原比例。悬停导出 / 移除不变。
+- 换了分享预览和 X 横幅：暗案展开纸匣，标题 Kami Paperbox / 纸匣。
+
 ## [0.8.48] — 2026-09-02
 
 对应 [PR #91](https://github.com/Atsukiizumi/Kami-paperbox/pull/91)。

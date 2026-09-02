@@ -1,14 +1,13 @@
 /**
- * 纸匣页：浏览已保存作品。
+ * 纸匣页：瀑布流浏览已保存作品。
  *
- * 作用：和浏览页同一套拼版；2/4/6/9 只改一行大概几张。优先读用户文件夹原图。
- * 用法：侧栏入口。导出 / 删除在卡片悬停条上。
+ * 作用：按列往下排，封面保持原比例。交互仍是点进作品、悬停导出/移除。
+ * 用法：侧栏入口。优先读用户文件夹原图。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
-import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SITE_LIST } from "@/lib/sites";
@@ -24,9 +23,7 @@ import type { Source, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/vault")({ component: VaultPage });
 
-const SHEETS = [2, 4, 6, 9] as const;
-
-function cardFromMeta(item: VaultMeta, thumb: string): WorkCard {
+function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {
   return {
     source: item.source,
     id: item.id,
@@ -36,6 +33,8 @@ function cardFromMeta(item: VaultMeta, thumb: string): WorkCard {
     thumb,
     pageCount: item.pageCount,
     tags: item.tags,
+    width,
+    height,
   };
 }
 
@@ -46,7 +45,6 @@ function VaultPage() {
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
   const [author, setAuthor] = useState("");
-  const [sheet, setSheet] = useState<(typeof SHEETS)[number]>(4);
 
   async function refresh() {
     const local = await listVault();
@@ -97,22 +95,13 @@ function VaultPage() {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
-          <p className="mt-1 text-sm text-muted">
-            {folderLabel
-              ? `原图在「${folderLabel}」，这里只记路径和校验。`
-              : "当前窗口不能挂文件夹时，图会暂存在应用里。"}
-          </p>
-        </div>
-        <div className="flex gap-1">
-          {SHEETS.map((n) => (
-            <Button key={n} size="sm" variant={sheet === n ? "default" : "ghost"} onClick={() => setSheet(n)}>
-              {n}
-            </Button>
-          ))}
-        </div>
+      <header>
+        <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
+        <p className="mt-1 text-sm text-muted">
+          {folderLabel
+            ? `原图在「${folderLabel}」，这里只记路径和校验。`
+            : "当前窗口不能挂文件夹时，图会暂存在应用里。"}
+        </p>
       </header>
 
       {all.length > 0 ? (
@@ -160,26 +149,27 @@ function VaultPage() {
       ) : items.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">没有符合条件的记录。</p>
       ) : (
-        <MasonryBoard maxCols={sheet}>
+        <div className="kami-vault-fall">
           {items.map((item, i) => (
-            <VaultCard
-              key={item.key}
-              item={item}
-              index={i}
-              origin={origin}
-              onExport={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void exportWork(item);
-              }}
-              onDelete={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void removeWork(item);
-              }}
-            />
+            <div key={item.key} className="kami-vault-tile">
+              <VaultCard
+                item={item}
+                index={i}
+                origin={origin}
+                onExport={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void exportWork(item);
+                }}
+                onDelete={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void removeWork(item);
+                }}
+              />
+            </div>
           ))}
-        </MasonryBoard>
+        </div>
       )}
     </div>
   );
@@ -222,6 +212,7 @@ function VaultCard({
   onDelete: (e: MouseEvent) => void;
 }) {
   const [thumb, setThumb] = useState(origin === "server" ? vaultPageUrl(item.key) : "");
+  const [size, setSize] = useState<{ width?: number; height?: number }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -232,6 +223,11 @@ function VaultCard({
       if (cancelled) return;
       if (blob) {
         url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          if (!cancelled) setSize({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.src = url;
         setThumb(url);
         return;
       }
@@ -245,7 +241,7 @@ function VaultCard({
 
   return (
     <ArtworkCard
-      work={cardFromMeta(item, thumb)}
+      work={cardFromMeta(item, thumb, size.width, size.height)}
       index={index}
       variant="vault"
       marks={item.replaced ? ["原图已被替换"] : undefined}
