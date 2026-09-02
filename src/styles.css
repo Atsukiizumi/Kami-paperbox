@@ -443,7 +443,7 @@ html.kami-motion {
 
 .kami-work-sticky {
   position: sticky;
-  top: calc(3.5rem + 2.75rem);
+  top: 3.5rem;
   z-index: 21;
 }
 
@@ -456,7 +456,7 @@ html.kami-motion {
   gap: 0.35rem;
   overflow-x: auto;
   scrollbar-width: thin;
-  padding: 0.4rem 0.75rem 0.65rem;
+  padding: 0.35rem 0.75rem 0.5rem;
 }
 
 .kami-card-shell {
@@ -734,4 +734,120 @@ a:focus-visible .kami-logo .kami-logo-fold {
 .kami-vault-fall .kami-card-shell {
   display: inline-block;
   width: 100%;
+}
+
+.kami-slip {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.65rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--color-bg);
+  background: color-mix(in oklab, var(--color-accent) 88%, var(--color-fg));
+  box-shadow: var(--shadow-border);
+  transform: rotate(-7deg);
+}
+
+.kami-card-folded::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  border-style: solid;
+  border-width: 0 1.05rem 1.05rem 0;
+  border-color: transparent var(--color-bg) color-mix(in oklab, var(--color-accent) 55%, var(--color-fg));
+  pointer-events: none;
+}
+
+.kami-empty-sheet {
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-fg) 4%, transparent), transparent 28%),
+    var(--color-surface);
+  box-shadow: var(--shadow-border);
+}
+
+.kami-drop-mouth {
+  width: min(22rem, 86vw);
+  padding: 2.2rem 1.6rem 1.8rem;
+  border-radius: 1.25rem 1.25rem 0.7rem 0.7rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  text-align: center;
+}
+
+.kami-drop-mouth::before {
+  content: "";
+  display: block;
+  width: 4.5rem;
+  height: 0.55rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 18%, transparent);
+}
+
+.kami-ticket {
+  min-width: 10.5rem;
+  padding: 0.45rem 0.35rem 0.55rem;
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-fg) 5%, transparent), transparent 20%),
+    var(--color-surface);
+  box-shadow: var(--shadow-float);
+}
+
+.kami-fly-sheet {
+  position: fixed;
+  z-index: 80;
+  width: 28px;
+  height: 36px;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--color-accent) 35%, var(--color-surface));
+  clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 0 100%);
+  box-shadow: var(--shadow-border);
+}
+
+.kami-logo-busy .kami-logo-fold {
+  transform-origin: 14.5px 4.5px;
+  animation: kami-fold-breathe 1.1s var(--ease-out) infinite;
+}
+
+@keyframes kami-fold-breathe {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+.kami-lightbox-stage {
+  background: color-mix(in oklab, var(--color-bg) 92%, black);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kami-enter,
+  .kami-page,
+  .kami-chrome-down,
+  .kami-chrome-left,
+  .kami-chrome-up,
+  .kami-pop,
+  .kami-pop-heart,
+  .kami-shimmer,
+  .kami-logo-busy .kami-logo-fold,
+  .kami-vt-out,
+  .kami-vt-in {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .kami-card-shell,
+  .kami-card-shell:hover,
+  .kami-masonry[data-packed] > *,
+  .kami-masonry[data-packed] .kami-card-media {
+    transition: none !important;
+    transform: none !important;
+  }
 }

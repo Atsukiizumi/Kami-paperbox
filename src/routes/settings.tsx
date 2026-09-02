@@ -276,6 +276,7 @@ function SettingsPage() {
     <div className="mx-auto max-w-xl space-y-8">
       <header>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">设置</h1>
+        <p className="mt-1 text-sm text-muted">账号、文件夹、词表和浏览开关都在这张桌上。</p>
       </header>
 
       <ThemeSection />

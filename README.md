@@ -5,7 +5,11 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.8.49-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.8.49"></a>
+  <img src="public/x-banner.jpg" alt="Kami Paperbox banner" width="100%">
+</p>
+
+<p align="center">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.8.50-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.8.50"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">

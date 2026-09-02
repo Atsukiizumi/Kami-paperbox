@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,7 +10,7 @@ import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { formatCount } from "@/lib/utils";
 import { rememberAuthor } from "@/lib/view-history";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { UserMinus, UserPlus } from "lucide-react";
 
@@ -17,25 +18,29 @@ export const Route = createFileRoute("/user/$id")({ component: UserPage });
 
 function UserPage() {
   const { id } = Route.useParams();
-  const [offset, setOffset] = useState(0);
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
   const queryClient = useQueryClient();
 
-  const query = useQuery({
-    queryKey: ["user", id, offset, safeMode, hideAi, pixivCookie],
-    queryFn: async () => {
+  const query = useInfiniteQuery({
+    queryKey: ["user", id, safeMode, hideAi, pixivCookie],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       const r = await fetchSource({
-        data: { op: "pixivUser", id, offset, ...cookiesFromSettings() },
+        data: { op: "pixivUser", id, offset: pageParam, ...cookiesFromSettings() },
       });
       if (r.op !== "pixivUser") throw new Error("返回异常");
       return r;
     },
+    getNextPageParam: (last) => {
+      const next = last.offset + last.items.length;
+      return next < last.listTotal ? next : undefined;
+    },
   });
 
   useEffect(() => {
-    const profile = query.data?.profile;
+    const profile = query.data?.pages[0]?.profile;
     if (!query.isSuccess || !profile) return;
     rememberAuthor({
       source: "pixiv",
@@ -43,7 +48,7 @@ function UserPage() {
       name: profile.name,
       avatar: profile.avatar,
     });
-  }, [id, query.isSuccess, query.data?.profile]);
+  }, [id, query.isSuccess, query.data?.pages]);
 
   if (query.isLoading) {
     return (
@@ -67,8 +72,13 @@ function UserPage() {
     );
   }
 
-  const { profile, items, pickup, newestId, total, listTotal } = query.data;
-  const pinned = offset === 0 ? pickup : [];
+  const first = query.data.pages[0];
+  const profile = first.profile;
+  const pickup = first.pickup;
+  const newestId = first.newestId;
+  const total = first.total;
+  const items = query.data.pages.flatMap((page, i) => (i === 0 ? page.items : page.items));
+  const pinned = pickup;
 
   return (
     <div className="space-y-6">
@@ -95,10 +105,17 @@ function UserPage() {
                 data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings() },
               })
                 .then(() => {
-                  queryClient.setQueryData(["user", id, offset, safeMode, hideAi, pixivCookie], (old: unknown) => {
+                  queryClient.setQueryData(["user", id, safeMode, hideAi, pixivCookie], (old: unknown) => {
                     if (!old || typeof old !== "object") return old;
-                    const rec = old as { profile: { isFollowed?: boolean } };
-                    return { ...rec, profile: { ...rec.profile, isFollowed: on } };
+                    const rec = old as { pages?: { profile: { isFollowed?: boolean } }[] };
+                    if (!rec.pages) return old;
+                    return {
+                      ...rec,
+                      pages: rec.pages.map((page) => ({
+                        ...page,
+                        profile: { ...page.profile, isFollowed: on },
+                      })),
+                    };
                   });
                   toast.success(on ? `已关注 ${profile.name}` : "已取消关注");
                 })
@@ -127,27 +144,12 @@ function UserPage() {
       ) : null}
       <section className="space-y-3">
         {pinned.length > 0 ? <h2 className="text-sm font-medium text-muted">作品</h2> : null}
-        <ArtworkGrid
-          items={items}
-          marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)}
+        <ArtworkGrid items={items} marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)} />
+        <InfiniteSentinel
+          disabled={!query.hasNextPage || query.isFetchingNextPage}
+          onVisible={() => void query.fetchNextPage()}
         />
       </section>
-      <div className="flex justify-center gap-2">
-        <Button
-          variant="secondary"
-          disabled={offset === 0}
-          onClick={() => setOffset((o) => Math.max(0, o - 60))}
-        >
-          上一批
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={offset + 60 >= listTotal}
-          onClick={() => setOffset((o) => o + 60)}
-        >
-          下一批
-        </Button>
-      </div>
     </div>
   );
 }

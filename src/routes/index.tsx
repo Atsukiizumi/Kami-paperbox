@@ -1,9 +1,10 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Clipboard, Loader2, Search } from "lucide-react";
+import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { PaperMark } from "@/components/paper-mark";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { SavedTagBar } from "@/components/saved-tags";
 import { SearchSuggest } from "@/components/search-suggest";
@@ -533,7 +534,7 @@ export function Home() {
 
       {loading ? (
         <p className="flex items-center gap-2 text-xs text-subtle">
-          <Loader2 className="size-3.5 animate-spin" />
+          <PaperMark busy className="size-3.5" />
           正在加载作品…
         </p>
       ) : null}

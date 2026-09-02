@@ -2,8 +2,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
+import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { ProxiedImg } from "@/components/proxied-img";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource } from "@/lib/source";
@@ -92,17 +92,10 @@ function CreatorPage() {
         </div>
       </header>
       <ArtworkGrid items={items} />
-      {query.hasNextPage ? (
-        <div className="flex justify-center">
-          <Button
-            variant="secondary"
-            disabled={query.isFetchingNextPage}
-            onClick={() => void query.fetchNextPage()}
-          >
-            {query.isFetchingNextPage ? "加载中…" : "更多投稿"}
-          </Button>
-        </div>
-      ) : null}
+      <InfiniteSentinel
+        disabled={!query.hasNextPage || query.isFetchingNextPage}
+        onVisible={() => void query.fetchNextPage()}
+      />
     </div>
   );
 }

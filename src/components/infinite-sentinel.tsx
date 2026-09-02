@@ -6,7 +6,7 @@
  * 为什么：页码按钮会把已看过的网格换掉；哨兵进视口再请求，上面的卡片还在。
  */
 import { useEffect, useRef } from "react";
-import { Loader2 } from "lucide-react";
+import { PaperMark } from "./paper-mark";
 
 export function InfiniteSentinel({
   disabled,
@@ -35,8 +35,8 @@ export function InfiniteSentinel({
 
   if (disabled) return null;
   return (
-    <div ref={ref} className="flex h-16 items-center justify-center text-subtle">
-      <Loader2 className="size-4 animate-spin" />
+    <div ref={ref} className="flex h-16 items-center justify-center text-muted">
+      <PaperMark busy className="size-5" />
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function HoverPreview({
 
     if (open) {
       setShown(true);
-      animateFlip(shell, pack.from, to, { duration: 420, opacityFrom: 1 });
+      animateFlip(shell, pack.from, to, { duration: 320, opacityFrom: 1 });
       return () => {
         live = false;
       };
@@ -86,8 +86,13 @@ export function HoverPreview({
   return createPortal(
     <>
       <div
-        className="pointer-events-none fixed inset-0 z-[54] bg-bg/40"
-        style={{ opacity: open ? 1 : 0, transition: "opacity 220ms ease" }}
+        className="pointer-events-none fixed inset-0 z-[54]"
+        style={{
+          opacity: open ? 1 : 0,
+          transition: "opacity 180ms ease",
+          background:
+            "radial-gradient(ellipse at center, transparent 42%, color-mix(in oklab, var(--color-bg) 55%, transparent) 100%)",
+        }}
       />
       <div
         ref={outer}
