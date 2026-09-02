@@ -9,7 +9,7 @@ import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmptySheet } from "@/components/empty-sheet";
 import { runQueue } from "@/lib/queue-runner";
 import { useQueue } from "@/lib/store";
 import type { QueueItem } from "@/lib/types";
@@ -51,10 +51,7 @@ function QueuePage() {
         </div>
       </header>
       {items.length === 0 ? (
-        <Alert>
-          <AlertTitle>队列是空的</AlertTitle>
-          <AlertDescription>点「下载」或「收入纸匣」都会进这里，并显示进度。</AlertDescription>
-        </Alert>
+        <EmptySheet title="队列是空的" hint="点「下载」或「收入纸匣」都会进这里，并显示进度。" />
       ) : (
         <ul className="space-y-2">
           {items.map((item, i) => (

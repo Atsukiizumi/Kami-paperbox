@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
+import { BackToBrowse, BackToPrevious } from "@/components/back-to-browse";
+import { EmptySheet } from "@/components/empty-sheet";
 import { ImageLightbox, type LightboxItem } from "@/components/image-lightbox";
 import { WorkActions } from "@/components/work-actions";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -10,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { WorkTagList } from "@/components/saved-tags";
+import { FoldableText } from "@/components/profile-header";
 import { enqueueWork } from "@/lib/queue-runner";
+import { flyPaperToQueue } from "@/lib/paper-fly";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
@@ -44,8 +48,6 @@ function WorkPage() {
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const savedTags = useSettings((s) => s.savedTags[src] ?? []);
   const toggleSavedTag = useSettings((s) => s.toggleSavedTag);
-  const [saving, setSaving] = useState(false);
-  const [progress, setProgress] = useState("");
   const [preview, setPreview] = useState<number | null>(null);
   const likingRef = useRef(false);
   const inVault = useVaultIndex((s) => Boolean(s.keys[vaultWorkKey(src, id)]));
@@ -304,13 +306,14 @@ function WorkPage() {
   function queueNow(kind: "download" | "vault") {
     if (!work) return;
     enqueueWork(work, kind);
+    const media = document.querySelector(".kami-work-stage");
+    flyPaperToQueue(media?.getBoundingClientRect());
     toast.success(kind === "vault" ? "已加入队列：收入纸匣" : "已加入队列：下载");
   }
 
   const actions = (
     <WorkActions
       work={work}
-      saving={saving}
       inVault={inVault}
       inQueue={inQueue}
       originUrl={originUrl}
@@ -325,10 +328,11 @@ function WorkPage() {
 
   return (
     <article>
-      <div className="kami-work-sticky -mx-4 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10">
-        {actions}
+      <div className="kami-work-sticky -mx-4 flex flex-wrap items-center gap-2 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10">
+        <BackToPrevious />
+        <BackToBrowse />
+        <div className="min-w-0 md:ml-auto">{actions}</div>
       </div>
-      {progress ? <p className="px-1 pt-2 text-xs tabular-nums text-subtle">{progress}</p> : null}
 
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3">
         <h1 className="font-display text-xl leading-tight tracking-tight md:text-2xl">{work.title}</h1>
@@ -345,7 +349,13 @@ function WorkPage() {
             {work.author}
           </Link>
         ) : (
-          <span className="text-sm text-muted">{work.author}</span>
+          <button
+            type="button"
+            className="text-sm text-muted hover:text-fg hover:underline"
+            onClick={() => searchTag(work.author)}
+          >
+            {work.author}
+          </button>
         )}
         {work.pageCount > 1 ? <Badge>{work.pageCount} 页</Badge> : null}
         {formatResolution(work.width, work.height) ? (
@@ -417,11 +427,7 @@ function WorkPage() {
             onToggle={(tag) => toggleSavedTag(src, tag)}
           />
         ) : null}
-        {work.description ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
-            {work.description.slice(0, 1200)}
-          </p>
-        ) : null}
+        {work.description ? <FoldableText text={work.description} lines={4} /> : null}
       </div>
 
       <ImageLightbox
@@ -436,7 +442,6 @@ function WorkPage() {
             work={work}
             compact
             originUrl={originUrl}
-            saving={saving}
             inVault={inVault}
             inQueue={inQueue}
             onSave={() => queueNow("vault")}
@@ -448,10 +453,16 @@ function WorkPage() {
         }
       />
 
-      {(src === "pixiv" || isBooru(src)) && (relatedQuery.data?.length ?? 0) > 0 ? (
+      {(src === "pixiv" || isBooru(src)) ? (
         <section className="space-y-3 pt-8">
           <h2 className="text-lg font-semibold">相关推荐</h2>
-          <ArtworkGrid items={relatedQuery.data ?? []} />
+          {relatedQuery.isLoading ? (
+            <p className="text-sm text-muted">正在折下一叠…</p>
+          ) : (relatedQuery.data?.length ?? 0) > 0 ? (
+            <ArtworkGrid items={relatedQuery.data ?? []} />
+          ) : (
+            <EmptySheet title="没有更多" hint="这篇下面没有可排的相关作品。" className="py-10" />
+          )}
         </section>
       ) : null}
     </article>

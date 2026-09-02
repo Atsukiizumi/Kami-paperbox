@@ -16,6 +16,7 @@ import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork } from "@/lib/queue-runner";
+import { flyPaperToQueue, rectFromEvent } from "@/lib/paper-fly";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
 import { patchCachedWork, prefetchWork } from "@/lib/work-cache";
@@ -31,9 +32,10 @@ import { ProxiedImg, warmMedia } from "./proxied-img";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { pageThumbUrls } from "@/lib/page-thumbs";
 import { MasonryBoard } from "./masonry-board";
+import { EmptySheet } from "./empty-sheet";
 import { Skeleton } from "./ui/skeleton";
 
-const SKELETON_ASPECT = 3 / 4;
+const SKELETON_ASPECTS = [0.72, 1.15, 0.68, 1.45, 0.8, 1, 0.64, 1.28];
 /** 悬停预览要等够久，才能先点到封面上的红心、纸匣和队列。 */
 const PREVIEW_HOVER_MS = 520;
 
@@ -114,6 +116,7 @@ export function ArtworkCard({
     hidePreview();
     if (work.restricted) return;
     enqueueWork(work, "vault");
+    flyPaperToQueue(e ? rectFromEvent(e.currentTarget) : mediaRef.current?.getBoundingClientRect());
     toast.success("已加入队列：收入纸匣");
   }
 
@@ -123,6 +126,7 @@ export function ArtworkCard({
     hidePreview();
     if (work.restricted) return;
     enqueueWork(work, "download");
+    flyPaperToQueue(e ? rectFromEvent(e.currentTarget) : mediaRef.current?.getBoundingClientRect());
     toast.success("已加入队列：下载");
   }
 
@@ -191,7 +195,7 @@ export function ArtworkCard({
         setMenu({ x: e.clientX, y: e.clientY });
       }}
     >
-      <div className="kami-card-shell">
+      <div className={cn("kami-card-shell relative", inVault && variant !== "vault" && "kami-card-folded")}>
         <div className="relative">
         <Link
           to="/work/$source/$id"
@@ -229,11 +233,11 @@ export function ArtworkCard({
               </div>
             ) : null}
             {marks && marks.length > 0 ? (
-              <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
+              <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-2">
                 {marks.map((label) => (
-                  <Badge key={label} className="bg-accent text-accent-fg">
+                  <span key={label} className="kami-slip">
                     {label}
-                  </Badge>
+                  </span>
                 ))}
               </div>
             ) : null}
@@ -420,20 +424,10 @@ export function ArtworkCard({
       <CardMenu
         work={work}
         pos={menu}
-        inVault={inVault}
-        liked={liked}
         onClose={() => setMenu(null)}
-        onSave={() => {
-          setMenu(null);
-          void saveCard();
-        }}
-        onLike={() => {
-          setMenu(null);
-          void likeCard();
-        }}
         onQueue={() => {
           setMenu(null);
-          enqueueWork(work, "download");
+          queueCard();
         }}
       />
       {work.thumb ? (
@@ -526,9 +520,7 @@ export function ArtworkGrid({
   marksOf?: (work: WorkCard) => string[] | undefined;
 }) {
   if (items.length === 0) {
-    return (
-      <p className="py-16 text-center text-sm text-muted">{empty ?? "没有符合条件的作品。"}</p>
-    );
+    return <EmptySheet title={empty ?? "没有符合条件的作品。"} hint="换个站点或标签再看。" />;
   }
   return (
     <MasonryBoard>
@@ -541,32 +533,36 @@ export function ArtworkGrid({
 
 export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <div className="kami-skeleton-grid">
-      {Array.from({ length: count }).map((_, i) => (
-        <article
-          key={i}
-          className="kami-enter"
-          style={
-            {
-              animationDelay: `${Math.min(i, 12) * 40}ms`,
-              ["--card-aspect"]: String(SKELETON_ASPECT),
-            } as CSSProperties
-          }
-        >
-          <div className="overflow-hidden rounded-xl bg-surface">
-            <Skeleton
-              className="kami-card-media w-full rounded-none"
-              style={{
-                ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
-              }}
-            />
-            <div className="space-y-2 px-3 py-3">
-              <Skeleton className={cn("h-3 rounded-md", i % 3 === 0 ? "w-3/5" : "w-4/5")} />
-              <Skeleton className={cn("h-2.5 rounded-md", i % 2 === 0 ? "w-2/5" : "w-1/2")} />
+    <MasonryBoard>
+      {Array.from({ length: count }).map((_, i) => {
+        const aspect = SKELETON_ASPECTS[i % SKELETON_ASPECTS.length];
+        return (
+          <article
+            key={i}
+            className="kami-enter"
+            data-aspect={String(aspect)}
+            style={
+              {
+                animationDelay: `${Math.min(i, 12) * 40}ms`,
+                ["--card-aspect"]: String(aspect),
+              } as CSSProperties
+            }
+          >
+            <div className="kami-card-shell overflow-hidden">
+              <Skeleton
+                className="kami-card-media w-full rounded-none"
+                style={{
+                  ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
+                }}
+              />
+              <div className="kami-card-caption space-y-2 px-3 py-3">
+                <Skeleton className={cn("h-3 rounded-md", i % 3 === 0 ? "w-3/5" : "w-4/5")} />
+                <Skeleton className={cn("h-2.5 rounded-md", i % 2 === 0 ? "w-2/5" : "w-1/2")} />
+              </div>
             </div>
-          </div>
-        </article>
-      ))}
-    </div>
+          </article>
+        );
+      })}
+    </MasonryBoard>
   );
 }

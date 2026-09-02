@@ -113,7 +113,7 @@ export function ImageLightbox({
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex flex-col bg-overlay transition-opacity duration-300 ease-out",
+        "kami-lightbox-stage fixed inset-0 z-50 flex flex-col transition-opacity duration-300 ease-out",
         visible ? "opacity-100" : "opacity-0",
       )}
       role="dialog"
@@ -241,7 +241,7 @@ export function ImageLightbox({
               <img
                 src={item.src}
                 alt={item.alt}
-                className="max-h-[80vh] max-w-[92vw] object-contain"
+                className="max-h-[92vh] max-w-[94vw] object-contain"
                 draggable={false}
               />
             )}
@@ -274,7 +274,7 @@ export function ImageLightbox({
       ) : null}
       {footer ? (
         <div
-          className="flex shrink-0 flex-wrap items-center justify-center gap-1 border-t border-border bg-bg/80 px-2 py-2"
+          className="flex shrink-0 flex-wrap items-center justify-center gap-1 bg-bg/55 px-2 py-1.5 backdrop-blur-md"
           onClick={(e) => e.stopPropagation()}
         >
           {footer}

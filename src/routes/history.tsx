@@ -9,7 +9,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmptySheet } from "@/components/empty-sheet";
 import { historyToCard, useViewHistory, type AuthorHistoryEntry } from "@/lib/view-history";
 import { siteLabel } from "@/lib/sites";
 
@@ -41,10 +41,7 @@ function HistoryPage() {
         ) : null}
       </header>
       {empty ? (
-        <Alert>
-          <AlertTitle>还没有历史</AlertTitle>
-          <AlertDescription>打开作品或画师页后会记在这里。上一页仍然走浏览器记录。</AlertDescription>
-        </Alert>
+        <EmptySheet title="还没有历史" hint="打开作品或画师页后会记在这里。上一页仍然走浏览器记录。" />
       ) : null}
       {authors.length > 0 ? (
         <section className="space-y-3">

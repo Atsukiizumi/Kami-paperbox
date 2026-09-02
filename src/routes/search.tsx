@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SEARCH_FILE_EVENT } from "@/components/drop-to-search";
+import { EmptySheet } from "@/components/empty-sheet";
 import { prepareSearchImage } from "@/lib/prepare-search-image";
 import {
   engineLabel,
@@ -236,24 +237,26 @@ function SearchPage() {
       </Card>
 
       {error && items.length === 0 ? (
-        <div className="space-y-2">
-          <p className="text-sm text-muted">{error}</p>
-          {file && isSearchLimited(error) ? (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={loading}
-              onClick={() => {
-                const next = fallbackSearchEngine(engine);
-                setEngine(next);
-                setSearchEngine(next);
-                void run(file, next);
-              }}
-            >
-              改用 {engineLabel(fallbackSearchEngine(engine))} 再试
-            </Button>
-          ) : null}
-        </div>
+        <EmptySheet
+          title={error}
+          action={
+            file && isSearchLimited(error) ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loading}
+                onClick={() => {
+                  const next = fallbackSearchEngine(engine);
+                  setEngine(next);
+                  setSearchEngine(next);
+                  void run(file, next);
+                }}
+              >
+                改用 {engineLabel(fallbackSearchEngine(engine))} 再试
+              </Button>
+            ) : undefined
+          }
+        />
       ) : null}
 
       {loading && items.length === 0 ? (

@@ -64,10 +64,11 @@ export function DropToSearch() {
 
   if (!over || typeof document === "undefined") return null;
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-overlay">
-      <p className="rounded-2xl bg-surface px-6 py-4 font-display text-xl tracking-tight text-fg shadow-[var(--shadow-float)]">
-        放到这里搜图
-      </p>
+    <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-overlay/70">
+      <div className="kami-drop-mouth">
+        <p className="font-display text-2xl tracking-tight text-fg">放进纸匣口</p>
+        <p className="mt-1 text-sm text-muted">松开就去搜图</p>
+      </div>
     </div>,
     document.body,
   );

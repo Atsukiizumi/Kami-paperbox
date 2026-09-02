@@ -8,6 +8,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
+import { EmptySheet } from "@/components/empty-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SITE_LIST } from "@/lib/sites";
@@ -140,14 +141,17 @@ function VaultPage() {
       ) : null}
 
       {all.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-sm text-muted">还是空的。去浏览把喜欢的图收进来。</p>
-          <Button asChild>
-            <Link to="/">去浏览</Link>
-          </Button>
-        </div>
+        <EmptySheet
+          title="还是空的"
+          hint="去浏览把喜欢的图收进来。"
+          action={
+            <Button asChild>
+              <Link to="/">去浏览</Link>
+            </Button>
+          }
+        />
       ) : items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted">没有符合条件的记录。</p>
+        <EmptySheet title="没有符合条件的记录。" hint="换个站点或作者再看。" />
       ) : (
         <div className="kami-vault-fall">
           {items.map((item, i) => (

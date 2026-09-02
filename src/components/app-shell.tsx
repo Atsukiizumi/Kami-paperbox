@@ -13,7 +13,8 @@ import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
-import { DetailNav, isDetailPath, isMainNavPath } from "@/components/back-to-browse";
+import { PaperMark } from "@/components/paper-mark";
+import { DetailNav, isDetailPath, isMainNavPath, isWorkPath } from "@/components/back-to-browse";
 import { Home as BrowsePage } from "@/routes/index";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,26 +31,7 @@ const NAV = [
 ] as const;
 
 function LogoMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("kami-logo size-6 text-accent", className)} aria-hidden>
-      <path
-        d="M5.5 4.5h9L19 9v11H5.5z"
-        fill="currentColor"
-        fillOpacity="0.12"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <path
-        className="kami-logo-fold"
-        d="M14.5 4.5V9H19"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <PaperMark className={className} />;
 }
 
 function isActive(pathname: string, to: (typeof NAV)[number]["to"]) {
@@ -137,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </Hint>
         <Link to="/" className="flex shrink-0 items-center gap-2 px-1">
-          <LogoMark />
+          <LogoMark className="size-6 text-accent" />
           <span className="hidden font-display text-base tracking-tight sm:inline">Kami 纸匣</span>
         </Link>
         <Separator className="hidden h-5 w-px shrink-0 bg-border sm:block" />
@@ -169,8 +151,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 to={item.to}
                 title={expanded ? undefined : item.label}
+                data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
                   "relative z-10 flex h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm transition-colors duration-200",
+                  item.to === "/queue" && "kami-queue-nav-desktop",
                   active ? "text-fg" : "text-muted hover:text-fg",
                 )}
               >
@@ -231,6 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
+                data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
                   "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-200",
                   active ? "text-fg" : "text-muted",
@@ -278,7 +263,7 @@ function PageFrame({
           <BrowsePage />
         </div>
       ) : null}
-      {detail ? <DetailNav /> : null}
+      {detail && !isWorkPath(pathname) ? <DetailNav /> : null}
       {!isHome ? (
         <div ref={ref} className={detail ? "pt-4 md:pt-5" : "pt-6 md:pt-8"}>
           {children}

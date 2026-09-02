@@ -38,6 +38,10 @@ export function BackToBrowse() {
   );
 }
 
+export function isWorkPath(pathname: string) {
+  return pathname.startsWith("/work/");
+}
+
 export function isDetailPath(pathname: string) {
   return (
     pathname.startsWith("/work/") ||
