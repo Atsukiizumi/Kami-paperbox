@@ -15,7 +15,6 @@
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">
   <img src="https://img.shields.io/badge/vite-8-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Vite 8">
   <img src="https://img.shields.io/badge/typescript-5.7-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="TypeScript 5.7">
-  <img src="https://img.shields.io/badge/tanstack-router_query-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="TanStack Router and Query">
   <img src="https://img.shields.io/badge/tailwind-4-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Tailwind CSS 4">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="MIT License"></a>
   <a href="https://grok.com"><img src="https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c" alt="AI powered by Grok"></a>
