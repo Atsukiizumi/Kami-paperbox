@@ -33,9 +33,8 @@ import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { pageThumbUrls } from "@/lib/page-thumbs";
 import { MasonryBoard } from "./masonry-board";
 import { EmptySheet } from "./empty-sheet";
-import { Skeleton } from "./ui/skeleton";
 
-const SKELETON_ASPECTS = [0.72, 1.15, 0.68, 1.45, 0.8, 1, 0.64, 1.28];
+const SKELETON_ASPECT = 3 / 4;
 /** 悬停预览要等够久，才能先点到封面上的红心、纸匣和队列。 */
 const PREVIEW_HOVER_MS = 520;
 
@@ -534,35 +533,30 @@ export function ArtworkGrid({
 export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
   return (
     <MasonryBoard>
-      {Array.from({ length: count }).map((_, i) => {
-        const aspect = SKELETON_ASPECTS[i % SKELETON_ASPECTS.length];
-        return (
-          <article
-            key={i}
-            className="kami-enter"
-            data-aspect={String(aspect)}
-            style={
-              {
-                animationDelay: `${Math.min(i, 12) * 40}ms`,
-                ["--card-aspect"]: String(aspect),
-              } as CSSProperties
-            }
-          >
-            <div className="kami-card-shell overflow-hidden">
-              <Skeleton
-                className="kami-card-media w-full rounded-none"
-                style={{
-                  ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s`,
-                }}
-              />
-              <div className="kami-card-caption space-y-2 px-3 py-3">
-                <Skeleton className={cn("h-3 rounded-md", i % 3 === 0 ? "w-3/5" : "w-4/5")} />
-                <Skeleton className={cn("h-2.5 rounded-md", i % 2 === 0 ? "w-2/5" : "w-1/2")} />
-              </div>
+      {Array.from({ length: count }).map((_, i) => (
+        <article
+          key={i}
+          className="kami-enter"
+          data-aspect={String(SKELETON_ASPECT)}
+          style={
+            {
+              animationDelay: `${Math.min(i, 12) * 40}ms`,
+              ["--card-aspect"]: String(SKELETON_ASPECT),
+            } as CSSProperties
+          }
+        >
+          <div className="kami-card-shell overflow-hidden">
+            <div
+              className="kami-card-media kami-shimmer"
+              style={{ ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s` }}
+            />
+            <div className="kami-card-caption flex h-[5.5rem] flex-col justify-center gap-2 px-3">
+              <span className="kami-shimmer h-3 w-4/5 rounded-md" />
+              <span className="kami-shimmer h-2.5 w-2/5 rounded-md" />
             </div>
-          </article>
-        );
-      })}
+          </div>
+        </article>
+      ))}
     </MasonryBoard>
   );
 }
