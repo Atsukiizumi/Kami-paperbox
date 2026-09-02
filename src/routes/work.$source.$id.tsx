@@ -368,6 +368,21 @@ function WorkPage() {
           <span className="text-xs tabular-nums text-subtle">收藏 {formatCount(work.bookmarks)}</span>
         ) : null}
       </header>
+      {isBooru(src) && work.pools && work.pools.length > 0 ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-3 text-sm text-muted">
+          <span className="text-subtle">合集</span>
+          {work.pools.map((pool) => (
+            <Link
+              key={pool.id}
+              to="/pool/$site/$id"
+              params={{ site: src, id: pool.id }}
+              className="hover:text-fg hover:underline"
+            >
+              {pool.name}
+            </Link>
+          ))}
+        </p>
+      ) : null}
 
       {work.restricted ? (
         <Alert className="mb-4">

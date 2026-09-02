@@ -28,9 +28,11 @@ import {
   BOORU_ORIGIN,
   DANBOORU_UA,
   booruListUrl,
+  booruPoolUrl,
   booruPostUrl,
   booruSuggestUrl,
   composeBooruTags,
+  parseMoebooruPools,
   mapBooruCard,
   mapBooruDetail,
 } from "./booru";
@@ -902,11 +904,53 @@ async function booruList(
   };
 }
 
+async function booruHtml(site: BooruSite, url: string): Promise<string> {
+  const origin = BOORU_ORIGIN[site];
+  const headers: Record<string, string> = {
+    "User-Agent": UA,
+    Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+    Referer: `${origin}/`,
+  };
+  const res = await outboundFetch(url, { headers, redirect: "follow" });
+  if (!res.ok) return "";
+  return res.text();
+}
+
+async function danbooruPoolsForPost(id: string): Promise<{ id: string; name: string }[]> {
+  try {
+    const json = await booruJson(
+      "danbooru",
+      `${BOORU_ORIGIN.danbooru}/pools.json?search[post_id]=${encodeURIComponent(id)}&limit=8`,
+    );
+    if (!Array.isArray(json)) return [];
+    const out: { id: string; name: string }[] = [];
+    for (const raw of json) {
+      const rec = asRecord(raw);
+      const poolId = asString(rec.id);
+      const name = asString(rec.name).replace(/_/g, " ");
+      if (poolId) out.push({ id: poolId, name: name || `合集 ${poolId}` });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promise<FetchOk> {
   const json = await booruJson(site, booruPostUrl(site, id));
   const rec = asBooruPosts(json)[0];
   if (!rec) throw new Error("作品不存在");
-  const work = mapBooruDetail(site, rec, safeMode);
+  let pools = parseMoebooruPools("");
+  if (site !== "danbooru") {
+    try {
+      pools = parseMoebooruPools(await booruHtml(site, `${BOORU_ORIGIN[site]}/post/show/${id}`));
+    } catch {
+      pools = [];
+    }
+  } else {
+    pools = await danbooruPoolsForPost(id);
+  }
+  const work = mapBooruDetail(site, rec, safeMode, pools);
   if (!work) {
     if (mapBooruDetail(site, rec, false)) {
       throw new Error("已关闭 R-18，该作品被隐藏。可在浏览页打开 R-18。");
@@ -914,6 +958,47 @@ async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promis
     throw new Error("作品不存在，或包含被过滤的内容");
   }
   return { op: "booruPost", work };
+}
+
+async function booruPool(site: BooruSite, id: string, safeMode: boolean): Promise<FetchOk> {
+  const meta = asRecord(await booruJson(site, booruPoolUrl(site, id)));
+  if (asString(meta.id) && asString(meta.id) !== id && site !== "danbooru") {
+    /* show.json 仍可能只有 posts */
+  }
+  const name = asString(meta.name) || `合集 ${id}`;
+  const description = asString(meta.description);
+  const postCount = asNumber(meta.post_count || (Array.isArray(meta.post_ids) ? meta.post_ids.length : 0));
+  const items: WorkCard[] = [];
+  const seen = new Set<string>();
+  for (const rec of asBooruPosts(meta)) {
+    const card = mapBooruCard(site, rec, safeMode);
+    if (!card || seen.has(card.id)) continue;
+    seen.add(card.id);
+    items.push(card);
+  }
+  for (let page = 1; page <= 6; page += 1) {
+    if (postCount > 0 && items.length >= postCount) break;
+    const list = await booruList(site, "recent", `pool:${id}`, page, safeMode);
+    if (list.op !== "booruList") break;
+    let added = 0;
+    for (const card of list.items) {
+      if (seen.has(card.id)) continue;
+      seen.add(card.id);
+      items.push(card);
+      added += 1;
+    }
+    if (!list.nextPage || added === 0) break;
+  }
+  if (items.length === 0 && !name) throw new Error("合集不存在");
+  return {
+    op: "booruPool",
+    site,
+    id,
+    name,
+    description,
+    postCount: postCount || items.length,
+    items,
+  };
 }
 
 async function tagSuggest(source: Source, word: string, pixiv?: string): Promise<FetchOk> {
@@ -987,6 +1072,8 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return booruList(input.site, input.feed, input.tags ?? "", input.page, safe);
     case "booruPost":
       return booruPost(input.site, input.id, safe);
+    case "booruPool":
+      return booruPool(input.site, input.id, safe);
     case "tagSuggest":
       return tagSuggest(input.source, input.word, pixiv);
     default: {

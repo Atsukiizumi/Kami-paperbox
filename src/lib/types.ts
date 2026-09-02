@@ -52,6 +52,11 @@ export type WorkPage = {
   height?: number;
 };
 
+export type WorkPoolRef = {
+  id: string;
+  name: string;
+};
+
 export type WorkDetail = WorkCard & {
   description: string;
   pages: WorkPage[];
@@ -64,6 +69,7 @@ export type WorkDetail = WorkCard & {
   bookmarked?: boolean;
   bookmarkId?: string;
   followed?: boolean;
+  pools?: WorkPoolRef[];
 };
 
 export type UserProfile = {
@@ -121,6 +127,15 @@ export type FetchOk =
   | { op: "fanboxTagged"; items: WorkCard[]; nextPage: number | null }
   | { op: "booruList"; site: BooruSite; items: WorkCard[]; nextPage: number | null }
   | { op: "booruPost"; work: WorkDetail }
+  | {
+      op: "booruPool";
+      site: BooruSite;
+      id: string;
+      name: string;
+      description: string;
+      postCount: number;
+      items: WorkCard[];
+    }
   | { op: "tagSuggest"; items: TagSuggestItem[] };
 
 export type FetchInput = {
@@ -143,6 +158,7 @@ export type FetchInput = {
   | { op: "fanboxTagged"; tag: string; page: number }
   | { op: "booruList"; site: BooruSite; feed: "recent" | "popular"; tags?: string; page: number }
   | { op: "booruPost"; site: BooruSite; id: string }
+  | { op: "booruPool"; site: BooruSite; id: string }
   | { op: "tagSuggest"; source: Source; word: string }
 );
 

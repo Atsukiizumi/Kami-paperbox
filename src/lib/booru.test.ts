@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   booruListUrl,
+  booruPoolUrl,
+  poolOriginUrl,
   composeBooruTags,
   hasBlockedTags,
   isNsfwRating,
   mapBooruCard,
   mapBooruDetail,
+  parseMoebooruPools,
   pickRelatedTag,
   splitTags,
 } from "./booru.ts";
@@ -127,5 +130,16 @@ describe("booru filters", () => {
     assert.match(url, /rating:s/);
     assert.equal(url.includes("popular_recent"), false);
     assert.equal(pickRelatedTag(["rating:s", "landscape", "sky"]), "landscape");
+  });
+
+  it("builds yande.re pool urls", () => {
+    assert.equal(booruPoolUrl("yande", "99384"), "https://yande.re/pool/show.json?id=99384");
+    assert.equal(poolOriginUrl("yande", "99384"), "https://yande.re/pool/show/99384");
+  });
+
+  it("reads pool membership from moebooru html", () => {
+    const html =
+      'This post is #<a href="/post?tags=pool%3A99384">30</a> in the <a href="/pool/show/99384">[muni] Parfait</a> pool.';
+    assert.deepEqual(parseMoebooruPools(html), [{ id: "99384", name: "[muni] Parfait" }]);
   });
 });
