@@ -47,9 +47,10 @@ export function masonryColumns(
   width: number,
   gap = MASONRY_GAP,
   minCol = MASONRY_MIN_COL,
+  maxCols = MASONRY_MAX_COLS,
 ): number {
-  if (width <= 0) return 2;
-  return Math.max(2, Math.min(MASONRY_MAX_COLS, Math.floor((width + gap) / (minCol + gap))));
+  if (width <= 0) return Math.max(1, Math.min(2, maxCols));
+  return Math.max(1, Math.min(maxCols, Math.floor((width + gap) / (minCol + gap))));
 }
 
 export function masonrySpan(layout: string | undefined, columns: number): number {
@@ -59,15 +60,15 @@ export function masonrySpan(layout: string | undefined, columns: number): number
   return 1;
 }
 
-export function masonryRowHeight(width: number): number {
-  const cols = masonryColumns(width);
-  return Math.round(Math.max(180, Math.min(320, width / cols / 0.72)));
+export function masonryRowHeight(width: number, maxCols = MASONRY_MAX_COLS): number {
+  const cols = masonryColumns(width, MASONRY_GAP, MASONRY_MIN_COL, maxCols);
+  return Math.round(Math.max(160, Math.min(320, width / cols / 0.72)));
 }
 
-export function masonryMinCard(width: number, gap = MASONRY_GAP): number {
-  const cols = masonryColumns(width, gap);
+export function masonryMinCard(width: number, gap = MASONRY_GAP, maxCols = MASONRY_MAX_COLS): number {
+  const cols = masonryColumns(width, gap, MASONRY_MIN_COL, maxCols);
   const col = cols <= 1 ? width : (width - gap * (cols - 1)) / cols;
-  return Math.max(168, Math.min(MASONRY_MIN_CARD, Math.floor(col)));
+  return Math.max(96, Math.min(MASONRY_MIN_CARD, Math.floor(col)));
 }
 
 export function clampAspect(aspect: number): number {
