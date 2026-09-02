@@ -708,3 +708,30 @@ a:focus-visible .kami-logo .kami-logo-fold {
     animation: none;
   }
 }
+
+.kami-vault-fall {
+  column-count: 2;
+  column-gap: 0.9rem;
+}
+
+@media (min-width: 720px) {
+  .kami-vault-fall {
+    column-count: 3;
+  }
+}
+
+@media (min-width: 1024px) {
+  .kami-vault-fall {
+    column-count: 4;
+  }
+}
+
+.kami-vault-tile {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+}
+
+.kami-vault-fall .kami-card-shell {
+  display: inline-block;
+  width: 100%;
+}
