@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.48] — 2026-09-02
+
+对应 [PR #91](https://github.com/Atsukiizumi/Kami-paperbox/pull/91)。
+
+### 调整
+
+- 纸匣改回和浏览同一套按比例撑满的拼版。2 / 4 / 6 / 9 只改一行大概几张，不再切成方格。
+
 ## [0.8.47] — 2026-09-02
 
 对应 [PR #90](https://github.com/Atsukiizumi/Kami-paperbox/pull/90)。

@@ -1,12 +1,14 @@
 /**
- * 纸匣页：拼版浏览已保存作品。
+ * 纸匣页：浏览已保存作品。
  *
- * 作用：2 / 4 / 6 / 9 宫格看图。优先读用户文件夹里的原图。
- * 用法：侧栏入口。点格子进作品页。
+ * 作用：和浏览页同一套拼版；2/4/6/9 只改一行大概几张。优先读用户文件夹原图。
+ * 用法：侧栏入口。导出 / 删除在卡片悬停条上。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
+import { ArtworkCard } from "@/components/artwork-card";
+import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SITE_LIST } from "@/lib/sites";
@@ -18,18 +20,23 @@ import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/
 import { forgetVaultKey } from "@/lib/vault-index";
 import { filterVaultItems, vaultAuthors, vaultTotals } from "@/lib/vault-query";
 import { listServerVault, vaultPageUrl } from "@/lib/vault-sync";
-import type { Source } from "@/lib/types";
-import { ProxiedImg } from "@/components/proxied-img";
+import type { Source, WorkCard } from "@/lib/types";
 
 export const Route = createFileRoute("/vault")({ component: VaultPage });
 
 const SHEETS = [2, 4, 6, 9] as const;
 
-function sheetClass(n: (typeof SHEETS)[number]) {
-  if (n === 2) return "grid-cols-1 sm:grid-cols-2";
-  if (n === 4) return "grid-cols-2";
-  if (n === 6) return "grid-cols-2 sm:grid-cols-3";
-  return "grid-cols-3";
+function cardFromMeta(item: VaultMeta, thumb: string): WorkCard {
+  return {
+    source: item.source,
+    id: item.id,
+    title: item.title,
+    author: item.author,
+    authorId: item.authorId,
+    thumb,
+    pageCount: item.pageCount,
+    tags: item.tags,
+  };
 }
 
 function VaultPage() {
@@ -153,11 +160,12 @@ function VaultPage() {
       ) : items.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">没有符合条件的记录。</p>
       ) : (
-        <div className={cn("grid gap-2", sheetClass(sheet))}>
-          {items.map((item) => (
-            <SheetCell
+        <MasonryBoard maxCols={sheet}>
+          {items.map((item, i) => (
+            <VaultCard
               key={item.key}
               item={item}
+              index={i}
               origin={origin}
               onExport={(e) => {
                 e.preventDefault();
@@ -171,7 +179,7 @@ function VaultPage() {
               }}
             />
           ))}
-        </div>
+        </MasonryBoard>
       )}
     </div>
   );
@@ -200,13 +208,15 @@ function FilterChip({
   );
 }
 
-function SheetCell({
+function VaultCard({
   item,
+  index,
   origin,
   onExport,
   onDelete,
 }: {
   item: VaultMeta;
+  index: number;
   origin: "server" | "browser";
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
@@ -234,41 +244,13 @@ function SheetCell({
   }, [item.key, item.relativePath, origin]);
 
   return (
-    <Link
-      to="/work/$source/$id"
-      params={{ source: item.source, id: item.id }}
-      className="group relative aspect-square overflow-hidden rounded-xl bg-elevated"
-    >
-      {thumb ? (
-        <ProxiedImg src={thumb} alt={item.title} fit="cover" className="absolute inset-0 size-full object-cover" />
-      ) : (
-        <span className="absolute inset-0 bg-elevated" />
-      )}
-      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/80 to-transparent p-2">
-        <span className="block truncate text-xs text-fg">{item.title}</span>
-        <span className="block truncate text-[11px] text-muted">{item.author}</span>
-      </span>
-      {item.replaced ? (
-        <span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[10px] text-white">
-          原图已被替换
-        </span>
-      ) : null}
-      <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
-        <button
-          type="button"
-          className="rounded-full bg-bg/80 px-2 py-0.5 text-[10px] text-fg"
-          onClick={onExport}
-        >
-          导出
-        </button>
-        <button
-          type="button"
-          className="rounded-full bg-bg/80 px-2 py-0.5 text-[10px] text-fg"
-          onClick={onDelete}
-        >
-          移除
-        </button>
-      </span>
-    </Link>
+    <ArtworkCard
+      work={cardFromMeta(item, thumb)}
+      index={index}
+      variant="vault"
+      marks={item.replaced ? ["原图已被替换"] : undefined}
+      onExport={onExport}
+      onDelete={onDelete}
+    />
   );
 }

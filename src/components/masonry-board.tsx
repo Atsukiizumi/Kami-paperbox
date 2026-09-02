@@ -7,7 +7,7 @@
  *        只观察宽度和子节点增删；高度由我们自己写死，不必等图片 onLoad。
  */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { MASONRY_CAPTION, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
+import { MASONRY_CAPTION, MASONRY_MAX_COLS, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
 import { cn } from "@/lib/utils";
 
 function readGap(root: HTMLElement): number {
@@ -43,13 +43,15 @@ function packBoard(root: HTMLElement) {
 
   const gap = readGap(root);
   const hasCaption = children.some((el) => el.querySelector(".kami-card-media"));
+  const maxCols = Number.parseInt(root.dataset.maxCols || "", 10);
+  const cols = Number.isFinite(maxCols) && maxCols > 0 ? maxCols : MASONRY_MAX_COLS;
   const packed = packJustified({
     containerWidth: width,
     gap,
     items: children.map((el) => ({ aspect: readAspect(el) })),
-    idealHeight: masonryRowHeight(width),
+    idealHeight: masonryRowHeight(width, cols),
     captionBand: hasCaption ? MASONRY_CAPTION : 0,
-    minWidth: masonryMinCard(width, gap),
+    minWidth: masonryMinCard(width, gap, cols),
   });
 
   root.setAttribute("data-packed", "");
@@ -77,9 +79,11 @@ function packBoard(root: HTMLElement) {
 export function MasonryBoard({
   children,
   className,
+  maxCols,
 }: {
   children: ReactNode;
   className?: string;
+  maxCols?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -118,11 +122,12 @@ export function MasonryBoard({
       ro.disconnect();
       mo.disconnect();
     };
-  }, []);
+  }, [maxCols]);
 
   return (
-    <div ref={ref} className={cn("kami-masonry", className)}>
+    <div ref={ref} data-max-cols={maxCols || undefined} className={cn("kami-masonry", className)}>
       {children}
     </div>
   );
 }
+
