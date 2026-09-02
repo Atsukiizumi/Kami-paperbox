@@ -46,7 +46,8 @@ export function isDetailPath(pathname: string) {
   return (
     pathname.startsWith("/work/") ||
     pathname.startsWith("/user/") ||
-    pathname.startsWith("/creator/")
+    pathname.startsWith("/creator/") ||
+    pathname.startsWith("/pool/")
   );
 }
 

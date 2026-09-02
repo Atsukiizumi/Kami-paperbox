@@ -105,15 +105,32 @@ export function enqueueWork(
   },
   kind: QueueKind = "download",
 ) {
-  useQueue.getState().enqueue({
-    key: workKey(work.source, work.id),
-    source: work.source,
-    id: work.id,
-    title: work.title,
-    author: work.author,
-    thumb: work.thumb,
-    kind,
-  });
+  enqueueWorks([work], kind);
+}
+
+export function enqueueWorks(
+  works: Array<{
+    source: Source;
+    id: string;
+    title: string;
+    author: string;
+    thumb: string;
+  }>,
+  kind: QueueKind = "download",
+) {
+  if (works.length === 0) return;
+  const q = useQueue.getState();
+  for (const work of works) {
+    q.enqueue({
+      key: workKey(work.source, work.id),
+      source: work.source,
+      id: work.id,
+      title: work.title,
+      author: work.author,
+      thumb: work.thumb,
+      kind,
+    });
+  }
   void runQueue();
 }
 

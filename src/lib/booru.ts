@@ -5,7 +5,7 @@
  * 用法：booruListUrl / mapBooruCard。请求本身在 upstream.server.ts。
  * 为什么：三个站 JSON 形状接近但 rating、标签字段名不同，集中在这里改。
  */
-import type { BooruSite, WorkCard, WorkDetail, WorkPage } from "./types";
+import type { BooruSite, WorkCard, WorkDetail, WorkPage, WorkPoolRef } from "./types";
 
 export const DANBOORU_UA = "Mozilla/5.0 gallery-dl/1.27.0";
 
@@ -189,6 +189,7 @@ export function mapBooruDetail(
   site: BooruSite,
   raw: unknown,
   safeMode: boolean,
+  pools: WorkPoolRef[] = [],
 ): WorkDetail | null {
   const card = mapBooruCard(site, raw, safeMode);
   if (!card) return null;
@@ -210,7 +211,42 @@ export function mapBooruDetail(
     ...card,
     description: source ? `来源 ${source}` : "",
     pages: page.original || page.regular ? [page] : [],
+    pools: pools.length ? pools : undefined,
   };
+}
+
+export function parseMoebooruPools(html: string): WorkPoolRef[] {
+  const out: WorkPoolRef[] = [];
+  const seen = new Set<string>();
+  const sentence =
+    /in the\s*<a href="\/pool\/show\/(\d+)"[^>]*>([^<]*)<\/a>\s*pool/gi;
+  for (const match of html.matchAll(sentence)) {
+    const id = match[1];
+    const name = decodeHtml(match[2] ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: name || `合集 ${id}` });
+  }
+  if (out.length) return out;
+  const href = /href="\/pool\/show\/(\d+)"[^>]*>([^<]+)<\/a>/gi;
+  for (const match of html.matchAll(href)) {
+    const id = match[1];
+    const name = decodeHtml(match[2] ?? "").trim();
+    if (!id || seen.has(id) || !name) continue;
+    seen.add(id);
+    out.push({ id, name });
+  }
+  return out;
+}
+
+function decodeHtml(raw: string): string {
+  return raw
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
+    .replace(/&/g, "\u0026")
+    .replace(/</g, "\u003c")
+    .replace(/>/g, "\u003e")
+    .replace(/"/g, "\u0022")
+    .replace(/&#39;/g, "\u0027");
 }
 
 export function booruListUrl(
@@ -275,4 +311,15 @@ export function booruPostUrl(site: BooruSite, id: string): string {
   const origin = BOORU_ORIGIN[site];
   if (site === "danbooru") return `${origin}/posts/${id}.json`;
   return `${origin}/post.json?tags=${encodeURIComponent(`id:${id}`)}`;
+}
+
+export function booruPoolUrl(site: BooruSite, id: string): string {
+  const origin = BOORU_ORIGIN[site];
+  if (site === "danbooru") return `${origin}/pools/${id}.json`;
+  return `${origin}/pool/show.json?id=${encodeURIComponent(id)}`;
+}
+
+export function poolOriginUrl(site: BooruSite, id: string): string {
+  if (site === "danbooru") return `${BOORU_ORIGIN[site]}/pools/${id}`;
+  return `${BOORU_ORIGIN[site]}/pool/show/${id}`;
 }

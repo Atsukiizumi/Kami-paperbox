@@ -8,6 +8,19 @@
 
 暂无。
 
+## [0.8.51] — 2026-09-03
+
+对应 [PR #94](https://github.com/Atsukiizumi/Kami-paperbox/pull/94)。
+
+### 新增
+
+- 图站合集：粘贴 `yande.re/pool/show/…` 打开，可整包下载或收入纸匣。
+- 单图详情显示所属合集，点击跳转。
+
+### 调整
+
+- 浏览改为每页 50 张，不再无限往下滚。
+
 ## [0.8.50] — 2026-09-02
 
 对应 [PR #93](https://github.com/Atsukiizumi/Kami-paperbox/pull/93)。

@@ -122,7 +122,7 @@ export function tagPlaceholder(source: Source): string {
     case "yande":
     case "konachan":
     case "danbooru":
-      return "多个标签用空格分开（空格写成 _ ），或粘贴作品链接";
+      return "多个标签用空格分开（空格写成 _ ），或粘贴作品 / 合集链接";
   }
 }
 

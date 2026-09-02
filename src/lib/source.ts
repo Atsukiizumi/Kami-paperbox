@@ -93,6 +93,11 @@ const fetchSchema = z.intersection(
       id: z.string().regex(/^\d{1,12}$/),
     }),
     z.object({
+      op: z.literal("booruPool"),
+      site: z.enum(["yande", "konachan", "danbooru"]),
+      id: z.string().regex(/^\d{1,12}$/),
+    }),
+    z.object({
       op: z.literal("tagSuggest"),
       source: z.enum(["pixiv", "fanbox", "yande", "konachan", "danbooru"]),
       word: z.string().min(1).max(80),

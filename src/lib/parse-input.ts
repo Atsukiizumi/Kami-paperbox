@@ -15,6 +15,7 @@ export type ParsedQuery =
   | { kind: "fanbox-creator"; id: string }
   | { kind: "fanbox-tag"; word: string }
   | { kind: "booru-post"; site: BooruSite; id: string }
+  | { kind: "booru-pool"; site: BooruSite; id: string }
   | { kind: "booru-tag"; site: BooruSite; word: string }
   | { kind: "query"; word: string };
 
@@ -38,6 +39,9 @@ export function parseUserInput(raw: string, tab: Source): ParsedQuery {
   const text = raw.trim();
   if (!text) return { kind: "query", word: "" };
 
+  const yandePool = text.match(/yande\.re\/pool\/show\/(\d+)/i);
+  if (yandePool?.[1]) return { kind: "booru-pool", site: "yande", id: yandePool[1] };
+
   const yande = text.match(/yande\.re\/post\/show\/(\d+)/i);
   if (yande?.[1]) return { kind: "booru-post", site: "yande", id: yande[1] };
 
@@ -47,6 +51,9 @@ export function parseUserInput(raw: string, tab: Source): ParsedQuery {
     if (word) return { kind: "booru-tag", site: "yande", word };
   }
 
+  const konaPool = text.match(/konachan\.(?:com|net)\/pool\/show\/(\d+)/i);
+  if (konaPool?.[1]) return { kind: "booru-pool", site: "konachan", id: konaPool[1] };
+
   const kona = text.match(/konachan\.(?:com|net)\/post\/show\/(\d+)/i);
   if (kona?.[1]) return { kind: "booru-post", site: "konachan", id: kona[1] };
 
@@ -55,6 +62,9 @@ export function parseUserInput(raw: string, tab: Source): ParsedQuery {
     const word = tagsFromSearch(konaList[1] || "");
     if (word) return { kind: "booru-tag", site: "konachan", word };
   }
+
+  const danbooruPool = text.match(/donmai\.us\/pools\/(\d+)/i);
+  if (danbooruPool?.[1]) return { kind: "booru-pool", site: "danbooru", id: danbooruPool[1] };
 
   const danbooru = text.match(/donmai\.us\/posts\/(\d+)/i);
   if (danbooru?.[1]) return { kind: "booru-post", site: "danbooru", id: danbooru[1] };

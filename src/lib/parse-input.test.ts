@@ -15,6 +15,11 @@ describe("parseUserInput", () => {
       assert.equal(tags.site, "yande");
       assert.equal(tags.word.includes("landscape"), true);
     }
+    assert.deepEqual(parseUserInput("https://yande.re/pool/show/99384", "pixiv"), {
+      kind: "booru-pool",
+      site: "yande",
+      id: "99384",
+    });
   });
 
   it("reads konachan and danbooru posts", () => {

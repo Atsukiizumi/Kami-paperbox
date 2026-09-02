@@ -4,8 +4,8 @@ import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
 import { PaperMark } from "@/components/paper-mark";
-import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { SavedTagBar } from "@/components/saved-tags";
 import { SearchSuggest } from "@/components/search-suggest";
 import { PixivSearchFilter } from "@/components/pixiv-search-filter";
@@ -60,6 +60,7 @@ export function Home() {
   const [creatorId, setCreatorId] = useState("official");
   const [fanboxFeed, setFanboxFeed] = useState<FanboxFeed>("creator");
   const [booruFeed, setBooruFeed] = useState<"recent" | "popular">("recent");
+  const [listPage, setListPage] = useState(1);
   const browseQuery = useSettings((s) => s.browseQuery);
   const browseExact = useSettings((s) => s.browseExact);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
@@ -70,6 +71,7 @@ export function Home() {
     setSearchWord("");
     setQuery("");
     setSearchFilter(DEFAULT_PIXIV_SEARCH);
+    setListPage(1);
   }, [tab]);
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export function Home() {
     setQuery(word);
     setSearchFilter((cur) => ({ ...cur, scope: scopeFromExact(browseExact) }));
     setBrowseQuery("");
+    setListPage(1);
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
   const loggedIn = isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
@@ -227,6 +230,13 @@ export function Home() {
           params: { source: parsed.site, id: parsed.id },
         });
         return;
+      case "booru-pool":
+        setTab(parsed.site);
+        void navigate({
+          to: "/pool/$site/$id",
+          params: { site: parsed.site, id: parsed.id },
+        });
+        return;
       case "booru-tag":
         runTagSearch(parsed.site, parsed.word, true);
         return;
@@ -265,6 +275,7 @@ export function Home() {
     setFeed(next);
     setSearchWord("");
     setSearchFilter((cur) => ({ ...cur, scope: "s_tag" }));
+    setListPage(1);
   }
 
   const pixivItems = collectWorks(pixivQuery.data?.pages);
@@ -284,9 +295,30 @@ export function Home() {
   const fanboxCreatorPage = fanboxQuery.data?.pages.find((p) => p.op === "fanboxCreator");
   const fanboxProfile = fanboxCreatorPage && fanboxCreatorPage.op === "fanboxCreator" ? fanboxCreatorPage.profile : null;
   const booruItems = collectWorks(booruQuery.data?.pages);
-  const items = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
+  const pooled = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
   const activeQuery = tab === "pixiv" ? pixivQuery : tab === "fanbox" ? fanboxQuery : booruQuery;
-  const loading = activeQuery.isLoading || (activeQuery.isFetching && items.length === 0 && !activeQuery.isFetchingNextPage);
+  const pageStart = (listPage - 1) * BROWSE_PAGE_SIZE;
+  const items = pooled.slice(pageStart, pageStart + BROWSE_PAGE_SIZE);
+  const hasPrevPage = listPage > 1;
+  const hasNextPage = pooled.length > pageStart + BROWSE_PAGE_SIZE || Boolean(activeQuery.hasNextPage);
+  const loading =
+    activeQuery.isLoading ||
+    (activeQuery.isFetching && items.length === 0 && !activeQuery.isFetchingNextPage);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [feed, searchWord, searchFilter, fanboxFeed, creatorId, booruFeed, safeMode, hideAi]);
+
+  useEffect(() => {
+    if (pooled.length >= listPage * BROWSE_PAGE_SIZE) return;
+    if (!activeQuery.hasNextPage || activeQuery.isFetchingNextPage) return;
+    void activeQuery.fetchNextPage();
+  }, [listPage, pooled.length, activeQuery.hasNextPage, activeQuery.isFetchingNextPage, tab]);
+
+  function goListPage(next: number) {
+    setListPage(Math.max(1, next));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
   const error =
     activeQuery.error instanceof Error
       ? activeQuery.error.message
@@ -554,13 +586,12 @@ export function Home() {
         />
       )}
 
-      <InfiniteSentinel
-        disabled={!activeQuery.hasNextPage || items.length === 0}
-        onVisible={() => {
-          if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
-            void activeQuery.fetchNextPage();
-          }
-        }}
+      <BrowsePager
+        page={listPage}
+        hasPrev={hasPrevPage}
+        hasNext={hasNextPage}
+        busy={activeQuery.isFetchingNextPage}
+        onPage={goListPage}
       />
 
       {tab === "fanbox" && fanboxProfile && fanboxFeed === "creator" && !searchWord ? (
