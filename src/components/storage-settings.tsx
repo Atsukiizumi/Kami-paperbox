@@ -15,6 +15,7 @@ import {
 } from "@/lib/folder-access";
 import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
+import { rescanFolderHashes } from "@/lib/persist-files";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/vault";
 import { listServerVault } from "@/lib/vault-sync";
 import { Button } from "./ui/button";
@@ -56,9 +57,7 @@ export function StorageSection() {
     }
     const remote = await listServerVault();
     if (remote) {
-      setServerLine(
-        `Node 目录 · ${remote.totals.count} 条 · ${formatBytes(remote.totals.bytes)} · .data/vault`,
-      );
+      setServerLine(`应用内备份 · ${remote.totals.count} 条 · ${formatBytes(remote.totals.bytes)}`);
     } else {
       setServerLine("");
     }
@@ -122,8 +121,8 @@ export function StorageSection() {
       <CardHeader>
         <CardTitle>存储</CardTitle>
         <CardDescription>
-          收入纸匣会写入本机 Node 目录（`.data/vault` 的 SQLite + 原图文件），并在浏览器里留一份预览。
-          还可以再选一个文件夹，按作者/日期分类拷贝。
+          Chrome / Edge 请指定一个文件夹，原图留在原地。纸匣只记路径和 SHA-256。Safari、Firefox
+          和手机选不了文件夹时，才退到应用内存储。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -152,6 +151,30 @@ export function StorageSection() {
             <Button type="button" variant="ghost" onClick={() => void forgetFolder()}>
               <FolderX className="size-4" />
               清除
+            </Button>
+          ) : null}
+          {folderLabel && granted ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                void rescanFolderHashes()
+                  .then((r) => {
+                    toast.success(
+                      r.replaced
+                        ? `已扫描 ${r.checked} 张，${r.replaced} 张原图已被替换`
+                        : `已扫描 ${r.checked} 张，原图一致`,
+                    );
+                  })
+                  .catch((err: unknown) => {
+                    toast.error(err instanceof Error ? err.message : "扫描失败");
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              扫描原图
             </Button>
           ) : null}
         </div>

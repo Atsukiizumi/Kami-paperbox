@@ -22,8 +22,8 @@ describe("site tags", () => {
     assert.equal(canonicalTag("yande", "Hatsune Miku"), "hatsune miku");
     assert.equal(canonicalTag("yande", "hatsune_miku"), "hatsune_miku");
     assert.equal(canonicalTag("danbooru", " landscape, sky "), "landscape sky");
-    assert.equal(displayTag("yande", "hatsune_miku"), "hatsune miku");
-    assert.equal(displayTag("yande", "landscape sky"), "landscape · sky");
+    assert.equal(displayTag("yande", "hatsune_miku"), "初音未来");
+    assert.equal(displayTag("yande", "landscape sky"), "风景 · 天空");
     assert.equal(tagEquals("yande", "Hatsune_Miku", "hatsune_miku"), true);
   });
 

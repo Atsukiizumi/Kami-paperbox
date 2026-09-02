@@ -77,9 +77,18 @@ export async function getVaultBlob(key: string, page: number): Promise<Blob | un
 export async function saveVaultWork(
   work: WorkDetail,
   pages: { blob: Blob; page: WorkPage }[],
+  opts?: {
+    storeBlobs?: boolean;
+    sha256?: string;
+    relativePath?: string;
+    folderLabel?: string;
+    origin?: VaultMeta["origin"];
+    replaced?: boolean;
+  },
 ): Promise<VaultMeta> {
   const key = workKey(work.source, work.id);
   const bytes = pages.reduce((n, p) => n + p.blob.size, 0);
+  const storeBlobs = opts?.storeBlobs !== false;
   const meta: VaultMeta = {
     key,
     source: work.source,
@@ -91,12 +100,19 @@ export async function saveVaultWork(
     pageCount: pages.length,
     savedAt: Date.now(),
     bytes,
+    sha256: opts?.sha256,
+    relativePath: opts?.relativePath,
+    folderLabel: opts?.folderLabel,
+    origin: opts?.origin ?? (storeBlobs ? "app" : "folder"),
+    replaced: opts?.replaced ?? false,
   };
   const db = await openDb();
   const tx = db.transaction(["meta", "blobs"], "readwrite");
   tx.objectStore("meta").put(meta);
-  const blobs = tx.objectStore("blobs");
-  pages.forEach((p, i) => blobs.put(p.blob, `${key}#${i}`));
+  if (storeBlobs) {
+    const blobs = tx.objectStore("blobs");
+    pages.forEach((p, i) => blobs.put(p.blob, `${key}#${i}`));
+  }
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);

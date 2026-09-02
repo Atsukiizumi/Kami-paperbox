@@ -1,8 +1,8 @@
 /**
  * 本机下载文件夹（File System Access API）。
  *
- * 作用：记住用户选的 DirectoryHandle，按相对路径写入文件。
- * 用法：pickDownloadFolder() 一次；之后 writeRelativeFile(dir, "作者/图.jpg", blob)。
+ * 作用：记住用户选的 DirectoryHandle，按相对路径写入或读回文件。
+ * 用法：pickDownloadFolder() 一次；之后 writeRelativeFile / readRelativeFile。
  * 为什么：handle 不能放 localStorage，只能放 IndexedDB。权限每次会话可能要再授权。
  */
 const DB_NAME = "kami-folder";
@@ -136,5 +136,27 @@ export async function writeRelativeFile(
     await writable.write(blob);
   } finally {
     await writable.close();
+  }
+}
+
+export async function readRelativeFile(
+  root: FileSystemDirectoryHandle,
+  relativePath: string,
+): Promise<File | null> {
+  const parts = relativePath.split("/").filter(Boolean);
+  const filename = parts.pop();
+  if (!filename) return null;
+  if (parts.some((part) => part === "." || part === "..") || filename === "." || filename === "..") {
+    return null;
+  }
+  try {
+    let dir = root;
+    for (const part of parts) {
+      dir = await dir.getDirectoryHandle(part);
+    }
+    const file = await dir.getFileHandle(filename);
+    return file.getFile();
+  } catch {
+    return null;
   }
 }

@@ -1,9 +1,9 @@
 /**
  * 作品页操作条。
  *
- * 作用：纸匣立刻收藏；下载推进队列（排队写盘）；红心等社交。
+ * 作用：纸匣和下载都推进队列，并显示进度。
  * 用法：详情页和灯箱 footer。compact 不放搜来源。
- * 为什么：下载若当场 saveNow，队列页是空的，看起来像没下。
+ * 为什么：当场另存会让队列页空着，进度也看不见。
  */
 import { Archive, Download, ExternalLink, Heart, ScanSearch, Star, UserMinus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";

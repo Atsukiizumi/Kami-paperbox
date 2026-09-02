@@ -1,11 +1,9 @@
 /**
  * 保存/导出的落盘入口。
  *
- * 作用：收入纸匣时写入浏览器 IndexedDB，并推到本机 Node 目录（SQLite + 原图文件）；
- *      若设置了文件夹，再按路径模板镜像一份。
- * 用法：archiveWork(work, pages, { download })；只导出用 exportVaultItem。
- * 为什么三写：浏览器要能立刻预览；Node `.data/vault` 才扛得住量和查询；
- *        用户文件夹方便在资源管理器里翻，但路径必须记进目录才能搜。
+ * 作用：能选文件夹时，原图只写用户指定目录，纸匣只记路径和 SHA-256。
+ *      选不了文件夹（Safari / 火狐 / 手机）才退到应用内目录。
+ * 用法：只从队列 runner 调 archiveWork。
  */
 import { extFromNameOrType } from "./ugoira-meta";
 import {
@@ -15,11 +13,14 @@ import {
 } from "./download-path";
 import {
   ensureFolderPermission,
+  canPickFolder,
+  readRelativeFile,
   writeRelativeFile,
 } from "./folder-access";
+import { sha256Hex } from "./file-hash";
 import { useSettings } from "./store";
 import type { VaultMeta, WorkDetail, WorkPage } from "./types";
-import { downloadBlob, patchVaultMeta, saveVaultWork } from "./vault";
+import { downloadBlob, listVault, patchVaultMeta, saveVaultWork } from "./vault";
 import { rememberVaultKey } from "./vault-index";
 import { patchServerVault, pushVaultToServer } from "./vault-sync";
 
@@ -85,38 +86,40 @@ export async function archiveWork(
   pages: { blob: Blob; page: WorkPage }[],
   opts: { download: boolean },
 ): Promise<{ folder: boolean; folderSkipped: boolean; server: boolean }> {
-  const meta = await saveVaultWork(work, pages);
-  const files = pages.map((item) => ({
-    blob: item.blob,
-    ext: extFromNameOrType(item.page.name, item.blob.type),
-  }));
   const settings = useSettings.getState();
   const at = new Date();
-  const wantFolder =
-    Boolean(settings.folderLabel) && (settings.vaultMirrorFolder || (opts.download && settings.downloadToFolder));
+  const folderHandle = canPickFolder() ? await ensureFolderPermission() : null;
+  const preferFolder = Boolean(folderHandle);
   let folder = false;
   let relativePath: string | undefined;
-  if (wantFolder) {
+  if (preferFolder && folderHandle) {
     try {
       const path = await writeWorkToFolder(work, pages, at);
       folder = Boolean(path);
-      if (path) {
-        relativePath = path;
-        await patchVaultMeta(meta.key, {
-          relativePath: path,
-          folderLabel: settings.folderLabel,
-        });
-      }
+      if (path) relativePath = path;
     } catch {
       folder = false;
     }
   }
+  const sha256 = pages[0] ? await sha256Hex(pages[0].blob) : undefined;
+  const meta = await saveVaultWork(work, pages, {
+    storeBlobs: !folder,
+    sha256,
+    relativePath,
+    folderLabel: folder ? settings.folderLabel : undefined,
+    origin: folder ? "folder" : "app",
+    replaced: false,
+  });
+  const files = pages.map((item) => ({
+    blob: item.blob,
+    ext: extFromNameOrType(item.page.name, item.blob.type),
+  }));
   const serverMeta = {
     ...meta,
     relativePath: relativePath ?? meta.relativePath,
     folderLabel: relativePath ? settings.folderLabel : meta.folderLabel,
   };
-  const server = Boolean(await pushVaultToServer(serverMeta, files));
+  const server = folder ? false : Boolean(await pushVaultToServer(serverMeta, files));
   rememberVaultKey(work.source, work.id);
   if (opts.download && !folder) {
     for (let i = 0; i < pages.length; i += 1) {
@@ -127,7 +130,42 @@ export async function archiveWork(
       downloadBlob(item.blob, flattenDownloadName(relative));
     }
   }
-  return { folder, folderSkipped: wantFolder && !folder, server };
+  return { folder, folderSkipped: preferFolder && !folder, server };
+}
+
+export async function rescanFolderHashes(): Promise<{ checked: number; replaced: number }> {
+  const dir = canPickFolder() ? await ensureFolderPermission() : null;
+  if (!dir) return { checked: 0, replaced: 0 };
+  const items = await listVault();
+  let checked = 0;
+  let replaced = 0;
+  for (const item of items) {
+    if (!item.relativePath || !item.sha256) continue;
+    checked += 1;
+    const file = await readRelativeFile(dir, item.relativePath);
+    if (!file) {
+      if (!item.replaced) {
+        await patchVaultMeta(item.key, { replaced: true });
+        replaced += 1;
+      }
+      continue;
+    }
+    const hex = await sha256Hex(file);
+    const mismatch = hex !== item.sha256;
+    if (mismatch !== Boolean(item.replaced)) {
+      await patchVaultMeta(item.key, { replaced: mismatch });
+    }
+    if (mismatch) replaced += 1;
+  }
+  return { checked, replaced };
+}
+
+export async function previewFromFolder(item: VaultMeta): Promise<Blob | undefined> {
+  if (!item.relativePath) return undefined;
+  const dir = canPickFolder() ? await ensureFolderPermission() : null;
+  if (!dir) return undefined;
+  const file = await readRelativeFile(dir, item.relativePath);
+  return file ?? undefined;
 }
 
 export async function exportVaultItem(

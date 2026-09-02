@@ -19,6 +19,7 @@ import {
 import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
+import { TagLexiconSection } from "@/components/tag-lexicon-settings";
 import { useSettings } from "@/lib/store";
 import { applyCookieDump, applyLoginSession } from "@/lib/apply-session";
 import { cn } from "@/lib/utils";
@@ -280,6 +281,7 @@ function SettingsPage() {
       <ThemeSection />
 
       <StorageSection />
+      <TagLexiconSection />
 
       <SearchKeySection />
 

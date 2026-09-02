@@ -11,13 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { WorkTagList } from "@/components/saved-tags";
 import { enqueueWork } from "@/lib/queue-runner";
-import { collectWorkFiles } from "@/lib/save-work";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
-import { archiveWork } from "@/lib/persist-files";
 import { workKey as vaultWorkKey } from "@/lib/vault";
 import { useVaultIndex } from "@/lib/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
@@ -158,39 +156,6 @@ function WorkPage() {
       void navigate({ to: "/search" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "无法用来搜图");
-    }
-  }
-
-  async function saveNow(detail: WorkDetail, alsoDownload: boolean) {
-    if (detail.restricted) {
-      toast.error("需要有效订阅才能保存这篇投稿");
-      return;
-    }
-    setSaving(true);
-    setProgress(detail.ugoira ? "正在合成 GIF…" : "");
-    try {
-      const original = useSettings.getState().downloadOriginal;
-      const blobs = await collectWorkFiles(detail, {
-        original,
-        onProgress: (done, total) => {
-          setProgress(detail.ugoira ? `合成 GIF ${done}/${total}` : `保存 ${done}/${total}`);
-        },
-      });
-      const result = await archiveWork(detail, blobs, { download: alsoDownload });
-      const gif = blobs.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
-      const skipped = result.folderSkipped ? "，文件夹未授权" : "";
-      if (result.folder) {
-        toast.success(gif ? "GIF 已收入纸匣并写入文件夹" : "已收入纸匣并写入文件夹");
-      } else if (alsoDownload) {
-        toast.success((gif ? "GIF 已下载并收入纸匣" : "已下载并收入纸匣") + skipped);
-      } else {
-        toast.success((gif ? "GIF 已收入纸匣" : "已收入纸匣") + skipped);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
-    } finally {
-      setSaving(false);
-      setProgress("");
     }
   }
 
@@ -336,14 +301,10 @@ function WorkPage() {
     void navigate({ to: "/" });
   }
 
-  function queueNow() {
+  function queueNow(kind: "download" | "vault") {
     if (!work) return;
-    if (inQueue) {
-      toast.success("已在队列");
-      return;
-    }
-    enqueueWork(work);
-    toast.success("已加入下载队列");
+    enqueueWork(work, kind);
+    toast.success(kind === "vault" ? "已加入队列：收入纸匣" : "已加入队列：下载");
   }
 
   const actions = (
@@ -353,8 +314,8 @@ function WorkPage() {
       inVault={inVault}
       inQueue={inQueue}
       originUrl={originUrl}
-      onSave={() => void saveNow(work, false)}
-      onDownload={queueNow}
+      onSave={() => queueNow("vault")}
+      onDownload={() => queueNow("download")}
       onSearchOrigin={() => void searchFromWork(work)}
       onBookmark={() => void doBookmark(work)}
       onLike={() => void doLike(work)}
@@ -478,8 +439,8 @@ function WorkPage() {
             saving={saving}
             inVault={inVault}
             inQueue={inQueue}
-            onSave={() => void saveNow(work, false)}
-            onDownload={queueNow}
+            onSave={() => queueNow("vault")}
+            onDownload={() => queueNow("download")}
             onBookmark={() => void doBookmark(work)}
             onLike={() => void doLike(work)}
             onFollow={() => void doFollow(work)}

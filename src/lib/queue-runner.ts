@@ -1,9 +1,9 @@
 /**
- * 下载队列执行器。
+ * 下载 / 收入纸匣队列。
  *
- * 作用：串行处理排队作品：拉详情 → 收图 → archiveWork。
- * 用法：enqueueWork 入队后会自己 kick；浏览卡片点保存走 saveWorkNow({ download: false })。
- * 为什么：并行会打爆源站和浏览器下载。状态在 localStorage，文件在纸匣。
+ * 作用：所有落盘都从这里走：拉详情 → 收图 → archiveWork，并回报进度。
+ * 用法：enqueueWork(work, "download" | "vault")。不要再调用 saveWorkNow。
+ * 为什么：旁路保存会让队列页看起来是空的，进度也看不到。
  */
 import { toast } from "sonner";
 import { fetchSource } from "./source";
@@ -14,7 +14,7 @@ import { workKey } from "./vault";
 import { sleep } from "./utils";
 import { extFromNameOrType } from "./ugoira-meta";
 import { isBooru } from "./sites";
-import type { Source, WorkDetail } from "./types";
+import type { QueueKind, Source, WorkDetail } from "./types";
 
 let running = false;
 
@@ -68,7 +68,7 @@ async function processOne(key: string) {
   useQueue.getState().patch(key, { status: "running", progress: 0, error: undefined });
   try {
     await saveWorkNow(item, {
-      download: true,
+      download: item.kind !== "vault",
       onProgress: (done, total) => useQueue.getState().patch(key, { progress: done, total }),
     });
     useQueue.getState().patch(key, { status: "done", progress: 1, total: 1 });
@@ -95,13 +95,16 @@ export async function runQueue() {
   }
 }
 
-export function enqueueWork(work: {
-  source: Source;
-  id: string;
-  title: string;
-  author: string;
-  thumb: string;
-}) {
+export function enqueueWork(
+  work: {
+    source: Source;
+    id: string;
+    title: string;
+    author: string;
+    thumb: string;
+  },
+  kind: QueueKind = "download",
+) {
   useQueue.getState().enqueue({
     key: workKey(work.source, work.id),
     source: work.source,
@@ -109,6 +112,7 @@ export function enqueueWork(work: {
     title: work.title,
     author: work.author,
     thumb: work.thumb,
+    kind,
   });
   void runQueue();
 }

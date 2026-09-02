@@ -15,7 +15,7 @@ import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
-import { enqueueWork, saveWorkNow } from "@/lib/queue-runner";
+import { enqueueWork } from "@/lib/queue-runner";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { mutateSource } from "@/lib/source";
 import { patchCachedWork, prefetchWork } from "@/lib/work-cache";
@@ -111,20 +111,10 @@ export function ArtworkCard({
   async function saveCard(e?: MouseEvent) {
     e?.preventDefault();
     e?.stopPropagation();
-    if (saving || work.restricted) return;
-    if (inVault) {
-      toast.success("已在纸匣");
-      return;
-    }
-    setSaving(true);
-    try {
-      await saveWorkNow(work, { download: false });
-      setSavedPop(true);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
+    hidePreview();
+    if (work.restricted) return;
+    enqueueWork(work, "vault");
+    toast.success("已加入队列：收入纸匣");
   }
 
   function queueCard(e?: MouseEvent) {
@@ -132,12 +122,8 @@ export function ArtworkCard({
     e?.stopPropagation();
     hidePreview();
     if (work.restricted) return;
-    if (inQueue) {
-      toast.success("已在队列");
-      return;
-    }
-    enqueueWork(work);
-    toast.success("已加入队列");
+    enqueueWork(work, "download");
+    toast.success("已加入队列：下载");
   }
 
   async function likeCard(e?: MouseEvent) {
@@ -447,7 +433,7 @@ export function ArtworkCard({
         }}
         onQueue={() => {
           setMenu(null);
-          enqueueWork(work);
+          enqueueWork(work, "download");
         }}
       />
       {work.thumb ? (
