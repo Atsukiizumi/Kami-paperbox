@@ -2,11 +2,12 @@
  * 各站标签怎么写、怎么搜、怎么存。
  *
  * 作用：把「点一个 tag 去搜索 / 保存快捷标签」收成同一套规则。
- * 用法：canonicalTag 入库和发请求；displayTag 给人看；tagHint 写在搜索框下。
+ * 用法：canonicalTag 入库和发请求；displayTag 给人看（图站走译文）；tagHint 写在搜索框下。
  * 为什么：Pixiv / 图站空格=同时包含多个标签；点单个标签才走精确匹配。
  *        FANBOX 接口一次只吃一个标签。混用会搜空。
  */
 import type { Source } from "./types";
+import { currentLexiconMap, translateBooruToken } from "./tag-lexicon.ts";
 
 const SOURCES: readonly Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru"];
 
@@ -79,9 +80,11 @@ export function canonicalTag(source: Source, raw: string): string {
 
 export function displayTag(source: Source, tag: string): string {
   if (!isBooru(source)) return tag;
+  const map = currentLexiconMap();
   return tag
     .split(/\s+/)
-    .map((part) => part.replace(/_/g, " "))
+    .filter(Boolean)
+    .map((part) => translateBooruToken(part, map))
     .join(" · ");
 }
 

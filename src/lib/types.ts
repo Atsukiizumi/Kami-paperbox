@@ -166,6 +166,8 @@ export type SocialOk = {
   followed?: boolean;
 };
 
+export type QueueKind = "download" | "vault";
+
 export type QueueItem = {
   key: string;
   source: Source;
@@ -173,6 +175,7 @@ export type QueueItem = {
   title: string;
   author: string;
   thumb: string;
+  kind: QueueKind;
   status: "queued" | "running" | "done" | "error";
   progress: number;
   total: number;
@@ -193,4 +196,7 @@ export type VaultMeta = {
   bytes: number;
   relativePath?: string;
   folderLabel?: string;
+  sha256?: string;
+  replaced?: boolean;
+  origin?: "folder" | "app";
 };

@@ -403,11 +403,18 @@ export const useQueue = create<QueueState>()(
       items: [],
       enqueue: (item) =>
         set((s) => {
-          if (s.items.some((x) => x.key === item.key && (x.status === "queued" || x.status === "running"))) {
+          const live = s.items.find((x) => x.key === item.key && (x.status === "queued" || x.status === "running"));
+          if (live) {
+            if (item.kind === "download" && live.kind !== "download") {
+              return {
+                items: s.items.map((x) => (x.key === item.key ? { ...x, kind: "download" as const } : x)),
+              };
+            }
             return s;
           }
           const next: QueueItem = {
             ...item,
+            kind: item.kind === "vault" ? "vault" : "download",
             status: "queued",
             progress: 0,
             total: 1,
