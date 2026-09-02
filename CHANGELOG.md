@@ -8,6 +8,16 @@
 
 暂无。
 
+## [0.8.50] — 2026-09-02
+
+对应 [PR #93](https://github.com/Atsukiizumi/Kami-paperbox/pull/93)。
+
+### 调整
+
+- 空态、折角、笺条、详情一条吸顶、悬停预览不再整屏压暗。
+- 入队会飞一张纸到队列。骨架留空统一成 3:4。
+- 画师页改无限滚动。新 X 横幅。
+
 ## [0.8.49] — 2026-09-02
 
 对应 [PR #92](https://github.com/Atsukiizumi/Kami-paperbox/pull/92)。
