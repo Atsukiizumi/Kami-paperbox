@@ -10,7 +10,7 @@
 
 ## [0.8.54] — 2026-09-08
 
-对应即将合并的搜图聚合与图站词库改动。
+对应 [PR #97](https://github.com/Atsukiizumi/Kami-paperbox/pull/97)。
 
 ### 新增
 
