@@ -25,6 +25,21 @@ function readCookie(header: string | null, name: string): string | undefined {
   return undefined;
 }
 
+/** kami_danbooru 存的是 JSON（login + apiKey），解析失败按没填算。 */
+function readDanbooru(header: string | null): { login: string; apiKey: string } | undefined {
+  const raw = readCookie(header, "kami_danbooru");
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { login?: unknown; apiKey?: unknown };
+    const login = typeof parsed.login === "string" ? parsed.login : "";
+    const apiKey = typeof parsed.apiKey === "string" ? parsed.apiKey : "";
+    if (!login || !apiKey) return undefined;
+    return { login, apiKey };
+  } catch {
+    return undefined;
+  }
+}
+
 function dropped(): Response {
   return new Response(null, { status: 204 });
 }
@@ -35,15 +50,20 @@ export async function GET(request: Request) {
         if (!target) return new Response("missing url", { status: 400 });
         try {
           const parsed = parseAllowedMediaUrl(target);
-          const cookie = isDiskCacheableMedia(parsed) ? null : request.headers.get("cookie");
+          const cookieHeader = request.headers.get("cookie");
+          const cookie = isDiskCacheableMedia(parsed) ? null : cookieHeader;
+          const danbooru = readDanbooru(cookieHeader);
           return await fetchMediaResponse(
             target,
-            cookie
-              ? {
-                  pixiv: readCookie(cookie, "kami_pixiv"),
-                  fanbox: readCookie(cookie, "kami_fanbox"),
-                }
-              : {},
+            {
+              ...(cookie
+                ? {
+                    pixiv: readCookie(cookie, "kami_pixiv"),
+                    fanbox: readCookie(cookie, "kami_fanbox"),
+                  }
+                : {}),
+              danbooru,
+            },
             request.signal,
           );
         } catch (err) {

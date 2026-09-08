@@ -7,7 +7,7 @@
  * 为什么：设置是小 JSON，localStorage 够用。队列只留 80 条状态，原图在纸匣 IDB，
  *        不要把 Blob 塞进 zustand。
  */
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types";
@@ -68,6 +68,8 @@ type Tab = Source;
 type SettingsState = {
   pixivCookie: string;
   fanboxCookie: string;
+  danbooruLogin: string;
+  danbooruApiKey: string;
   safeMode: boolean;
   hideAi: boolean;
   downloadOriginal: boolean;
@@ -90,6 +92,8 @@ type SettingsState = {
   onboarded: boolean;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
+  setDanbooruLogin: (v: string) => void;
+  setDanbooruApiKey: (v: string) => void;
   setSafeMode: (v: boolean) => void;
   setHideAi: (v: boolean) => void;
   setDownloadOriginal: (v: boolean) => void;
@@ -134,6 +138,8 @@ export const useSettings = create<SettingsState>()(
     (set, get) => ({
       pixivCookie: "",
       fanboxCookie: "",
+      danbooruLogin: "",
+      danbooruApiKey: "",
       safeMode: true,
       hideAi: false,
       downloadOriginal: true,
@@ -180,6 +186,8 @@ export const useSettings = create<SettingsState>()(
         });
         void get().syncSessions();
       },
+      setDanbooruLogin: (danbooruLogin) => set({ danbooruLogin: danbooruLogin.trim().slice(0, 120) }),
+      setDanbooruApiKey: (danbooruApiKey) => set({ danbooruApiKey: danbooruApiKey.trim().slice(0, 200) }),
       setSafeMode: (safeMode) => set({ safeMode }),
       setHideAi: (hideAi) => set({ hideAi }),
       setDownloadOriginal: (downloadOriginal) => set({ downloadOriginal }),
@@ -247,11 +255,11 @@ export const useSettings = create<SettingsState>()(
         await get().syncSessions();
       },
       syncSessions: async () => {
-        const { pixivCookie, fanboxCookie } = get();
+        const { pixivCookie, fanboxCookie, danbooruLogin, danbooruApiKey } = get();
         const pixiv = sanitizePixivCookie(pixivCookie);
         const fanbox = fanboxSessionFrom(fanboxCookie, pixiv);
         await saveSessions({
-          data: { pixiv, fanbox },
+          data: { pixiv, fanbox, danbooruLogin, danbooruApiKey },
         });
       },
       applyProfiles: (profiles) => {
@@ -340,6 +348,8 @@ export const useSettings = create<SettingsState>()(
             p.onboarded === true ||
             legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
           saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
+          danbooruLogin: typeof p.danbooruLogin === "string" ? p.danbooruLogin.trim().slice(0, 120) : "",
+          danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
         };
         if (version >= 2 && legacy.accounts.length) {
           return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
@@ -349,6 +359,8 @@ export const useSettings = create<SettingsState>()(
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
         fanboxCookie: s.fanboxCookie,
+        danbooruLogin: s.danbooruLogin,
+        danbooruApiKey: s.danbooruApiKey,
         safeMode: s.safeMode,
         hideAi: s.hideAi,
         downloadOriginal: s.downloadOriginal,
@@ -374,16 +386,20 @@ export const useSettings = create<SettingsState>()(
 
 /** 设置从 localStorage 水合完再开浏览请求，queryKey 才能对上浏览器缓存。 */
 export function useSettingsHydrated(): boolean {
-  const [hydrated, setHydrated] = useState(() =>
-    typeof window === "undefined" ? false : Boolean(useSettings.persist.hasHydrated()),
+  return useSyncExternalStore(
+    (onStoreChange) => onPersisted(useSettings, onStoreChange),
+    () => Boolean(useSettings.persist?.hasHydrated?.()),
+    // 水合完成前客户端必须和服务端同帧：persist 是同步重水合的，
+    // 若在水合渲染里读 true，SSR 出来的 disabled / 分支会对不上，触发 hydration 警告。
+    () => false,
   );
-  useEffect(() => onPersisted(useSettings, () => setHydrated(true)), []);
-  return hydrated;
 }
 
 export function cookiesFromSettings(): {
   pixivCookie?: string;
   fanboxCookie?: string;
+  danbooruLogin?: string;
+  danbooruApiKey?: string;
   safeMode: boolean;
   hideAi: boolean;
 } {
@@ -393,6 +409,8 @@ export function cookiesFromSettings(): {
   return {
     pixivCookie: pixiv || undefined,
     fanboxCookie: fanbox || undefined,
+    danbooruLogin: s.danbooruLogin || undefined,
+    danbooruApiKey: s.danbooruApiKey || undefined,
     safeMode: s.safeMode,
     hideAi: s.hideAi,
   };

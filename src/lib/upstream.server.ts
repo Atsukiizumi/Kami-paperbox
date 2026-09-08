@@ -32,6 +32,7 @@ import {
   booruPostUrl,
   booruSuggestUrl,
   composeBooruTags,
+  danbooruAuthHeader,
   parseMoebooruPools,
   mapBooruCard,
   mapBooruDetail,
@@ -855,13 +856,33 @@ async function fanboxFeedList(
   return { op, items, cursor: nextFanboxCursor(posts) };
 }
 
-async function booruJson(site: BooruSite, url: string): Promise<unknown> {
-  const origin = BOORU_ORIGIN[site];
+type BooruAuth = { danbooruLogin?: string; danbooruApiKey?: string };
+
+const KONACHAN_ORIGIN = "https://konachan.com";
+/** konachan 的全年龄镜像。konachan.com 被 Cloudflare 拦时拿它兜底。 */
+const KONACHAN_MIRROR = "https://konachan.net";
+
+function booruHeaders(
+  site: BooruSite,
+  origin: string,
+  auth?: BooruAuth,
+): Record<string, string> {
   const headers: Record<string, string> = {
     "User-Agent": site === "danbooru" ? DANBOORU_UA : UA,
     Accept: "application/json,text/plain,*/*",
     Referer: `${origin}/`,
   };
+  if (site === "danbooru" && auth?.danbooruLogin && auth.danbooruApiKey) {
+    // Danbooru 官方口径：带账号的 API 请求可免 Cloudflare 人机验证。
+    const authorization = danbooruAuthHeader(auth.danbooruLogin, auth.danbooruApiKey);
+    if (authorization) headers.Authorization = authorization;
+  }
+  return headers;
+}
+
+async function booruJson(site: BooruSite, url: string, auth?: BooruAuth): Promise<unknown> {
+  const origin = BOORU_ORIGIN[site];
+  const headers = booruHeaders(site, origin, auth);
   if (site === "danbooru") {
     const { curlFetch } = await import("./curl-fetch.server");
     const res = await curlFetch(url, headers);
@@ -876,7 +897,15 @@ async function booruJson(site: BooruSite, url: string): Promise<unknown> {
       throw new Error("源站返回了无法解析的数据");
     }
   }
-  const res = await outboundFetch(url, { headers, redirect: "follow" });
+  let res = await outboundFetch(url, { headers, redirect: "follow" });
+  if (!res.ok && site === "konachan" && url.startsWith(KONACHAN_ORIGIN)) {
+    // konachan.com 被 Cloudflare 人机验证整域拦杀（2026-09 起）。konachan.net 是
+    // 同一套 Moebooru 的全年龄镜像，没被墙；拿它兜底，墙撤了 .com 会自动恢复优先。
+    res = await outboundFetch(url.replace(KONACHAN_ORIGIN, `${KONACHAN_MIRROR}`), {
+      headers: booruHeaders(site, KONACHAN_MIRROR, auth),
+      redirect: "follow",
+    });
+  }
   if (!res.ok) {
     throw new Error(
       site === "yande" ? `Yande 请求失败（${res.status}）` : `${site} 请求失败（${res.status}）`,
@@ -911,9 +940,10 @@ async function booruList(
   page: number,
   safeMode: boolean,
   date?: string,
+  auth?: BooruAuth,
 ): Promise<FetchOk> {
   const composed = composeBooruTags(site, tags, safeMode);
-  const json = await booruJson(site, booruListUrl(site, feed, composed, page, date));
+  const json = await booruJson(site, booruListUrl(site, feed, composed, page, date), auth);
   const items: WorkCard[] = [];
   for (const rec of asBooruPosts(json)) {
     const card = mapBooruCard(site, rec, safeMode);
@@ -940,11 +970,12 @@ async function booruHtml(site: BooruSite, url: string): Promise<string> {
   return res.text();
 }
 
-async function danbooruPoolsForPost(id: string): Promise<{ id: string; name: string }[]> {
+async function danbooruPoolsForPost(id: string, auth?: BooruAuth): Promise<{ id: string; name: string }[]> {
   try {
     const json = await booruJson(
       "danbooru",
       `${BOORU_ORIGIN.danbooru}/pools.json?search[post_id]=${encodeURIComponent(id)}&limit=8`,
+      auth,
     );
     if (!Array.isArray(json)) return [];
     const out: { id: string; name: string }[] = [];
@@ -960,8 +991,8 @@ async function danbooruPoolsForPost(id: string): Promise<{ id: string; name: str
   }
 }
 
-async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promise<FetchOk> {
-  const json = await booruJson(site, booruPostUrl(site, id));
+async function booruPost(site: BooruSite, id: string, safeMode: boolean, auth?: BooruAuth): Promise<FetchOk> {
+  const json = await booruJson(site, booruPostUrl(site, id), auth);
   const rec = asBooruPosts(json)[0];
   if (!rec) throw new Error("作品不存在");
   let pools = parseMoebooruPools("");
@@ -972,7 +1003,7 @@ async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promis
       pools = [];
     }
   } else {
-    pools = await danbooruPoolsForPost(id);
+    pools = await danbooruPoolsForPost(id, auth);
   }
   const work = mapBooruDetail(site, rec, safeMode, pools);
   if (!work) {
@@ -984,8 +1015,8 @@ async function booruPost(site: BooruSite, id: string, safeMode: boolean): Promis
   return { op: "booruPost", work };
 }
 
-async function booruPool(site: BooruSite, id: string, safeMode: boolean): Promise<FetchOk> {
-  const meta = asRecord(await booruJson(site, booruPoolUrl(site, id)));
+async function booruPool(site: BooruSite, id: string, safeMode: boolean, auth?: BooruAuth): Promise<FetchOk> {
+  const meta = asRecord(await booruJson(site, booruPoolUrl(site, id), auth));
   if (asString(meta.id) && asString(meta.id) !== id && site !== "danbooru") {
     /* show.json 仍可能只有 posts */
   }
@@ -1025,7 +1056,7 @@ async function booruPool(site: BooruSite, id: string, safeMode: boolean): Promis
   };
 }
 
-async function tagSuggest(source: Source, word: string, pixiv?: string): Promise<FetchOk> {
+async function tagSuggest(source: Source, word: string, pixiv?: string, auth?: BooruAuth): Promise<FetchOk> {
   const prefix = word.trim();
   if (!prefix) return { op: "tagSuggest", items: [] };
   if (source === "fanbox") return { op: "tagSuggest", items: [] };
@@ -1055,7 +1086,7 @@ async function tagSuggest(source: Source, word: string, pixiv?: string): Promise
     }
   }
   try {
-    const json = await booruJson(source, booruSuggestUrl(source, prefix));
+    const json = await booruJson(source, booruSuggestUrl(source, prefix), auth);
     return { op: "tagSuggest", items: parseBooruSuggest(source, json) };
   } catch {
     return { op: "tagSuggest", items: [] };
@@ -1067,6 +1098,10 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const fanbox = fanboxCookieHeader(input.fanboxCookie, input.pixivCookie);
   const safe = input.safeMode !== false;
   const hideAi = input.hideAi === true;
+  const booruAuth: BooruAuth = {
+    danbooruLogin: input.danbooruLogin?.trim() || undefined,
+    danbooruApiKey: input.danbooruApiKey?.trim() || undefined,
+  };
   switch (input.op) {
     case "pixivRanking":
       return pixivRanking(input.mode, input.page, pixiv, safe, hideAi, input.date);
@@ -1095,13 +1130,13 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "fanboxTagged":
       return fanboxTagged(input.tag, input.page, fanbox, safe);
     case "booruList":
-      return booruList(input.site, input.feed, input.tags ?? "", input.page, safe, input.date);
+      return booruList(input.site, input.feed, input.tags ?? "", input.page, safe, input.date, booruAuth);
     case "booruPost":
-      return booruPost(input.site, input.id, safe);
+      return booruPost(input.site, input.id, safe, booruAuth);
     case "booruPool":
-      return booruPool(input.site, input.id, safe);
+      return booruPool(input.site, input.id, safe, booruAuth);
     case "tagSuggest":
-      return tagSuggest(input.source, input.word, pixiv);
+      return tagSuggest(input.source, input.word, pixiv, booruAuth);
     default: {
       const _never: never = input;
       throw new Error(`未知操作: ${JSON.stringify(_never)}`);
@@ -1123,7 +1158,12 @@ function rememberMedia(url: URL, bytes: Uint8Array, type: string) {
 
 export async function fetchMediaResponse(
   rawUrl: string,
-  cookies: { pixiv?: string; fanbox?: string },
+  cookies: {
+    pixiv?: string;
+    fanbox?: string;
+    /** Danbooru 账号。cdn.donmai.us 的图也要过 Cloudflare，带账号请求可免验证。 */
+    danbooru?: { login: string; apiKey: string };
+  },
   signal?: AbortSignal,
 ): Promise<Response> {
   if (signal?.aborted) return new Response(null, { status: 204 });
@@ -1144,6 +1184,8 @@ export async function fetchMediaResponse(
   } else if (host.endsWith("donmai.us")) {
     headers.Referer = "https://danbooru.donmai.us/";
     headers["User-Agent"] = DANBOORU_UA;
+    const authorization = danbooruAuthHeader(cookies.danbooru?.login, cookies.danbooru?.apiKey);
+    if (authorization) headers.Authorization = authorization;
     const { curlFetch } = await import("./curl-fetch.server");
     const res = await curlFetch(url.toString(), headers);
     if (res.status < 200 || res.status >= 300) {
