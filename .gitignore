@@ -35,10 +35,8 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# 锁文件与生成代码（本地 pnpm i / pnpm dev 会再生成）
+# 锁文件（本地 pnpm i 会再生成）
 pnpm-lock.yaml
-src/routeTree.gen.ts
-routeTree.gen.ts
 
 # 沙箱 / 预览（不属于发布仓库）
 .grok/

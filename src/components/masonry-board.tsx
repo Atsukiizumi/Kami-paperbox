@@ -5,6 +5,8 @@
  * 用法：<MasonryBoard>{cards}</MasonryBoard>；卡片需 data-aspect 和 .kami-card-media。
  * 为什么：useLayoutEffect 在绘制前打包，避免先看到 CSS grid 再跳到绝对定位。
  *        只观察宽度和子节点增删；高度由我们自己写死，不必等图片 onLoad。
+ *        宽度是 CSS 像素，浏览器缩放会改 clientWidth，ResizeObserver 会重排。
+ *        整批换站时由外层 key 拆掉容器，避免卸掉的卡片还绝对定位留在里面。
  */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { MASONRY_CAPTION, MASONRY_MAX_COLS, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";

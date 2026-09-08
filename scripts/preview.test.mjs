@@ -86,16 +86,15 @@ test("parseListenerInodes reads the tcp6 dump the same way", () => {
 // /proc/<pid>/cmdline is NUL-separated.
 const cmdline = (...argv) => argv.join("\u0000");
 
-test("looksLikePreviewProcess matches the npm wrapper and its vite child", () => {
+test("looksLikePreviewProcess matches the npm wrapper and its Next child", () => {
   const npmRun = cmdline("node", "/usr/lib/node_modules/npm/bin/npm-cli.js", "run", "preview");
   assert.equal(looksLikePreviewProcess(npmRun), true);
   assert.equal(looksLikePreviewProcess(cmdline("npm", "run", "preview")), true);
   assert.equal(
-    looksLikePreviewProcess(cmdline("node", "/ws/node_modules/.bin/vite", "preview")),
+    looksLikePreviewProcess(cmdline("node", "/ws/node_modules/next/dist/bin/next", "start")),
     true,
   );
-  // `ps -o command=` output is space-separated.
-  assert.equal(looksLikePreviewProcess("node /ws/node_modules/.bin/vite preview"), true);
+  assert.equal(looksLikePreviewProcess("node /ws/node_modules/next/dist/bin/next start --port 8080"), true);
 });
 
 test("looksLikePreviewProcess spares the sibling scripts and re-used pids", () => {
@@ -113,8 +112,8 @@ test("looksLikePreviewProcess spares the sibling scripts and re-used pids", () =
   assert.equal(looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:stop")), false);
   assert.equal(looksLikePreviewProcess(cmdline("node", npmCli, "run", "preview:restart")), false);
   assert.equal(looksLikePreviewProcess(cmdline("npm", "run", "preview:stop")), false);
-  const viteBuild = cmdline("vite", "build", "--outDir", "preview-dist");
-  assert.equal(looksLikePreviewProcess(viteBuild), false);
+  const nextBuild = cmdline("node", "/ws/node_modules/next/dist/bin/next", "build");
+  assert.equal(looksLikePreviewProcess(nextBuild), false);
   assert.equal(looksLikePreviewProcess(cmdline("/usr/bin/preview-tool", "--x")), false);
   assert.equal(looksLikePreviewProcess(cmdline("sleep", "300")), false);
   assert.equal(looksLikePreviewProcess(cmdline("node", "server.mjs")), false);

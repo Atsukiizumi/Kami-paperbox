@@ -7,6 +7,7 @@
  * 为什么：设置是小 JSON，localStorage 够用。队列只留 80 条状态，原图在纸匣 IDB，
  *        不要把 Blob 塞进 zustand。
  */
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types";
@@ -370,6 +371,15 @@ export const useSettings = create<SettingsState>()(
     },
   ),
 );
+
+/** 设置从 localStorage 水合完再开浏览请求，queryKey 才能对上浏览器缓存。 */
+export function useSettingsHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(() =>
+    typeof window === "undefined" ? false : Boolean(useSettings.persist.hasHydrated()),
+  );
+  useEffect(() => onPersisted(useSettings, () => setHydrated(true)), []);
+  return hydrated;
+}
 
 export function cookiesFromSettings(): {
   pixivCookie?: string;

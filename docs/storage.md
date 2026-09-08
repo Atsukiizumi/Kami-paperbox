@@ -23,6 +23,16 @@
 
 `pnpm dev` / `pnpm start` 就是这台 Node 服务器。Docker 把 `.data` 做成数据卷。Vercel 不能写磁盘，收入时自动只用 IndexedDB。
 
+Next 服务端缓存（跟你从哪个 IP 打开无关，key 不是 `http://192.168.x.x`）：
+
+| 层 | 路径 | 存什么 | TTL |
+| --- | --- | --- | --- |
+| 封面 | `.data/media/{sha256}.bin` | pximg / 图站图 | 7 天 |
+| 列表 | `.data/source/{sha256}.json` | 日榜、图站、关注、推荐、FANBOX 列表 | 30 分钟 |
+| 浏览 | 浏览器 localStorage `kami-browse-v1` | 首页够一屏（约 50 张，含关注 / 推荐 / FANBOX） | 30 分钟后后台问 Next，24 小时丢掉 |
+
+读的顺序：浏览器 localStorage → Next `.data`（及 `unstable_cache`）→ 源站。列表 key 用账号 id，不用 Cookie 原文、不用访问 IP。浏览页点「刷新」会带 `fresh`，跳过这两层，重新打源站并覆盖盘上的列表。作品详情（`pixivIllust` / `fanboxPost`）和搜图引擎不进列表缓存。FANBOX 投稿正文图也不进封面盘。换 IP 仍问本机 Next，命中就不打源站。
+
 ---
 
 ## 2. 为什么图是文件，库只存字
@@ -109,6 +119,8 @@ work_related   (from_key, to_key)
 读的时候纸匣页先 `GET /api/vault`；失败再读 IndexedDB。某一页原图：先 IndexedDB，没有再 `GET /api/vault?key=&page=`。
 
 删除两边都删。
+
+设置「备份」导出 JSON：账号、纸匣目录、词表、历史。不含原图像素。导入会覆盖设置和账号，纸匣记录按编号合并。用户文件夹授权导不走，导入后要重新选一次文件夹。
 
 ---
 

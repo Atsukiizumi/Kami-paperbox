@@ -11,9 +11,8 @@
  *     posts the session token to the opener and closes. No SPA hydrate, no
  *     server-fn round-trip.
  *
- * Wired automatically by the Vite `authPopupPlugin` in `vite.config.ts` during
- * `npm run dev` (live preview). Do NOT create `src/routes/auth/popup.tsx` — a
- * React route here paints the full app shell in the popup. The opener lives in
+ * Wired by `app/auth/popup/route.ts`. Do NOT create a React page at this path —
+ * a page here paints the full app shell in the popup. The opener lives in
  * `client.ts` (`signIn` → `openSignInPopup`).
  */
 import { auth, SESSION_TOKEN_COOKIE } from "./server";
@@ -26,8 +25,7 @@ type PopupMessage = {
 };
 
 /**
- * Handle `GET /auth/popup`. Invoked by the Vite `authPopupPlugin` (dev / live
- * preview). Do not re-export this from a React route file.
+ * Handle `GET /auth/popup`. Invoked by `app/auth/popup/route.ts`.
  */
 export async function handleAuthPopupRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);

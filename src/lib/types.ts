@@ -146,6 +146,8 @@ export type FetchInput = {
   fanboxCookie?: string;
   safeMode?: boolean;
   hideAi?: boolean;
+  /** 跳过 Next 列表缓存，重新打源站。 */
+  fresh?: boolean;
 } & (
   | { op: "pixivRanking"; mode: PixivRankMode; page: number; date?: string }
   | { op: "pixivSearch"; word: string; page: number; filter?: PixivSearchFilter }
@@ -218,4 +220,6 @@ export type VaultMeta = {
   sha256?: string;
   replaced?: boolean;
   origin?: "folder" | "app";
+  /** 应用内 `.data/vault/files` 是否有第 0 页。没有时封面应读用户文件夹，不要打 /api/vault。 */
+  hasFile?: boolean;
 };

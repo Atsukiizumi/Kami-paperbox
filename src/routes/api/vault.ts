@@ -6,6 +6,7 @@
  *   GET  /api/vault              健康检查 + 列表（?text &source &author）
  *   GET  /api/vault?key&page     某一页文件
  *   PUT  /api/vault              FormData：meta JSON + page_0… 文件
+ *                                application/json：只写目录（备份导入，不动原图）
  *   PATCH /api/vault             { key, relativePath?, folderLabel? }
  *   DELETE /api/vault?key=
  * 为什么：浏览器碰不到 `.data/vault`，必须由 Node 进程写盘。
@@ -98,6 +99,14 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
         try {
+          const ctype = request.headers.get("content-type") || "";
+          if (ctype.includes("application/json")) {
+            const body = (await request.json()) as { meta?: unknown };
+            const meta = metaFromUnknown(body.meta ?? body);
+            if (!meta) return json({ ok: false, error: "缺少作品信息" }, 400);
+            const saved = getVaultStore().putMeta(meta);
+            return json({ ok: true, item: saved });
+          }
           const form = await request.formData();
           let metaRaw: unknown = form.get("meta");
           if (typeof metaRaw === "string") {

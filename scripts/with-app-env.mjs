@@ -2,10 +2,9 @@
 /**
  * Run a command with `.grok/app-env.json` merged into its environment.
  *
- * `dev`, `build` and `preview` all route through this wrapper, so the dev
- * server, the built bundle and the preview server can never disagree about
- * `VITE_AUTH_ENABLED` — a divergence that only shows up as a built-output
- * mismatch long after the fact. Anything that starts Vite directly bypasses it.
+ * `dev`, `build` and `start` all route through this wrapper, so the dev
+ * server and the production build never disagree about `VITE_AUTH_ENABLED`.
+ * Anything that starts Next directly bypasses it.
  *
  * Only `VITE_`-prefixed keys are honored: the file is a build flag carrier, not
  * a secret store, and only `VITE_` vars reach the browser anyway. A real
@@ -16,8 +15,8 @@
  * `VITE_AUTH_ENABLED` itself (today unconditionally `"true"`), so the deployed
  * flag is the platform's, not this file's.
  *
- * Vite picks the values up because `loadEnv` prefix-matches entries already in
- * `process.env`, which is why the merge has to happen before Vite starts.
+ * Next reads the same `VITE_*` keys via `next.config.ts` `env`, which is why
+ * the merge has to happen before the CLI starts.
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -72,9 +71,9 @@ export function localBinDir(root = projectRoot()) {
 }
 
 /**
- * Put the project's `.bin` first on PATH so `vite` / `tsc` resolve without
+ * Put the project's `.bin` first on PATH so `next` / `tsc` resolve without
  * relying on the parent shell. `npm run` already does this; a raw
- * `node scripts/with-app-env.mjs vite` and Windows `.cmd` lookups do not.
+ * `node scripts/with-app-env.mjs next` and Windows `.cmd` lookups do not.
  */
 export function withLocalBin(env, root = projectRoot()) {
   const dir = localBinDir(root);
@@ -101,12 +100,10 @@ export function resolveLocalBin(command, root = projectRoot()) {
 
 /**
  * JS entry for a CLI (avoids Windows `cmd.exe` + paths with spaces).
- * `vite` → `node node_modules/vite/bin/vite.js`
  * `next` → `node node_modules/next/dist/bin/next`
  */
 export function resolveJsCli(command, root = projectRoot()) {
   const entries = {
-    vite: join(root, "node_modules", "vite", "bin", "vite.js"),
     next: join(root, "node_modules", "next", "dist", "bin", "next"),
   };
   const entry = entries[command];
@@ -146,7 +143,7 @@ export function missingDepsHint(command) {
  * qemu-user (amd64 image builds on an arm host) a self-directed signal is
  * routinely delivered as SIGSEGV to the wrong process, which takes down the
  * test worker and fails the image build. `128 + signo` is what a shell reports
- * for a signal-killed command, so a cancelled `vite build` is still a failure.
+ * for a signal-killed command, so a cancelled `next build` is still a failure.
  */
 export function exitStatusFromChild(code, signal) {
   if (signal) {

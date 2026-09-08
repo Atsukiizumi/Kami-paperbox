@@ -44,7 +44,6 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
 export function VaultPage() {
   const folderLabel = useSettings((s) => s.folderLabel);
   const [all, setAll] = useState<VaultMeta[]>([]);
-  const [origin, setOrigin] = useState<"server" | "browser">("browser");
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
   const [author, setAuthor] = useState("");
@@ -61,11 +60,12 @@ export function VaultPage() {
     const remoteItems = remote?.items ?? [];
     if (remoteItems.length > 0) {
       const map = new Map(remoteItems.map((item) => [item.key, item]));
-      for (const item of local) map.set(item.key, item);
-      setOrigin("server");
+      for (const item of local) {
+        const prev = map.get(item.key);
+        map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
+      }
       setAll([...map.values()].sort((a, b) => b.savedAt - a.savedAt));
     } else {
-      setOrigin("browser");
       setAll(local);
     }
     setReady(true);
@@ -84,6 +84,7 @@ export function VaultPage() {
     return vaultAuthors(pool).filter((name) => name.trim() !== "");
   }, [all, source]);
   const totals = vaultTotals(items);
+  const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
     if (author && !authors.includes(author)) setAuthor("");
@@ -92,7 +93,9 @@ export function VaultPage() {
   async function exportWork(item: VaultMeta) {
     const files: { blob: Blob; ext: string }[] = [];
     for (let i = 0; i < item.pageCount; i += 1) {
-      const blob = (await previewFromFolder(item)) || (await getVaultBlob(item.key, i));
+      const blob =
+        (await previewFromFolder(item)) ||
+        (await getVaultBlob(item.key, i, { localOnly: item.hasFile === false }));
       if (!blob) continue;
       files.push({ blob, ext: extFromNameOrType(undefined, blob.type) });
     }
@@ -117,6 +120,11 @@ export function VaultPage() {
             ? `原图在「${folderLabel}」，这里只记路径和校验。`
             : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}
         </p>
+        {folderOnly > 0 ? (
+          <p className="mt-2 text-sm text-muted">
+            {folderOnly} 条只有文件夹副本，应用内库没有像素。授权「存储」里的文件夹后才能预览封面；不是没保存。
+          </p>
+        ) : null}
       </header>
 
       {all.length > 0 ? (
@@ -178,7 +186,6 @@ export function VaultPage() {
               key={item.key}
               item={item}
               index={i}
-              origin={origin}
               onExport={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -223,17 +230,16 @@ function FilterChip({
 function VaultCard({
   item,
   index,
-  origin,
   onExport,
   onDelete,
 }: {
   item: VaultMeta;
   index: number;
-  origin: "server" | "browser";
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
 }) {
-  const [thumb, setThumb] = useState(origin === "server" ? vaultPageUrl(item.key) : "");
+  const serverThumb = item.hasFile ? vaultPageUrl(item.key) : "";
+  const [thumb, setThumb] = useState(serverThumb);
   const [size, setSize] = useState<{ width?: number; height?: number }>({});
 
   useEffect(() => {
@@ -241,7 +247,9 @@ function VaultCard({
     let url = "";
     void (async () => {
       const folderBlob = await previewFromFolder(item);
-      const blob = folderBlob || (origin === "browser" ? await getVaultBlob(item.key, 0) : undefined);
+      const blob =
+        folderBlob ||
+        (await getVaultBlob(item.key, 0, { localOnly: item.hasFile === false }));
       if (cancelled) return;
       if (blob) {
         url = URL.createObjectURL(blob);
@@ -253,13 +261,13 @@ function VaultCard({
         setThumb(url);
         return;
       }
-      if (origin === "server") setThumb(vaultPageUrl(item.key));
+      setThumb(item.hasFile ? vaultPageUrl(item.key) : "");
     })();
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [item.key, item.relativePath, origin]);
+  }, [item.key, item.relativePath, item.hasFile]);
 
   return (
     <ArtworkCard

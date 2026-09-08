@@ -1,4 +1,7 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { pendingMigrations } from "../../scripts/migration-plan.mjs";
+import { resolveKamiRoot } from "./proxy.server.ts";
 
 /** Which database backend is active. */
 export type DbSource = "neon" | "pglite";
@@ -129,19 +132,20 @@ async function createPgliteSql(): Promise<Sql> {
   });
   const pg = await globalRef.__pgliteInstance__;
 
-  // Apply migrations/ (the single schema source) so preview matches production.
-  // SQL is inlined by the bundler via import.meta.glob (no runtime fs); applied
-  // files are tracked in _migrations. The glob does not descend, so the opt-in
-  // auth schema under migrations/auth/ stays out. Runs once per module instance
-  // — so an HMR reload after adding a migration file applies it live — with
-  // passes serialized on a global chain so concurrent callers never
-  // double-apply.
+  // Apply migrations/ so preview matches production. Read from disk (Next has
+  // no import.meta.glob). Does not descend, so migrations/auth/ stays out.
+  // Runs once per module instance, serialized on a global chain.
   const migrate = async (): Promise<void> => {
-    const migrations = import.meta.glob("/migrations/*.sql", {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    }) as Record<string, string>;
+    const dir = join(resolveKamiRoot(), "migrations");
+    const migrations: Record<string, string> = {};
+    try {
+      for (const name of readdirSync(dir)) {
+        if (!name.endsWith(".sql")) continue;
+        migrations[name] = readFileSync(join(dir, name), "utf8");
+      }
+    } catch {
+      /* no migrations directory */
+    }
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );
@@ -172,8 +176,8 @@ let sqlPromise: Promise<Sql> | null = null;
 async function createSql(): Promise<Sql> {
   if (typeof window !== "undefined") {
     throw new Error(
-      "@/lib/db is server-only — call getSql() from a createServerFn handler " +
-        "or a server route loader, never from client code.",
+      "@/lib/db is server-only — call getSql() from a Route Handler " +
+        "or other server code, never from client code.",
     );
   }
   return dbSource === "neon" ? createNeonSql() : createPgliteSql();

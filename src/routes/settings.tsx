@@ -20,6 +20,7 @@ import {
 import { SiteAvatar } from "@/components/site-avatar";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
+import { BackupSection } from "@/components/backup-settings";
 import { TagLexiconSection } from "@/components/tag-lexicon-settings";
 import { useSettings } from "@/lib/store";
 import { applyCookieDump, applyLoginSession } from "@/lib/apply-session";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 const SETTINGS_PAGES = [
   { id: "theme", label: "外观", hint: "配色和深浅" },
   { id: "storage", label: "存储", hint: "文件夹和路径" },
+  { id: "backup", label: "备份", hint: "导出和导入" },
   { id: "lexicon", label: "词表", hint: "标签译文" },
   { id: "search", label: "搜图", hint: "SauceNAO key" },
   { id: "accounts", label: "账号", hint: "登录和 Cookie" },
@@ -267,9 +269,10 @@ export function SettingsPage() {
   const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const [newName, setNewName] = useState("");
   const [relaySite, setRelaySite] = useState<LoginSite | null>(null);
-  const [page, setPage] = useState<SettingsPageId>(pageFromHash);
+  const [page, setPage] = useState<SettingsPageId>("theme");
 
   useEffect(() => {
+    setPage(pageFromHash());
     function onHash() {
       setPage(pageFromHash());
     }
@@ -362,6 +365,7 @@ export function SettingsPage() {
         <div className="min-w-0 flex-1 space-y-8">
       {page === "theme" ? <ThemeSection /> : null}
       {page === "storage" ? <StorageSection /> : null}
+      {page === "backup" ? <BackupSection /> : null}
       {page === "lexicon" ? <TagLexiconSection /> : null}
       {page === "search" ? <SearchKeySection /> : null}
 

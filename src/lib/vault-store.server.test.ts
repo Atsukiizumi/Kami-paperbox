@@ -42,8 +42,71 @@ test("openVaultStore put list search and read page", () => {
     assert.deepEqual(Uint8Array.from(page.bytes), png);
     store.patch("pixiv:99", { relativePath: "Agoto/syring.png" });
     assert.equal(store.get("pixiv:99")?.relativePath, "Agoto/syring.png");
+    assert.equal(store.get("pixiv:99")?.hasFile, true);
+    assert.equal(store.list()[0]?.hasFile, true);
     assert.equal(store.remove("pixiv:99"), true);
     assert.equal(store.list().length, 0);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("putMeta restores a catalog row without replacing files", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-"));
+  const store = openVaultStore(root);
+  try {
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    store.put(
+      {
+        key: "pixiv:99",
+        source: "pixiv",
+        id: "99",
+        title: "old",
+        author: "a",
+        authorId: "1",
+        tags: [],
+        pageCount: 1,
+        savedAt: 1,
+        bytes: 0,
+      },
+      [{ bytes: png, ext: "png", mime: "image/png" }],
+    );
+    const metaOnly = store.putMeta({
+      key: "yande:2",
+      source: "yande",
+      id: "2",
+      title: "folder copy",
+      author: "b",
+      authorId: "",
+      tags: ["landscape"],
+      pageCount: 1,
+      savedAt: 2,
+      bytes: 8,
+      relativePath: "b/2.jpg",
+      folderLabel: "Kami",
+    });
+    assert.equal(metaOnly.id, "2");
+    assert.equal(metaOnly.hasFile, false);
+    assert.equal(store.list().length, 2);
+    const kept = store.putMeta({
+      key: "pixiv:99",
+      source: "pixiv",
+      id: "99",
+      title: "renamed",
+      author: "a",
+      authorId: "1",
+      tags: ["OC"],
+      pageCount: 1,
+      savedAt: 3,
+      bytes: 0,
+      relativePath: "a/99.png",
+    });
+    assert.equal(kept.title, "renamed");
+    assert.equal(kept.hasFile, true);
+    const page = store.readPage("pixiv:99", 0);
+    assert.ok(page);
+    assert.equal(page.ext, "png");
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });

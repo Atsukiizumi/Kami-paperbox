@@ -2,7 +2,7 @@
  * 浏览器 ↔ Node 纸匣同步。
  *
  * 作用：收入时把作品推到本机 Node 目录；纸匣页优先读服务器列表，失败再读 IndexedDB。
- * 用法：pushVaultToServer / listServerVault / fetchServerVaultBlob / deleteServerVault。
+ * 用法：pushVaultToServer / pushVaultMetaToServer / listServerVault / fetchServerVaultBlob / deleteServerVault。
  * 为什么：预览和 PWA 仍需要 IDB（关服务器也能看缓存）；真正扛量的是 Node 写的 SQLite + 文件。
  */
 import type { VaultMeta } from "./types";
@@ -55,6 +55,20 @@ export async function fetchServerVaultBlob(key: string, page: number): Promise<B
     return new Blob([buf], { type });
   } catch {
     return undefined;
+  }
+}
+
+export async function pushVaultMetaToServer(meta: VaultMeta): Promise<VaultMeta | null> {
+  try {
+    const res = await fetch("/api/vault", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ meta }),
+    });
+    const body = await asJson<{ ok: boolean; item?: VaultMeta }>(res);
+    return body?.ok && body.item ? body.item : null;
+  } catch {
+    return null;
   }
 }
 

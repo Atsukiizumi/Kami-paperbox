@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-/** Flat ESLint config for the TanStack Start app-builder template. */
+/** Flat ESLint config for Kami 纸匣 (Next.js App Router). */
 export default tseslint.config(
   {
     ignores: [
@@ -13,9 +13,7 @@ export default tseslint.config(
       ".output/**",
       ".next/**",
       ".vercel/**",
-      ".nitro/**",
       "node_modules/**",
-      "src/routeTree.gen.ts",
     ],
   },
   js.configs.recommended,

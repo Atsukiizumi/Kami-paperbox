@@ -260,7 +260,7 @@ function PageFrame({
     playEnter(el);
   }, [pathname, detail]);
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
+    <div className="w-full px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
       {mountBrowse ? (
         <div hidden={!isHome} aria-hidden={!isHome} className={isHome ? "pt-6 md:pt-8" : "hidden"}>
           <BrowsePage />

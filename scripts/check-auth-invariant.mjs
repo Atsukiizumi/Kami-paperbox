@@ -5,17 +5,16 @@
  *
  * `npm run dev`, `npm run build` and `npm run preview` all get the flag from
  * `scripts/with-app-env.mjs`, so they agree by construction — but a dev server
- * started outside npm (`npx vite dev`) does not, and the result is sign-in
+ * started outside npm (`npx next dev`) does not, and the result is sign-in
  * visible in the live preview and absent from the built output, or the reverse.
  *
  * The two sides compared:
  *  - **dev**: what the running server resolved, read from the `/__app-env`
  *    endpoint the template's dev-only `appEnvPlugin` serves.
- *  - **build**: what the wrapper hands `vite build` / `vite preview`.
+ *  - **build**: what the wrapper hands `next build` / `next start`.
  *
- * The built bundle is not read: Vite inlines the flag and the minifier folds
- * `"false" !== "false"` away, so the built client JS carries no marker to
- * compare against unless the app is made to emit one.
+ * The built bundle is not read: Next inlines the flag, so the built client JS
+ * carries no marker to compare against unless the app is made to emit one.
  *
  * `scripts/browser-smoke.mjs` runs the comparison on every smoke; run it
  * standalone against a live dev server with `npm run check:auth` (exit 0 agree,
@@ -55,7 +54,7 @@ export function compareAuthInvariant({ devAuthEnabled, buildAuthEnabled }) {
     message:
       `[auth-invariant] dev server has sign-in ${label(devAuthEnabled)} but the next ` +
       `build has it ${label(buildAuthEnabled)}. Start the app with \`npm run dev\` — ` +
-      "invoking vite directly skips scripts/with-app-env.mjs, so the dev server and " +
+      "invoking next directly skips scripts/with-app-env.mjs, so the dev server and " +
       "the built output resolve .grok/app-env.json differently.",
   };
 }
@@ -83,7 +82,7 @@ export function authInvariantWarnings(result) {
   return result.status === "diverged" ? [result.message] : [];
 }
 
-/** What `vite build` / `vite preview` will resolve, via the same wrapper. */
+/** What `next build` / `next start` will resolve, via the same wrapper. */
 export function buildAuthEnabled(root = projectRoot(), processEnv = process.env) {
   const env = mergeAppEnv(readAppEnv(root), processEnv);
   return authEnabledFromEnvValue(env.VITE_AUTH_ENABLED);

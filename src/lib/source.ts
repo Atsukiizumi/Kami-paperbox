@@ -23,6 +23,7 @@ export const fetchSchema = z.intersection(
     fanboxCookie: z.string().max(8192).optional(),
     safeMode: z.boolean().optional(),
     hideAi: z.boolean().optional(),
+    fresh: z.boolean().optional(),
   }),
   z.discriminatedUnion("op", [
     z.object({

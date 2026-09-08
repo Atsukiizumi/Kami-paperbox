@@ -26,7 +26,6 @@
     "checkJs": true,
     "noEmit": true,
     "types": [
-      "vite/client",
       "node"
     ],
     "baseUrl": ".",
@@ -39,15 +38,12 @@
   },
   "include": [
     "src",
-    "server",
     "app",
     "next.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src/routeTree.gen.ts",
-    "src/router.tsx"
+    "node_modules"
   ]
 }

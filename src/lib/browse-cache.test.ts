@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { persistableQuery, trimDehydrated } from "./browse-cache.ts";
+import { QueryClient } from "@tanstack/react-query";
+import { hydrateBrowseCache, persistableQuery, trimDehydrated } from "./browse-cache.ts";
 
 test("persistableQuery only keeps browse feeds", () => {
   assert.equal(persistableQuery({ queryKey: ["home-pixiv", "daily"] }), true);
+  assert.equal(persistableQuery({ queryKey: ["home-pixiv", "recommend"] }), true);
+  assert.equal(persistableQuery({ queryKey: ["home-pixiv", "following"] }), true);
+  assert.equal(persistableQuery({ queryKey: ["home-fanbox"] }), true);
   assert.equal(persistableQuery({ queryKey: ["home-booru"] }), true);
   assert.equal(persistableQuery({ queryKey: ["work", "pixiv", "1"] }), false);
   assert.equal(persistableQuery({ queryKey: ["tag-suggest"] }), false);
@@ -18,7 +22,14 @@ test("trimDehydrated drops stale queries and extra pages", () => {
           queryHash: "a",
           queryKey: ["home-pixiv", "daily"],
           state: {
-            data: { pages: [1, 2, 3], pageParams: [1, 2, 3] },
+            data: {
+              pages: [
+                { items: Array.from({ length: 30 }, (_, i) => i) },
+                { items: Array.from({ length: 30 }, (_, i) => i) },
+                { items: Array.from({ length: 30 }, (_, i) => i) },
+              ],
+              pageParams: [1, 2, 3],
+            },
             dataUpdatedAt: now - 1000,
             status: "success",
           },
@@ -38,6 +49,87 @@ test("trimDehydrated drops stale queries and extra pages", () => {
     now,
   );
   assert.equal(state.queries.length, 1);
-  const data = state.queries[0]?.state.data as { pages: number[] };
-  assert.deepEqual(data.pages, [1, 2]);
+  const data = state.queries[0]?.state.data as { pages: { items: number[] }[]; pageParams: number[] };
+  assert.equal(data.pages.length, 2);
+  assert.deepEqual(data.pageParams, [1, 2]);
+});
+
+test("trimDehydrated keeps enough FANBOX pages to fill one screen", () => {
+  const now = 1_000_000;
+  const pages = Array.from({ length: 8 }, (_, i) => ({
+    op: "fanboxHome",
+    items: Array.from({ length: 10 }, (_, j) => j + i * 10),
+    cursor: { datetime: "t", id: String(i) },
+  }));
+  const state = trimDehydrated(
+    {
+      queries: [
+        {
+          queryHash: "fanbox",
+          queryKey: ["home-fanbox", "home"],
+          state: {
+            data: { pages, pageParams: pages.map((_, i) => i) },
+            dataUpdatedAt: now,
+            status: "success",
+          },
+        },
+      ],
+    } as never,
+    now,
+  );
+  const data = state.queries[0]?.state.data as { pages: { items: number[] }[] };
+  assert.equal(data.pages.length, 5);
+  assert.equal(data.pages.reduce((n, p) => n + p.items.length, 0), 50);
+});
+
+test("hydrateBrowseCache paints localStorage before any fetch", () => {
+  const mem = new Map<string, string>();
+  const previous = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => mem.set(k, String(v)),
+      removeItem: (k: string) => mem.delete(k),
+    },
+  });
+  try {
+    mem.set(
+      "kami-browse-v1",
+      JSON.stringify({
+        queries: [
+          {
+            queryHash: '["home-fanbox","home"]',
+            queryKey: ["home-fanbox", "home"],
+            state: {
+              data: { pages: [{ op: "fanboxHome", items: [{ id: "1" }], cursor: null }], pageParams: [undefined] },
+              dataUpdatedAt: Date.now(),
+              status: "success",
+            },
+          },
+          {
+            queryHash: '["home-pixiv","recommend"]',
+            queryKey: ["home-pixiv", "recommend"],
+            state: {
+              data: { pages: [{ op: "pixivRecommend", items: [{ id: "2" }], nextPage: null }], pageParams: [1] },
+              dataUpdatedAt: Date.now(),
+              status: "success",
+            },
+          },
+        ],
+      }),
+    );
+    const client = new QueryClient();
+    hydrateBrowseCache(client);
+    const fanbox = client.getQueryData(["home-fanbox", "home"]) as { pages: { op: string }[] };
+    const rec = client.getQueryData(["home-pixiv", "recommend"]) as { pages: { op: string }[] };
+    assert.equal(fanbox.pages[0]?.op, "fanboxHome");
+    assert.equal(rec.pages[0]?.op, "pixivRecommend");
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(globalThis, "localStorage");
+    } else {
+      Object.defineProperty(globalThis, "localStorage", { configurable: true, value: previous });
+    }
+  }
 });

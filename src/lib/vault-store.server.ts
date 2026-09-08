@@ -103,7 +103,7 @@ function tagsOf(raw: string): string[] {
   }
 }
 
-export function rowToMeta(row: WorkRow): VaultMeta {
+export function rowToMeta(row: WorkRow, hasFile = false): VaultMeta {
   return {
     key: row.key,
     source: row.source as Source,
@@ -117,12 +117,14 @@ export function rowToMeta(row: WorkRow): VaultMeta {
     bytes: Number(row.bytes) || 0,
     relativePath: row.relative_path || undefined,
     folderLabel: row.folder_label || undefined,
+    hasFile,
   };
 }
 
 export type VaultStore = {
   dir: string;
   put: (meta: VaultMeta, pages: VaultPageFile[]) => VaultMeta;
+  putMeta: (meta: VaultMeta) => VaultMeta;
   list: (q?: VaultQuery) => VaultMeta[];
   get: (key: string) => VaultMeta | undefined;
   readPage: (key: string, page: number) => VaultPageRead | undefined;
@@ -158,6 +160,8 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   );
   const selectPage = db.prepare("SELECT ext, mime, bytes, path FROM pages WHERE key = ? AND page = ?");
   const selectPages = db.prepare("SELECT path FROM pages WHERE key = ?");
+  const selectPageKeys = db.prepare("SELECT DISTINCT key FROM pages");
+  const selectHasPage = db.prepare("SELECT 1 AS ok FROM pages WHERE key = ? AND page = 0 LIMIT 1");
 
   function workDir(source: string, id: string) {
     return join(filesDir, safeSeg(source), safeSeg(id));
@@ -209,14 +213,38 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       );
       return store.get(key) as VaultMeta;
     },
+    putMeta(meta) {
+      const parsed = parseVaultKey(meta.key) ?? parseVaultKey(`${meta.source}:${meta.id}`);
+      if (!parsed) throw new Error("无效的作品编号");
+      const key = `${parsed.source}:${parsed.id}`;
+      const prev = store.get(key);
+      const at = meta.savedAt || prev?.savedAt || Date.now();
+      upsertWork.run(
+        key,
+        parsed.source,
+        parsed.id,
+        meta.title || prev?.title || "无题",
+        meta.author || prev?.author || "",
+        meta.authorId || prev?.authorId || "",
+        tagsJson(meta.tags?.length ? meta.tags : prev?.tags || []),
+        meta.pageCount || prev?.pageCount || 0,
+        at,
+        meta.bytes || prev?.bytes || 0,
+        meta.relativePath ?? prev?.relativePath ?? null,
+        meta.folderLabel ?? prev?.folderLabel ?? null,
+      );
+      return store.get(key) as VaultMeta;
+    },
     list(q) {
       const rows = selectWorks.all() as WorkRow[];
-      const items = rows.map(rowToMeta);
+      const stored = new Set((selectPageKeys.all() as { key: string }[]).map((row) => row.key));
+      const items = rows.map((row) => rowToMeta(row, stored.has(row.key)));
       return filterVaultItems(items, q ?? {});
     },
     get(key) {
       const row = selectWork.get(key) as WorkRow | undefined;
-      return row ? rowToMeta(row) : undefined;
+      if (!row) return undefined;
+      return rowToMeta(row, Boolean(selectHasPage.get(key)));
     },
     readPage(key, page) {
       const row = selectPage.get(key, page) as { ext: string; mime: string; bytes: number; path: string } | undefined;
