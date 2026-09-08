@@ -210,6 +210,7 @@ export function mapBooruDetail(
   return {
     ...card,
     description: source ? `来源 ${source}` : "",
+    originSource: source || undefined,
     pages: page.original || page.regular ? [page] : [],
     pools: pools.length ? pools : undefined,
   };

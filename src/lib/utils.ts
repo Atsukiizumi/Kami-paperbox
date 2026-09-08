@@ -35,6 +35,44 @@ export function formatResolution(width?: number, height?: number): string {
   return `${w}×${h}`;
 }
 
+export function formatPostedAt(raw?: string, now = Date.now()): string {
+  if (!raw) return "";
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return raw;
+  const diff = Math.max(0, now - ms);
+  const min = Math.round(diff / 60_000);
+  if (min < 1) return "刚刚";
+  if (min < 60) return `${min} 分钟前`;
+  const hour = Math.round(min / 60);
+  if (hour < 24) return `${hour} 小时前`;
+  const day = Math.round(hour / 24);
+  if (day < 30) return `${day} 天前`;
+  const date = new Date(ms);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function formatRatingLabel(rating?: string, source?: string): string {
+  const r = (rating ?? "").toLowerCase();
+  if (!r) return "";
+  if (source === "danbooru") {
+    if (r === "g") return "General";
+    if (r === "s") return "Sensitive";
+  }
+  if (r === "s") return "Safe";
+  if (r === "q") return "Questionable";
+  if (r === "e") return "Explicit";
+  return rating ?? "";
+}
+
+export function httpSourceHref(raw?: string): string {
+  const v = (raw ?? "").trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return "";
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { WorkTagList } from "@/components/saved-tags";
+import { WorkStats } from "@/components/work-stats";
 import { FoldableText } from "@/components/profile-header";
 import { enqueueWork } from "@/lib/queue-runner";
 import { flyPaperToQueue } from "@/lib/paper-fly";
@@ -368,6 +369,7 @@ function WorkPage() {
           <span className="text-xs tabular-nums text-subtle">收藏 {formatCount(work.bookmarks)}</span>
         ) : null}
       </header>
+      <WorkStats work={work} onAuthor={searchTag} />
       {isBooru(src) && work.pools && work.pools.length > 0 ? (
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-3 text-sm text-muted">
           <span className="text-subtle">合集</span>
@@ -442,7 +444,9 @@ function WorkPage() {
             onToggle={(tag) => toggleSavedTag(src, tag)}
           />
         ) : null}
-        {work.description ? <FoldableText text={work.description} lines={4} /> : null}
+        {work.description && !(work.originSource && work.description === `来源 ${work.originSource}`) ? (
+          <FoldableText text={work.description} lines={4} />
+        ) : null}
       </div>
 
       <ImageLightbox
