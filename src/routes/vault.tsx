@@ -12,6 +12,7 @@ import { EmptySheet } from "@/components/empty-sheet";
 import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SITE_LIST } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatBytes, cn } from "@/lib/utils";
@@ -47,22 +48,27 @@ function VaultPage() {
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
   const [author, setAuthor] = useState("");
+  const [ready, setReady] = useState(false);
 
   async function refresh() {
-    const local = await listVault();
-    if (local.length) {
-      setOrigin("browser");
-      setAll(local);
-      return;
+    let local: VaultMeta[] = [];
+    try {
+      local = await listVault();
+    } catch {
+      local = [];
     }
     const remote = await listServerVault();
-    if (remote) {
+    const remoteItems = remote?.items ?? [];
+    if (remoteItems.length > 0) {
+      const map = new Map(remoteItems.map((item) => [item.key, item]));
+      for (const item of local) map.set(item.key, item);
       setOrigin("server");
-      setAll(remote.items);
-      return;
+      setAll([...map.values()].sort((a, b) => b.savedAt - a.savedAt));
+    } else {
+      setOrigin("browser");
+      setAll(local);
     }
-    setOrigin("browser");
-    setAll([]);
+    setReady(true);
   }
 
   useEffect(() => {
@@ -73,8 +79,15 @@ function VaultPage() {
     () => filterVaultItems(all, { text, source, author }),
     [all, text, source, author],
   );
-  const authors = useMemo(() => vaultAuthors(all), [all]);
+  const authors = useMemo(() => {
+    const pool = source === "all" ? all : all.filter((item) => item.source === source);
+    return vaultAuthors(pool).filter((name) => name.trim() !== "");
+  }, [all, source]);
   const totals = vaultTotals(items);
+
+  useEffect(() => {
+    if (author && !authors.includes(author)) setAuthor("");
+  }, [author, authors]);
 
   async function exportWork(item: VaultMeta) {
     const files: { blob: Blob; ext: string }[] = [];
@@ -102,7 +115,7 @@ function VaultPage() {
         <p className="mt-1 text-sm text-muted">
           {folderLabel
             ? `原图在「${folderLabel}」，这里只记路径和校验。`
-            : "当前窗口不能挂文件夹时，图会暂存在应用里。"}
+            : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}
         </p>
       </header>
 
@@ -122,26 +135,31 @@ function VaultPage() {
                 {site.label}
               </FilterChip>
             ))}
+            {authors.length > 0 ? (
+              <Select value={author || "all"} onValueChange={(v) => setAuthor(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-9 min-w-[9rem] rounded-full bg-elevated px-3.5">
+                  <SelectValue placeholder="作者" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部作者</SelectItem>
+                  {authors.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <span className="ml-auto text-xs tabular-nums text-subtle">
               {totals.count} 条 · {formatBytes(totals.bytes)}
             </span>
           </div>
-          {authors.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <FilterChip active={!author} onClick={() => setAuthor("")}>
-                全部作者
-              </FilterChip>
-              {authors.map((name) => (
-                <FilterChip key={name} active={author === name} onClick={() => setAuthor(name)}>
-                  {name}
-                </FilterChip>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
-      {all.length === 0 ? (
+      {!ready ? (
+        <p className="text-sm text-muted">正在读取纸匣…</p>
+      ) : all.length === 0 ? (
         <EmptySheet
           title="还是空的"
           hint="去浏览把喜欢的图收进来。"
