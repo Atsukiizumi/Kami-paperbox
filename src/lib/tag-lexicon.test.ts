@@ -6,6 +6,7 @@ import {
   normalizeLexiconKey,
   parseTagLexicon,
   translateBooruToken,
+  upsertLexiconRow,
 } from "./tag-lexicon.ts";
 
 describe("tag lexicon", () => {
@@ -32,10 +33,16 @@ describe("tag lexicon", () => {
   });
 
   it("exports known tags with blank zh for the user to fill", () => {
-    const rows = mergeExportRows(["wet", "sky"], [{ en: "sky", zh: "天空" }]);
+    const rows = mergeExportRows(["zz_not_a_real_tag", "sky"], [{ en: "sky", zh: "天空" }]);
     const sky = rows.find((r) => r.en === "sky");
-    const wet = rows.find((r) => r.en === "wet");
+    const missing = rows.find((r) => r.en === "zz_not_a_real_tag");
     assert.equal(sky?.zh, "天空");
-    assert.equal(wet?.zh, "");
+    assert.equal(missing?.zh, "");
+  });
+
+  it("upserts a translation and clears on empty zh", () => {
+    const added = upsertLexiconRow([], "Long Hair", "长发");
+    assert.deepEqual(added, [{ en: "long_hair", zh: "长发" }]);
+    assert.deepEqual(upsertLexiconRow(added, "long_hair", "  "), []);
   });
 });

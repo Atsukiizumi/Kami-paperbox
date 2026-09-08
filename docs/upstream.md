@@ -211,7 +211,7 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 | --- | --- | --- |
 | Yande / Konachan | 站点自己的 `/post.json` | `https://yande.re/post.json?tags=&page=`；联想 ` /tag.json?name={词}*&order=count` |
 | Danbooru | 文档化的 REST | `https://danbooru.donmai.us/posts.json`；联想 `/autocomplete.json?search[query]=` |
-| SauceNAO / IQDB / TinEye | 搜图页的表单和结果 HTML | 上传走服务端，解析结果里的 pixiv / 图站链接 |
+| SauceNAO / ascii2d / IQDB | 搜图页的表单和结果 HTML | 上传走服务端，解析结果里的 pixiv / 图站链接 |
 
 图站仍然过滤涉及未成年人的标签，R-18 默认关掉。这些规则在 `src/lib/booru.ts`，和「抓接口」是分开的一层。
 

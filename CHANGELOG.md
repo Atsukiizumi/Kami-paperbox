@@ -8,6 +8,24 @@
 
 暂无。
 
+## [0.8.54] — 2026-09-08
+
+对应 [PR #97](https://github.com/Atsukiizumi/Kami-paperbox/pull/97)。
+
+### 新增
+
+- 图站标签数据库：按 general / copyright / character 等命名空间收录 Yande 系高频 tag，浏览时继续收词，设置里可补译。
+- 设置改为左侧分类切页。
+
+### 调整
+
+- 搜图一次问 SauceNAO、ascii2d、IQDB，结果按引擎分组；被风控的那一组单独标明。
+- 去掉 TinEye。SauceNAO API key 只在设置里填。
+
+### 文档
+
+- README 鸣谢 yande-re-chinese-patch、Yande.re、EhTagTranslation/Database、PixEz。
+
 ## [0.8.53] — 2026-09-08
 
 对应 [PR #96](https://github.com/Atsukiizumi/Kami-paperbox/pull/96)。

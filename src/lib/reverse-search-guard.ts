@@ -12,7 +12,6 @@ export const SEARCH_GAP_MS: Record<SearchEngine, number> = {
   saucenao: 8_000,
   ascii2d: 15_000,
   iqdb: 6_000,
-  tineye: 12_000,
 };
 
 export function searchGapMs(
@@ -37,9 +36,9 @@ export function isBotChallenge(status: number, text: string): boolean {
 }
 
 export function isSearchLimited(message: string): boolean {
-  return /限流|验证|间隔|次数用完|rate.?limit|captcha/i.test(message);
+  return /限流|验证|间隔|次数用完|风控|rate.?limit|captcha/i.test(message);
 }
 
 export function challengeMessage(engineLabel: string): string {
-  return `${engineLabel} 触发了验证或限流。等一会儿，或改用 IQDB。SauceNAO 填 API key 会宽松很多。`;
+  return `${engineLabel} 被风控了`;
 }

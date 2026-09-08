@@ -33,6 +33,7 @@ import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { pageThumbUrls } from "@/lib/page-thumbs";
 import { MasonryBoard } from "./masonry-board";
 import { EmptySheet } from "./empty-sheet";
+import { useTagCatalog } from "@/lib/tag-catalog";
 
 const SKELETON_ASPECT = 3 / 4;
 /** 悬停预览要等够久，才能先点到封面上的红心、纸匣和队列。 */
@@ -518,6 +519,9 @@ export function ArtworkGrid({
   empty?: string;
   marksOf?: (work: WorkCard) => string[] | undefined;
 }) {
+  useEffect(() => {
+    useTagCatalog.getState().ingestMany(items);
+  }, [items]);
   if (items.length === 0) {
     return <EmptySheet title={empty ?? "没有符合条件的作品。"} hint="换个站点或标签再看。" />;
   }

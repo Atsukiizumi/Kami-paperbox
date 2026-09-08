@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.8.53-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.8.53"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.8.54-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.8.54"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">
@@ -23,6 +23,10 @@
 **高速迭代中。** 功能和界面天天在改，这里不列清单。看变化去 [CHANGELOG.md](CHANGELOG.md)。
 
 本项目仅供学习交流。个人备份，请尊重作者版权。
+
+## 鸣谢
+
+图站标签译文参考了 [zhzwz/yande-re-chinese-patch](https://github.com/zhzwz/yande-re-chinese-patch) 的中文词表，高频 tag 列表来自 [Yande.re](https://yande.re/) 公开的 `tag.json`。仓库分层方式参考 [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)，词表本身不使用 E 站那份库。搜图和客户端交互参考了 [Notsfsssf/pixez-flutter](https://github.com/Notsfsssf/pixez-flutter)。
 
 ```bash
 pnpm i

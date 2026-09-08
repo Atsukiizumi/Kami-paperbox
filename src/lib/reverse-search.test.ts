@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ascii2dBovwUrl, parseAscii2dHtml, parseIqdbHtml, parseSauceNaoHtml, parseSauceNaoJson, parseTinEyeJson, workFromUrl } from "./reverse-search.ts";
+import { ascii2dBovwUrl, parseAscii2dHtml, parseIqdbHtml, parseSauceNaoHtml, parseSauceNaoJson, workFromUrl } from "./reverse-search.ts";
 
 const SAUCE = `
 <div class="result"><table class="resulttable"><tr><td class="resulttableimage"><div class="resultimage" ><a href="https://saucenao.com/search.php?db=999"><img src="https://img1.saucenao.com/res/pixiv/6825/68259314_p0_master1200.jpg" /></a></div></td><td class="resulttablecontent"><div class="resultmatchinfo"><div class="resultsimilarityinfo">95.34%</div></div><div class="resultcontent"><div class="resulttitle"><strong>白丝袜</strong><br /></div><div class="resultcontentcolumn"><strong>pixiv ID: </strong><a href="https://www.pixiv.net/member_illust.php?mode=medium&illust_id=68259314" class="linkify">68259314</a><br /><strong>Member: </strong><a href="https://www.pixiv.net/member.php?id=26690900" class="linkify">璽子</a></div></div></td></tr></table></div>
@@ -73,28 +73,6 @@ describe("reverse search parsers", () => {
     assert.equal(hits[0]?.workId, "447155");
     assert.equal(hits[0]?.similarity, 94);
     assert.match(hits[0]?.thumb ?? "", /iqdb\.org/);
-  });
-
-  it("parses TinEye JSON matches", () => {
-    const hits = parseTinEyeJson({
-      matches: [
-        {
-          score: 95.4,
-          domain: "safebooru.org",
-          image_url: "https://img.tineye.com/result/abc",
-          backlinks: [
-            {
-              backlink: "https://safebooru.org/index.php?id=1&page=post&s=view",
-              image_name: "cat.jpg",
-            },
-          ],
-        },
-      ],
-    });
-    assert.equal(hits.length, 1);
-    assert.equal(hits[0]?.similarity, 95.4);
-    assert.equal(hits[0]?.author, "safebooru.org");
-    assert.match(hits[0]?.sourceUrl ?? "", /safebooru/);
   });
 
   it("parses ascii2d item-box rows and bovw hash links", () => {
