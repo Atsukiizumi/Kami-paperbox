@@ -31,6 +31,7 @@ import { pickRelatedTag } from "@/lib/booru";
 import { stashReverseImage } from "@/lib/reverse-search";
 import type { WorkDetail } from "@/lib/types";
 import { rememberView } from "@/lib/view-history";
+import { collectBooruTags } from "@/lib/tag-catalog";
 
 export const Route = createFileRoute("/work/$source/$id")({
   component: WorkPage,
@@ -119,6 +120,7 @@ function WorkPage() {
   useEffect(() => {
     if (!query.isSuccess || !query.data) return;
     rememberView(query.data);
+    collectBooruTags(query.data.source, query.data.tags);
   }, [src, id, query.isSuccess, query.data]);
 
   const lightboxItems: LightboxItem[] = useMemo(() => {

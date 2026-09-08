@@ -8,6 +8,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { databaseTranslated } from "./tag-database.ts";
 
 export type TagLexiconRow = { en: string; zh: string };
 
@@ -150,6 +151,9 @@ export function parseTagLexicon(raw: unknown): TagLexiconRow[] {
 
 export function lexiconMap(userRows: readonly TagLexiconRow[]): Map<string, string> {
   const map = new Map<string, string>();
+  for (const row of databaseTranslated()) {
+    if (row.zh) map.set(row.en, row.zh);
+  }
   for (const row of BUILTIN_TAG_LEXICON) {
     if (row.zh) map.set(row.en, row.zh);
   }
@@ -165,6 +169,15 @@ export function translateBooruToken(token: string, map: Map<string, string>): st
   return map.get(key) || token.replace(/_/g, " ");
 }
 
+export function upsertLexiconRow(rows: readonly TagLexiconRow[], en: string, zh: string): TagLexiconRow[] {
+  const key = normalizeLexiconKey(en);
+  if (!key) return [...rows];
+  const next = rows.filter((row) => row.en !== key);
+  const trimmed = zh.trim();
+  if (trimmed) next.push({ en: key, zh: trimmed });
+  return next.sort((a, b) => a.en.localeCompare(b.en));
+}
+
 export function mergeExportRows(known: readonly string[], userRows: readonly TagLexiconRow[]): TagLexiconRow[] {
   const user = new Map(userRows.map((r) => [r.en, r.zh]));
   const builtin = new Map(BUILTIN_TAG_LEXICON.map((r) => [r.en, r.zh]));
@@ -174,15 +187,18 @@ export function mergeExportRows(known: readonly string[], userRows: readonly Tag
     if (key) keys.add(key);
   }
   for (const row of userRows) keys.add(row.en);
+  for (const row of databaseTranslated()) keys.add(row.en);
   for (const row of BUILTIN_TAG_LEXICON) keys.add(row.en);
+  const db = new Map(databaseTranslated().map((r) => [r.en, r.zh]));
   return [...keys]
     .sort((a, b) => a.localeCompare(b))
-    .map((en) => ({ en, zh: user.get(en) || builtin.get(en) || "" }));
+    .map((en) => ({ en, zh: user.get(en) || builtin.get(en) || db.get(en) || "" }));
 }
 
 type LexiconState = {
   rows: TagLexiconRow[];
   setRows: (rows: TagLexiconRow[]) => void;
+  setZh: (en: string, zh: string) => void;
 };
 
 export const useTagLexicon = create<LexiconState>()(
@@ -190,6 +206,7 @@ export const useTagLexicon = create<LexiconState>()(
     (set) => ({
       rows: [],
       setRows: (rows) => set({ rows: parseTagLexicon(rows) }),
+      setZh: (en, zh) => set((s) => ({ rows: upsertLexiconRow(s.rows, en, zh) })),
     }),
     { name: "kami-tag-lexicon", version: 1 },
   ),

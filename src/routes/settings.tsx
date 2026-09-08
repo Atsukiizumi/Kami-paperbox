@@ -26,6 +26,65 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
+const SETTINGS_PAGES = [
+  { id: "theme", label: "外观", hint: "配色和深浅" },
+  { id: "storage", label: "存储", hint: "文件夹和路径" },
+  { id: "lexicon", label: "词表", hint: "标签译文" },
+  { id: "search", label: "搜图", hint: "SauceNAO key" },
+  { id: "accounts", label: "账号", hint: "登录和 Cookie" },
+  { id: "browse", label: "浏览", hint: "R-18 和 AI" },
+  { id: "proxy", label: "代理", hint: "出站网络" },
+  { id: "help", label: "说明", hint: "怎么复制会话" },
+] as const;
+
+type SettingsPageId = (typeof SETTINGS_PAGES)[number]["id"];
+
+function isSettingsPage(v: string): v is SettingsPageId {
+  return SETTINGS_PAGES.some((p) => p.id === v);
+}
+
+function pageFromHash(): SettingsPageId {
+  if (typeof window === "undefined") return "theme";
+  const raw = window.location.hash.replace(/^#/, "");
+  return isSettingsPage(raw) ? raw : "theme";
+}
+
+function SettingsMenu({
+  page,
+  onPick,
+}: {
+  page: SettingsPageId;
+  onPick: (id: SettingsPageId) => void;
+}) {
+  return (
+    <nav aria-label="设置分类" className="md:w-40 md:shrink-0">
+      <p className="mb-2 hidden text-[11px] tracking-wide text-subtle uppercase md:block">分类</p>
+      <ul className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+        {SETTINGS_PAGES.map((item) => {
+          const active = item.id === page;
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={() => onPick(item.id)}
+                className={cn(
+                  "flex w-full min-w-max flex-col rounded-lg px-3 py-2 text-left transition-colors",
+                  active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/70 hover:text-fg",
+                )}
+              >
+                <span className="text-sm">{item.label}</span>
+                <span className={cn("hidden text-[11px] md:block", active ? "text-subtle" : "text-subtle/80")}>
+                  {item.hint}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 function mask(value: string): string {
   if (!value) return "未填写";
   if (value.length <= 6) return "已保存";
@@ -176,8 +235,12 @@ function SearchKeySection() {
           onChange={(e) => setSaucenaoApiKey(e.target.value)}
           placeholder="在 saucenao.com/user.php 复制"
         />
-        <p className="text-xs text-subtle">
-          只存在这台设备。没有 key 时纸匣会把图缩小、拉开请求间隔；被拦了可以改用 IQDB。
+        <p className="mt-2 text-xs text-subtle">
+          去{" "}
+          <a href="https://saucenao.com/user.php" target="_blank" rel="noreferrer" className="hover:underline">
+            saucenao.com/user.php
+          </a>{" "}
+          注册后把 API key 填在这里。没有 key 时 SauceNAO 很容易被风控。
         </p>
       </CardContent>
     </Card>
@@ -205,6 +268,22 @@ function SettingsPage() {
   const refreshIdentities = useSettings((s) => s.refreshIdentities);
   const [newName, setNewName] = useState("");
   const [relaySite, setRelaySite] = useState<LoginSite | null>(null);
+  const [page, setPage] = useState<SettingsPageId>(pageFromHash);
+
+  useEffect(() => {
+    function onHash() {
+      setPage(pageFromHash());
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function openPage(id: SettingsPageId) {
+    setPage(id);
+    if (window.location.hash !== `#${id}`) {
+      window.history.replaceState(null, "", `#${id}`);
+    }
+  }
 
   const active = accounts.find((a) => a.id === activeAccountId);
 
@@ -273,19 +352,22 @@ function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">设置</h1>
-        <p className="mt-1 text-sm text-muted">账号、文件夹、词表和浏览开关都在这张桌上。</p>
+        <p className="mt-1 text-sm text-muted">左边选分类，右边只看这一页。</p>
       </header>
 
-      <ThemeSection />
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+        <SettingsMenu page={page} onPick={openPage} />
+        <div className="min-w-0 flex-1 space-y-8">
+      {page === "theme" ? <ThemeSection /> : null}
+      {page === "storage" ? <StorageSection /> : null}
+      {page === "lexicon" ? <TagLexiconSection /> : null}
+      {page === "search" ? <SearchKeySection /> : null}
 
-      <StorageSection />
-      <TagLexiconSection />
-
-      <SearchKeySection />
-
+      {page === "accounts" ? (
+      <div className="space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>账号</CardTitle>
@@ -479,6 +561,8 @@ function SettingsPage() {
         )}
         </CardContent>
       </Card>
+      </div>
+      ) : null}
 
       <SessionRelayDialog
         site={relaySite}
@@ -489,6 +573,7 @@ function SettingsPage() {
         onDone={applyRelay}
       />
 
+      {page === "browse" ? (
       <Card>
         <CardHeader>
           <CardTitle>浏览选项</CardTitle>
@@ -517,9 +602,12 @@ function SettingsPage() {
         </div>
         </CardContent>
       </Card>
+      ) : null}
 
-      <ProxySection />
+      {page === "proxy" ? <ProxySection /> : null}
 
+      {page === "help" ? (
+      <div className="space-y-8">
       <Card>
         <CardHeader>
           <CardTitle>使用说明</CardTitle>
@@ -544,6 +632,10 @@ function SettingsPage() {
           <li>Cookie 只存在你的浏览器里，不会进数据库。</li>
         </ol>
       </section>
+      </div>
+      ) : null}
+        </div>
+      </div>
     </div>
   );
 }

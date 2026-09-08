@@ -24,6 +24,6 @@ test("detects cloudflare and 429 as challenges", () => {
   assert.equal(isBotChallenge(429, "ok"), true);
   assert.equal(isBotChallenge(200, "<html>Just a moment...</html>"), true);
   assert.equal(isBotChallenge(200, "<div class=result>95%</div>"), false);
-  assert.equal(isSearchLimited("ascii2d 触发了验证或限流"), true);
-  assert.match(challengeMessage("ascii2d"), /IQDB/);
+  assert.equal(isSearchLimited("ascii2d 被风控了"), true);
+  assert.match(challengeMessage("ascii2d"), /被风控/);
 });

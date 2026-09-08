@@ -81,7 +81,6 @@ const MEDIA_SUFFIXES = [
   "donmai.us",
   "saucenao.com",
   "iqdb.org",
-  "tineye.com",
   "ascii2d.net",
 ];
 
@@ -1122,8 +1121,6 @@ export async function fetchMediaResponse(
     headers.Referer = "https://saucenao.com/";
   } else if (host.endsWith("iqdb.org")) {
     headers.Referer = "https://iqdb.org/";
-  } else if (host.endsWith("tineye.com")) {
-    headers.Referer = "https://tineye.com/";
   } else {
     headers.Referer = "https://www.fanbox.cc/";
     headers.Origin = "https://www.fanbox.cc";

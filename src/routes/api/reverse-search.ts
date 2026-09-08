@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { runReverseSearch } from "@/lib/reverse-search.server";
-import { MAX_SEARCH_BYTES, SEARCH_TYPES, parseSearchEngine } from "@/lib/reverse-search";
+import { runReverseSearchAll } from "@/lib/reverse-search.server";
+import { MAX_SEARCH_BYTES, SEARCH_TYPES } from "@/lib/reverse-search";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -34,13 +34,11 @@ export const Route = createFileRoute("/api/reverse-search")({
         if (type && !SEARCH_TYPES.has(type) && !type.startsWith("image/")) {
           return json({ ok: false, error: "只支持 JPEG / PNG / GIF / WebP" }, 400);
         }
-        const engine = parseSearchEngine(String(form.get("engine") ?? ""));
         const safeMode = String(form.get("safe") ?? "1") !== "0";
         const apiKey = String(form.get("apiKey") ?? "").trim().slice(0, 80);
         try {
           const bytes = new Uint8Array(await file.arrayBuffer());
-          const result = await runReverseSearch({
-            engine,
+          const result = await runReverseSearchAll({
             bytes,
             filename: file.name || "upload.jpg",
             type: SEARCH_TYPES.has(type) ? type : "image/jpeg",

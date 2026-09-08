@@ -1,18 +1,20 @@
 import {
   MAX_SEARCH_BYTES,
   SEARCH_TYPES,
+  SEARCH_ENGINES,
   type ReverseHit,
   type SearchEngine,
+  type SearchGroup,
   ascii2dBovwUrl,
   parseAscii2dHtml,
   parseIqdbHtml,
   parseSauceNaoHtml,
   parseSauceNaoJson,
-  parseTinEyeJson,
 } from "./reverse-search";
 import {
   challengeMessage,
   isBotChallenge,
+  isSearchLimited,
   searchGapMs,
 } from "./reverse-search-guard";
 import { outboundFetch } from "./curl-fetch.server";
@@ -31,7 +33,6 @@ const JAR_TTL_MS = 8 * 60 * 1000;
 function engineName(engine: SearchEngine): string {
   if (engine === "saucenao") return "SauceNAO";
   if (engine === "ascii2d") return "ascii2d";
-  if (engine === "tineye") return "TinEye";
   return "IQDB";
 }
 
@@ -143,7 +144,7 @@ async function searchSauceNao(
   }
   if (/too small/i.test(text)) throw new Error("图片尺寸太小，换一张再试");
   if (/Daily Search Limit Exceeded|search limit/i.test(text)) {
-    throw new Error("SauceNAO 今日次数用完了，换 IQDB 或 TinEye，或填 API key");
+    throw new Error("SauceNAO 今日次数用完了，换 IQDB，或在设置里填 API key");
   }
   if (/SauceNAO Error/i.test(text) && text.length < 2000) {
     const msg = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -254,30 +255,6 @@ async function searchAscii2d(file: File): Promise<ReverseHit[]> {
   return merged.slice(0, 16);
 }
 
-async function searchTinEye(file: File): Promise<ReverseHit[]> {
-  const csrfRes = await outboundFetch("https://tineye.com/api/v1/auth_csrf_token", {
-    headers: { "User-Agent": UA, Accept: "application/json" },
-  });
-  const csrfText = await csrfRes.text();
-  if (isBotChallenge(csrfRes.status, csrfText)) throw new Error(challengeMessage("TinEye"));
-  const cookie = cookieHeader(
-    typeof csrfRes.headers.getSetCookie === "function" ? csrfRes.headers.getSetCookie() : [],
-  );
-  const form = new FormData();
-  form.set("image", file);
-  const { status, json, text } = await postForm("https://tineye.com/api/v1/result_json/", form, {
-    "User-Agent": UA,
-    Accept: "application/json",
-    Referer: "https://tineye.com/",
-    Origin: "https://tineye.com",
-    ...(cookie ? { Cookie: cookie } : {}),
-  });
-  throwIfChallenged("tineye", status, text);
-  if (status >= 400) throw new Error(`TinEye 请求失败（${status}）`);
-  if (!json) throw new Error(text.slice(0, 120) || "TinEye 没有返回结果");
-  return parseTinEyeJson(json);
-}
-
 export async function runReverseSearch(input: {
   engine: SearchEngine;
   bytes: Uint8Array;
@@ -294,7 +271,36 @@ export async function runReverseSearch(input: {
   const key = input.apiKey?.trim() || "";
   await pace(input.engine, Boolean(key || process.env.SAUCENAO_API_KEY?.trim()));
   if (input.engine === "iqdb") return { engine: "iqdb", items: await searchIqdb(file, input.safeMode) };
-  if (input.engine === "tineye") return { engine: "tineye", items: await searchTinEye(file) };
   if (input.engine === "ascii2d") return { engine: "ascii2d", items: await searchAscii2d(file) };
   return { engine: "saucenao", items: await searchSauceNao(file, input.safeMode, key) };
+}
+
+export async function runReverseSearchAll(input: {
+  bytes: Uint8Array;
+  filename: string;
+  type: string;
+  safeMode: boolean;
+  apiKey?: string;
+}): Promise<{ groups: SearchGroup[] }> {
+  const groups = await Promise.all(
+    SEARCH_ENGINES.map(async ({ id }): Promise<SearchGroup> => {
+      try {
+        const result = await runReverseSearch({ ...input, engine: id });
+        return {
+          engine: id,
+          status: result.items.length > 0 ? "ok" : "empty",
+          items: result.items,
+        };
+      } catch (err) {
+        const error = err instanceof Error ? err.message : "搜图失败";
+        return {
+          engine: id,
+          status: isSearchLimited(error) ? "limited" : "error",
+          items: [],
+          error,
+        };
+      }
+    }),
+  );
+  return { groups };
 }

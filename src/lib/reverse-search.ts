@@ -1,19 +1,18 @@
 /**
  * 搜图引擎列表和结果解析（客户端形状）。
  *
- * 作用：SauceNAO / ascii2d / IQDB / TinEye 的标识；把源站链接收成作品。
+ * 作用：SauceNAO / ascii2d / IQDB 的标识；把源站链接收成作品。
  * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
  */
 import type { Source } from "./types";
 import { decodeHtmlEntities } from "./utils.ts";
 
-export type SearchEngine = "saucenao" | "ascii2d" | "iqdb" | "tineye";
+export type SearchEngine = "saucenao" | "ascii2d" | "iqdb";
 
 export const SEARCH_ENGINES = [
   { id: "saucenao", label: "SauceNAO", origin: "https://saucenao.com/" },
   { id: "ascii2d", label: "ascii2d", origin: "https://ascii2d.net/" },
   { id: "iqdb", label: "IQDB", origin: "https://iqdb.org/" },
-  { id: "tineye", label: "TinEye", origin: "https://tineye.com/" },
 ] as const satisfies ReadonlyArray<{ id: SearchEngine; label: string; origin: string }>;
 
 export const DEFAULT_SEARCH_ENGINE: SearchEngine = "saucenao";
@@ -36,6 +35,13 @@ export type ReverseHit = {
   site?: Source;
   workId?: string;
   extra: string;
+};
+
+export type SearchGroup = {
+  engine: SearchEngine;
+  status: "ok" | "empty" | "limited" | "error";
+  items: ReverseHit[];
+  error?: string;
 };
 
 export function isSearchEngine(v: string): v is SearchEngine {
@@ -237,32 +243,6 @@ function asNumber(v: unknown): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v !== "" && Number.isFinite(Number(v))) return Number(v);
   return 0;
-}
-
-export function parseTinEyeJson(raw: unknown): ReverseHit[] {
-  const root = asRecord(raw);
-  const matches = Array.isArray(root.matches) ? root.matches : [];
-  const hits: ReverseHit[] = [];
-  for (const item of matches) {
-    const rec = asRecord(item);
-    const links = Array.isArray(rec.backlinks) ? rec.backlinks.map(asRecord) : [];
-    const first = links[0] ?? {};
-    const sourceUrl = asString(first.backlink) || asString(first.url);
-    const name = asString(first.image_name) || asString(rec.domain);
-    if (blocked(splitWords(name))) continue;
-    hits.push(
-      withWork({
-        engine: "tineye",
-        similarity: asNumber(rec.score),
-        title: name.replace(/_/g, " ") || asString(rec.domain) || "网页匹配",
-        author: asString(rec.domain),
-        thumb: asString(rec.image_url),
-        sourceUrl,
-        extra: asString(rec.domain),
-      }),
-    );
-  }
-  return hits;
 }
 
 export function parseAscii2dHtml(html: string, extra = "特征"): ReverseHit[] {
