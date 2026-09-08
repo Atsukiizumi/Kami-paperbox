@@ -8,6 +8,14 @@
 
 暂无。
 
+## [0.8.52] — 2026-09-08
+
+对应 [PR #95](https://github.com/Atsukiizumi/Kami-paperbox/pull/95)。
+
+### 新增
+
+- 详情页展示 Statistics：Id、Posted、Size、Source、Rating。图站来源可点开。
+
 ## [0.8.51] — 2026-09-03
 
 对应 [PR #94](https://github.com/Atsukiizumi/Kami-paperbox/pull/94)。

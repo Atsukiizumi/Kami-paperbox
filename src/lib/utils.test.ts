@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decodeHtmlEntities, fanboxCursorTime, formatResolution, mediaUrl } from "./utils.ts";
+import { decodeHtmlEntities, fanboxCursorTime, formatPostedAt, formatRatingLabel, formatResolution, httpSourceHref, mediaUrl } from "./utils.ts";
 
 test("decodes HTML entities with ampersand last", () => {
   assert.equal(decodeHtmlEntities("A \u0026amp; B"), "A & B");
@@ -25,4 +25,13 @@ test("formats pixel resolution", () => {
   assert.equal(formatResolution(800.4, 600.6), "800×601");
   assert.equal(formatResolution(0, 1080), "");
   assert.equal(formatResolution(), "");
+});
+
+test("formats posted time and rating labels", () => {
+  const now = Date.parse("2026-09-08T03:35:00Z");
+  assert.equal(formatPostedAt("2026-09-07T15:35:00Z", now), "12 小时前");
+  assert.equal(formatRatingLabel("s", "yande"), "Safe");
+  assert.equal(formatRatingLabel("s", "danbooru"), "Sensitive");
+  assert.equal(httpSourceHref("https://x.com/lovetoeat_maid"), "https://x.com/lovetoeat_maid");
+  assert.equal(httpSourceHref("javascript:alert(1)"), "");
 });

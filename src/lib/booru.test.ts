@@ -99,6 +99,8 @@ describe("booru filters", () => {
     assert.equal(detail?.width, 1392);
     assert.equal(detail?.pages[0]?.width, 1392);
     assert.equal(detail?.pages[0]?.height, 1867);
+    assert.equal(detail?.originSource, "https://x.com/x");
+    assert.equal(detail?.rating, "s");
   });
 
   it("maps danbooru posts and hides sensitive in safe mode", () => {

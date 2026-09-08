@@ -70,6 +70,7 @@ export type WorkDetail = WorkCard & {
   bookmarkId?: string;
   followed?: boolean;
   pools?: WorkPoolRef[];
+  originSource?: string;
 };
 
 export type UserProfile = {
