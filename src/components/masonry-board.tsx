@@ -115,7 +115,12 @@ export function MasonryBoard({
     ro.observe(root);
 
     const mo = new MutationObserver(schedule);
-    mo.observe(root, { childList: true, subtree: false });
+    mo.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-aspect"],
+    });
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);

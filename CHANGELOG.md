@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.8.53] — 2026-09-08
+
+对应 [PR #96](https://github.com/Atsukiizumi/Kami-paperbox/pull/96)。
+
+### 调整
+
+- 拼版会从后面抽长宽比合适的图填缝，竖图旁边不再空一大块。
+- 纸匣改用同一套拼版。
+
 ## [0.8.52] — 2026-09-08
 
 对应 [PR #95](https://github.com/Atsukiizumi/Kami-paperbox/pull/95)。

@@ -1,7 +1,7 @@
 /**
- * 纸匣页：瀑布流浏览已保存作品。
+ * 纸匣页：用浏览同一套拼版看已保存作品。
  *
- * 作用：按列往下排，封面保持原比例。交互仍是点进作品、悬停导出/移除。
+ * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除。
  * 用法：侧栏入口。优先读用户文件夹原图。
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
 import { EmptySheet } from "@/components/empty-sheet";
+import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SITE_LIST } from "@/lib/sites";
@@ -153,27 +154,26 @@ function VaultPage() {
       ) : items.length === 0 ? (
         <EmptySheet title="没有符合条件的记录。" hint="换个站点或作者再看。" />
       ) : (
-        <div className="kami-vault-fall">
+        <MasonryBoard>
           {items.map((item, i) => (
-            <div key={item.key} className="kami-vault-tile">
-              <VaultCard
-                item={item}
-                index={i}
-                origin={origin}
-                onExport={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void exportWork(item);
-                }}
-                onDelete={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void removeWork(item);
-                }}
-              />
-            </div>
+            <VaultCard
+              key={item.key}
+              item={item}
+              index={i}
+              origin={origin}
+              onExport={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void exportWork(item);
+              }}
+              onDelete={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void removeWork(item);
+              }}
+            />
           ))}
-        </div>
+        </MasonryBoard>
       )}
     </div>
   );

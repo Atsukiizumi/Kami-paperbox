@@ -197,3 +197,25 @@ test("packJustified lets a lone landscape keep the row", () => {
   assert.ok(wide.height >= 200);
   assert.ok(wide.height <= 480);
 });
+
+test("packJustified pulls a later portrait into a leftover gap", () => {
+  const packed = packJustified({
+    containerWidth: 720,
+    gap: 12,
+    items: [
+      { aspect: 1600 / 2333 },
+      { aspect: 2842 / 1283 },
+      { aspect: 0.68 },
+      { aspect: 0.72 },
+    ],
+    idealHeight: 220,
+    minWidth: 168,
+    captionBand: 0,
+  });
+  const first = packed.placements[0]!;
+  const pulled = packed.placements[2]!;
+  assert.equal(Math.round(first.y), Math.round(pulled.y));
+  assert.ok(pulled.x > first.x, "filler should sit in the leftover gap");
+  const wide = packed.placements[1]!;
+  assert.ok(wide.y >= first.y + first.height - 1);
+});
