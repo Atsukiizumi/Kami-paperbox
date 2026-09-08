@@ -3,7 +3,7 @@
  *
  * 作用：校验参数后调用 upstream / social。Cookie 只在服务端发出。
  * 用法：fetchSource({ data: { op: "pixivRanking", ... } })；mutateSource 做红心收藏。
- * 为什么：createServerFn 保证 UI 打不到 pixiv.net；zod 挡住胡来的 id/page。
+ * 为什么：浏览器只打本站 `/api/source`，Cookie 和上游请求留在服务端。zod 挡住胡来的 id/page。
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -18,7 +18,7 @@ const cursorSchema = z
   })
   .optional();
 
-const fetchSchema = z.intersection(
+export const fetchSchema = z.intersection(
   z.object({
     pixivCookie: z.string().max(8192).optional(),
     fanboxCookie: z.string().max(8192).optional(),
@@ -108,14 +108,7 @@ const fetchSchema = z.intersection(
   ]),
 );
 
-export const fetchSource = createServerFn({ method: "POST" })
-  .validator((data: unknown) => fetchSchema.parse(data) as FetchInput)
-  .handler(async ({ data }): Promise<FetchOk> => {
-    const { dispatchFetch } = await import("./upstream.server");
-    return dispatchFetch(data);
-  });
-
-const socialSchema = z.intersection(
+export const socialSchema = z.intersection(
   z.object({
     pixivCookie: z.string().max(8192).optional(),
     fanboxCookie: z.string().max(8192).optional(),
@@ -148,12 +141,31 @@ const socialSchema = z.intersection(
   ]),
 );
 
-export const mutateSource = createServerFn({ method: "POST" })
-  .validator((data: unknown) => socialSchema.parse(data) as SocialInput)
-  .handler(async ({ data }): Promise<SocialOk> => {
-    const { dispatchSocial } = await import("./social.server");
-    return dispatchSocial(data);
+export const fetchSource = async ({ data }: { data: FetchInput }): Promise<FetchOk> => {
+  const res = await fetch("/api/source", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
   });
+  const body = (await res.json().catch(() => null)) as FetchOk | { error?: string } | null;
+  if (!res.ok) {
+    throw new Error(body && "error" in body && body.error ? body.error : `请求失败（${res.status}）`);
+  }
+  return body as FetchOk;
+};
+
+export const mutateSource = async ({ data }: { data: SocialInput }): Promise<SocialOk> => {
+  const res = await fetch("/api/social", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const body = (await res.json().catch(() => null)) as SocialOk | { error?: string } | null;
+  if (!res.ok) {
+    throw new Error(body && "error" in body && body.error ? body.error : `请求失败（${res.status}）`);
+  }
+  return body as SocialOk;
+};
 
 /** 登录后预拉 CSRF，点红心时只打 like，不再先扒首页。 */
 export function warmPixivCsrf(pixivCookie?: string) {
