@@ -82,6 +82,7 @@ describe("booru filters", () => {
     assert.equal(card?.author, "himeno_nanako");
     assert.equal(card?.width, 1392);
     assert.equal(card?.height, 1867);
+    assert.equal(card?.illustType, undefined);
     const detail = mapBooruDetail("yande", {
       id: 1267938,
       tags: "business_suit",
@@ -101,6 +102,42 @@ describe("booru filters", () => {
     assert.equal(detail?.pages[0]?.height, 1867);
     assert.equal(detail?.originSource, "https://x.com/x");
     assert.equal(detail?.rating, "s");
+  });
+
+  it("uses the live gif file as thumb so browse can play it", () => {
+    const card = mapBooruCard(
+      "yande",
+      {
+        id: 2,
+        tags: "solo",
+        rating: "s",
+        preview_url: "https://assets.yande.re/data/preview/ab.jpg",
+        sample_url: "https://files.yande.re/sample/ab.jpg",
+        file_url: "https://files.yande.re/image/ab.gif",
+        author: "x",
+        file_ext: "gif",
+        width: 100,
+        height: 100,
+      },
+      true,
+    );
+    assert.equal(card?.illustType, 2);
+    assert.equal(card?.thumb, "https://files.yande.re/image/ab.gif");
+    const detail = mapBooruDetail(
+      "yande",
+      {
+        id: 2,
+        tags: "solo",
+        rating: "s",
+        preview_url: "https://assets.yande.re/data/preview/ab.jpg",
+        sample_url: "https://files.yande.re/sample/ab.jpg",
+        file_url: "https://files.yande.re/image/ab.gif",
+        author: "x",
+        file_ext: "gif",
+      },
+      true,
+    );
+    assert.equal(detail?.pages[0]?.regular, "https://files.yande.re/image/ab.gif");
   });
 
   it("maps danbooru posts and hides sensitive in safe mode", () => {

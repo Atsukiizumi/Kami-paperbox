@@ -14,3 +14,8 @@ export function upgradeThumbUrl(url: string): string {
   next = next.replace("/preview/", "/sample/");
   return next;
 }
+
+export function isGifUrl(url?: string): boolean {
+  if (!url) return false;
+  return /\.gif(?:$|\?)/i.test(url);
+}

@@ -62,6 +62,10 @@ export const fetchSchema = z.intersection(
       id: z.string().regex(/^\d{1,12}$/),
     }),
     z.object({
+      op: z.literal("pixivUgoira"),
+      id: z.string().regex(/^\d{1,12}$/),
+    }),
+    z.object({
       op: z.literal("pixivUser"),
       id: z.string().regex(/^\d{1,12}$/),
       offset: z.number().int().min(0).max(4000).optional(),

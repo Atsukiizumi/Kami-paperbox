@@ -63,6 +63,8 @@ export function sourceCacheKey(input: FetchInput): string | null {
       return hashKey({ op: input.op, site: input.site, id: input.id, safe });
     case "booruPool":
       return hashKey({ op: input.op, site: input.site, id: input.id, safe });
+    case "pixivUgoira":
+      return hashKey({ op: input.op, id: input.id });
     default:
       return null;
   }

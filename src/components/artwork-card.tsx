@@ -32,6 +32,7 @@ import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { ProxiedImg, warmMedia } from "./proxied-img";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
+import { UgoiraCover } from "@/components/ugoira-player";
 import { pageThumbUrls } from "@/lib/page-thumbs";
 import { MasonryBoard } from "./masonry-board";
 import { EmptySheet } from "./empty-sheet";
@@ -84,6 +85,7 @@ export function ArtworkCard({
   const previewTimer = useRef(0);
   const mediaRef = useRef<HTMLDivElement>(null);
   const cover = pages[Math.min(pageI, Math.max(0, pages.length - 1))] ?? work.thumb;
+  const ugoira = work.source === "pixiv" && work.illustType === 2;
 
   function armPrefetch() {
     window.clearTimeout(hoverTimer.current);
@@ -211,17 +213,31 @@ export function ArtworkCard({
             onMouseLeave={hidePreview}
           >
             {hasMedia ? (
-              <ProxiedImg
-                src={cover}
-                alt={work.title}
-                priority={index < 4}
-                sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
-                viewTransitionName={`kami-${work.source}-${work.id}`}
-                className={cn(
-                  "size-full object-cover transition-[transform,opacity] duration-200 ease-out",
-                  preview ? "opacity-0" : "group-hover:scale-[1.04]",
-                )}
-              />
+              ugoira ? (
+                <UgoiraCover
+                  id={work.id}
+                  poster={cover}
+                  alt={work.title}
+                  priority={index < 4}
+                  hidden={Boolean(preview)}
+                  className={cn(
+                    "size-full transition-[transform,opacity] duration-200 ease-out",
+                    preview ? "opacity-0" : "group-hover:scale-[1.04]",
+                  )}
+                />
+              ) : (
+                <ProxiedImg
+                  src={cover}
+                  alt={work.title}
+                  priority={index < 4}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
+                  viewTransitionName={`kami-${work.source}-${work.id}`}
+                  className={cn(
+                    "size-full object-cover transition-[transform,opacity] duration-200 ease-out",
+                    preview ? "opacity-0" : "group-hover:scale-[1.04]",
+                  )}
+                />
+              )
             ) : (
               <div className="flex size-full items-end bg-surface px-3 py-3">
                 <p className="line-clamp-5 text-sm leading-relaxed text-muted">
@@ -432,6 +448,7 @@ export function ArtworkCard({
           alt={work.title}
           aspect={aspect}
           anchor={preview}
+          ugoiraId={ugoira ? work.id : undefined}
         />
       ) : null}
     </article>

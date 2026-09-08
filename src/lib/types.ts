@@ -108,6 +108,7 @@ export type FetchOk =
   | { op: "pixivFollowing"; items: WorkCard[]; nextPage: number | null }
   | { op: "pixivRelated"; items: WorkCard[] }
   | { op: "pixivIllust"; work: WorkDetail }
+  | { op: "pixivUgoira"; ugoira: UgoiraMeta }
   | {
       op: "pixivUser";
       profile: UserProfile;
@@ -155,6 +156,7 @@ export type FetchInput = {
   | { op: "pixivFollowing"; page: number }
   | { op: "pixivRelated"; id: string }
   | { op: "pixivIllust"; id: string }
+  | { op: "pixivUgoira"; id: string }
   | { op: "pixivUser"; id: string; offset?: number }
   | { op: "fanboxCreator"; id: string; cursor?: FanboxCursor }
   | { op: "fanboxHome"; cursor?: FanboxCursor }
