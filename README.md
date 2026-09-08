@@ -34,7 +34,6 @@ http://localhost:8080
 ## 鸣谢
 
 - [yande-re-chinese-patch](https://github.com/zhzwz/yande-re-chinese-patch)
-- [Yande.re](https://yande.re/)
 - [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)
 - [PixEz](https://github.com/Notsfsssf/pixez-flutter)
 - [Grok](https://grok.com)
