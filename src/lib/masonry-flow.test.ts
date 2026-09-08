@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { masonryColumns, masonrySpan, packJustified, packMasonry } from "./masonry-flow.ts";
+import { masonryColumns, masonryRowHeight, masonrySpan, packJustified, packMasonry } from "./masonry-flow.ts";
 
 test("masonryColumns follows container width", () => {
   assert.equal(masonryColumns(360, 12), 2);
   assert.equal(masonryColumns(600, 12), 3);
   assert.equal(masonryColumns(800, 12), 4);
   assert.equal(masonryColumns(976, 12), 5);
+});
+
+test("masonryColumns keeps growing on wide CSS pixels", () => {
+  // 容器宽度是 CSS 像素：分辨率变高或浏览器缩小都会变宽，列数应跟着加。
+  assert.equal(masonryColumns(1600, 12), 8);
+  assert.equal(masonryColumns(2000, 12), 11);
+  assert.equal(masonryColumns(3200, 12), 17);
+});
+
+test("masonryRowHeight tracks extra columns on a wide board", () => {
+  assert.equal(masonryRowHeight(976), Math.round(976 / 5 / 0.72));
+  assert.equal(masonryRowHeight(1600), Math.round(1600 / 8 / 0.72));
 });
 
 test("masonrySpan keeps landscape bigger without flushing the row", () => {
@@ -196,6 +208,32 @@ test("packJustified lets a lone landscape keep the row", () => {
   assert.ok(wide.width > 700, `landscape width ${wide.width} should stay wide`);
   assert.ok(wide.height >= 200);
   assert.ok(wide.height <= 480);
+});
+
+test("packJustified keeps filling a wide board instead of single-card rows", () => {
+  const packed = packJustified({
+    containerWidth: 1600,
+    gap: 12,
+    items: Array.from({ length: 24 }, () => ({ aspect: 0.75 })),
+    idealHeight: Math.round(1600 / 8 / 0.72),
+    minWidth: 188,
+    captionBand: 0,
+  });
+  const rows = new Map<number, typeof packed.placements>();
+  for (const p of packed.placements) {
+    const key = Math.round(p.y);
+    const list = rows.get(key) ?? [];
+    list.push(p);
+    rows.set(key, list);
+  }
+  const listed = [...rows.values()];
+  assert.ok(listed.length >= 2, "24 portraits on 1600px should wrap");
+  for (const row of listed.slice(0, -1)) {
+    assert.ok(row.length >= 6, `wide row only packed ${row.length} cards`);
+    const ordered = [...row].sort((a, b) => a.x - b.x);
+    const last = ordered[ordered.length - 1]!;
+    assert.equal(Math.round(last.x + last.width), 1600);
+  }
 });
 
 test("packJustified pulls a later portrait into a leftover gap", () => {

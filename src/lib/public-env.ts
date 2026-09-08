@@ -1,7 +1,7 @@
 /**
  * 读给浏览器看的 VITE_ 开关。
  *
- * 作用：Vite 走 import.meta.env；Next 把同名变量写进 process.env（next.config env）。
+ * 作用：Next 把 `VITE_*` 写进 process.env（next.config env）。名字仍叫 VITE_ 是历史兼容。
  * 用法：publicEnv("VITE_AUTH_ENABLED") !== "false"
  */
 export function publicEnv(name: string): string | undefined {

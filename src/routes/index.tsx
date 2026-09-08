@@ -1,9 +1,9 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Link, useNavigate } from "@/lib/kami-link";
-import { Clipboard, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Clipboard, RefreshCw, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
@@ -26,7 +26,8 @@ import {
   type PixivFeed,
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
-import { cookiesFromSettings, useSettings } from "@/lib/store";
+import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
+import { cn } from "@/lib/utils";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
 import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "@/lib/booru";
 import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/ranking-archive";
@@ -44,6 +45,7 @@ type FanboxFeed = "home" | "supporting" | "creator";
 
 export function Home() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const tab = useSettings((s) => s.tab);
   const setTab = useSettings((s) => s.setTab);
   const recents = useSettings((s) => s.recents);
@@ -55,15 +57,24 @@ export function Home() {
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
+  const settingsReady = useSettingsHydrated();
+  const forceFresh = useRef(false);
+  const refreshAt = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
-  const [feed, setFeed] = useState<PixivFeed>("daily");
+  const [feedPick, setFeed] = useState<PixivFeed | null>(null);
   const [searchWord, setSearchWord] = useState("");
   const [searchFilter, setSearchFilter] = useState<PixivSearchFilterValue>(DEFAULT_PIXIV_SEARCH);
   const [creatorId, setCreatorId] = useState("official");
-  const [fanboxFeed, setFanboxFeed] = useState<FanboxFeed>("creator");
+  const [fanboxPick, setFanboxFeed] = useState<FanboxFeed | null>(null);
   const [booruFeed, setBooruFeed] = useState<BooruFeed>("recent");
   const [boardDate, setBoardDate] = useState(() => parseBoardDate().iso);
   const [listPage, setListPage] = useState(1);
+  const [listTab, setListTab] = useState(tab);
+  if (listTab !== tab) {
+    setListTab(tab);
+    setListPage(1);
+  }
   const browseQuery = useSettings((s) => s.browseQuery);
   const browseExact = useSettings((s) => s.browseExact);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
@@ -88,6 +99,8 @@ export function Home() {
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
   const loggedIn = isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
+  const feed: PixivFeed = feedPick ?? (loggedIn ? "recommend" : "daily");
+  const fanboxFeed: FanboxFeed = fanboxPick ?? (fanboxCookie ? "home" : "creator");
   useEffect(() => {
     if (loggedIn && (feed === "daily" || feed === "recommend")) {
       setFeed("recommend");
@@ -106,12 +119,17 @@ export function Home() {
     }
   }, [fanboxCookie]);
 
+  function sourceCreds() {
+    const creds = cookiesFromSettings();
+    return forceFresh.current ? { ...creds, fresh: true } : creds;
+  }
+
   const pixivQuery = useInfiniteQuery({
     queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie, boardDate],
-    enabled: tab === "pixiv",
+    enabled: settingsReady && tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      const creds = cookiesFromSettings();
+      const creds = sourceCreds();
       if (searchWord) {
         return fetchSource({
           data: { op: "pixivSearch", word: searchWord, page: pageParam, filter: searchFilter, ...creds },
@@ -146,10 +164,10 @@ export function Home() {
 
   const fanboxQuery = useInfiniteQuery({
     queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, fanboxCookie],
-    enabled: tab === "fanbox",
+    enabled: settingsReady && tab === "fanbox",
     initialPageParam: (searchWord ? 1 : undefined) as number | FanboxCursor | undefined,
     queryFn: async ({ pageParam }) => {
-      const creds = cookiesFromSettings();
+      const creds = sourceCreds();
       if (searchWord) {
         const pageNo = typeof pageParam === "number" ? pageParam : 1;
         return fetchSource({ data: { op: "fanboxTagged", tag: searchWord, page: pageNo, ...creds } });
@@ -174,7 +192,7 @@ export function Home() {
 
   const booruQuery = useInfiniteQuery({
     queryKey: ["home-booru", tab, booruFeed, searchWord, safeMode, boardDate],
-    enabled: isBooru(tab),
+    enabled: settingsReady && isBooru(tab),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       if (!isBooru(tab)) throw new Error("not booru");
@@ -186,7 +204,7 @@ export function Home() {
           tags: searchWord || undefined,
           page: pageParam,
           date: !searchWord && isBooruPeriodFeed(booruFeed) ? boardDate : undefined,
-          ...cookiesFromSettings(),
+          ...sourceCreds(),
         },
       });
     },
@@ -288,7 +306,7 @@ export function Home() {
     setListPage(1);
   }
 
-  const pixivItems = collectWorks(pixivQuery.data?.pages);
+  const pixivItems = collectWorks(pixivQuery.data?.pages, "pixiv");
   const rankingDate =
     pixivQuery.data?.pages[0] && pixivQuery.data.pages[0].op === "pixivRanking"
       ? pixivQuery.data.pages[0].date
@@ -306,12 +324,12 @@ export function Home() {
       p.op === "fanboxHome" ||
       p.op === "fanboxSupporting" ||
       p.op === "fanboxTagged"
-        ? p.items
+        ? p.items.filter((work) => work.source === "fanbox")
         : [],
     ) ?? [];
   const fanboxCreatorPage = fanboxQuery.data?.pages.find((p) => p.op === "fanboxCreator");
   const fanboxProfile = fanboxCreatorPage && fanboxCreatorPage.op === "fanboxCreator" ? fanboxCreatorPage.profile : null;
-  const booruItems = collectWorks(booruQuery.data?.pages);
+  const booruItems = collectWorks(booruQuery.data?.pages, isBooru(tab) ? tab : undefined);
   const pooled = tab === "pixiv" ? pixivItems : tab === "fanbox" ? fanboxItems : booruItems;
   const activeQuery = tab === "pixiv" ? pixivQuery : tab === "fanbox" ? fanboxQuery : booruQuery;
   const pageStart = (listPage - 1) * BROWSE_PAGE_SIZE;
@@ -319,6 +337,8 @@ export function Home() {
   const hasPrevPage = listPage > 1;
   const hasNextPage = pooled.length > pageStart + BROWSE_PAGE_SIZE || Boolean(activeQuery.hasNextPage);
   const loading =
+    !settingsReady ||
+    refreshing ||
     activeQuery.isLoading ||
     (activeQuery.isFetching && items.length === 0 && !activeQuery.isFetchingNextPage);
 
@@ -331,6 +351,60 @@ export function Home() {
     if (!activeQuery.hasNextPage || activeQuery.isFetchingNextPage) return;
     void activeQuery.fetchNextPage();
   }, [listPage, pooled.length, activeQuery.hasNextPage, activeQuery.isFetchingNextPage, tab]);
+
+  useEffect(() => {
+    if (!refreshing) return;
+    if (activeQuery.isFetching || activeQuery.isFetchingNextPage) return;
+    if (activeQuery.dataUpdatedAt <= refreshAt.current) return;
+    if (pooled.length < BROWSE_PAGE_SIZE && activeQuery.hasNextPage) return;
+    forceFresh.current = false;
+    setRefreshing(false);
+  }, [
+    refreshing,
+    activeQuery.isFetching,
+    activeQuery.isFetchingNextPage,
+    activeQuery.hasNextPage,
+    activeQuery.dataUpdatedAt,
+    pooled.length,
+  ]);
+
+  async function refreshFeed() {
+    if (refreshing || !settingsReady) return;
+    forceFresh.current = true;
+    refreshAt.current = Date.now();
+    setRefreshing(true);
+    setListPage(1);
+    const key =
+      tab === "pixiv"
+        ? (["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie, boardDate] as const)
+        : tab === "fanbox"
+          ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, fanboxCookie] as const)
+          : (["home-booru", tab, booruFeed, searchWord, safeMode, boardDate] as const);
+    queryClient.setQueryData(key, (old: InfiniteData<FetchOk> | undefined) => {
+      if (!old?.pages?.length) return old;
+      return { ...old, pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) };
+    });
+    try {
+      await activeQuery.refetch();
+    } catch {
+      forceFresh.current = false;
+      setRefreshing(false);
+    }
+  }
+
+  const refreshButton = (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-9 rounded-full px-3 text-sm text-muted"
+      disabled={!settingsReady || refreshing}
+      onClick={() => void refreshFeed()}
+    >
+      <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+      刷新
+    </Button>
+  );
 
   function goListPage(next: number) {
     setListPage(Math.max(1, next));
@@ -489,19 +563,22 @@ export function Home() {
               </div>
             ) : null}
           </div>
-          <ToggleGroup
-            type="single"
-            value={!searchWord && isPixivRankMode(feed) ? feed : ""}
-            onValueChange={(v) => {
-              if (v) choosePixivFeed(v as PixivFeed);
-            }}
-          >
-            {rankModes.map((r) => (
-              <ToggleGroupItem key={r.id} value={r.id}>
-                {r.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={!searchWord && isPixivRankMode(feed) ? feed : ""}
+              onValueChange={(v) => {
+                if (v) choosePixivFeed(v as PixivFeed);
+              }}
+            >
+              {rankModes.map((r) => (
+                <ToggleGroupItem key={r.id} value={r.id}>
+                  {r.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            {refreshButton}
+          </div>
         </div>
       ) : tab === "fanbox" ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -540,6 +617,7 @@ export function Home() {
               {fanboxProfile ? <span className="text-sm text-muted">{fanboxProfile.name}</span> : null}
             </>
           ) : null}
+          {refreshButton}
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -580,6 +658,7 @@ export function Home() {
               标签「{searchWord}」×
             </Button>
           ) : null}
+          {refreshButton}
         </div>
       )}
 
@@ -595,7 +674,7 @@ export function Home() {
           ) : (
             <AlertDescription>
               {error}
-              <Button className="mt-3" variant="secondary" onClick={() => void activeQuery.refetch()}>
+              <Button className="mt-3" variant="secondary" onClick={() => void refreshFeed()}>
                 重试
               </Button>
             </AlertDescription>
@@ -611,9 +690,10 @@ export function Home() {
       ) : null}
 
       {loading && items.length === 0 ? (
-        <ArtworkGridSkeleton count={10} />
+        <ArtworkGridSkeleton key={`${tab}-sk`} count={10} />
       ) : (
         <ArtworkGrid
+          key={tab}
           items={items}
           empty={
             tab === "pixiv" && hideAi
@@ -652,12 +732,13 @@ function rankingNeedsLogin(feed: PixivFeed): boolean {
   return Boolean(PIXIV_RANK_MODES.find((m) => m.id === feed)?.login);
 }
 
-function collectWorks(pages: FetchOk[] | undefined): WorkCard[] {
+function collectWorks(pages: FetchOk[] | undefined, source?: WorkCard["source"]): WorkCard[] {
   const seen = new Set<string>();
   const out: WorkCard[] = [];
   for (const page of pages ?? []) {
     if (!("items" in page) || page.op === "tagSuggest") continue;
     for (const work of page.items) {
+      if (source && work.source !== source) continue;
       const key = `${work.source}-${work.id}`;
       if (seen.has(key)) continue;
       seen.add(key);

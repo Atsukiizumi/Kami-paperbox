@@ -581,44 +581,19 @@ a:focus-visible .kami-logo .kami-logo-fold {
 
 .kami-masonry {
   --masonry-gap: 0.75rem;
+  /* 与 MASONRY_MIN_COL 一致。auto-fill 跟 CSS 像素走，浏览器缩放会改列数。 */
+  --masonry-min: 170px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--masonry-min), 1fr));
   align-items: start;
   gap: var(--masonry-gap);
 }
 
 .kami-skeleton-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   align-items: start;
   gap: 0.75rem;
-}
-
-@media (min-width: 640px) {
-  .kami-masonry {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .kami-skeleton-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .kami-masonry {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .kami-skeleton-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .kami-masonry {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .kami-skeleton-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
 }
 
 .kami-masonry[data-packed] {
@@ -710,20 +685,8 @@ a:focus-visible .kami-logo .kami-logo-fold {
 }
 
 .kami-vault-fall {
-  column-count: 2;
+  column-width: 170px;
   column-gap: 0.9rem;
-}
-
-@media (min-width: 720px) {
-  .kami-vault-fall {
-    column-count: 3;
-  }
-}
-
-@media (min-width: 1024px) {
-  .kami-vault-fall {
-    column-count: 4;
-  }
 }
 
 .kami-vault-tile {

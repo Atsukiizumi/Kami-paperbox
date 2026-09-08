@@ -1,10 +1,10 @@
 /**
  * 浏览列表的本地缓存。
  *
- * 作用：刷新页面先画出上次的榜单 / 推荐 / 图站，超过 30 分钟再后台更新。
+ * 作用：刷新先画出浏览器里上次的榜单 / 推荐 / 关注 / FANBOX，再后台问 Next。
  * 用法：hydrateBrowseCache(queryClient) 在创建 QueryClient 时同步调用。
- * 为什么：QueryClient 只活在内存。localStorage 能同步读，首屏不用等 IndexedDB。
- *        只存前两页；24 小时后丢掉。Cookie 已在设置里，queryKey 用来区分账号。
+ * 为什么：QueryClient 只活在内存。localStorage 同步读，首屏不等网络。
+ *        存够一屏（约 50 张）；24 小时后丢掉。queryKey 区分账号。过期后才打 Next（Next 还有一层盘）。
  */
 import {
   dehydrate,
@@ -17,9 +17,32 @@ import {
 const STORAGE_KEY = "kami-browse-v1";
 const MAX_AGE_MS = 24 * 60 * 60_000;
 export const BROWSE_STALE_MS = 30 * 60_000;
-const MAX_PAGES = 2;
-const MAX_QUERIES = 12;
+/** 够铺一屏浏览页（50 张）。FANBOX 一页大约 10 条，所以不能只留 2 页。 */
+const MAX_PAGES = 8;
+const MIN_ITEMS = 50;
+const MAX_QUERIES = 16;
 const PREFIX = new Set(["home-pixiv", "home-booru", "home-fanbox"]);
+
+function pageItemCount(page: unknown): number {
+  if (page && typeof page === "object" && "items" in page && Array.isArray(page.items)) {
+    return page.items.length;
+  }
+  return 1;
+}
+
+function trimPages(pages: unknown[], pageParams: unknown[] | undefined) {
+  let items = 0;
+  let n = 0;
+  for (const page of pages) {
+    n += 1;
+    items += pageItemCount(page);
+    if (n >= MAX_PAGES || items >= MIN_ITEMS) break;
+  }
+  return {
+    pages: pages.slice(0, n),
+    pageParams: (pageParams ?? pages.map((_, i) => i + 1)).slice(0, n),
+  };
+}
 
 export function persistableQuery(query: { queryKey: readonly unknown[] }) {
   return typeof query.queryKey[0] === "string" && PREFIX.has(query.queryKey[0]);
@@ -33,14 +56,15 @@ export function trimDehydrated(state: DehydratedState, now = Date.now()): Dehydr
     .map((q) => {
       const data = q.state.data as { pages?: unknown[]; pageParams?: unknown[] } | undefined;
       if (!data?.pages) return q;
+      const trimmed = trimPages(data.pages, data.pageParams);
       return {
         ...q,
         state: {
           ...q.state,
           data: {
             ...data,
-            pages: data.pages.slice(0, MAX_PAGES),
-            pageParams: data.pageParams?.slice(0, MAX_PAGES) ?? data.pages.slice(0, MAX_PAGES).map((_, i) => i + 1),
+            pages: trimmed.pages,
+            pageParams: trimmed.pageParams,
           },
         },
       };
@@ -80,11 +104,18 @@ function writeState(state: DehydratedState) {
 export function hydrateBrowseCache(client: QueryClient) {
   const state = readState();
   if (state) hydrate(client, state);
-  const now = Date.now();
-  for (const query of client.getQueryCache().getAll()) {
-    if (!persistableQuery(query) || query.state.status !== "success") continue;
-    if (now - query.state.dataUpdatedAt > BROWSE_STALE_MS) void query.fetch();
+  const refresh = () => {
+    const now = Date.now();
+    for (const query of client.getQueryCache().getAll()) {
+      if (!persistableQuery(query) || query.state.status !== "success") continue;
+      if (now - query.state.dataUpdatedAt > BROWSE_STALE_MS) void query.fetch();
+    }
+  };
+  if (typeof window === "undefined") {
+    refresh();
+    return;
   }
+  window.setTimeout(refresh, 0);
 }
 
 export function subscribeBrowsePersist(client: QueryClient) {

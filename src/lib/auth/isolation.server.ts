@@ -1,13 +1,11 @@
-import { getRequest } from "@tanstack/react-start/server";
 import { getActiveRequest } from "../request-context.ts";
 
 /**
  * Fetch-Metadata sibling isolation — **server-only** (`.server.ts` suffix).
  *
  * MUST keep the `.server` suffix: this file reads the current Request from
- * request-context (Next) or TanStack Start `getRequest` (Vite). If it is
- * imported from a dual client/server module under a non-`.server` name, Vite
- * ships Node-only code to the browser.
+ * request-context (Next). If it is imported from a dual client/server module
+ * under a non-`.server` name, the bundler can ship Node-only code to the browser.
  *
  * Apps deployed on `*.grok.me` are "same-site" to each other but MUTUALLY
  * UNTRUSTED, and a `SameSite=Lax` session cookie IS sent on same-site
@@ -33,13 +31,7 @@ export class CrossSiteRequestError extends Error {
 
 function resolveRequest(explicit?: Request): Request | undefined {
   if (explicit) return explicit;
-  const active = getActiveRequest();
-  if (active) return active;
-  try {
-    return getRequest() ?? undefined;
-  } catch {
-    return undefined;
-  }
+  return getActiveRequest();
 }
 
 /** Throw `CrossSiteRequestError` for a scripted cross-site/sibling request. */

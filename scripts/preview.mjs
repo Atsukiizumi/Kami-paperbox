@@ -83,11 +83,13 @@ export function looksLikePreviewProcess(cmdline) {
   // The sandbox service runs scripts/preview-thumbnail.mjs in this box, and
   // this script can be running concurrently: neither is ever a target.
   if (/\bpreview[\w-]*\.mjs\b/.test(argv)) return false;
-  // The `npm run preview` wrapper (`npm-cli.js run preview`) and its vite child.
+  // The `npm run preview` wrapper (`npm-cli.js run preview`) and its Next child.
   // `preview` must be the whole script name: `run preview:stop`/`preview:restart`
-  // are this tooling's own wrappers, and `vite build --outDir preview-dist` is
-  // not a server.
-  return /\brun\s+preview(?:\s|$)/.test(argv) || /\bvite\b\s+preview\b/.test(argv);
+  // are this tooling's own wrappers. `next build` is not a server.
+  return (
+    /\brun\s+preview(?:\s|$)/.test(argv) ||
+    /\bnext\b.*\sstart(?:\s|$)/.test(argv)
+  );
 }
 
 /**
@@ -317,8 +319,8 @@ async function restart() {
     const secs = Math.round(READY_TIMEOUT_MS / 1000);
     const why =
       failure ??
-      `nothing answered on ${PREVIEW_URL} within ${secs}s — check that vite.config.ts ` +
-        `still sets preview.port ${PREVIEW_PORT}`;
+      `nothing answered on ${PREVIEW_URL} within ${secs}s — check that next start ` +
+        `is bound to port ${PREVIEW_PORT}`;
     console.error(`[preview] ${why} — see ${LOG_FILE}`);
     // A server that binds a few seconds later would serve a build the agent has
     // already been told to distrust.

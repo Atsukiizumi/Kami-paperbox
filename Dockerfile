@@ -1,4 +1,4 @@
-# Kami 纸匣 — production image
+# Kami 纸匣 — Next.js standalone
 # docker compose up --build
 
 FROM node:22-bookworm-slim AS build
@@ -21,18 +21,27 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends curl ca-certificates \
+  && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    chromium \
+    fonts-liberation \
+    fonts-noto-cjk \
   && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
 ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV VITE_AUTH_ENABLED=false
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/migrations ./migrations
+COPY --from=build --chown=node:node /app/kami.config.example.json ./kami.config.example.json
 COPY --from=build --chown=node:node /app/kami.config.example.json ./kami.config.json
 RUN mkdir -p /app/.data && chown -R node:node /app
 

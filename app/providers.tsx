@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { AppShell } from "@/components/app-shell";
@@ -25,6 +25,21 @@ function makeQueryClient() {
   });
 }
 
+function createBrowserQueryClient() {
+  const client = makeQueryClient();
+  hydrateBrowseCache(client);
+  subscribeBrowsePersist(client);
+  return client;
+}
+
+let browserQueryClient: QueryClient | undefined;
+
+function getQueryClient() {
+  if (typeof window === "undefined") return makeQueryClient();
+  browserQueryClient ??= createBrowserQueryClient();
+  return browserQueryClient;
+}
+
 function ThemedToaster() {
   const resolved = useResolvedAppearance();
   return (
@@ -37,14 +52,7 @@ function ThemedToaster() {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(() => {
-    const client = makeQueryClient();
-    if (typeof document !== "undefined") {
-      hydrateBrowseCache(client);
-      subscribeBrowsePersist(client);
-    }
-    return client;
-  });
+  const queryClient = getQueryClient();
 
   return (
     <AuthProvider>

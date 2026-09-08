@@ -56,6 +56,7 @@ import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 import { sleep, withMediaGate } from "./media-gate";
 import { getThrottle } from "./throttle.server";
 import { closeOnAbort } from "./abort";
+import { isDiskCacheableMedia, readCachedMedia, writeCachedMedia } from "./media-cache.server.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -1096,6 +1097,18 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   }
 }
 
+function mediaFromDisk(url: URL): Response | null {
+  if (!isDiskCacheableMedia(url)) return null;
+  const hit = readCachedMedia(url.toString());
+  if (!hit) return null;
+  return new Response(Buffer.from(hit.bytes), { status: 200, headers: mediaOutHeaders(hit.type) });
+}
+
+function rememberMedia(url: URL, bytes: Uint8Array, type: string) {
+  if (!isDiskCacheableMedia(url)) return;
+  writeCachedMedia(url.toString(), bytes, type);
+}
+
 export async function fetchMediaResponse(
   rawUrl: string,
   cookies: { pixiv?: string; fanbox?: string },
@@ -1103,6 +1116,8 @@ export async function fetchMediaResponse(
 ): Promise<Response> {
   if (signal?.aborted) return new Response(null, { status: 204 });
   const url = parseAllowedMediaUrl(rawUrl);
+  const cached = mediaFromDisk(url);
+  if (cached) return cached;
   const headers: Record<string, string> = {
     "User-Agent": UA,
     Accept: "image/avif,image/webp,image/gif,image/*,application/zip,application/octet-stream,*/*;q=0.8",
@@ -1125,7 +1140,9 @@ export async function fetchMediaResponse(
     if (res.body.byteLength > MAX_MEDIA_BYTES) {
       return new Response("file too large", { status: 413 });
     }
-    return new Response(new Uint8Array(res.body), {
+    const body = new Uint8Array(res.body);
+    rememberMedia(url, body, res.contentType);
+    return new Response(Buffer.from(body), {
       status: 200,
       headers: mediaOutHeaders(res.contentType),
     });
@@ -1164,17 +1181,20 @@ export async function fetchMediaResponse(
     return new Response("file too large", { status: 413 });
   }
   const contentType = res.headers.get("content-type") || "application/octet-stream";
-  if (res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
+  const cacheable = isDiskCacheableMedia(url);
+  if (!cacheable && res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
     return new Response(closeOnAbort(res.body, signal), {
       status: 200,
       headers: mediaOutHeaders(contentType),
     });
   }
   const buf = new Uint8Array(await res.arrayBuffer());
+  if (signal?.aborted) return new Response(null, { status: 204 });
   if (buf.byteLength > MAX_MEDIA_BYTES) {
     return new Response("file too large", { status: 413 });
   }
-  return new Response(buf, {
+  rememberMedia(url, buf, contentType);
+  return new Response(Buffer.from(buf), {
     status: 200,
     headers: mediaOutHeaders(contentType),
   });

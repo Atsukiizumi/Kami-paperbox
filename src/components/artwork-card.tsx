@@ -58,7 +58,7 @@ export function ArtworkCard({
 }) {
   const hasMedia = Boolean(work.thumb);
   const pages = pageThumbUrls(work.thumb, work.pageCount);
-  const aspect = hasMedia ? cardAspect(work.width, work.height) : 5 / 3;
+  const aspect = hasMedia ? cardAspect(work.width, work.height) : variant === "vault" ? 3 / 4 : 5 / 3;
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const queryClient = useQueryClient();
@@ -520,8 +520,9 @@ export function ArtworkGrid({
   if (items.length === 0) {
     return <EmptySheet title={empty ?? "没有符合条件的作品。"} hint="换个站点或标签再看。" />;
   }
+  const boardKey = `${items[0]?.source ?? "x"}:${items[0]?.id ?? "empty"}`;
   return (
-    <MasonryBoard>
+    <MasonryBoard key={boardKey}>
       {items.map((work, i) => (
         <ArtworkCard key={`${work.source}-${work.id}`} work={work} index={i} marks={marksOf?.(work)} />
       ))}

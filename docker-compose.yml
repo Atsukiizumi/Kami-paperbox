@@ -6,8 +6,9 @@ services:
       - "8080:8080"
     environment:
       NODE_ENV: production
-      HOST: 0.0.0.0
+      HOSTNAME: 0.0.0.0
       PORT: 8080
+      VITE_AUTH_ENABLED: "false"
       # KAMI_PROXY: http://host.docker.internal:7890
     volumes:
       - kami-data:/app/.data

@@ -15,9 +15,7 @@ import {
 import { projectRoot } from "./with-app-env.mjs";
 
 /**
- * The JSON body `/__app-env` would serve. Do not start a real Vite server —
- * `import { createServer } from "vite"` loads rolldown native bindings that
- * SIGSEGV the test worker under qemu-user (amd64 image builds).
+ * The JSON body `/__app-env` would serve. Do not start a real Next server here.
  */
 function appEnvFetch(env) {
   return async () => ({

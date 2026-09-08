@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { getRequest } from "@tanstack/react-start/server";
 import { getActiveRequest } from "../request-context.ts";
 import {
   assertSameSiteRequest,
@@ -53,13 +52,7 @@ function connectorsBaseFor(publicHost: string | null): string | null {
 }
 
 function tryGetRequest(): Request | null {
-  const active = getActiveRequest();
-  if (active) return active;
-  try {
-    return getRequest() ?? null;
-  } catch {
-    return null;
-  }
+  return getActiveRequest() ?? null;
 }
 
 function inboundContext(): InboundContext {

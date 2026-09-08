@@ -66,11 +66,26 @@ export async function getVaultMeta(key: string): Promise<VaultMeta | undefined> 
   return (await reqToPromise(tx.objectStore("meta").get(key))) as VaultMeta | undefined;
 }
 
-export async function getVaultBlob(key: string, page: number): Promise<Blob | undefined> {
+export async function putVaultMeta(meta: VaultMeta): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction("meta", "readwrite");
+  tx.objectStore("meta").put(meta);
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getVaultBlob(
+  key: string,
+  page: number,
+  opts?: { localOnly?: boolean },
+): Promise<Blob | undefined> {
   const db = await openDb();
   const tx = db.transaction("blobs", "readonly");
   const local = (await reqToPromise(tx.objectStore("blobs").get(`${key}#${page}`))) as Blob | undefined;
   if (local) return local;
+  if (opts?.localOnly) return undefined;
   return fetchServerVaultBlob(key, page);
 }
 

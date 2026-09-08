@@ -3,6 +3,7 @@ node_modules
 .vercel
 .output
 .nitro
+.next
 .grok
 .cache
 .tanstack
@@ -15,3 +16,4 @@ npm-debug.log*
 .env.*
 AGENTS.md
 startup.sh
+*.zip

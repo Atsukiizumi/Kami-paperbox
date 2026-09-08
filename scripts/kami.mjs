@@ -47,8 +47,8 @@ function runner() {
   return ["npm", ["run"]];
 }
 
-const vite = join(root, "node_modules", "vite");
-if (!existsSync(vite)) {
+const next = join(root, "node_modules", "next");
+if (!existsSync(next)) {
   const [cmd, args] = installer();
   console.log(`未检测到依赖，正在 ${cmd} ${args.join(" ")} …`);
   const r = spawnSync(cmd, args, { cwd: root, stdio: "inherit", shell: process.platform === "win32" });

@@ -10,11 +10,15 @@
  *        单独一张横图 / 宽图仍然铺这一行，避免 16:9 被收成小条。
  *        下一张塞不下时，从后面十几张里抽一张长宽比合适的来填缝，
  *        不要把整行竖图晾在左边。
+ *        列数按容器 CSS 像素算：分辨率变高或浏览器缩小都会加列，放大则减列。
+ *        宽屏上两张竖图的行高会超过 520，这只说明还不够密，要继续加，
+ *        不能当成「这行装不下」提前收行，否则右边会空出一大条。
  * packMasonry 仍留给测试/旧逻辑，界面不再调用。
  */
 export const MASONRY_GAP = 12;
 export const MASONRY_MIN_COL = 170;
-export const MASONRY_MAX_COLS = 5;
+/** 安全上限。真正限列的是 MASONRY_MIN_COL，避免 8K 上算出上百列。 */
+export const MASONRY_MAX_COLS = 48;
 export const MASONRY_CAPTION = 88;
 export const MASONRY_MIN_CARD = 188;
 
@@ -207,11 +211,16 @@ export function packJustified({
     return (width - gap * Math.max(0, n - 1)) / Math.max(0.01, sum);
   };
 
+  const wideEnough = (indices: number[]) => {
+    const h = heightOf(indices);
+    return indices.every((idx) => (aspects[idx] ?? FALLBACK_ASPECT) * h + 0.5 >= floor);
+  };
+
   const fits = (indices: number[]) => {
     if (indices.length === 0) return true;
     const h = heightOf(indices);
     if (h < 80 || h > 520) return false;
-    return indices.every((idx) => (aspects[idx] ?? FALLBACK_ASPECT) * h + 0.5 >= floor);
+    return wideEnough(indices);
   };
 
   const pickFiller = (row: number[], pending: number[]) => {
@@ -242,7 +251,8 @@ export function packJustified({
       const head = pending[0]!;
       const withHead = [...row, head];
       const hHead = heightOf(withHead);
-      if (fits(withHead) && hHead > ideal) {
+      // 行高仍高于目标 = 还不够密。宽屏上此时 h 常 > 520，不能当失败。
+      if (hHead > ideal && wideEnough(withHead)) {
         row.push(pending.shift()!);
         continue;
       }

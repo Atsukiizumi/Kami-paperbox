@@ -71,11 +71,7 @@ test("the template ships auth off", () => {
   assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
 });
 
-test("vite loadEnv resolves the wrapped value", () => {
-  // What `import.meta.env.VITE_AUTH_ENABLED` becomes: loadEnv prefix-matches
-  // process.env, so the wrapper's merge has to land before Vite starts.
-  // Do not `import { loadEnv } from "vite"` here — Vite 8 loads rolldown
-  // native bindings that SIGSEGV the test worker under qemu-user.
+test("wrapper merge lands VITE_ flags before Next starts", () => {
   const root = makeWorkspace('{"VITE_AUTH_ENABLED":"false"}');
   const merged = mergeAppEnv(readAppEnv(root), { PATH: "/usr/bin" });
   assert.equal(merged.VITE_AUTH_ENABLED, "false");
@@ -141,15 +137,6 @@ test("puts node_modules/.bin first on PATH", () => {
   assert.equal(env.PATH.split(process.platform === "win32" ? ";" : ":")[0], dir);
 });
 
-test("resolves vite via its JS entry so Windows paths with spaces work", () => {
-  const js = resolveJsCli("vite", projectRoot());
-  assert.ok(js && js.endsWith("vite.js"));
-  const run = resolveSpawn("vite", ["dev"], projectRoot());
-  assert.equal(run.cmd, process.execPath);
-  assert.equal(run.args[0], js);
-  assert.deepEqual(run.args.slice(1), ["dev"]);
-});
-
 test("resolves next via its JS entry so Windows paths with spaces work", () => {
   const js = resolveJsCli("next", projectRoot());
   assert.ok(js && js.replaceAll("\\", "/").endsWith("next/dist/bin/next"));
@@ -176,7 +163,7 @@ test("ensureKamiConfig copies the example and never overwrites", () => {
 });
 
 test("missing-deps hint tells the user to pnpm install", () => {
-  const hint = missingDepsHint("vite");
+  const hint = missingDepsHint("next");
   assert.match(hint, /pnpm install/);
   assert.match(hint, /pnpm dev/);
 });

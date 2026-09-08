@@ -88,8 +88,8 @@ type PopupMessage = { source: "grok-auth-popup"; token: string | null; error?: s
  * federating through the Grok auth broker.
  *
  * - **Live preview** (`*.grok-sandbox.com` iframe): opens a POPUP to
- *   `/auth/popup`, served by the template Vite plugin (see `vite.config.ts` +
- *   `popup.server.ts`) — 302s to the broker/upstream login (no app chrome) and,
+ *   `/auth/popup` (`app/auth/popup/route.ts` + `popup.server.ts`) — 302s to the
+ *   broker/upstream login (no app chrome) and,
  *   on return, posts the session bearer token back. We store it and refresh the
  *   session; no top-level navigation of the iframe to the broker.
  * - **Deployed** (and local non-iframe): a normal full-page redirect into the broker.
@@ -155,8 +155,8 @@ export async function signIn(
 
 /**
  * Open `/auth/popup` in a new window. Must run synchronously inside the click
- * handler (no await before this). The path is served by the template Vite
- * plugin (`authPopupPlugin` in vite.config.ts) — NOT by a React route.
+ * handler (no await before this). The path is the Next route at
+ * `app/auth/popup/route.ts` — not a React page.
  *
  * Opens the real URL directly (not about:blank → assign). From a cross-origin
  * iframe the about:blank dance often fails on the first click and the window

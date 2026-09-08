@@ -1,7 +1,7 @@
 /**
- * 当前 HTTP 请求。Next Route Handler 和 Vite server fn 都能读到。
+ * 当前 HTTP 请求。
  *
- * 作用：把 Request 放进 AsyncLocalStorage，auth / cookie 不必再绑 TanStack getRequest。
+ * 作用：把 Request 放进 AsyncLocalStorage，auth / cookie 从这里读。
  * 用法：Route Handler 里 runWithRequest(request, () => handler(request))。
  */
 import { AsyncLocalStorage } from "node:async_hooks";
