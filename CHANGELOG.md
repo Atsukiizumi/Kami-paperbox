@@ -9,6 +9,7 @@
 ### 文档
 
 - README 写明 `pnpm dev` / `build` / `start` / Docker 都走 Next，并补了技术栈、服务端缓存和 `.data` 落盘。
+- README 去掉「技术」段，用法按跑起来 / 上手 / 日常 / 数据在哪儿重写；鸣谢加上 ZCode。
 
 ### 调整
 

@@ -26,18 +26,15 @@
 
 ## 用法
 
+### 跑起来
+
 需要 Node.js 22+ 和 [pnpm](https://pnpm.io)。
 
 ```bash
 pnpm i
-pnpm dev
-```
-
-打开 http://localhost:8080。Next.js App Router，端口 `8080`，绑 `0.0.0.0`。
-
-```bash
+pnpm dev      # 开发，http://localhost:8080
 pnpm build    # 生产构建
-pnpm start    # 启动生产服务（同样 8080）
+pnpm start    # 生产服务，同样在 8080
 ```
 
 Docker：
@@ -46,15 +43,26 @@ Docker：
 docker compose up --build
 ```
 
-同样是 http://localhost:8080。纸匣数据在 `kami-data` 卷（容器里的 `.data`）。
+服务绑 `0.0.0.0`，局域网里用手机 / 平板打开 `http://<电脑 IP>:8080` 也能用。
 
-## 技术
+### 上手
 
-壳是 **Next.js 15 App Router**（React 19、TypeScript 5.7、Tailwind 4）。没有 Vite / TanStack Start 退路。端口 `8080`，绑 `0.0.0.0`。生产镜像 `output: "standalone"`，容器里跑 `node server.js`。
+- 公开内容开箱即看：Pixiv 日 / 周 / 月榜，yande.re、Konachan、Danbooru 的帖子，都不用登录。
+- 推荐流、关注、红心、收藏要先登录：**设置 → 账号**，在弹出的官方登录页里登录，会话自动带回，不用手动贴 Cookie。FANBOX 的付费内容需要已订阅的 FANBOXSESSID。
+- 图源在左上角切换；「过滤 AI」和「R-18」开关在浏览页顶部，按需打开。
 
-站内跳转走 `kami-link`。浏览列表、详情、搜图用 TanStack Query。上游只打本站 `/api/source`、`/api/media`、`/api/social`，Cookie 留在服务端。
+### 日常
 
-数据在跑 Next 的那台机器上，跟你从哪个 IP 打开无关：
+- **浏览**：悬停卡片放大预览，GIF / Pixiv 动图直接播。榜单有「刷新」，跳过缓存重新拉源站。
+- **搜索**：空格分开多个标签；直接粘贴作品 / 画师链接也能跳。图站标签会显示中文。
+- **搜图**：把图拖进窗口就能反搜（SauceNAO / ascii2d / IQDB / TinEye）。
+- **下载 / 收入纸匣**：卡片上的按钮分别入队，进度在「队列」页看。纸匣优先写你在设置里选的用户文件夹。
+- **纸匣 / 历史**：收进来的作品在「纸匣」页管理和导出；看过的自动记进「历史」。
+- **备份**：设置里一键导出 / 导入设置、账号、纸匣目录、词表和浏览历史，不打包原图。
+
+### 数据在哪儿
+
+数据跟着跑服务的那台机器走，跟你从哪个 IP 打开无关：
 
 | | 位置 | 说明 |
 | --- | --- | --- |
@@ -62,9 +70,9 @@ docker compose up --build
 | 封面缓存 | `.data/media/` | pximg / 图站图，7 天 |
 | 列表缓存 | `.data/source/` | 日榜、图站、关注、推荐、FANBOX，30 分钟 |
 | 用户文件夹 | 设置里选的目录 | 收入纸匣时优先写这里 |
-| 浏览列表 | 浏览器 localStorage | 够一屏（约 50 张）；刷新先画浏览器，再问 Next |
+| 浏览列表 | 浏览器 localStorage | 够一屏（约 50 张），刷新先画浏览器再问服务端 |
 
-浏览顺序：浏览器 → Next 服务端 → 源站。设置里可导出 / 导入本机设置、账号和纸匣目录（不含原图像素）。更细的落盘说明见 [docs/storage.md](docs/storage.md)。
+Docker 部署时以上 `.data` 都在 `kami-data` 卷里。更细的落盘说明见 [docs/storage.md](docs/storage.md)。
 
 ## 鸣谢
 
@@ -72,6 +80,7 @@ docker compose up --build
 - [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)
 - [PixEz](https://github.com/Notsfsssf/pixez-flutter)
 - [Grok](https://grok.com)
+- [ZCode](https://z.ai)
 
 ## 许可证
 
