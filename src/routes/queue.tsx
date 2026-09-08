@@ -4,7 +4,9 @@
  * 作用：下载和收入纸匣的唯一通道，显示类型、状态、进度。
  * 用法：侧栏「队列」。卡片和作品页的纸匣/下载都进这里。
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import { Link } from "@/lib/kami-link";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Button } from "@/components/ui/button";
@@ -13,8 +15,6 @@ import { EmptySheet } from "@/components/empty-sheet";
 import { runQueue } from "@/lib/queue-runner";
 import { useQueue } from "@/lib/store";
 import type { QueueItem } from "@/lib/types";
-
-export const Route = createFileRoute("/queue")({ component: QueuePage });
 
 function kindLabel(item: QueueItem) {
   return item.kind === "vault" ? "收入纸匣" : "下载";
@@ -27,7 +27,7 @@ function statusLabel(item: QueueItem) {
   return item.error || "失败";
 }
 
-function QueuePage() {
+export function QueuePage() {
   const items = useQueue((s) => s.items);
   const remove = useQueue((s) => s.remove);
   const clearDone = useQueue((s) => s.clearDone);

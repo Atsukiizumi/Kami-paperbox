@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 卡片右键纸签。
  *
@@ -6,7 +8,7 @@
  */
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/kami-link";
 import { Download, ExternalLink, PanelTop } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
 import { workOriginUrl } from "@/lib/sites";

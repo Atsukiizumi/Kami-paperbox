@@ -1,14 +1,10 @@
 /**
  * 红心 / 关注 / 收藏 HTTP。
  */
-import { createFileRoute } from "@tanstack/react-router";
 import { socialSchema } from "@/lib/source";
 import type { SocialInput } from "@/lib/types";
 
-export const Route = createFileRoute("/api/social")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
+export async function POST(request: Request) {
         try {
           const raw = await request.json();
           const data = socialSchema.parse(raw) as SocialInput;
@@ -19,7 +15,4 @@ export const Route = createFileRoute("/api/social")({
           const message = err instanceof Error ? err.message : "请求失败";
           return Response.json({ error: message }, { status: 400, headers: { "cache-control": "no-store" } });
         }
-      },
-    },
-  },
-});
+}

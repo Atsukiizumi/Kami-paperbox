@@ -12,9 +12,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ENV NITRO_PRESET=node
 ENV NODE_ENV=production
 ENV VITE_AUTH_ENABLED=false
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runner
@@ -26,12 +26,13 @@ RUN apt-get update \
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
+ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
-ENV NITRO_HOST=0.0.0.0
-ENV NITRO_PORT=8080
+ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=build --chown=node:node /app/.output ./.output
-COPY --from=build --chown=node:node /app/package.json ./
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/kami.config.example.json ./kami.config.json
 RUN mkdir -p /app/.data && chown -R node:node /app
 
@@ -41,4 +42,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8080/ >/dev/null || exit 1
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "server.js"]

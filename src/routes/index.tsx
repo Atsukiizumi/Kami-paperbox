@@ -1,5 +1,7 @@
+"use client";
+
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@/lib/kami-link";
 import { Clipboard, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -37,8 +39,6 @@ import {
   scopeFromExact,
   type PixivSearchFilter as PixivSearchFilterValue,
 } from "@/lib/pixiv-search";
-
-export const Route = createFileRoute("/")({ component: () => null });
 
 type FanboxFeed = "home" | "supporting" | "creator";
 

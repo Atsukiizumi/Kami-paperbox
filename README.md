@@ -13,6 +13,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">
+  <img src="https://img.shields.io/badge/next.js-15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Next.js 15">
   <img src="https://img.shields.io/badge/vite-8-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Vite 8">
   <img src="https://img.shields.io/badge/typescript-5.7-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="TypeScript 5.7">
   <img src="https://img.shields.io/badge/tailwind-4-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Tailwind CSS 4">

@@ -150,6 +150,15 @@ test("resolves vite via its JS entry so Windows paths with spaces work", () => {
   assert.deepEqual(run.args.slice(1), ["dev"]);
 });
 
+test("resolves next via its JS entry so Windows paths with spaces work", () => {
+  const js = resolveJsCli("next", projectRoot());
+  assert.ok(js && js.replaceAll("\\", "/").endsWith("next/dist/bin/next"));
+  const run = resolveSpawn("next", ["dev", "--port", "8080"], projectRoot());
+  assert.equal(run.cmd, process.execPath);
+  assert.equal(run.args[0], js);
+  assert.deepEqual(run.args.slice(1), ["dev", "--port", "8080"]);
+});
+
 test("kami.config.json defaults to 0.0.0.0:8080", () => {
   const cfg = readKamiConfig(projectRoot());
   assert.equal(cfg.host, "0.0.0.0");

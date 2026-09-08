@@ -5,7 +5,15 @@ import "../src/styles.css";
 
 export const metadata = {
   title: "Kami 纸匣",
-  description: "跨端个人 Pixiv / FANBOX 作品存档。",
+  description: "跨端个人 Pixiv / FANBOX 作品存档。公开榜单可直接浏览，登录后可备份你已能查看的内容。",
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }] },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+  themeColor: THEMES.washi.dark.bg,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -13,8 +21,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="zh-CN" className="antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
-        <meta name="theme-color" content={THEMES.washi.dark.bg} />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&family=Noto+Sans+SC:wght@400;500&display=swap"
+        />
+        <link rel="manifest" href="/__grok/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/__grok/icon-180.png" />
       </head>
       <body className="bg-bg text-fg">
         <Providers>{children}</Providers>

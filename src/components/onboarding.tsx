@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 第一次打开的三步向导。
  *
@@ -5,7 +7,7 @@
  * 用法：AppShell 里挂一次；点「稍后再说」也算完成，设置里还能再登录。
  */
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@/lib/kami-link";
 import { FolderOpen, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { SessionRelayDialog } from "@/components/session-relay";

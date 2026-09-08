@@ -4,7 +4,9 @@
  * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除。
  * 用法：侧栏入口。优先读用户文件夹原图。
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import { Link } from "@/lib/kami-link";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
@@ -24,8 +26,6 @@ import { filterVaultItems, vaultAuthors, vaultTotals } from "@/lib/vault-query";
 import { listServerVault, vaultPageUrl } from "@/lib/vault-sync";
 import type { Source, WorkCard } from "@/lib/types";
 
-export const Route = createFileRoute("/vault")({ component: VaultPage });
-
 function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {
   return {
     source: item.source,
@@ -41,7 +41,7 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
   };
 }
 
-function VaultPage() {
+export function VaultPage() {
   const folderLabel = useSettings((s) => s.folderLabel);
   const [all, setAll] = useState<VaultMeta[]>([]);
   const [origin, setOrigin] = useState<"server" | "browser">("browser");

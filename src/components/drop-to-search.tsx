@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 把图片拖进窗口去搜图。
  *
@@ -7,7 +9,7 @@
  */
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate, usePathname } from "@/lib/kami-link";
 import { stashReverseImage } from "@/lib/reverse-search";
 
 export const SEARCH_FILE_EVENT = "kami-search-file";
@@ -18,7 +20,7 @@ function isFileDrag(e: DragEvent) {
 
 export function DropToSearch() {
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
   const [over, setOver] = useState(false);
 
   useEffect(() => {

@@ -5,7 +5,6 @@
  * 为什么：直接把 i.pximg.net 丢给 <img> 会 403。封面走流式 + 一周缓存。
  *        客户端关掉标签或滚走时 srvx 会 abort，这里当成正常结束，不当 500。
  */
-import { createFileRoute } from "@tanstack/react-router";
 import { isAbortError } from "@/lib/abort";
 import { fetchMediaResponse } from "@/lib/upstream.server";
 
@@ -29,10 +28,7 @@ function dropped(): Response {
   return new Response(null, { status: 204 });
 }
 
-export const Route = createFileRoute("/api/media")({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
+export async function GET(request: Request) {
         if (request.signal.aborted) return dropped();
         const target = new URL(request.url).searchParams.get("u");
         if (!target) return new Response("missing url", { status: 400 });
@@ -51,7 +47,4 @@ export const Route = createFileRoute("/api/media")({
           const message = err instanceof Error ? err.message : "proxy error";
           return new Response(message, { status: 400 });
         }
-      },
-    },
-  },
-});
+}

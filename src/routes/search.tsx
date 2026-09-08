@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import { Link } from "@/lib/kami-link";
 import { ExternalLink, ImagePlus, LoaderCircle, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -20,12 +22,10 @@ import {
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/search")({ component: SearchPage });
-
 type ApiOk = { ok: true; groups: SearchGroup[] };
 type ApiErr = { ok: false; error: string };
 
-function SearchPage() {
+export function SearchPage() {
   const safeMode = useSettings((s) => s.safeMode);
   const apiKey = useSettings((s) => s.saucenaoApiKey);
   const [file, setFile] = useState<File | null>(null);

@@ -1,5 +1,7 @@
+"use client";
+
 import { Check, Plus, UserRound } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/kami-link";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { SiteAvatar } from "@/components/site-avatar";

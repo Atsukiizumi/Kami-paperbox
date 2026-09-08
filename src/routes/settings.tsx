@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+"use client";
+
 import { ClipboardPaste, LogIn, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -23,8 +24,6 @@ import { TagLexiconSection } from "@/components/tag-lexicon-settings";
 import { useSettings } from "@/lib/store";
 import { applyCookieDump, applyLoginSession } from "@/lib/apply-session";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
 const SETTINGS_PAGES = [
   { id: "theme", label: "外观", hint: "配色和深浅" },
@@ -247,7 +246,7 @@ function SearchKeySection() {
   );
 }
 
-function SettingsPage() {
+export function SettingsPage() {
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const fanboxCookie = useSettings((s) => s.fanboxCookie);
   const safeMode = useSettings((s) => s.safeMode);

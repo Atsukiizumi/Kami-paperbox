@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 浏览卡片。
  *
@@ -7,7 +9,7 @@
  *        保存/入队/红心叠在封面上，不占标题宽度。
  */
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@/lib/kami-link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered, Lock, Trash2 } from "lucide-react";
 import { toast } from "sonner";

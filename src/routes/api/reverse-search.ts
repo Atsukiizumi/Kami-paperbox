@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { runReverseSearchAll } from "@/lib/reverse-search.server";
 import { MAX_SEARCH_BYTES, SEARCH_TYPES } from "@/lib/reverse-search";
 
@@ -9,10 +8,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
-export const Route = createFileRoute("/api/reverse-search")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
+export async function POST(request: Request) {
         const ct = request.headers.get("content-type") ?? "";
         if (!ct.includes("multipart/form-data")) {
           return json({ ok: false, error: "需要上传图片" }, 400);
@@ -50,7 +46,4 @@ export const Route = createFileRoute("/api/reverse-search")({
           const message = err instanceof Error ? err.message : "搜图失败";
           return json({ ok: false, error: message }, 502);
         }
-      },
-    },
-  },
-});
+}

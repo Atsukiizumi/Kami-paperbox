@@ -1,11 +1,13 @@
+"use client";
+
 /**
  * 没有这一页。
  *
  * 作用：地址对不上任何路由时，别只丢一行英文 Not Found。
- * 用法：router defaultNotFoundComponent；根路由 notFoundComponent。
- * 为什么：TanStack 没配这个会警告，也确实难看。
+ * 用法：App Router `not-found`；Vite 根路由 notFoundComponent。
+ * 为什么：地址对不上时别只丢一行英文。
  */
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/kami-link";
 import { Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

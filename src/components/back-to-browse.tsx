@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 详情页导航。
  *
@@ -5,21 +7,25 @@
  * 用法：PageFrame 在 /work /user /creator 自动放，页面里不用再插。
  * 为什么：塞进标题 header 里，header 一滚完粘性就失效。
  */
-import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@/lib/kami-link";
 import { ArrowLeft, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function BackToPrevious() {
   const router = useRouter();
-  const canGoBack = useCanGoBack();
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
       className="-ml-2"
-      disabled={!canGoBack}
-      onClick={() => router.history.back()}
+      onClick={() => {
+        if (typeof window !== "undefined" && window.history.length > 1) {
+          router.back();
+          return;
+        }
+        router.push("/");
+      }}
     >
       <ArrowLeft />
       上一页

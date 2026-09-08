@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, type ReactNode } from "react";
-import { Navigate } from "@tanstack/react-router";
+import { Navigate } from "@/lib/kami-link";
 import { authEnabled, signOut } from "./client";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
 
@@ -33,7 +35,7 @@ export function SignedOut({ children }: { children: ReactNode }) {
 }
 
 /**
- * Client-side redirect to the sign-in route (TanStack `<Navigate>` — NOT a full
+ * Client-side redirect to the sign-in route (`<Navigate>` — NOT a full
  * `window.location` reload). A hard navigation re-bootstraps the SPA and re-runs
  * session loading, which feels like a second "Loading…" on /login.
  *

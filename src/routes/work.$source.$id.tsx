@@ -1,5 +1,7 @@
+"use client";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { BackToBrowse, BackToPrevious } from "@/components/back-to-browse";
@@ -33,12 +35,8 @@ import type { WorkDetail } from "@/lib/types";
 import { rememberView } from "@/lib/view-history";
 import { collectBooruTags } from "@/lib/tag-catalog";
 
-export const Route = createFileRoute("/work/$source/$id")({
-  component: WorkPage,
-});
-
-function WorkPage() {
-  const { source, id } = Route.useParams();
+export function WorkPage() {
+  const { source, id } = useParams<{ source: string; id: string }>();
   const src = parseSource(source);
   const navigate = useNavigate();
   const queryClient = useQueryClient();

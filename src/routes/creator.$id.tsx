@@ -1,5 +1,7 @@
+"use client";
+
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -13,10 +15,8 @@ import { rememberAuthor } from "@/lib/view-history";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
 import { useEffect } from "react";
 
-export const Route = createFileRoute("/creator/$id")({ component: CreatorPage });
-
-function CreatorPage() {
-  const { id } = Route.useParams();
+export function CreatorPage() {
+  const { id } = useParams<{ id: string }>();
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
 
