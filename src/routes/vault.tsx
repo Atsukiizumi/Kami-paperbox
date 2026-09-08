@@ -102,7 +102,7 @@ function VaultPage() {
         <p className="mt-1 text-sm text-muted">
           {folderLabel
             ? `原图在「${folderLabel}」，这里只记路径和校验。`
-            : "当前窗口不能挂文件夹时，图会暂存在应用里。"}
+            : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}
         </p>
       </header>
 

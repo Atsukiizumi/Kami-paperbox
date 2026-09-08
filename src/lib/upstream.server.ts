@@ -35,6 +35,8 @@ import {
   parseMoebooruPools,
   mapBooruCard,
   mapBooruDetail,
+  isBooruPeriodFeed,
+  type BooruFeed,
 } from "./booru";
 import type {
   BooruSite,
@@ -244,6 +246,7 @@ async function pixivRanking(
   cookie?: string,
   safeMode = true,
   hideAi = false,
+  date?: string,
 ): Promise<FetchOk> {
   const meta = rankingMeta(mode);
   if (meta.nsfw && safeMode) {
@@ -252,8 +255,13 @@ async function pixivRanking(
   if (meta.login && !cookie) {
     throw new Error("需要登录 Pixiv 才能查看该榜单。");
   }
-  const url = `https://www.pixiv.net/ranking.php?mode=${mode}&content=illust&p=${page}&format=json`;
+  const qs = new URLSearchParams({ mode, content: "illust", p: String(page), format: "json" });
+  if (date && /^\d{8}$/.test(date)) qs.set("date", date);
+  const url = `https://www.pixiv.net/ranking.php?${qs}`;
   const json = asRecord(await upstreamJson(url, { cookie, origin: "pixiv" }));
+  if (json.error === true || json.error === "true") {
+    throw new Error(asString(json.message, "Pixiv 榜单还没公布这一天"));
+  }
   const contents = Array.isArray(json.contents) ? json.contents : [];
   const items: WorkCard[] = [];
   for (const raw of contents) {
@@ -554,18 +562,23 @@ function pushFanboxImage(pages: WorkPage[], raw: Record<string, unknown>) {
     name: name ? `${name}.${ext}` : undefined,
     width: asNumber(raw.width) || undefined,
     height: asNumber(raw.height) || undefined,
+    kind: "image",
   });
 }
 
 function pushFanboxFile(pages: WorkPage[], raw: Record<string, unknown>) {
   const url = asString(raw.url);
   if (!url) return;
+  const ext = asString(raw.extension).replace(/^\./, "");
+  const base = asString(raw.name, "file");
+  const named = ext && !base.toLowerCase().endsWith(`.${ext.toLowerCase()}`) ? `${base}.${ext}` : base;
   pages.push({
     thumb: url,
     regular: url,
     original: url,
-    name: asString(raw.name, "file"),
+    name: named,
     bytes: asNumber(raw.size) || undefined,
+    kind: "file",
   });
 }
 
@@ -882,19 +895,20 @@ function asBooruPosts(json: unknown): Record<string, unknown>[] {
 
 async function booruList(
   site: BooruSite,
-  feed: "recent" | "popular",
+  feed: BooruFeed,
   tags: string,
   page: number,
   safeMode: boolean,
+  date?: string,
 ): Promise<FetchOk> {
   const composed = composeBooruTags(site, tags, safeMode);
-  const json = await booruJson(site, booruListUrl(site, feed, composed, page));
+  const json = await booruJson(site, booruListUrl(site, feed, composed, page, date));
   const items: WorkCard[] = [];
   for (const rec of asBooruPosts(json)) {
     const card = mapBooruCard(site, rec, safeMode);
     if (card) items.push(card);
   }
-  const canPage = !(feed === "popular" && site !== "danbooru");
+  const canPage = feed === "recent" || (feed === "popular" && site === "danbooru") || (feed === "hot" && site === "danbooru");
   return {
     op: "booruList",
     site,
@@ -1044,7 +1058,7 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const hideAi = input.hideAi === true;
   switch (input.op) {
     case "pixivRanking":
-      return pixivRanking(input.mode, input.page, pixiv, safe, hideAi);
+      return pixivRanking(input.mode, input.page, pixiv, safe, hideAi, input.date);
     case "pixivSearch":
       return pixivSearch(input.word, input.page, pixiv, safe, hideAi, input.filter);
     case "pixivRecommend":
@@ -1068,7 +1082,7 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "fanboxTagged":
       return fanboxTagged(input.tag, input.page, fanbox, safe);
     case "booruList":
-      return booruList(input.site, input.feed, input.tags ?? "", input.page, safe);
+      return booruList(input.site, input.feed, input.tags ?? "", input.page, safe, input.date);
     case "booruPost":
       return booruPost(input.site, input.id, safe);
     case "booruPool":

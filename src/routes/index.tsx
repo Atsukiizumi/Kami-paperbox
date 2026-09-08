@@ -26,6 +26,8 @@ import {
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
+import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "@/lib/booru";
+import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/ranking-archive";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import type { FanboxCursor, FetchOk, WorkCard } from "@/lib/types";
@@ -59,7 +61,8 @@ export function Home() {
   const [searchFilter, setSearchFilter] = useState<PixivSearchFilterValue>(DEFAULT_PIXIV_SEARCH);
   const [creatorId, setCreatorId] = useState("official");
   const [fanboxFeed, setFanboxFeed] = useState<FanboxFeed>("creator");
-  const [booruFeed, setBooruFeed] = useState<"recent" | "popular">("recent");
+  const [booruFeed, setBooruFeed] = useState<BooruFeed>("recent");
+  const [boardDate, setBoardDate] = useState(() => parseBoardDate().iso);
   const [listPage, setListPage] = useState(1);
   const browseQuery = useSettings((s) => s.browseQuery);
   const browseExact = useSettings((s) => s.browseExact);
@@ -104,7 +107,7 @@ export function Home() {
   }, [fanboxCookie]);
 
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie, boardDate],
     enabled: tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -124,7 +127,13 @@ export function Home() {
         return fetchSource({ data: { op: "pixivRecommend", ...creds } });
       }
       return fetchSource({
-        data: { op: "pixivRanking", mode: feed, page: pageParam, ...creds },
+        data: {
+          op: "pixivRanking",
+          mode: feed,
+          page: pageParam,
+          date: pixivRankingDateParam(boardDate),
+          ...creds,
+        },
       });
     },
     getNextPageParam: (last, pages) => {
@@ -164,7 +173,7 @@ export function Home() {
   });
 
   const booruQuery = useInfiniteQuery({
-    queryKey: ["home-booru", tab, booruFeed, searchWord, safeMode],
+    queryKey: ["home-booru", tab, booruFeed, searchWord, safeMode, boardDate],
     enabled: isBooru(tab),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -176,6 +185,7 @@ export function Home() {
           feed: searchWord ? "recent" : booruFeed,
           tags: searchWord || undefined,
           page: pageParam,
+          date: !searchWord && isBooruPeriodFeed(booruFeed) ? boardDate : undefined,
           ...cookiesFromSettings(),
         },
       });
@@ -283,6 +293,13 @@ export function Home() {
     pixivQuery.data?.pages[0] && pixivQuery.data.pages[0].op === "pixivRanking"
       ? pixivQuery.data.pages[0].date
       : "";
+
+  useEffect(() => {
+    if (!isBooru(tab) || searchWord || !isBooruPeriodFeed(booruFeed)) return;
+    const page = booruQuery.data?.pages[0];
+    if (!page || page.op !== "booruList" || page.items.length === 0) return;
+    void rememberRanking({ site: tab, period: booruFeed, date: boardDate, items: page.items });
+  }, [tab, booruFeed, searchWord, booruQuery.data, boardDate]);
   const fanboxItems: WorkCard[] =
     fanboxQuery.data?.pages.flatMap((p) =>
       p.op === "fanboxCreator" ||
@@ -456,11 +473,20 @@ export function Home() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-            ) : null}
-            {rankingDate && !searchWord && isPixivRankMode(feed) ? (
-              <span className="ml-auto text-xs tabular-nums text-subtle">
-                {formatRankDate(rankingDate)}
-              </span>
+            ) : !searchWord && rankingPeriodOf(feed) ? (
+              <div className="ml-auto flex h-8 shrink-0 items-center gap-2">
+                <span className="min-w-[5.5rem] text-right text-xs tabular-nums text-subtle">
+                  {rankingDate ? formatRankDate(rankingDate) : "\u00a0"}
+                </span>
+                <Input
+                  type="date"
+                  value={rankingDate ? formatRankDate(rankingDate) : boardDate}
+                  onChange={(e) => {
+                    if (e.target.value) setBoardDate(e.target.value);
+                  }}
+                  className="h-8 w-40"
+                />
+              </div>
             ) : null}
           </div>
           <ToggleGroup
@@ -522,13 +548,26 @@ export function Home() {
             value={!searchWord ? booruFeed : ""}
             onValueChange={(v) => {
               if (!v) return;
-              setBooruFeed(v as "recent" | "popular");
+              setBooruFeed(v as BooruFeed);
               setSearchWord("");
             }}
           >
-            <ToggleGroupItem value="recent">最新</ToggleGroupItem>
-            <ToggleGroupItem value="popular">热门</ToggleGroupItem>
+            {BOORU_FEEDS.map((item) => (
+              <ToggleGroupItem key={item.id} value={item.id}>
+                {item.label}
+              </ToggleGroupItem>
+            ))}
           </ToggleGroup>
+          {!searchWord && isBooruPeriodFeed(booruFeed) ? (
+            <Input
+              type="date"
+              value={boardDate}
+              onChange={(e) => {
+                if (e.target.value) setBoardDate(e.target.value);
+              }}
+              className="h-8 w-40"
+            />
+          ) : null}
           {searchWord ? (
             <Button
               type="button"

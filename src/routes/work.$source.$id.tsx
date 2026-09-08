@@ -125,6 +125,7 @@ function WorkPage() {
 
   const lightboxItems: LightboxItem[] = useMemo(() => {
     if (!work) return [];
+    const images = work.pages.filter((page) => page.kind !== "file");
     if (work.ugoira) {
       return [
         {
@@ -135,7 +136,7 @@ function WorkPage() {
         },
       ];
     }
-    return work.pages.map((page, i) => ({
+    return images.map((page, i) => ({
       src: mediaUrl(page.regular || page.original),
       alt: `${work.title} ${i + 1}`,
       caption: formatResolution(page.width, page.height),
@@ -409,6 +410,21 @@ function WorkPage() {
           </figure>
         ) : (
           work.pages.map((page, i) => (
+            page.kind === "file" ? (
+              <figure key={`${page.original}-${i}`} className="kami-enter rounded-xl bg-elevated px-4 py-3">
+                <a
+                  href={mediaUrl(page.original || page.regular)}
+                  className="text-sm text-fg underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {page.name || `附件 ${i + 1}`}
+                </a>
+                {page.bytes ? (
+                  <p className="mt-1 text-xs text-subtle">{Math.round(page.bytes / 1024)} KB</p>
+                ) : null}
+              </figure>
+            ) : (
             <figure key={`${page.original}-${i}`} className="kami-enter">
               <button
                 type="button"
@@ -432,6 +448,7 @@ function WorkPage() {
                 </figcaption>
               ) : null}
             </figure>
+            )
           ))
         )}
       </div>

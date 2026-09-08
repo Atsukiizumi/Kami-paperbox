@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered, Lock, Play, Trash2 } from "lucide-react";
+import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered, Lock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
@@ -241,35 +241,28 @@ export function ArtworkCard({
                 ))}
               </div>
             ) : null}
-            {work.illustType === 2 ? (
-              <span
-                className={cn(
-                  "absolute flex size-8 items-center justify-center rounded-full bg-bg/80 text-fg",
-                  marks && marks.length > 0 ? "left-2 top-10" : "left-2 top-2",
-                )}
-              >
-                <Play className="size-3.5" />
-              </span>
-            ) : null}
             {isAiWork(work) ? (
               <Badge
                 className={cn(
                   "absolute bg-bg/80 text-fg",
-                  marks && marks.length > 0 ? "left-2 top-10" : work.illustType === 2 ? "left-12 top-2" : "left-2 top-2",
+                  marks && marks.length > 0 ? "left-2 top-10" : "left-2 top-2",
                 )}
               >
                 AI
               </Badge>
             ) : null}
-            {work.pageCount > 1 || resolution ? (
-              <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+            {work.pageCount > 1 || work.illustType === 2 ? (
+              <div className="absolute right-2 top-2 z-10 flex flex-row items-center gap-1">
                 {work.pageCount > 1 ? (
                   <Badge className="bg-bg/80 text-fg">{work.pageCount}p</Badge>
                 ) : null}
-                {resolution ? (
-                  <Badge className="bg-bg/80 font-normal tabular-nums text-fg">{resolution}</Badge>
-                ) : null}
+                {work.illustType === 2 ? <Badge className="bg-bg/80 text-fg">GIF</Badge> : null}
               </div>
+            ) : null}
+            {resolution ? (
+              <Badge className="absolute bottom-2 right-2 z-10 bg-bg/80 font-normal tabular-nums text-fg">
+                {resolution}
+              </Badge>
             ) : null}
             {pages.length > 1 ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100">

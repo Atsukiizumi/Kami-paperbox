@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings } from "lucide-react";
+import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
@@ -23,6 +23,7 @@ import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
   { to: "/", label: "浏览", icon: Compass },
+  { to: "/rankings", label: "热榜", icon: Trophy },
   { to: "/history", label: "历史", icon: Clock },
   { to: "/search", label: "搜图", icon: ScanSearch },
   { to: "/queue", label: "队列", icon: ListOrdered },

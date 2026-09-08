@@ -4,13 +4,14 @@
  * 作用：卡片、作品详情、队列项、纸匣目录条目。上游 JSON 不要直接传给 UI。
  * 用法：WorkCard 浏览；WorkDetail 作品页；VaultMeta 纸匣（可带 relativePath 对磁盘）。
  */
+import type { BooruFeed } from "./booru";
 import type { UgoiraMeta } from "./ugoira-meta";
 import type { PixivRankMode } from "./pixiv-feed";
 import type { PixivSearchFilter } from "./pixiv-search";
 
 export type { UgoiraMeta } from "./ugoira-meta";
 export type { PixivRankMode, PixivFeed } from "./pixiv-feed";
-export type { PixivSearchFilter } from "./pixiv-search";
+export type { BooruFeed } from "./booru";
 
 export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
 export type BooruSite = "yande" | "konachan" | "danbooru";
@@ -50,6 +51,7 @@ export type WorkPage = {
   bytes?: number;
   width?: number;
   height?: number;
+  kind?: "image" | "file";
 };
 
 export type WorkPoolRef = {
@@ -145,7 +147,7 @@ export type FetchInput = {
   safeMode?: boolean;
   hideAi?: boolean;
 } & (
-  | { op: "pixivRanking"; mode: PixivRankMode; page: number }
+  | { op: "pixivRanking"; mode: PixivRankMode; page: number; date?: string }
   | { op: "pixivSearch"; word: string; page: number; filter?: PixivSearchFilter }
   | { op: "pixivRecommend" }
   | { op: "pixivFollowing"; page: number }
@@ -157,7 +159,7 @@ export type FetchInput = {
   | { op: "fanboxSupporting"; cursor?: FanboxCursor }
   | { op: "fanboxPost"; id: string }
   | { op: "fanboxTagged"; tag: string; page: number }
-  | { op: "booruList"; site: BooruSite; feed: "recent" | "popular"; tags?: string; page: number }
+  | { op: "booruList"; site: BooruSite; feed: BooruFeed; tags?: string; page: number; date?: string }
   | { op: "booruPost"; site: BooruSite; id: string }
   | { op: "booruPool"; site: BooruSite; id: string }
   | { op: "tagSuggest"; source: Source; word: string }

@@ -8,6 +8,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { PIXIV_RANK_IDS } from "./pixiv-feed";
+import { BOORU_FEED_IDS } from "./booru";
 import type { FanboxCursor, FetchInput, FetchOk, SocialInput, SocialOk } from "./types";
 
 const cursorSchema = z
@@ -29,6 +30,7 @@ const fetchSchema = z.intersection(
       op: z.literal("pixivRanking"),
       mode: z.enum(PIXIV_RANK_IDS),
       page: z.number().int().min(1).max(10),
+      date: z.string().regex(/^\d{8}$/).optional(),
     }),
     z.object({
       op: z.literal("pixivSearch"),
@@ -83,9 +85,10 @@ const fetchSchema = z.intersection(
     z.object({
       op: z.literal("booruList"),
       site: z.enum(["yande", "konachan", "danbooru"]),
-      feed: z.enum(["recent", "popular"]),
+      feed: z.enum(BOORU_FEED_IDS),
       tags: z.string().max(240).optional(),
       page: z.number().int().min(1).max(50),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }),
     z.object({
       op: z.literal("booruPost"),

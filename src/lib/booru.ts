@@ -7,6 +7,44 @@
  */
 import type { BooruSite, WorkCard, WorkDetail, WorkPage, WorkPoolRef } from "./types";
 
+export const BOORU_FEEDS = [
+  { id: "recent", label: "最新" },
+  { id: "hot", label: "近期热门" },
+  { id: "daily", label: "日榜" },
+  { id: "weekly", label: "周榜" },
+  { id: "monthly", label: "月榜" },
+  { id: "popular", label: "高分" },
+] as const;
+
+export type BooruFeed = (typeof BOORU_FEEDS)[number]["id"];
+
+export const BOORU_FEED_IDS = BOORU_FEEDS.map((f) => f.id) as [BooruFeed, ...BooruFeed[]];
+
+export function isBooruFeed(v: string): v is BooruFeed {
+  return BOORU_FEEDS.some((f) => f.id === v);
+}
+
+export function isBooruPeriodFeed(feed: BooruFeed): feed is "daily" | "weekly" | "monthly" {
+  return feed === "daily" || feed === "weekly" || feed === "monthly";
+}
+
+export function parseBoardDate(raw?: string): { year: number; month: number; day: number; iso: string } {
+  const m = raw?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), iso: `${m[1]}-${m[2]}-${m[3]}` };
+  }
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  return {
+    year,
+    month,
+    day,
+    iso: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+  };
+}
+
 export const DANBOORU_UA = "Mozilla/5.0 gallery-dl/1.27.0";
 
 export const BOORU_ORIGIN: Record<BooruSite, string> = {
@@ -252,20 +290,41 @@ function decodeHtml(raw: string): string {
 
 export function booruListUrl(
   site: BooruSite,
-  feed: "recent" | "popular",
+  feed: BooruFeed,
   tags: string,
   page: number,
+  date?: string,
 ): string {
   const origin = BOORU_ORIGIN[site];
   const limit = site === "danbooru" ? "40" : "100";
+  const when = parseBoardDate(date);
   if (site === "danbooru") {
+    if (feed === "daily" || feed === "weekly" || feed === "monthly") {
+      const scale = feed === "daily" ? "day" : feed === "weekly" ? "week" : "month";
+      const qs = new URLSearchParams({ date: when.iso, scale });
+      return `${origin}/explore/posts/popular.json?${qs}`;
+    }
     const qs = new URLSearchParams({ limit, page: String(page) });
     const parts = splitTags(tags);
-    if (feed === "popular" && !parts.some((p) => p.startsWith("order:"))) {
+    if (feed === "hot" && !parts.some((p) => p.startsWith("order:"))) {
+      if (parts.length < 2) parts.push("order:rank");
+    } else if (feed === "popular" && !parts.some((p) => p.startsWith("order:"))) {
       if (parts.length < 2) parts.push("order:score");
     }
     if (parts.length) qs.set("tags", parts.join(" "));
     return `${origin}/posts.json?${qs}`;
+  }
+  if (feed === "hot") {
+    return `${origin}/post/popular_recent.json?period=1d`;
+  }
+  if (feed === "daily") {
+    return `${origin}/post/popular_by_day.json?year=${when.year}&month=${when.month}&day=${when.day}`;
+  }
+  if (feed === "weekly") {
+    return `${origin}/post/popular_by_week.json?year=${when.year}&month=${when.month}&day=${when.day}`;
+  }
+  if (feed === "monthly") {
+    return `${origin}/post/popular_by_month.json?year=${when.year}&month=${when.month}`;
   }
   const qs = new URLSearchParams({ limit, page: String(page) });
   const merged =

@@ -58,11 +58,13 @@ export function isMainNavPath(pathname: string) {
     pathname === "/settings" ||
     pathname === "/search" ||
     pathname === "/history" ||
+    pathname === "/rankings" ||
     pathname.startsWith("/queue/") ||
     pathname.startsWith("/vault/") ||
     pathname.startsWith("/settings/") ||
     pathname.startsWith("/search/") ||
-    pathname.startsWith("/history/")
+    pathname.startsWith("/history/") ||
+    pathname.startsWith("/rankings/")
   );
 }
 

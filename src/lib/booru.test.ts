@@ -134,6 +134,17 @@ describe("booru filters", () => {
     assert.equal(pickRelatedTag(["rating:s", "landscape", "sky"]), "landscape");
   });
 
+  it("builds moebooru and danbooru period ranking urls", () => {
+    const day = decodeURIComponent(booruListUrl("yande", "daily", "", 1, "2026-09-08"));
+    assert.match(day, /popular_by_day/);
+    assert.match(day, /year=2026/);
+    const hot = booruListUrl("danbooru", "hot", "", 1);
+    assert.match(decodeURIComponent(hot), /order:rank/);
+    const month = booruListUrl("danbooru", "monthly", "", 1, "2026-09-08");
+    assert.match(month, /explore\/posts\/popular/);
+    assert.match(month, /scale=month/);
+  });
+
   it("builds yande.re pool urls", () => {
     assert.equal(booruPoolUrl("yande", "99384"), "https://yande.re/pool/show.json?id=99384");
     assert.equal(poolOriginUrl("yande", "99384"), "https://yande.re/pool/show/99384");

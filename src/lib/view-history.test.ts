@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  HISTORY_LIMIT,
+  HISTORY_DAYS,
   parseAuthorHistory,
   parseHistoryItems,
+  pruneHistory,
   upsertAuthorHistory,
   upsertHistory,
   type AuthorHistoryEntry,
@@ -29,17 +30,19 @@ function author(id: string, viewedAt = 1, extra: Partial<AuthorHistoryEntry> = {
 
 describe("view history", () => {
   it("moves a revisited work to the front", () => {
-    const items = upsertHistory([entry("1"), entry("2")], entry("1", 9));
+    const now = Date.now();
+    const items = upsertHistory([entry("1", now - 2), entry("2", now - 1)], entry("1", now));
     assert.equal(items[0]?.id, "1");
-    assert.equal(items[0]?.viewedAt, 9);
+    assert.equal(items[0]?.viewedAt, now);
     assert.equal(items.length, 2);
   });
 
-  it("caps the list", () => {
-    let items: HistoryEntry[] = [];
-    for (let i = 0; i < HISTORY_LIMIT + 5; i += 1) items = upsertHistory(items, entry(String(i)));
-    assert.equal(items.length, HISTORY_LIMIT);
-    assert.equal(items[0]?.id, String(HISTORY_LIMIT + 4));
+  it("drops works older than the retention window", () => {
+    const now = Date.now();
+    const keep = entry("new", now);
+    const drop = entry("old", now - (HISTORY_DAYS + 1) * 24 * 60 * 60_000);
+    const items = pruneHistory([keep, drop], now);
+    assert.deepEqual(items.map((row) => row.id), ["new"]);
   });
 
   it("drops broken persisted rows", () => {

@@ -3,14 +3,15 @@
  *
  * 作用：打开过的作品和作者按时间倒序记下来，历史页还能点回去。
  * 用法：作品页 rememberView(work)；画师/创作者页 rememberAuthor(...)；页面用 useViewHistory。
- * 为什么：不塞进设置（Cookie 已经够大）。作品最多 200，作者最多 80。
+ * 为什么：不塞进设置（Cookie 已经够大）。作品按 90 天过期，不设条数上限。
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Source, WorkCard } from "./types";
 
-export const HISTORY_LIMIT = 200;
-export const AUTHOR_HISTORY_LIMIT = 80;
+export const HISTORY_LIMIT = 20_000;
+export const AUTHOR_HISTORY_LIMIT = 400;
+export const HISTORY_DAYS = 90;
 export const HISTORY_STORAGE_KEY = "kami-history";
 
 export type HistoryEntry = {
@@ -34,9 +35,18 @@ export type AuthorHistoryEntry = {
   viewedAt: number;
 };
 
+export function historyCutoff(now = Date.now(), days = HISTORY_DAYS): number {
+  return now - days * 24 * 60 * 60_000;
+}
+
+export function pruneHistory(items: HistoryEntry[], now = Date.now()): HistoryEntry[] {
+  const cut = historyCutoff(now);
+  return items.filter((row) => row.viewedAt >= cut);
+}
+
 export function upsertHistory(items: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
   const key = `${entry.source}:${entry.id}`;
-  return [entry, ...items.filter((x) => `${x.source}:${x.id}` !== key)].slice(0, HISTORY_LIMIT);
+  return pruneHistory([entry, ...items.filter((x) => `${x.source}:${x.id}` !== key)]);
 }
 
 export function upsertAuthorHistory(
@@ -93,7 +103,7 @@ export function parseHistoryItems(raw: unknown): HistoryEntry[] {
       height: Number(r.height) > 0 ? Number(r.height) : undefined,
       viewedAt: Number(r.viewedAt) || 0,
     });
-    if (out.length >= HISTORY_LIMIT) break;
+    if (out.length >= 50_000) break;
   }
   return out;
 }
@@ -127,6 +137,7 @@ type ViewHistoryState = {
   remove: (source: Source, id: string) => void;
   removeAuthor: (source: AuthorHistoryEntry["source"], id: string) => void;
   clear: () => void;
+  prune: () => void;
 };
 
 export const useViewHistory = create<ViewHistoryState>()(
@@ -171,6 +182,7 @@ export const useViewHistory = create<ViewHistoryState>()(
           authors: s.authors.filter((x) => !(x.source === source && x.id === id)),
         })),
       clear: () => set({ items: [], authors: [] }),
+      prune: () => set((s) => ({ items: pruneHistory(s.items) })),
     }),
     {
       name: HISTORY_STORAGE_KEY,
@@ -178,7 +190,7 @@ export const useViewHistory = create<ViewHistoryState>()(
       migrate: (persisted) => {
         const p = (persisted ?? {}) as { items?: unknown; authors?: unknown };
         return {
-          items: parseHistoryItems(p.items),
+          items: pruneHistory(parseHistoryItems(p.items)),
           authors: parseAuthorHistory(p.authors),
         };
       },
