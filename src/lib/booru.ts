@@ -5,6 +5,7 @@
  * 用法：booruListUrl / mapBooruCard。请求本身在 upstream.server.ts。
  * 为什么：三个站 JSON 形状接近但 rating、标签字段名不同，集中在这里改。
  */
+import { isGifUrl } from "./thumb-url.ts";
 import type { BooruSite, WorkCard, WorkDetail, WorkPage, WorkPoolRef } from "./types";
 
 export const BOORU_FEEDS = [
@@ -176,6 +177,24 @@ function extOf(rec: Record<string, unknown>, fileUrl: string): string {
   return m?.[1] ?? "jpg";
 }
 
+function booruImageUrls(site: BooruSite, rec: Record<string, unknown>) {
+  const preview = absUrl(site, asString(rec.preview_url || rec.preview_file_url));
+  const sample = absUrl(site, asString(rec.sample_url || rec.large_file_url || rec.jpeg_url));
+  const original = absUrl(site, asString(rec.file_url || rec.jpeg_url || rec.large_file_url));
+  const ext = extOf(rec, original || sample || preview);
+  const animated = ext === "gif";
+  const live = animated ? (isGifUrl(sample) ? sample : original) : "";
+  const thumb = (animated ? live : preview) || sample || original;
+  const regular = (animated ? live : sample) || original || preview;
+  return {
+    thumb,
+    regular,
+    original: original || sample || preview,
+    ext,
+    animated,
+  };
+}
+
 function dateOf(v: unknown): string | undefined {
   if (typeof v === "number" && Number.isFinite(v)) {
     const ms = v > 10_000_000_000 ? v : v * 1000;
@@ -198,14 +217,9 @@ export function mapBooruCard(
   if (hasBlockedTags(tags)) return null;
   const rating = asString(rec.rating, "s");
   if (safeMode && isNsfwRating(rating, site)) return null;
-  const preview = absUrl(
-    site,
-    asString(rec.preview_url || rec.preview_file_url || rec.sample_url || rec.large_file_url),
-  );
-  const file = absUrl(site, asString(rec.file_url || rec.jpeg_url || rec.large_file_url));
-  if (!preview && !file) return null;
-  const ext = extOf(rec, file || preview);
-  if (SKIP_EXT.has(ext)) return null;
+  const urls = booruImageUrls(site, rec);
+  if (!urls.thumb && !urls.original) return null;
+  if (SKIP_EXT.has(urls.ext)) return null;
   const author = authorOf(site, rec);
   return {
     source: site,
@@ -213,13 +227,14 @@ export function mapBooruCard(
     title: titleFrom(site, rec, tags, id),
     author: author.name,
     authorId: author.id,
-    thumb: preview || file,
+    thumb: urls.thumb,
     pageCount: 1,
     tags: tags.slice(0, 24),
     width: asNumber(rec.width || rec.image_width) || undefined,
     height: asNumber(rec.height || rec.image_height) || undefined,
     date: dateOf(rec.created_at),
     rating: asString(rec.rating) || undefined,
+    illustType: urls.animated ? 2 : undefined,
   };
 }
 
@@ -232,15 +247,12 @@ export function mapBooruDetail(
   const card = mapBooruCard(site, raw, safeMode);
   if (!card) return null;
   const rec = asRecord(raw);
-  const preview = absUrl(site, asString(rec.preview_url || rec.preview_file_url));
-  const sample = absUrl(site, asString(rec.sample_url || rec.large_file_url || rec.jpeg_url));
-  const original = absUrl(site, asString(rec.file_url || rec.jpeg_url || rec.large_file_url));
-  const ext = extOf(rec, original || sample);
+  const urls = booruImageUrls(site, rec);
   const page: WorkPage = {
-    thumb: preview || sample || original,
-    regular: sample || original,
-    original: original || sample,
-    name: `${site}-${card.id}.${ext}`,
+    thumb: urls.thumb,
+    regular: urls.regular,
+    original: urls.original,
+    name: `${site}-${card.id}.${urls.ext}`,
     width: card.width,
     height: card.height,
   };

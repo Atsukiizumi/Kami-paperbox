@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { upgradeThumbUrl } from "./thumb-url.ts";
+import { isGifUrl, upgradeThumbUrl } from "./thumb-url.ts";
 
 test("upgradeThumbUrl strips Pixiv crop and square1200", () => {
   const src =
@@ -16,4 +16,11 @@ test("upgradeThumbUrl maps danbooru preview to sample", () => {
     upgradeThumbUrl("https://cdn.donmai.us/preview/ab/cd/hash.jpg"),
     "https://cdn.donmai.us/sample/ab/cd/hash.jpg",
   );
+});
+
+test("isGifUrl only matches gif files", () => {
+  assert.equal(isGifUrl("https://files.yande.re/image/ab.gif"), true);
+  assert.equal(isGifUrl("https://files.yande.re/image/ab.gif?e=1"), true);
+  assert.equal(isGifUrl("https://i.pximg.net/img-master/img/a_square1200.jpg"), false);
+  assert.equal(isGifUrl(""), false);
 });

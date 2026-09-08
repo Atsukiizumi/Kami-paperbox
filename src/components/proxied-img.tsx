@@ -8,6 +8,7 @@
  *        失败会重试几次：并发一高代理会 204/429，一次 onError 不该把格子留空。
  */
 import { useEffect, useRef, useState } from "react";
+import { isGifUrl } from "@/lib/thumb-url";
 import { cn, mediaUrl } from "@/lib/utils";
 
 const warmThumbs = new Set<string>();
@@ -24,6 +25,7 @@ export function isMediaWarm(src: string | undefined) {
 /** 预热代理图：写入 HTTP 缓存和内存集合，悬停预览才不会再扫一遍。 */
 export function warmMedia(src: string | undefined) {
   if (!src || typeof Image === "undefined") return;
+  if (isGifUrl(src)) return;
   const key = thumbKey(src);
   if (warmThumbs.has(key)) return;
   const img = new Image();
@@ -65,7 +67,8 @@ export function ProxiedImg({
   const hostRef = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
   const [tryNo, setTryNo] = useState(0);
-  const cached = Boolean(src && warmThumbs.has(thumbKey(src)));
+  const gif = isGifUrl(src);
+  const cached = Boolean(src && !gif && warmThumbs.has(thumbKey(src)));
   const [loaded, setLoaded] = useState(cached);
   const [active, setActive] = useState(priority || cached);
   const cover = fit === "cover";
@@ -154,13 +157,13 @@ export function ProxiedImg({
           className={cn(
             "transition-[opacity,transform] duration-500 ease-out",
             cover ? "absolute inset-0 size-full object-cover" : "mx-auto h-auto w-full object-contain",
-            loaded ? "scale-100 opacity-100" : "scale-[1.03] opacity-0",
+            loaded || gif ? "scale-100 opacity-100" : "scale-[1.03] opacity-0",
             cover ? undefined : className,
           )}
           style={viewTransitionName ? { viewTransitionName } : undefined}
           loading="eager"
           fetchPriority={priority ? "high" : "auto"}
-          decoding="async"
+          decoding={gif ? "sync" : "async"}
           onLoad={() => {
             warmThumbs.add(thumbKey(src));
             setLoaded(true);

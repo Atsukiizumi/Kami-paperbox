@@ -56,7 +56,7 @@ import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 import { sleep, withMediaGate } from "./media-gate";
 import { getThrottle } from "./throttle.server";
 import { closeOnAbort } from "./abort";
-import { isDiskCacheableMedia, readCachedMedia, writeCachedMedia } from "./media-cache.server.ts";
+import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "./media-cache.server.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -456,6 +456,16 @@ async function pixivIllust(
     }
   }
   return { op: "pixivIllust", work };
+}
+
+async function pixivUgoira(id: string, cookie?: string): Promise<FetchOk> {
+  const metaJson = await upstreamJson(`https://www.pixiv.net/ajax/illust/${id}/ugoira_meta?lang=zh`, {
+    cookie,
+    origin: "pixiv",
+  });
+  const meta = mapUgoiraMeta(metaJson);
+  if (!meta) throw new Error("不是动图");
+  return { op: "pixivUgoira", ugoira: meta };
 }
 
 async function pixivUser(
@@ -1070,6 +1080,8 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return pixivRelated(input.id, pixiv, safe, hideAi);
     case "pixivIllust":
       return pixivIllust(input.id, pixiv, safe);
+    case "pixivUgoira":
+      return pixivUgoira(input.id, pixiv);
     case "pixivUser":
       return pixivUser(input.id, input.offset ?? 0, pixiv, safe, hideAi);
     case "fanboxCreator":
@@ -1141,10 +1153,11 @@ export async function fetchMediaResponse(
       return new Response("file too large", { status: 413 });
     }
     const body = new Uint8Array(res.body);
-    rememberMedia(url, body, res.contentType);
+    const type = sniffMediaType(body, res.contentType);
+    rememberMedia(url, body, type);
     return new Response(Buffer.from(body), {
       status: 200,
-      headers: mediaOutHeaders(res.contentType),
+      headers: mediaOutHeaders(type),
     });
   } else if (host.endsWith("ascii2d.net")) {
     headers.Referer = "https://ascii2d.net/";
@@ -1180,12 +1193,12 @@ export async function fetchMediaResponse(
   if (length > MAX_MEDIA_BYTES) {
     return new Response("file too large", { status: 413 });
   }
-  const contentType = res.headers.get("content-type") || "application/octet-stream";
+  const declared = res.headers.get("content-type") || "application/octet-stream";
   const cacheable = isDiskCacheableMedia(url);
   if (!cacheable && res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
     return new Response(closeOnAbort(res.body, signal), {
       status: 200,
-      headers: mediaOutHeaders(contentType),
+      headers: mediaOutHeaders(declared),
     });
   }
   const buf = new Uint8Array(await res.arrayBuffer());
@@ -1193,6 +1206,7 @@ export async function fetchMediaResponse(
   if (buf.byteLength > MAX_MEDIA_BYTES) {
     return new Response("file too large", { status: 413 });
   }
+  const contentType = sniffMediaType(buf, declared);
   rememberMedia(url, buf, contentType);
   return new Response(Buffer.from(buf), {
     status: 200,

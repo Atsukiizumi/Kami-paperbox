@@ -46,3 +46,4 @@ AGENTS.project.md
 .node_modules.lock
 startup.sh
 
+.pw-cache/

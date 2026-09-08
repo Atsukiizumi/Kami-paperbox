@@ -7,8 +7,15 @@ import {
   isDiskCacheableMedia,
   mediaCacheName,
   readCachedMedia,
+  sniffMediaType,
   writeCachedMedia,
 } from "./media-cache.server.ts";
+
+test("sniffMediaType recognizes gif magic bytes", () => {
+  const gif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0, 0]);
+  assert.equal(sniffMediaType(gif, "application/octet-stream"), "image/gif");
+  assert.equal(sniffMediaType(new Uint8Array([1, 2, 3]), "image/png"), "image/png");
+});
 
 test("mediaCacheName is stable hex for the same url", () => {
   const a = mediaCacheName("https://i.pximg.net/c/480x960/img-master/img/a.jpg");

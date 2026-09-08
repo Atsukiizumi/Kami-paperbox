@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { animateFlip, cancelAnimations } from "@/lib/motion";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { ProxiedImg } from "./proxied-img";
+import { UgoiraPlayer, useUgoiraMeta } from "./ugoira-player";
 
 function place(anchor: DOMRect, aspect: number) {
   const maxW = Math.min(window.innerWidth - 32, 560);
@@ -28,16 +29,19 @@ export function HoverPreview({
   alt,
   aspect,
   anchor,
+  ugoiraId,
 }: {
   open: boolean;
   src?: string;
   alt: string;
   aspect: number;
   anchor: DOMRect | null;
+  ugoiraId?: string;
 }) {
   const outer = useRef<HTMLDivElement>(null);
   const held = useRef<{ src: string; alt: string; aspect: number; from: DOMRect } | null>(null);
   const [shown, setShown] = useState(false);
+  const ugoira = useUgoiraMeta(ugoiraId, open);
 
   if (open && src && anchor) {
     held.current = { src, alt, aspect, from: anchor };
@@ -105,13 +109,24 @@ export function HoverPreview({
           transformOrigin: "0 0",
         }}
       >
-        <ProxiedImg
-          src={hd}
-          alt={shot.alt}
-          fit="cover"
-          priority
-          className="absolute inset-0 size-full"
-        />
+        {ugoira.data ? (
+          <UgoiraPlayer
+            zipUrl={ugoira.data.src}
+            frames={ugoira.data.frames}
+            alt={shot.alt}
+            compact
+            active={open}
+            className="absolute inset-0 size-full"
+          />
+        ) : (
+          <ProxiedImg
+            src={hd}
+            alt={shot.alt}
+            fit="cover"
+            priority
+            className="absolute inset-0 size-full"
+          />
+        )}
       </div>
     </>,
     document.body,
