@@ -7,14 +7,23 @@
 import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login";
 
 export type KamiSessionCookie = {
-  name: "kami_pixiv" | "kami_fanbox";
+  name: "kami_pixiv" | "kami_fanbox" | "kami_danbooru";
   value: string;
   maxAge: number;
 };
 
-export function kamiSessionCookies(data: { pixiv?: string; fanbox?: string }): KamiSessionCookie[] {
+export function kamiSessionCookies(data: {
+  pixiv?: string;
+  fanbox?: string;
+  danbooruLogin?: string;
+  danbooruApiKey?: string;
+}): KamiSessionCookie[] {
   const pixiv = sanitizePixivCookie(data.pixiv ?? "");
   const fanbox = fanboxSessionFrom(data.fanbox, pixiv);
+  const danbooru =
+    data.danbooruLogin && data.danbooruApiKey
+      ? encodeURIComponent(JSON.stringify({ login: data.danbooruLogin, apiKey: data.danbooruApiKey }))
+      : "";
   return [
     {
       name: "kami_pixiv",
@@ -25,6 +34,11 @@ export function kamiSessionCookies(data: { pixiv?: string; fanbox?: string }): K
       name: "kami_fanbox",
       value: fanbox ? encodeURIComponent(fanbox) : "",
       maxAge: fanbox ? 2592000 : 0,
+    },
+    {
+      name: "kami_danbooru",
+      value: danbooru,
+      maxAge: danbooru ? 2592000 : 0,
     },
   ];
 }

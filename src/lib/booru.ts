@@ -48,6 +48,20 @@ export function parseBoardDate(raw?: string): { year: number; month: number; day
 
 export const DANBOORU_UA = "Mozilla/5.0 gallery-dl/1.27.0";
 
+/**
+ * Danbooru 账号的 HTTP Basic 凭据。
+ *
+ * 作用：Danbooru 开了 Cloudflare 人机验证，匿名请求一律 403；官方口径是带账号的
+ *      API 请求可以免验证（forum_topics/26717）。
+ * 用法：booruHeaders / fetchMediaResponse 里拼 Authorization。
+ * 为什么：放 booru.ts 是为了纯函数可测，服务端只管套上。
+ */
+export function danbooruAuthHeader(login?: string, apiKey?: string): string | undefined {
+  if (!login || !apiKey) return undefined;
+  if (typeof Buffer === "undefined") return undefined;
+  return `Basic ${Buffer.from(`${login}:${apiKey}`).toString("base64")}`;
+}
+
 export const BOORU_ORIGIN: Record<BooruSite, string> = {
   yande: "https://yande.re",
   konachan: "https://konachan.com",

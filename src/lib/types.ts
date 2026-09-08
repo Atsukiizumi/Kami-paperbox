@@ -145,6 +145,9 @@ export type FetchOk =
 export type FetchInput = {
   pixivCookie?: string;
   fanboxCookie?: string;
+  /** Danbooru 账号。带账号的 API 请求能免 Cloudflare 人机验证。 */
+  danbooruLogin?: string;
+  danbooruApiKey?: string;
   safeMode?: boolean;
   hideAi?: boolean;
   /** 跳过 Next 列表缓存，重新打源站。 */

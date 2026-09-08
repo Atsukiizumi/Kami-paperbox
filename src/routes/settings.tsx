@@ -31,7 +31,7 @@ const SETTINGS_PAGES = [
   { id: "storage", label: "存储", hint: "文件夹和路径" },
   { id: "backup", label: "备份", hint: "导出和导入" },
   { id: "lexicon", label: "词表", hint: "标签译文" },
-  { id: "search", label: "搜图", hint: "SauceNAO key" },
+  { id: "search", label: "搜图", hint: "SauceNAO key 和 Danbooru" },
   { id: "accounts", label: "账号", hint: "登录和 Cookie" },
   { id: "browse", label: "浏览", hint: "R-18 和 AI" },
   { id: "proxy", label: "代理", hint: "出站网络" },
@@ -214,6 +214,65 @@ function ProxySection() {
   );
 }
 
+function DanbooruSection() {
+  const login = useSettings((s) => s.danbooruLogin);
+  const apiKey = useSettings((s) => s.danbooruApiKey);
+  const setDanbooruLogin = useSettings((s) => s.setDanbooruLogin);
+  const setDanbooruApiKey = useSettings((s) => s.setDanbooruApiKey);
+  const syncSessions = useSettings((s) => s.syncSessions);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Danbooru 账号</CardTitle>
+        <CardDescription>
+          Danbooru 开了 Cloudflare 人机验证，匿名请求会被 403。填账号后请求带上凭据可以免验证。
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="danbooru-login">用户名</Label>
+            <Input
+              id="danbooru-login"
+              autoComplete="off"
+              spellCheck={false}
+              value={login}
+              onChange={(e) => setDanbooruLogin(e.target.value)}
+              onBlur={() => void syncSessions().catch(() => undefined)}
+              placeholder="Danbooru 用户名"
+            />
+          </div>
+          <div>
+            <Label htmlFor="danbooru-key">API key</Label>
+            <Input
+              id="danbooru-key"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={apiKey}
+              onChange={(e) => setDanbooruApiKey(e.target.value)}
+              onBlur={() => void syncSessions().catch(() => undefined)}
+              placeholder="在 danbooru.donmai.us/settings 复制"
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-subtle">
+          去{" "}
+          <a
+            href="https://danbooru.donmai.us/static/profile"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:underline"
+          >
+            Danbooru 个人页
+          </a>{" "}
+          注册后在「API Key」里生成。只存在本机，凭据错误时 Danbooru 榜单仍会 403。
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SearchKeySection() {
   const apiKey = useSettings((s) => s.saucenaoApiKey);
   const setSaucenaoApiKey = useSettings((s) => s.setSaucenaoApiKey);
@@ -368,6 +427,7 @@ export function SettingsPage() {
       {page === "backup" ? <BackupSection /> : null}
       {page === "lexicon" ? <TagLexiconSection /> : null}
       {page === "search" ? <SearchKeySection /> : null}
+      {page === "search" ? <DanbooruSection /> : null}
 
       {page === "accounts" ? (
       <div className="space-y-8">

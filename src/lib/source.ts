@@ -21,6 +21,8 @@ export const fetchSchema = z.intersection(
   z.object({
     pixivCookie: z.string().max(8192).optional(),
     fanboxCookie: z.string().max(8192).optional(),
+    danbooruLogin: z.string().max(120).optional(),
+    danbooruApiKey: z.string().max(200).optional(),
     safeMode: z.boolean().optional(),
     hideAi: z.boolean().optional(),
     fresh: z.boolean().optional(),
@@ -181,6 +183,8 @@ export function warmPixivCsrf(pixivCookie?: string) {
 export const sessionSchema = z.object({
   pixiv: z.string().max(8192).optional(),
   fanbox: z.string().max(8192).optional(),
+  danbooruLogin: z.string().max(120).optional(),
+  danbooruApiKey: z.string().max(200).optional(),
 });
 
 export const saveSessions = async ({ data }: { data: z.infer<typeof sessionSchema> }) => {

@@ -418,6 +418,23 @@ export function Home() {
         : null;
   const rankModes = PIXIV_RANK_MODES.filter((m) => !m.nsfw || !safeMode);
 
+  // 设置是 localStorage 同步重水合的。服务端按默认值渲染，客户端带着持久化值水合的话，
+  // tab / 登录态 / 榜单选中项哪一处不同都会变成 hydration 警告。水合前统一先画骨架。
+  if (!settingsReady) {
+    return (
+      <div className="space-y-6">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h1 className="font-display text-3xl leading-tight tracking-tight text-fg md:text-4xl">
+              {siteLabel(tab)}
+            </h1>
+          </div>
+        </header>
+        <ArtworkGridSkeleton />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">

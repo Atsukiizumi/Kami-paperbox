@@ -5,6 +5,7 @@ import {
   booruPoolUrl,
   poolOriginUrl,
   composeBooruTags,
+  danbooruAuthHeader,
   hasBlockedTags,
   isNsfwRating,
   mapBooruCard,
@@ -13,6 +14,15 @@ import {
   pickRelatedTag,
   splitTags,
 } from "./booru.ts";
+
+describe("danbooru auth", () => {
+  it("builds basic credentials only when both fields exist", () => {
+    assert.equal(danbooruAuthHeader("user", "key"), "Basic dXNlcjprZXk=");
+    assert.equal(danbooruAuthHeader("user", ""), undefined);
+    assert.equal(danbooruAuthHeader("", "key"), undefined);
+    assert.equal(danbooruAuthHeader(undefined, undefined), undefined);
+  });
+});
 
 describe("booru filters", () => {
   it("always blocks loli/shota tags", () => {
