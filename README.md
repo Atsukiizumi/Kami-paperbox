@@ -24,10 +24,6 @@
 
 本项目仅供学习交流。个人备份，请尊重作者版权。
 
-## 鸣谢
-
-图站标签译文参考了 [zhzwz/yande-re-chinese-patch](https://github.com/zhzwz/yande-re-chinese-patch) 的中文词表，高频 tag 列表来自 [Yande.re](https://yande.re/) 公开的 `tag.json`。仓库分层方式参考 [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)，词表本身不使用 E 站那份库。搜图和客户端交互参考了 [Notsfsssf/pixez-flutter](https://github.com/Notsfsssf/pixez-flutter)。
-
 ```bash
 pnpm i
 pnpm dev
@@ -35,6 +31,14 @@ pnpm dev
 
 http://localhost:8080
 
-[MIT License](LICENSE)
+## 鸣谢
 
-AI powered by [Grok](https://grok.com) · built with [Grok Build](https://x.ai) (xAI).
+- [yande-re-chinese-patch](https://github.com/zhzwz/yande-re-chinese-patch)
+- [Yande.re](https://yande.re/)
+- [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)
+- [PixEz](https://github.com/Notsfsssf/pixez-flutter)
+- [Grok](https://grok.com)
+
+## 许可证
+
+[MIT](LICENSE)
