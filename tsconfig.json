@@ -32,6 +32,8 @@
   },
   "include": [
     "src",
-    "server"
+    "server",
+    "app",
+    "next.config.ts"
   ]
 }

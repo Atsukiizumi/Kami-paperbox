@@ -8,6 +8,15 @@
 
 暂无。
 
+## [0.8.56] — 2026-09-08
+
+对应 [PR #99](https://github.com/Atsukiizumi/Kami-paperbox/pull/99)。
+
+### 新增
+
+- 引入 Next.js 15 App Router 骨架（`app/`）。默认启动仍是 Vite；`pnpm dev:next` 可试 Next。
+- 上游读写改为打本站 `/api/source`、`/api/social`。
+
 ## [0.8.55] — 2026-09-08
 
 对应 [PR #98](https://github.com/Atsukiizumi/Kami-paperbox/pull/98)。
