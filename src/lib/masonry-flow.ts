@@ -8,6 +8,8 @@
  *        最小宽度（masonryMinCard）避免竖图被挤成一条，标题只剩「私…」。
  *        单独一张竖图绝不拉满整行：否则封面只剩左边一条。
  *        单独一张横图 / 宽图仍然铺这一行，避免 16:9 被收成小条。
+ *        下一张塞不下时，从后面十几张里抽一张长宽比合适的来填缝，
+ *        不要把整行竖图晾在左边。
  * packMasonry 仍留给测试/旧逻辑，界面不再调用。
  */
 export const MASONRY_GAP = 12;
@@ -20,6 +22,7 @@ const FALLBACK_ASPECT = 3 / 4;
 const MIN_ASPECT = 0.45;
 const WIDE_ASPECT = 4 / 3;
 const MAX_PANORAMA_ASPECT = 3.2;
+const LOOKAHEAD = 14;
 
 export type MasonryItem = {
   span: number;
@@ -160,9 +163,6 @@ export function packJustified({
     height: 0,
   }));
   const aspects = items.map((item) => clampAspect(item.aspect));
-
-  let row: number[] = [];
-  let rowAspect = 0;
   let y = 0;
 
   const flush = (indices: number[], lastRow: boolean) => {
@@ -182,14 +182,6 @@ export function packJustified({
         h = Math.min(rawH, Math.max(ideal, floor / a));
         fill = false;
       }
-    } else if (lastRow && rawH > ideal * 1.12) {
-      let minH = ideal;
-      for (const idx of indices) {
-        const a = aspects[idx] ?? FALLBACK_ASPECT;
-        minH = Math.max(minH, floor / a);
-      }
-      h = Math.min(rawH, minH);
-      fill = h >= rawH - 0.5;
     }
     h = Math.max(80, Math.min(480, h));
     let x = 0;
@@ -208,29 +200,65 @@ export function packJustified({
     y += h + captionBand + gap;
   };
 
-  for (let i = 0; i < items.length; i += 1) {
-    const a = aspects[i] ?? FALLBACK_ASPECT;
-    const nextCount = row.length + 1;
-    const nextAspect = rowAspect + a;
-    const nextGaps = gap * Math.max(0, nextCount - 1);
-    const hIf = (width - nextGaps) / nextAspect;
-    const tooNarrow = [...row, i].some((idx) => (aspects[idx] ?? FALLBACK_ASPECT) * hIf < floor);
-    if (row.length > 0 && (hIf <= ideal || tooNarrow)) {
-      if (tooNarrow) {
-        flush(row, false);
-        row = [i];
-        rowAspect = a;
-      } else {
-        flush([...row, i], false);
-        row = [];
-        rowAspect = 0;
+  const heightOf = (indices: number[]) => {
+    const n = indices.length;
+    if (n === 0) return ideal;
+    const sum = indices.reduce((s, i) => s + (aspects[i] ?? FALLBACK_ASPECT), 0);
+    return (width - gap * Math.max(0, n - 1)) / Math.max(0.01, sum);
+  };
+
+  const fits = (indices: number[]) => {
+    if (indices.length === 0) return true;
+    const h = heightOf(indices);
+    if (h < 80 || h > 520) return false;
+    return indices.every((idx) => (aspects[idx] ?? FALLBACK_ASPECT) * h + 0.5 >= floor);
+  };
+
+  const pickFiller = (row: number[], pending: number[]) => {
+    const limit = Math.min(LOOKAHEAD, pending.length);
+    let bestAt = -1;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let k = 0; k < limit; k += 1) {
+      const idx = pending[k];
+      if (idx === undefined) continue;
+      const trial = [...row, idx];
+      if (!fits(trial)) continue;
+      const h = heightOf(trial);
+      const filled = Math.min(1, (ideal + 8) / Math.max(h, 1));
+      const near = 1 - Math.min(1, Math.abs(h - ideal) / Math.max(ideal, 1));
+      const score = near * 2 + filled - k * 0.02;
+      if (score > bestScore) {
+        bestScore = score;
+        bestAt = k;
       }
-    } else {
-      row.push(i);
-      rowAspect = nextAspect;
     }
+    return bestAt;
+  };
+
+  const pending = aspects.map((_, i) => i);
+  while (pending.length > 0) {
+    const row: number[] = [pending.shift()!];
+    while (pending.length > 0) {
+      const head = pending[0]!;
+      const withHead = [...row, head];
+      const hHead = heightOf(withHead);
+      if (fits(withHead) && hHead > ideal) {
+        row.push(pending.shift()!);
+        continue;
+      }
+      if (fits(withHead) && hHead <= ideal) {
+        row.push(pending.shift()!);
+        break;
+      }
+      const at = pickFiller(row, pending);
+      if (at < 0) break;
+      const [picked] = pending.splice(at, 1);
+      if (picked === undefined) break;
+      row.push(picked);
+      if (heightOf(row) <= ideal) break;
+    }
+    flush(row, pending.length === 0);
   }
-  flush(row, true);
 
   return { placements, height: y > 0 ? y - gap : 0 };
 }
