@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 顶栏图源切换。
  *
@@ -5,7 +7,7 @@
  * 用法：放在顶栏 logo 右侧。触发器只显示站点名，不显示用户资料。
  * 为什么：把用户头像和名字塞进触发器会把「Pixiv」挤成「P..」。账号归右侧 AccountSwitcher。
  */
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate, usePathname } from "@/lib/kami-link";
 import {
   Select,
   SelectContent,
@@ -37,7 +39,7 @@ export function SiteSwitcher({ className }: { className?: string }) {
   const setTab = useSettings((s) => s.setTab);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
 
   function choose(id: string) {
     setTab(id as Source);

@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { probeProxy } from "@/lib/curl-fetch.server";
 import { clearSavedProxy, readProxyState, saveProxyUrl } from "@/lib/proxy.server";
 import { maskProxyUrl, parseProxyUrl } from "@/lib/proxy-url";
@@ -24,11 +23,11 @@ function fail(err: unknown, fallback = "保存失败") {
   return json({ ok: false, error: err instanceof Error ? err.message : fallback }, 500);
 }
 
-export const Route = createFileRoute("/api/proxy")({
-  server: {
-    handlers: {
-      GET: async () => json(publicState()),
-      POST: async ({ request }) => {
+export async function GET(_request: Request) {
+  return json(publicState());
+}
+
+export async function POST(request: Request) {
         let body: { url?: unknown; probe?: unknown; clear?: unknown };
         try {
           body = (await request.json()) as { url?: unknown; probe?: unknown; clear?: unknown };
@@ -72,7 +71,4 @@ export const Route = createFileRoute("/api/proxy")({
         } catch (err) {
           return fail(err);
         }
-      },
-    },
-  },
-});
+}

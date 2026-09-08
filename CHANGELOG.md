@@ -12,10 +12,15 @@
 
 对应 [PR #99](https://github.com/Atsukiizumi/Kami-paperbox/pull/99)。
 
+### 调整
+
+- 默认 `pnpm dev` 改为 Next.js 15 App Router（端口仍是 8080，绑 `0.0.0.0`）。Vite 退路：`pnpm dev:vite`。
+- 站内跳转改走 `kami-link`。浏览保活、详情上一页、纸匣、队列、搜图、热榜、登录 cookie、红心路径不变。
+- 纸匣 / 媒体 / 代理 / 热榜 / 搜图 / 登录中转 / whoami 接到 App Router；登录 Cookie 写入走 `/api/sessions`。
+
 ### 新增
 
-- 引入 Next.js 15 App Router 骨架（`app/`）。默认启动仍是 Vite；`pnpm dev:next` 可试 Next。
-- 上游读写改为打本站 `/api/source`、`/api/social`。
+- 上游读写打本站 `/api/source`、`/api/social`。
 
 ## [0.8.55] — 2026-09-08
 

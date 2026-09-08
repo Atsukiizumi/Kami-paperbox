@@ -5,7 +5,9 @@
  * 用法：侧栏「热榜」。浏览 Yande / Konachan / Danbooru 日周月榜时会自动写入。
  * 为什么：Pixiv 自己就能按日期加载历史榜，不必再存一份。
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import { Link } from "@/lib/kami-link";
 import { useEffect, useMemo, useState } from "react";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { EmptySheet } from "@/components/empty-sheet";
@@ -21,8 +23,6 @@ import {
 import { SITE_LIST, siteLabel } from "@/lib/sites";
 import type { Source, WorkCard } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/rankings")({ component: RankingsPage });
 
 const PERIODS: { id: RankPeriod; label: string }[] = [
   { id: "daily", label: "日榜" },
@@ -55,7 +55,7 @@ function Chip({
   );
 }
 
-function RankingsPage() {
+export function RankingsPage() {
   const [site, setSite] = useState<Source>("yande");
   const [period, setPeriod] = useState<RankPeriod>("daily");
   const [rows, setRows] = useState<RankSnapshotMeta[]>([]);

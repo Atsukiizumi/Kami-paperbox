@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { resolveIdentities } from "@/lib/site-identity.server";
 
 function json(data: unknown, status = 200) {
@@ -8,10 +7,7 @@ function json(data: unknown, status = 200) {
   });
 }
 
-export const Route = createFileRoute("/api/whoami")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
+export async function POST(request: Request) {
         let body: { pixiv?: unknown; fanbox?: unknown };
         try {
           body = (await request.json()) as { pixiv?: unknown; fanbox?: unknown };
@@ -22,7 +18,4 @@ export const Route = createFileRoute("/api/whoami")({
         const fanbox = typeof body.fanbox === "string" ? body.fanbox : "";
         const profiles = await resolveIdentities({ pixiv, fanbox });
         return json({ ok: true, ...profiles });
-      },
-    },
-  },
-});
+}

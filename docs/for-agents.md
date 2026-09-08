@@ -7,7 +7,7 @@
 本机图站浏览器：Pixiv / FANBOX / yande.re / Konachan / Danbooru。浏览、搜图、队列下载、纸匣归档。品牌是日本纸工房，不是仪表盘，也不是组件秀。
 
 - 仓库：`Atsukiizumi/Kami-paperbox`
-- 预览：`pnpm dev`（Vite + TanStack Start，端口 `8080`）。Next.js App Router 在迁：`pnpm dev:next`
+- 预览：`pnpm dev`（Next.js App Router，端口 `8080`，绑 `0.0.0.0`）。Vite 退路：`pnpm dev:vite`
 - 版本看 `CHANGELOG.md` 和 README 徽章
 
 ## 审美

@@ -8,11 +8,18 @@
     ],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "jsx": "preserve",
     "strict": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     // `src/lib/db.ts` imports scripts/migration-plan.mjs; checkJs types the
     // implementation itself instead of a hand-written declaration beside it.
     "allowJs": true,
@@ -34,6 +41,13 @@
     "src",
     "server",
     "app",
-    "next.config.ts"
+    "next.config.ts",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/routeTree.gen.ts",
+    "src/router.tsx"
   ]
 }

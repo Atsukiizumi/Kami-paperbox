@@ -1,6 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
@@ -48,7 +50,7 @@ function isActive(pathname: string, to: (typeof NAV)[number]["to"]) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const pathname = usePathname();
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
   const [expanded, setExpanded] = useState(true);
 

@@ -1,17 +1,7 @@
-import { fetchSchema } from "@/lib/source";
-import type { FetchInput } from "@/lib/types";
+import { POST as postSource } from "@/routes/api/source";
+import { withRequest } from "@/lib/next-route";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  try {
-    const raw = await request.json();
-    const data = fetchSchema.parse(raw) as FetchInput;
-    const { dispatchFetch } = await import("@/lib/upstream.server");
-    const body = await dispatchFetch(data);
-    return Response.json(body, { headers: { "cache-control": "no-store" } });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "请求失败";
-    return Response.json({ error: message }, { status: 400, headers: { "cache-control": "no-store" } });
-  }
-}
+export const POST = withRequest(postSource);

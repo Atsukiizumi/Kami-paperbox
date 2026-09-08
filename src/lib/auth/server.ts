@@ -31,8 +31,10 @@
  */
 import { betterAuth } from "better-auth";
 import { bearer, genericOAuth } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
+import { getActiveRequest, readRequestCookie } from "../request-context.ts";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
@@ -246,14 +248,19 @@ export const auth = betterAuth({
     // (deployed apps) is unaffected.
     bearer(),
 
-    // Bridges Better Auth's Set-Cookie into TanStack Start responses. MUST be
-    // last so it runs after every other plugin's hooks.
-    tanstackStartCookies(),
+    // Bridges Better Auth's Set-Cookie into the host framework. MUST be last.
+    process.env.NEXT_RUNTIME || process.env.NEXT_PHASE ? nextCookies() : tanstackStartCookies(),
   ],
 });
 
 export function readSessionToken(): string | null {
-  return getCookie(SESSION_TOKEN_COOKIE) ?? null;
+  try {
+    const value = getCookie(SESSION_TOKEN_COOKIE);
+    if (value) return value;
+  } catch {
+    /* Next has no TanStack cookie store */
+  }
+  return readRequestCookie(getActiveRequest(), SESSION_TOKEN_COOKIE);
 }
 
 // Re-exported for convenience; the array lives in the dependency-free

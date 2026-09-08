@@ -1,6 +1,7 @@
 # 依赖与构建
 node_modules/
 .output/
+.next/
 .vercel/
 .nitro/
 dist/

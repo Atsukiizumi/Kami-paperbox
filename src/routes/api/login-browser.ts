@@ -4,7 +4,6 @@
  * 作用：start / poll 帧 / 转发输入 / 取消。实现全在 browser-login.server.ts。
  * 用法：设置页 SessionRelayDialog fetch 本路由。
  */
-import { createFileRoute } from "@tanstack/react-router";
 import {
   cancelBrowserLogin,
   dispatchLoginInput,
@@ -59,15 +58,13 @@ function parseInput(raw: unknown): LoginInputEvent | null {
   return null;
 }
 
-export const Route = createFileRoute("/api/login-browser")({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
+export async function GET(request: Request) {
         const url = new URL(request.url);
         const includeFrame = url.searchParams.get("frame") !== "0";
         return json({ ok: true, ...getLoginJob(includeFrame) });
-      },
-      POST: async ({ request }) => {
+}
+
+export async function POST(request: Request) {
         let body: { site?: unknown; action?: unknown; event?: unknown } = {};
         try {
           body = (await request.json()) as { site?: unknown; action?: unknown; event?: unknown };
@@ -96,7 +93,4 @@ export const Route = createFileRoute("/api/login-browser")({
           const message = err instanceof Error ? err.message : "登录失败";
           return json({ ok: false, status: "error", error: message }, 400);
         }
-      },
-    },
-  },
-});
+}

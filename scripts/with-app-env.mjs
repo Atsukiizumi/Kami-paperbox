@@ -102,11 +102,15 @@ export function resolveLocalBin(command, root = projectRoot()) {
 /**
  * JS entry for a CLI (avoids Windows `cmd.exe` + paths with spaces).
  * `vite` → `node node_modules/vite/bin/vite.js`
+ * `next` → `node node_modules/next/dist/bin/next`
  */
 export function resolveJsCli(command, root = projectRoot()) {
-  if (command !== "vite") return null;
-  const entry = join(root, "node_modules", "vite", "bin", "vite.js");
-  return existsSync(entry) ? entry : null;
+  const entries = {
+    vite: join(root, "node_modules", "vite", "bin", "vite.js"),
+    next: join(root, "node_modules", "next", "dist", "bin", "next"),
+  };
+  const entry = entries[command];
+  return entry && existsSync(entry) ? entry : null;
 }
 
 /** How to spawn `command` without a shell. */

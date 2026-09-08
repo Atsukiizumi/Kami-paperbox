@@ -10,7 +10,6 @@
  *   DELETE /api/vault?key=
  * 为什么：浏览器碰不到 `.data/vault`，必须由 Node 进程写盘。
  */
-import { createFileRoute } from "@tanstack/react-router";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
@@ -57,10 +56,7 @@ function metaFromUnknown(raw: unknown): VaultMeta | null {
   };
 }
 
-export const Route = createFileRoute("/api/vault")({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
+export async function GET(request: Request) {
         const url = new URL(request.url);
         const key = url.searchParams.get("key");
         const pageRaw = url.searchParams.get("page");
@@ -98,8 +94,9 @@ export const Route = createFileRoute("/api/vault")({
         } catch (err) {
           return fail(err);
         }
-      },
-      PUT: async ({ request }) => {
+}
+
+export async function PUT(request: Request) {
         try {
           const form = await request.formData();
           let metaRaw: unknown = form.get("meta");
@@ -129,8 +126,9 @@ export const Route = createFileRoute("/api/vault")({
         } catch (err) {
           return fail(err, "写入失败");
         }
-      },
-      PATCH: async ({ request }) => {
+}
+
+export async function PATCH(request: Request) {
         try {
           const body = (await request.json()) as {
             key?: string;
@@ -149,8 +147,9 @@ export const Route = createFileRoute("/api/vault")({
         } catch (err) {
           return fail(err);
         }
-      },
-      DELETE: async ({ request }) => {
+}
+
+export async function DELETE(request: Request) {
         const url = new URL(request.url);
         const key = url.searchParams.get("key") ?? "";
         if (!parseVaultKey(key)) return json({ ok: false, error: "无效编号" }, 400);
@@ -160,7 +159,4 @@ export const Route = createFileRoute("/api/vault")({
         } catch (err) {
           return fail(err);
         }
-      },
-    },
-  },
-});
+}

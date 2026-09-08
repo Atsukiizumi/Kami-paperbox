@@ -232,7 +232,10 @@ export function parseCookieDump(raw: string): BrowserSession {
   return { pixiv, fanbox };
 }
 
-export function canShowLoginWindow(platform = process.platform, env: NodeJS.ProcessEnv = process.env): boolean {
+export function canShowLoginWindow(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
   if (env.GROK_AGENT || env.GROK_SESSION_ID || env.VERCEL || env.K_SERVICE) return false;
   if (platform === "win32" || platform === "darwin") return true;
   return Boolean(
@@ -241,7 +244,10 @@ export function canShowLoginWindow(platform = process.platform, env: NodeJS.Proc
   );
 }
 
-export function chromeCandidates(platform = process.platform, env: NodeJS.ProcessEnv = process.env): string[] {
+export function chromeCandidates(
+  platform = process.platform,
+  env: Record<string, string | undefined> = process.env,
+): string[] {
   const extra = [env.KAMI_CHROME, env.CHROME_PATH, env.PUPPETEER_EXECUTABLE_PATH].filter(
     (v): v is string => Boolean(v && v.trim()),
   );

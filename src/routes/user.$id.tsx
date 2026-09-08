@@ -1,5 +1,7 @@
+"use client";
+
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
@@ -14,10 +16,8 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { UserMinus, UserPlus } from "lucide-react";
 
-export const Route = createFileRoute("/user/$id")({ component: UserPage });
-
-function UserPage() {
-  const { id } = Route.useParams();
+export function UserPage() {
+  const { id } = useParams<{ id: string }>();
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);

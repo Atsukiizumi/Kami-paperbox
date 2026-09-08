@@ -5,7 +5,6 @@
  * 用法：fetchSource({ data: { op: "pixivRanking", ... } })；mutateSource 做红心收藏。
  * 为什么：浏览器只打本站 `/api/source`，Cookie 和上游请求留在服务端。zod 挡住胡来的 id/page。
  */
-import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { PIXIV_RANK_IDS } from "./pixiv-feed";
 import { BOORU_FEED_IDS } from "./booru";
@@ -174,26 +173,23 @@ export function warmPixivCsrf(pixivCookie?: string) {
   void mutateSource({ data: { op: "pixivWarm", pixivCookie: cookie } }).catch(() => undefined);
 }
 
-const sessionSchema = z.object({
+export const sessionSchema = z.object({
   pixiv: z.string().max(8192).optional(),
   fanbox: z.string().max(8192).optional(),
 });
 
-export const saveSessions = createServerFn({ method: "POST" })
-  .validator((data: unknown) => sessionSchema.parse(data))
-  .handler(async ({ data }) => {
-    const { setResponseHeader } = await import("@tanstack/react-start/server");
-    const { fanboxSessionFrom, sanitizePixivCookie } = await import("./browser-login");
-    const pixiv = sanitizePixivCookie(data.pixiv ?? "");
-    const fanbox = fanboxSessionFrom(data.fanbox, pixiv);
-    const pixivVal = pixiv ? encodeURIComponent(pixiv) : "";
-    const fanboxVal = fanbox ? encodeURIComponent(fanbox) : "";
-    const parts = [
-      `kami_pixiv=${pixivVal}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${pixiv ? 2592000 : 0}`,
-      `kami_fanbox=${fanboxVal}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${fanbox ? 2592000 : 0}`,
-    ];
-    setResponseHeader("Set-Cookie", parts);
-    return { ok: true as const };
+export const saveSessions = async ({ data }: { data: z.infer<typeof sessionSchema> }) => {
+  const res = await fetch("/api/sessions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+    credentials: "same-origin",
   });
+  const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (!res.ok) {
+    throw new Error(body?.error || `会话写入失败（${res.status}）`);
+  }
+  return { ok: true as const };
+};
 
 export type { FanboxCursor };

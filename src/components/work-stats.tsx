@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 作品详情的 Statistics。
  *
@@ -5,7 +7,7 @@
  * 用法：详情标题下 <WorkStats work={work} onAuthor={searchAuthor} />。
  * 为什么：卡片标题塞不下发布时间、来源链接和分级。
  */
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/kami-link";
 import type { Source, WorkDetail } from "@/lib/types";
 import { isBooru } from "@/lib/sites";
 import { formatPostedAt, formatRatingLabel, formatResolution, httpSourceHref } from "@/lib/utils";

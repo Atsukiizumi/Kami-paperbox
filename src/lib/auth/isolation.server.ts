@@ -1,12 +1,13 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { getActiveRequest } from "../request-context.ts";
 
 /**
  * Fetch-Metadata sibling isolation — **server-only** (`.server.ts` suffix).
  *
- * MUST keep the `.server` suffix: this file imports `@tanstack/react-start/server`
- * (`getRequest` → Node `AsyncLocalStorage`). If it is imported from a dual
- * client/server module under a non-`.server` name, Vite ships it to the browser
- * and the app dies with: `AsyncLocalStorage is not a constructor`.
+ * MUST keep the `.server` suffix: this file reads the current Request from
+ * request-context (Next) or TanStack Start `getRequest` (Vite). If it is
+ * imported from a dual client/server module under a non-`.server` name, Vite
+ * ships Node-only code to the browser.
  *
  * Apps deployed on `*.grok.me` are "same-site" to each other but MUTUALLY
  * UNTRUSTED, and a `SameSite=Lax` session cookie IS sent on same-site
@@ -19,8 +20,8 @@ import { getRequest } from "@tanstack/react-start/server";
  * top-level GET navigations (how the OAuth callback and normal page loads
  * arrive). Every cross-site / same-site *scripted* request is rejected.
  * Together with `__Host-` cookies and Better Auth's `trustedOrigins`, this
- * closes the sibling-tenant attack surface. Enforced at the `authMiddleware`
- * chokepoint (see `middleware.ts`).
+ * closes the sibling-tenant attack surface. Enforced at `runAuth`
+ * (see `middleware.ts`).
  */
 export class CrossSiteRequestError extends Error {
   readonly status = 403;
@@ -30,11 +31,22 @@ export class CrossSiteRequestError extends Error {
   }
 }
 
+function resolveRequest(explicit?: Request): Request | undefined {
+  if (explicit) return explicit;
+  const active = getActiveRequest();
+  if (active) return active;
+  try {
+    return getRequest() ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Throw `CrossSiteRequestError` for a scripted cross-site/sibling request. */
-export function assertSameSiteRequest(): void {
-  const request = getRequest();
-  if (!request) return; // no request context (e.g. build) — nothing to guard
-  const h = request.headers;
+export function assertSameSiteRequest(request?: Request): void {
+  const req = resolveRequest(request);
+  if (!req) return; // no request context (e.g. build) — nothing to guard
+  const h = req.headers;
   const site = h.get("sec-fetch-site");
   // Non-browser client (no header), the app's own origin, or a direct
   // (address-bar/bookmark) load are all fine.
@@ -44,7 +56,7 @@ export function assertSameSiteRequest(): void {
   const dest = h.get("sec-fetch-dest");
   const isTopLevelGet =
     h.get("sec-fetch-mode") === "navigate" &&
-    request.method === "GET" &&
+    req.method === "GET" &&
     dest !== "object" &&
     dest !== "embed";
   if (isTopLevelGet) return;

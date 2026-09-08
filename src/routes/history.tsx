@@ -5,7 +5,9 @@
  * 用法：侧栏「历史」。打开作品或画师页时自动写入。
  * 为什么：浏览器自己的后退不够看「上周点过哪张 / 哪位」。
  */
-import { createFileRoute, Link } from "@tanstack/react-router";
+"use client";
+
+import { Link } from "@/lib/kami-link";
 import { useMemo, useState } from "react";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -16,14 +18,12 @@ import { HISTORY_DAYS, historyToCard, useViewHistory, type AuthorHistoryEntry } 
 import { SITE_LIST, siteLabel } from "@/lib/sites";
 import type { Source } from "@/lib/types";
 
-export const Route = createFileRoute("/history")({ component: HistoryPage });
-
 function authorHref(author: AuthorHistoryEntry) {
   if (author.source === "fanbox") return { to: "/creator/$id" as const, params: { id: author.id } };
   return { to: "/user/$id" as const, params: { id: author.id } };
 }
 
-function HistoryPage() {
+export function HistoryPage() {
   const items = useViewHistory((s) => s.items);
   const authors = useViewHistory((s) => s.authors);
   const clear = useViewHistory((s) => s.clear);

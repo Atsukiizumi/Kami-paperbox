@@ -4,8 +4,10 @@
  * 作用：打开 yande.re / Konachan / Danbooru 的 pool，浏览并整包入队。
  * 用法：搜索框粘贴 https://yande.re/pool/show/99384。
  */
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText } from "@/components/profile-header";
@@ -18,10 +20,8 @@ import { isBooru, siteLabel } from "@/lib/sites";
 import { poolOriginUrl } from "@/lib/booru";
 import { flyPaperToQueue } from "@/lib/paper-fly";
 
-export const Route = createFileRoute("/pool/$site/$id")({ component: PoolPage });
-
-function PoolPage() {
-  const { site, id } = Route.useParams();
+export function PoolPage() {
+  const { site, id } = useParams<{ site: string; id: string }>();
   const src = isBooru(site) ? site : "yande";
   const safeMode = useSettings((s) => s.safeMode);
 

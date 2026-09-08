@@ -7,7 +7,6 @@
  * DELETE /api/rankings?id=        删一条
  * DELETE /api/rankings?site=      清空该站
  */
-import { createFileRoute } from "@tanstack/react-router";
 import { isSource } from "@/lib/sites";
 import type { Source, WorkCard } from "@/lib/types";
 import { getRankingStore, rankingStoreHealth, type RankPeriod } from "@/lib/ranking-store.server";
@@ -20,10 +19,7 @@ function isPeriod(v: string): v is RankPeriod {
   return v === "daily" || v === "weekly" || v === "monthly";
 }
 
-export const Route = createFileRoute("/api/rankings")({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
+export async function GET(request: Request) {
         const store = getRankingStore();
         if (!store) return json({ ok: false, error: "热榜库不可用" }, 503);
         const url = new URL(request.url);
@@ -38,8 +34,9 @@ export const Route = createFileRoute("/api/rankings")({
         const site = siteRaw && isSource(siteRaw) ? siteRaw : "";
         const period = periodRaw && isPeriod(periodRaw) ? periodRaw : "";
         return json({ ok: true, health: rankingStoreHealth(), items: store.list(site, period) });
-      },
-      PUT: async ({ request }) => {
+}
+
+export async function PUT(request: Request) {
         const store = getRankingStore();
         if (!store) return json({ ok: false, error: "热榜库不可用" }, 503);
         const body = (await request.json()) as {
@@ -60,8 +57,9 @@ export const Route = createFileRoute("/api/rankings")({
         }
         const snap = store.put(body.site as Source, body.period, body.date, body.items.slice(0, 200));
         return json({ ok: true, snapshot: { ...snap, items: undefined, count: snap.count } });
-      },
-      DELETE: async ({ request }) => {
+}
+
+export async function DELETE(request: Request) {
         const store = getRankingStore();
         if (!store) return json({ ok: false, error: "热榜库不可用" }, 503);
         const url = new URL(request.url);
@@ -76,7 +74,4 @@ export const Route = createFileRoute("/api/rankings")({
           return json({ ok: true });
         }
         return json({ ok: false, error: "缺少 id 或 site" }, 400);
-      },
-    },
-  },
-});
+}
