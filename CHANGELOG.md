@@ -10,7 +10,7 @@
 
 ## [0.8.56] — 2026-09-08
 
-对应即将开的 Next.js 骨架。
+对应 [PR #99](https://github.com/Atsukiizumi/Kami-paperbox/pull/99)。
 
 ### 新增
 
