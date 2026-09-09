@@ -6,8 +6,8 @@
  * 启动令牌，见 auth/data-plane.server.ts），401/403 映射成 JSON。
  */
 import { runWithRequest } from "./request-context.ts";
-import { CrossSiteRequestError } from "./auth/isolation.server";
-import { UnauthorizedError } from "./auth/verify.server";
+import { CrossSiteRequestError } from "./auth/isolation.server.ts";
+import { UnauthorizedError } from "./auth/verify.server.ts";
 
 export function withRequest<T>(fn: (request: Request) => T): (request: Request) => T {
   return (request: Request) => runWithRequest(request, () => fn(request));

@@ -9,7 +9,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Source } from "./types";
+import type { Source } from "./types.ts";
 import { normalizeLexiconKey } from "./tag-lexicon.ts";
 
 export const TAG_CATALOG_MAX = 8_000;

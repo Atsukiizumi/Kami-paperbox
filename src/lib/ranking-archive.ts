@@ -4,7 +4,7 @@
  * 作用：浏览日/周/月榜第一页成功后写入；历史榜页再读回来。
  * 用法：rememberRanking({ site, period, date, items })；listRankings()。
  */
-import type { Source, WorkCard } from "./types";
+import type { Source, WorkCard } from "./types.ts";
 
 export type RankPeriod = "daily" | "weekly" | "monthly";
 

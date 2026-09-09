@@ -6,7 +6,7 @@
  * 为什么：pximg 一紧就要把并发降到 3，一松可以加到 10。写进配置文件，
  *        不要改代码。改完保存即生效（按文件 mtime 重读）。
  */
-import type { SearchEngine } from "./reverse-search";
+import type { SearchEngine } from "./reverse-search.ts";
 
 export type ThrottleConfig = {
   mediaConcurrency: number;

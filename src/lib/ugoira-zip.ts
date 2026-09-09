@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import type { UgoiraFrame } from "./ugoira-meta";
+import type { UgoiraFrame } from "./ugoira-meta.ts";
 
 export async function unzipUgoira(
   zipBytes: Uint8Array,

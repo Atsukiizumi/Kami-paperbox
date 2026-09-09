@@ -6,7 +6,7 @@
  * 为什么：SauceNAO / ascii2d 对短时间多次上传很敏感。纸匣不能解验证码，
  *        只能少打、打小图、有 key 走官方 API。
  */
-import type { SearchEngine } from "./reverse-search";
+import type { SearchEngine } from "./reverse-search.ts";
 
 export const SEARCH_GAP_MS: Record<SearchEngine, number> = {
   saucenao: 8_000,

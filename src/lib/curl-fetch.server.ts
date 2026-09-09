@@ -13,7 +13,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
-import { getActiveProxy } from "./proxy.server";
+import { getActiveProxy } from "./proxy.server.ts";
 
 export type CurlFormField = {
   name: string;

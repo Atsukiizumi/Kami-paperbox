@@ -5,7 +5,7 @@
  * 用法：parseUserInput(text, currentTab)。
  * 为什么：用户习惯从浏览器复制 URL，不要让他们自己拆 ID。
  */
-import type { BooruSite, Source } from "./types";
+import type { BooruSite, Source } from "./types.ts";
 
 export type ParsedQuery =
   | { kind: "pixiv-illust"; id: string }

@@ -6,15 +6,15 @@
  * 为什么：旁路保存会让队列页看起来是空的，进度也看不到。
  */
 import { toast } from "sonner";
-import { fetchSource } from "./source";
-import { cookiesFromSettings, useQueue, useSettings } from "./store";
-import { collectWorkFiles } from "./save-work";
-import { archiveWork } from "./persist-files";
-import { workKey } from "./vault";
-import { sleep } from "./utils";
-import { extFromNameOrType } from "./ugoira-meta";
-import { isBooru } from "./sites";
-import type { QueueKind, Source, WorkDetail } from "./types";
+import { fetchSource } from "./source.ts";
+import { cookiesFromSettings, useQueue, useSettings } from "./store.ts";
+import { collectWorkFiles } from "./save-work.ts";
+import { archiveWork } from "./persist-files.ts";
+import { workKey } from "./vault.ts";
+import { sleep } from "./utils.ts";
+import { extFromNameOrType } from "./ugoira-meta.ts";
+import { isBooru } from "./sites.ts";
+import type { QueueKind, Source, WorkDetail } from "./types.ts";
 
 let running = false;
 

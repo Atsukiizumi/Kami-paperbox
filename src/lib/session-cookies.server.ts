@@ -4,7 +4,7 @@
  * 作用：浏览器只提交字符串，真正的 Set-Cookie 留在服务端。
  * 用法：/api/sessions 调 kamiSessionCookies。
  */
-import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login";
+import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
 
 export type KamiSessionCookie = {
   name: "kami_pixiv" | "kami_fanbox" | "kami_danbooru";

@@ -10,16 +10,16 @@ import {
   parseIqdbHtml,
   parseSauceNaoHtml,
   parseSauceNaoJson,
-} from "./reverse-search";
+} from "./reverse-search.ts";
 import {
   challengeMessage,
   isBotChallenge,
   isSearchLimited,
   searchGapMs,
-} from "./reverse-search-guard";
-import { outboundFetch } from "./curl-fetch.server";
-import { sleep } from "./utils";
-import { getThrottle } from "./throttle.server";
+} from "./reverse-search-guard.ts";
+import { outboundFetch } from "./curl-fetch.server.ts";
+import { sleep } from "./utils.ts";
+import { getThrottle } from "./throttle.server.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";

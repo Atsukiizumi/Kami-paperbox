@@ -7,7 +7,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Source, WorkCard } from "./types";
+import type { Source, WorkCard } from "./types.ts";
 
 export const HISTORY_LIMIT = 20_000;
 export const AUTHOR_HISTORY_LIMIT = 400;

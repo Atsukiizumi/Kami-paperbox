@@ -4,14 +4,14 @@
  * 作用：卡片、作品详情、队列项、纸匣目录条目。上游 JSON 不要直接传给 UI。
  * 用法：WorkCard 浏览；WorkDetail 作品页；VaultMeta 纸匣（可带 relativePath 对磁盘）。
  */
-import type { BooruFeed } from "./booru";
-import type { UgoiraMeta } from "./ugoira-meta";
-import type { PixivRankMode } from "./pixiv-feed";
-import type { PixivSearchFilter } from "./pixiv-search";
+import type { BooruFeed } from "./booru.ts";
+import type { UgoiraMeta } from "./ugoira-meta.ts";
+import type { PixivRankMode } from "./pixiv-feed.ts";
+import type { PixivSearchFilter } from "./pixiv-search.ts";
 
-export type { UgoiraMeta } from "./ugoira-meta";
-export type { PixivRankMode, PixivFeed } from "./pixiv-feed";
-export type { BooruFeed } from "./booru";
+export type { UgoiraMeta } from "./ugoira-meta.ts";
+export type { PixivRankMode, PixivFeed } from "./pixiv-feed.ts";
+export type { BooruFeed } from "./booru.ts";
 
 export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
 export type BooruSite = "yande" | "konachan" | "danbooru";

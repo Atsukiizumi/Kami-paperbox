@@ -4,7 +4,7 @@
  * 作用：SauceNAO / ascii2d / IQDB 的标识；把源站链接收成作品。
  * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
  */
-import type { Source } from "./types";
+import type { Source } from "./types.ts";
 import { decodeHtmlEntities } from "./utils.ts";
 
 export type SearchEngine = "saucenao" | "ascii2d" | "iqdb";

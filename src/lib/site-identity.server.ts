@@ -4,9 +4,9 @@
  * 作用：用当前 Cookie 打 self/status、user.info，失败再 parse HTML。
  * 用法：/api/whoami → resolveIdentities。
  */
-import { outboundFetch } from "./curl-fetch.server";
-import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./browser-login";
-import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity";
+import { outboundFetch } from "./curl-fetch.server.ts";
+import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./browser-login.ts";
+import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";

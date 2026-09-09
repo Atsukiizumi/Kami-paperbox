@@ -5,9 +5,9 @@
  * 用法：pushVaultToServer / pushVaultMetaToServer / listServerVault / fetchServerVaultBlob / deleteServerVault。
  * 为什么：预览和 PWA 仍需要 IDB（关服务器也能看缓存）；真正扛量的是 Node 写的 SQLite + 文件。
  */
-import type { VaultMeta } from "./types";
-import type { VaultQuery } from "./vault-query";
-import { extFromNameOrType } from "./ugoira-meta";
+import type { VaultMeta } from "./types.ts";
+import type { VaultQuery } from "./vault-query.ts";
+import { extFromNameOrType } from "./ugoira-meta.ts";
 
 export type ServerVaultList = {
   ok: boolean;

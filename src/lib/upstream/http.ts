@@ -1,0 +1,58 @@
+/**
+ * 上游共享通道：JSON 请求 + unknown 清洗（由 upstream.server.ts 拆出，TD-01）。
+ */
+import { outboundFetch } from "../curl-fetch.server.ts";
+import { withPixivUserId } from "../browser-login.ts";
+
+export const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+export async function upstreamJson(
+  url: string,
+  opts: { cookie?: string; origin: "pixiv" | "fanbox" },
+): Promise<unknown> {
+  const headers: Record<string, string> = {
+    "User-Agent": UA,
+    Accept: "application/json,text/plain,*/*",
+    "Accept-Language": "zh-CN,zh;q=0.9,ja;q=0.8,en;q=0.7",
+  };
+  if (opts.origin === "pixiv") {
+    headers.Referer = "https://www.pixiv.net/";
+    withPixivUserId(headers, opts.cookie);
+  } else {
+    headers.Referer = "https://www.fanbox.cc/";
+    headers.Origin = "https://www.fanbox.cc";
+  }
+  if (opts.cookie) headers.Cookie = opts.cookie;
+
+  const res = await outboundFetch(url, { headers, redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(
+      opts.origin === "pixiv"
+        ? `Pixiv 请求失败（${res.status}）`
+        : `FANBOX 请求失败（${res.status}）`,
+    );
+  }
+  return res.json();
+}
+
+export function asRecord(v: unknown): Record<string, unknown> {
+  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
+}
+
+export function asString(v: unknown, fallback = ""): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return fallback;
+}
+
+export function asNumber(v: unknown, fallback = 0): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v !== "" && Number.isFinite(Number(v))) return Number(v);
+  return fallback;
+}
+
+export function asBool(v: unknown): boolean {
+  return v === true;
+}

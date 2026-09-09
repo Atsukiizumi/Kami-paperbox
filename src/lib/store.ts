@@ -10,18 +10,18 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { QueueItem, Source } from "./types";
-import type { SearchEngine } from "./reverse-search";
-import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search";
-import { saveSessions } from "./source";
+import type { QueueItem, Source } from "./types.ts";
+import type { SearchEngine } from "./reverse-search.ts";
+import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search.ts";
+import { saveSessions } from "./source.ts";
 import {
   type Account,
   cookiesOf,
   createAccount,
   migrateLegacySettings,
-} from "./accounts";
-import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login";
-import type { SiteProfile } from "./site-identity";
+} from "./accounts.ts";
+import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
+import type { SiteProfile } from "./site-identity.ts";
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_THEME,
@@ -30,19 +30,19 @@ import {
   type ThemeId,
   parseAppearance,
   parseThemeId,
-} from "./theme";
+} from "./theme.ts";
 import {
   DEFAULT_PATH_PRESET,
   DEFAULT_PATH_TEMPLATE,
   type PathPreset,
   parsePathPreset,
   templateForPreset,
-} from "./download-path";
+} from "./download-path.ts";
 import {
   emptySavedTags,
   parseSavedTags,
   toggleSavedTag as toggleSavedTagList,
-} from "./site-tags";
+} from "./site-tags.ts";
 
 type PersistApi = {
   hasHydrated?: () => boolean;
