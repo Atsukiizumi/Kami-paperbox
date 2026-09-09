@@ -38,6 +38,7 @@
   },
   "include": [
     "src",
+    "scripts",
     "app",
     "next.config.ts",
     "next-env.d.ts",

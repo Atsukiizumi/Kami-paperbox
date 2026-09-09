@@ -13,6 +13,10 @@ export function projectRootFrom(moduleUrl = import.meta.url) {
 }
 
 /** Clone the example config when the local file is missing. Never overwrites. */
+/**
+ * Clone the example config when the local file is missing. Never overwrites.
+ * @param {string} root
+ */
 export function ensureKamiConfig(root) {
   const dest = join(root, KAMI_CONFIG_NAME);
   if (existsSync(dest)) return dest;
@@ -22,6 +26,7 @@ export function ensureKamiConfig(root) {
   return dest;
 }
 
+/** @param {string} root */
 export function readKamiConfig(root) {
   const defaults = { host: DEFAULT_HOST, port: DEFAULT_PORT, proxy: "" };
   const file = join(root, KAMI_CONFIG_NAME);
@@ -41,6 +46,11 @@ export function readKamiConfig(root) {
   }
 }
 
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @param {string} root
+ * @returns {NodeJS.ProcessEnv}
+ */
 export function applyKamiEnv(env, root) {
   const cfg = readKamiConfig(root);
   const next = { ...env };

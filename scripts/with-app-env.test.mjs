@@ -25,6 +25,7 @@ const execFileAsync = promisify(execFile);
 const WRAPPER = join(projectRoot(), "scripts/with-app-env.mjs");
 const PRINT_FLAG = "process.stdout.write(String(process.env.VITE_AUTH_ENABLED));";
 
+/** @param {string} [appEnvJson] */
 function makeWorkspace(appEnvJson) {
   const root = mkdtempSync(join(tmpdir(), "app-env-"));
   if (appEnvJson !== undefined) {
@@ -61,7 +62,7 @@ test("reads the app env from a workspace", () => {
 test("an explicit process-env override wins over the file", () => {
   const merged = mergeAppEnv(
     { VITE_AUTH_ENABLED: "false" },
-    { VITE_AUTH_ENABLED: "true", PATH: "/usr/bin" },
+    { ...process.env, VITE_AUTH_ENABLED: "true", PATH: "/usr/bin" },
   );
   assert.equal(merged.VITE_AUTH_ENABLED, "true");
   assert.equal(merged.PATH, "/usr/bin");
@@ -74,7 +75,7 @@ test("the shipped app-env turns accounts on", () => {
 
 test("wrapper merge lands VITE_ flags before Next starts", () => {
   const root = makeWorkspace('{"VITE_AUTH_ENABLED":"false"}');
-  const merged = mergeAppEnv(readAppEnv(root), { PATH: "/usr/bin" });
+  const merged = mergeAppEnv(readAppEnv(root), process.env);
   assert.equal(merged.VITE_AUTH_ENABLED, "false");
 });
 
@@ -100,7 +101,7 @@ test("the wrapped command sees an explicit override, not the file value", async 
 test("the wrapper propagates the command's exit code", async () => {
   await assert.rejects(
     execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", "process.exit(3)"]),
-    (err) => err.code === 3,
+    (err) => (/** @type {{ code?: number | string }} */ (err)).code === 3,
   );
 });
 
@@ -114,7 +115,10 @@ test("a signal-killed command is never reported as success", async () => {
       "-e",
       "process.kill(process.pid, 'SIGTERM');setTimeout(() => {}, 1000);",
     ]),
-    (err) => err.signal === "SIGTERM" || err.code !== 0,
+    (err) => {
+      const e = /** @type {{ code?: number | string, signal?: string }} */ (err);
+      return e.signal === "SIGTERM" || e.code !== 0;
+    },
   );
 });
 
@@ -126,7 +130,8 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
   try {
     symlinkSync(join(projectRoot(), "scripts"), link);
   } catch (err) {
-    if (process.platform !== "win32" || err.code !== "EPERM") throw err;
+    const e = /** @type {NodeJS.ErrnoException} */ (err);
+    if (process.platform !== "win32" || e.code !== "EPERM") throw err;
     symlinkSync(join(projectRoot(), "scripts"), link, "junction");
   }
   const { stdout } = await execFileAsync(process.execPath, [
@@ -140,8 +145,8 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
 
 test("puts node_modules/.bin first on PATH", () => {
   const dir = localBinDir(projectRoot());
-  const env = withLocalBin({ PATH: "/usr/bin" }, projectRoot());
-  assert.equal(env.PATH.split(process.platform === "win32" ? ";" : ":")[0], dir);
+  const env = withLocalBin({ ...process.env, PATH: "/usr/bin" }, projectRoot());
+  assert.equal((env.PATH ?? "").split(process.platform === "win32" ? ";" : ":")[0], dir);
 });
 
 test("resolves next via its JS entry so Windows paths with spaces work", () => {

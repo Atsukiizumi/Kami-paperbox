@@ -12,10 +12,14 @@ const BASE = "http://127.0.0.1:8080";
 const SHOT_DIR = "screenshots";
 mkdirSync(SHOT_DIR, { recursive: true });
 
+/** @type {string[]} */
 const consoleErrors = [];
+/** @type {string[]} */
 const requestFails = [];
+/** @type {{ name: string, pass: boolean, detail: string }[]} */
 const results = [];
 
+/** @param {string} name @param {boolean} pass @param {string} detail */
 function record(name, pass, detail) {
   results.push({ name, pass, detail });
   console.log(`${pass ? "PASS" : "FAIL"}  ${name} — ${detail}`);
@@ -24,6 +28,10 @@ function record(name, pass, detail) {
 // 页内采样：对每个匹配元素截两张图，字节级比较。
 // 为什么用截图而不是 canvas 像素哈希：眨眼类动图只有局部小变化，降采样会把变化抹掉。
 // 返回每个 canvas 所属作品 id（有卡片上下文时），详情页步骤会挑一个已验证能播的。
+/**
+ * @param {import('playwright').Page} page
+ * @param {number} windowMs
+ */
 async function animatingCards(page, windowMs) {
   const infos = await page.evaluate(() =>
     [...document.querySelectorAll("article canvas")].map((cv) => {
@@ -46,6 +54,11 @@ async function animatingCards(page, windowMs) {
   return { total: handles.length, changed, playableIds };
 }
 
+/**
+ * @param {import('playwright').Page} page
+ * @param {string} selector
+ * @param {number} windowMs
+ */
 async function animatingCount(page, selector, windowMs) {
   const handles = await page.$$(selector);
   let changed = 0;
@@ -92,8 +105,8 @@ try {
   // 定时器基线：确认这个环境没有节流（90ms 链实际应 ≈90ms）
   const timerBase = await page.evaluate(async () => {
     const t0 = performance.now();
-    const stamps = [];
-    await new Promise((done) => {
+    const stamps = /** @type {number[]} */ ([]);
+    await new Promise((/** @type {(v?: unknown) => void} */ done) => {
       let i = 0;
       const step = () => {
         stamps.push(Math.round(performance.now() - t0));
