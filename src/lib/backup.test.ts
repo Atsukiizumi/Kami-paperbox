@@ -8,6 +8,8 @@ function sampleSettings() {
   return {
     pixivCookie: FAKE_SESSION,
     fanboxCookie: FAKE_SESSION,
+    danbooruLogin: "demo",
+    danbooruApiKey: "db-key",
     safeMode: false,
     hideAi: true,
     downloadOriginal: true,
