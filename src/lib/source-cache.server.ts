@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { pixivUserIdFromCookie } from "./browser-login.ts";
 import { mediaCacheName } from "./media-cache.server.ts";
 import { resolveKamiRoot } from "./proxy.server.ts";
+import { noteCacheWrite } from "./cache-watermark.server.ts";
 import type { FanboxCursor, FetchInput, FetchOk } from "./types.ts";
 
 export const SOURCE_CACHE_TTL_MS = 30 * 60_000;
@@ -121,6 +122,7 @@ export function writeSourceCache(
   } catch {
     /* 只读盘 */
   }
+  noteCacheWrite("source", root);
 }
 
 export async function cachedDispatchFetch(
