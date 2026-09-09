@@ -5,6 +5,7 @@ import { type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { AppShell } from "@/components/app-shell";
+import { AccountSyncBridge } from "@/components/account-sync-bridge";
 import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { hydrateBrowseCache, subscribeBrowsePersist } from "@/lib/browse-cache";
@@ -60,6 +61,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <TooltipProvider delayDuration={350} skipDelayDuration={150}>
             <PreviewHostBridge />
+            <AccountSyncBridge />
             <AppShell>{children}</AppShell>
             <ThemedToaster />
           </TooltipProvider>

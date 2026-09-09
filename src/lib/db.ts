@@ -110,8 +110,11 @@ function createNeonSql(): Promise<Sql> {
 
 async function createPgliteSql(): Promise<Sql> {
   // Embedded Postgres, imported on demand so it never loads on the Neon path.
-  // One in-memory instance per process, shared across HMR module instances, so
-  // data survives source edits (it resets on dev-server restart).
+  // One in-memory instance per process, shared across HMR module instances。
+  // 为什么不用 dataDir 落盘：PGlite 的 WASM 实例被强杀（Windows 关终端、断电）后
+  // 数据目录可能整体损坏、重开直接 Abort（electric-sql/pglite#327）。改回内存实例，
+  // 由 db-snapshot.server.ts 把账号 / 会话 / 同步数据以 JSON 快照落到 .data，
+  // 启动时恢复——快照是普通文件，永不打不开。
   globalRef.__pgliteInstance__ ??= (async () => {
     const { PGlite } = await import("@electric-sql/pglite");
     const pg = new PGlite({
@@ -225,7 +228,11 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
  */
 export function ensureDbReady(): Promise<void> {
   if (dbSource !== "pglite") return Promise.resolve();
-  return getSql().then(() => undefined);
+  return getSql().then(async () => {
+    // 迁移完成后恢复快照并开看护（内存库的账号 / 会话 / 同步数据由此跨重启存活）
+    const { restoreSnapshotThenWatch } = await import("./db-snapshot.server");
+    await restoreSnapshotThenWatch();
+  });
 }
 
 // Server-only eager start: kick PGLite bootstrap as soon as this module loads in

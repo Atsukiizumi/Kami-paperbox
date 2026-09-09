@@ -26,6 +26,8 @@ function snapshotSettings(): BackupSettings {
   return parseBackupSettings({
     pixivCookie: s.pixivCookie,
     fanboxCookie: s.fanboxCookie,
+    danbooruLogin: s.danbooruLogin,
+    danbooruApiKey: s.danbooruApiKey,
     safeMode: s.safeMode,
     hideAi: s.hideAi,
     downloadOriginal: s.downloadOriginal,

@@ -29,6 +29,8 @@ export const BACKUP_FORMAT = "kami-paperbox-backup-v1";
 export type BackupSettings = {
   pixivCookie: string;
   fanboxCookie: string;
+  danbooruLogin: string;
+  danbooruApiKey: string;
   safeMode: boolean;
   hideAi: boolean;
   downloadOriginal: boolean;
@@ -181,6 +183,8 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     tab: parseSource(typeof p.tab === "string" ? p.tab : "pixiv"),
     searchEngine: parseSearchEngine(typeof p.searchEngine === "string" ? p.searchEngine : undefined),
     saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
+    danbooruLogin: typeof p.danbooruLogin === "string" ? p.danbooruLogin.trim().slice(0, 120) : "",
+    danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
     recents: parseRecents(p.recents),
     savedTags: parseSavedTags(p.savedTags),
     accounts: legacy.accounts,

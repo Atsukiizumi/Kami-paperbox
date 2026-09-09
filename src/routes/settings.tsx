@@ -18,6 +18,9 @@ import {
   type LoginSite,
 } from "@/lib/browser-login";
 import { SiteAvatar } from "@/components/site-avatar";
+import { authClient, signOut } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { pullAccountSync, pushAccountSync, readSyncMarker } from "@/lib/account-sync";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { BackupSection } from "@/components/backup-settings";
@@ -209,6 +212,163 @@ function ProxySection() {
             清除
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * 应用账号：纸匣自己的登录（邮箱 + 密码），和 Pixiv / FANBOX 账号是两回事。
+ *
+ * 作用：登录后设置自动同步到本机服务端（`.data/pglite`），换浏览器 / 换设备登录
+ *      同一账号即可恢复各图站 Cookie、词表、纸匣索引和历史。
+ * 为什么：这些数据原本只在浏览器 localStorage 里，清站点数据或换浏览器就没了；
+ *        备份文件要手动搬运，这份跟着账号走。
+ */
+function AppAccountSection() {
+  const { user, isPending } = useCurrentUserState();
+  const signedIn = Boolean(user && !user.isDevFallback);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [lastSync, setLastSync] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLastSync(readSyncMarker()?.syncedAt ?? null);
+  }, [user?.id]);
+
+  async function submit(mode: "in" | "up") {
+    setError("");
+    if (!email.trim() || !password) {
+      setError("邮箱和密码都要填");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res =
+        mode === "up"
+          ? await authClient.signUp.email({ email: email.trim(), password, name: email.trim().split("@")[0] })
+          : await authClient.signIn.email({ email: email.trim(), password });
+      if (res.error) {
+        setError(res.error.message || (mode === "up" ? "注册失败" : "登录失败"));
+        return;
+      }
+      setPassword("");
+      toast.success(mode === "up" ? "已注册并登录" : "已登录");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sync(direction: "push" | "pull") {
+    if (!user) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (direction === "push") {
+        await pushAccountSync(user.id);
+        toast.success("已同步到本机服务端");
+      } else {
+        const r = await pullAccountSync(user.id, { force: true });
+        toast[r.applied ? "success" : "info"](r.applied ? "已从服务端恢复" : "服务端没有存档");
+      }
+      setLastSync(readSyncMarker()?.syncedAt ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "同步失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>应用账号</CardTitle>
+        <CardDescription>
+          纸匣自己的账号（邮箱 + 密码）。登录后设置自动同步到本机服务端：换浏览器、换设备，
+          登录同一账号就把各图站 Cookie、词表、纸匣索引和历史带回来。数据只存这台机器的 `.data`。
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isPending ? (
+          <p className="text-sm text-muted">正在读取登录状态…</p>
+        ) : signedIn ? (
+          <>
+            <p className="text-sm">
+              已登录 <span className="text-fg">{user?.primaryEmail ?? user?.displayName ?? user?.id}</span>
+              {lastSync ? (
+                <span className="ml-2 text-xs text-subtle">
+                  上次同步 {new Date(lastSync).toLocaleString("zh-CN", { hour12: false })}
+                </span>
+              ) : (
+                <span className="ml-2 text-xs text-subtle">还没有同步记录</span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" disabled={busy} onClick={() => void sync("push")}>
+                同步到服务端
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void sync("pull")}>
+                从服务端恢复
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setEmail("");
+                  setPassword("");
+                  void signOut().catch(() => undefined);
+                }}
+              >
+                登出
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="app-account-email">邮箱</Label>
+                <Input
+                  id="app-account-email"
+                  type="email"
+                  autoComplete="username"
+                  spellCheck={false}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="app-account-password">密码</Label>
+                <Input
+                  id="app-account-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="至少 8 位"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" disabled={busy} onClick={() => void submit("in")}>
+                <LogIn className="size-3.5" />
+                登录
+              </Button>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void submit("up")}>
+                注册
+              </Button>
+            </div>
+            <p className="text-xs text-subtle">
+              首次使用先注册一个。忘记密码没有找回通道——账号只存本机，忘了就重新注册再「从服务端恢复」绑定新账号。
+            </p>
+          </>
+        )}
+        {error ? <p className="text-sm text-red-500">{error}</p> : null}
       </CardContent>
     </Card>
   );
@@ -431,6 +591,7 @@ export function SettingsPage() {
 
       {page === "accounts" ? (
       <div className="space-y-8">
+      <AppAccountSection />
       <Card>
         <CardHeader>
           <CardTitle>账号</CardTitle>
