@@ -1,4 +1,4 @@
-import { authClient, authEnabled } from "./client";
+import { authClient, authEnabled } from "./client.ts";
 
 /** Normalized user shape used across the app, auth on or off. */
 export type AppUser = {

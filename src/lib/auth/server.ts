@@ -18,9 +18,9 @@ import { nextCookies } from "better-auth/next-js";
 import { getActiveRequest, readRequestCookie } from "../request-context.ts";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
-import { ensureDbReady, getPglite } from "../db";
-import { emailAndPasswordEnabled } from "./email-password";
-import { pgliteDialect } from "./pglite-dialect";
+import { ensureDbReady, getPglite } from "../db.ts";
+import { emailAndPasswordEnabled } from "./email-password.ts";
+import { pgliteDialect } from "./pglite-dialect.ts";
 
 // PGLite（及会话行）挂在 globalThis 上共享，本文件的签名密钥也要扛住
 // HMR 重载：进程内稳定，重启随 PGLite 一起清空。

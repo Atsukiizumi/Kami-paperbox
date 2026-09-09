@@ -10,8 +10,8 @@
  * 为什么：服务绑定 0.0.0.0:8080，局域网内任意设备可直打 API；此前
  *        runAuth 已实现但零调用，全部端点裸奔（12 文档 SEC-01）。
  */
-import { assertSameSiteRequest } from "./isolation.server";
-import { authConfigured, getSessionUser, UnauthorizedError } from "./verify.server";
+import { assertSameSiteRequest } from "./isolation.server.ts";
+import { authConfigured, getSessionUser, UnauthorizedError } from "./verify.server.ts";
 import {
   lanTokenFromRequest,
   lanTokenMatches,

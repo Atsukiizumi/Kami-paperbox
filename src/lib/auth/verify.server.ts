@@ -1,5 +1,5 @@
 import { getActiveRequest } from "../request-context.ts";
-import { auth, authConfigured } from "./server";
+import { auth, authConfigured } from "./server.ts";
 
 /**
  * Server-side session resolution (server-only).

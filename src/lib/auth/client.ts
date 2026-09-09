@@ -11,7 +11,7 @@
  */
 import { createAuthClient } from "better-auth/react";
 import { runSignOut } from "../../../scripts/sign-out-plan.mjs";
-import { publicEnv } from "../public-env";
+import { publicEnv } from "../public-env.ts";
 
 export const authClient = createAuthClient();
 
