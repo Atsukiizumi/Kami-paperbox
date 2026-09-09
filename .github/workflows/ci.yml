@@ -1,0 +1,29 @@
+# node 版本对齐 Dockerfile（node:22）；锁文件用已提交的 package-lock.json
+# （pnpm-lock 的去留见 docs/14 TD-06）。build 不需要 DATABASE_URL ——
+# migrate.mjs 无连接时自动跳过（PGLite 启动时自迁移）。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

@@ -207,7 +207,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      /* 解析不了就当没这层声明 */
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

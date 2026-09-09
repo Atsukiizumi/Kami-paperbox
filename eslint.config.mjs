@@ -9,6 +9,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
+      "next-env.d.ts",
       "dist/**",
       ".output/**",
       ".next/**",

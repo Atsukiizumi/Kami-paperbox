@@ -1,7 +1,7 @@
 import { POST as postSocial } from "@/routes/api/social";
-import { withRequest } from "@/lib/next-route";
+import { withDataPlane } from "@/lib/next-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const POST = withRequest(postSocial);
+export const POST = withDataPlane(postSocial);

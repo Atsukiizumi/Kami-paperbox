@@ -3,6 +3,8 @@
  *
  * 作用：start / poll 帧 / 转发输入 / 取消。实现全在 browser-login.server.ts。
  * 用法：设置页 SessionRelayDialog fetch 本路由。
+ * 安全：快照默认剥离 pixiv / fanbox 会话串（SEC-02）——280ms 轮询帧不带凭据；
+ *      前端在 done 事件里用 ?credentials=1 单独取一次（本路由整体在数据面闸内）。
  */
 import {
   cancelBrowserLogin,
@@ -10,7 +12,7 @@ import {
   getLoginJob,
   startBrowserLogin,
 } from "@/lib/browser-login.server";
-import type { LoginInputEvent } from "@/lib/browser-login";
+import type { LoginInputEvent, LoginJobSnapshot } from "@/lib/browser-login";
 
 function aborted(err: unknown, signal?: AbortSignal) {
   if (signal?.aborted) return true;
@@ -25,6 +27,11 @@ function json(data: unknown, status = 200) {
     status,
     headers: { "cache-control": "no-store" },
   });
+}
+
+/** 轮询响应剥掉会话明文，只留身份展示用的 profile。 */
+function stripCredentials(snap: LoginJobSnapshot): LoginJobSnapshot {
+  return { ...snap, pixiv: "", fanbox: "" };
 }
 
 function parseInput(raw: unknown): LoginInputEvent | null {
@@ -61,7 +68,9 @@ function parseInput(raw: unknown): LoginInputEvent | null {
 export async function GET(request: Request) {
         const url = new URL(request.url);
         const includeFrame = url.searchParams.get("frame") !== "0";
-        return json({ ok: true, ...getLoginJob(includeFrame) });
+        const includeCredentials = url.searchParams.get("credentials") === "1";
+        const snap = getLoginJob(includeFrame);
+        return json({ ok: true, ...(includeCredentials ? snap : stripCredentials(snap)) });
 }
 
 export async function POST(request: Request) {
@@ -69,26 +78,26 @@ export async function POST(request: Request) {
         try {
           body = (await request.json()) as { site?: unknown; action?: unknown; event?: unknown };
         } catch {
-          if (request.signal.aborted) return json({ ok: true, ...getLoginJob() });
+          if (request.signal.aborted) return json({ ok: true, ...stripCredentials(getLoginJob()) });
           return json({ ok: false, status: "error", error: "无效的请求" }, 400);
         }
         try {
           if (body.action === "cancel") {
-            return json({ ok: true, ...await cancelBrowserLogin() });
+            return json({ ok: true, ...stripCredentials(await cancelBrowserLogin()) });
           }
           if (body.action === "input") {
             const event = parseInput(body.event);
             if (!event) return json({ ok: false, status: "error", error: "无效的输入" }, 400);
-            return json({ ok: true, ...await dispatchLoginInput(event) });
+            return json({ ok: true, ...stripCredentials(await dispatchLoginInput(event)) });
           }
           const site = body.site === "fanbox" ? "fanbox" : body.site === "pixiv" ? "pixiv" : null;
           if (!site) return json({ ok: false, status: "error", error: "请指定 pixiv 或 fanbox" }, 400);
           const session = await startBrowserLogin(site);
           const ok = session.status !== "error";
-          return json({ ok, ...session }, ok ? 200 : 400);
+          return json({ ok, ...stripCredentials(session) }, ok ? 200 : 400);
         } catch (err) {
           if (aborted(err, request.signal)) {
-            return json({ ok: true, ...getLoginJob() });
+            return json({ ok: true, ...stripCredentials(getLoginJob()) });
           }
           const message = err instanceof Error ? err.message : "登录失败";
           return json({ ok: false, status: "error", error: message }, 400);

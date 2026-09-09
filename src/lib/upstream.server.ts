@@ -56,7 +56,7 @@ import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browse
 import { parseBooruSuggest, parsePixivSuggest } from "./tag-suggest";
 import { sleep, withMediaGate } from "./media-gate";
 import { getThrottle } from "./throttle.server";
-import { closeOnAbort } from "./abort";
+import { closeOnAbort, isAbortError } from "./abort";
 import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "./media-cache.server.ts";
 
 const UA =
@@ -503,7 +503,7 @@ async function pixivUser(
   const newestId = allIds[0];
   const ids = allIds.filter((workId) => !pickupIds.has(workId));
   const slice = ids.slice(offset, offset + 60);
-  let items: WorkCard[] = [];
+  const items: WorkCard[] = [];
   if (slice.length > 0) {
     const qs = slice.map((i) => `ids[]=${i}`).join("&");
     const worksJson = await upstreamJson(
@@ -1156,7 +1156,64 @@ function rememberMedia(url: URL, bytes: Uint8Array, type: string) {
   writeCachedMedia(url.toString(), bytes, type);
 }
 
-export async function fetchMediaResponse(
+// PER-4：同 URL 并发（多卡片同图）只打一次上游，各调用方拿 clone 互不干扰。
+// 共享请求绑定首个调用方的 signal：被其 abort 掐断时，其余调用方自拉一次。
+// cookie 按首个调用方的算 —— 单用户应用，各请求凭据一致；盘缓存路径本来就不带 cookie。
+const inflightMedia = new Map<string, Promise<Response>>();
+
+export function fetchMediaResponse(
+  rawUrl: string,
+  cookies: {
+    pixiv?: string;
+    fanbox?: string;
+    /** Danbooru 账号。cdn.donmai.us 的图也要过 Cloudflare，带账号请求可免验证。 */
+    danbooru?: { login: string; apiKey: string };
+  },
+  signal?: AbortSignal,
+  retried = false,
+): Promise<Response> {
+  if (signal?.aborted) return Promise.resolve(new Response(null, { status: 204 }));
+  const shared = inflightMedia.get(rawUrl);
+  if (shared) {
+    return shared.then(
+      (res) => res.clone(),
+      (err) => {
+        if (!retried && isAbortError(err) && !signal?.aborted) {
+          return fetchMediaResponse(rawUrl, cookies, signal, true);
+        }
+        throw err;
+      },
+    );
+  }
+  const load = loadMediaResponse(rawUrl, cookies, signal);
+  inflightMedia.set(rawUrl, load);
+  return load.then(
+    (res) => {
+      inflightMedia.delete(rawUrl);
+      return res.clone();
+    },
+    (err) => {
+      inflightMedia.delete(rawUrl);
+      throw err;
+    },
+  );
+}
+
+/** PER-5：无 Content-Length 的流式转发累计超限即断流（pipeTo 默认连带取消上游读取）。 */
+function capStreamBytes(body: ReadableStream<Uint8Array>, capBytes: number): ReadableStream<Uint8Array> {
+  let seen = 0;
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        seen += chunk.byteLength;
+        if (seen > capBytes) throw new Error("file too large");
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
+async function loadMediaResponse(
   rawUrl: string,
   cookies: {
     pixiv?: string;
@@ -1238,7 +1295,7 @@ export async function fetchMediaResponse(
   const declared = res.headers.get("content-type") || "application/octet-stream";
   const cacheable = isDiskCacheableMedia(url);
   if (!cacheable && res.body && (length === 0 || length <= MAX_MEDIA_BYTES)) {
-    return new Response(closeOnAbort(res.body, signal), {
+    return new Response(capStreamBytes(closeOnAbort(res.body, signal), MAX_MEDIA_BYTES), {
       status: 200,
       headers: mediaOutHeaders(declared),
     });

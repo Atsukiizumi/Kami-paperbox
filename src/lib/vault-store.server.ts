@@ -81,12 +81,13 @@ export function parseVaultKey(raw: string): { source: Source; id: string } | nul
   const source = raw.slice(0, cut);
   const id = raw.slice(cut + 1);
   if (!isSource(source)) return null;
-  if (!/^[A-Za-z0-9._-]{1,80}$/.test(id)) return null;
+  // 不含点号：各站作品 id 均为字母数字（含 _ -），点号只给 `..` 上爬留门（SEC-10）。
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return null;
   return { source, id };
 }
 
 function safeSeg(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "x";
+  return value.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 80) || "x";
 }
 
 function tagsJson(tags: string[]): string {

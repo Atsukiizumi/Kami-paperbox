@@ -266,7 +266,7 @@ export async function runReverseSearch(input: {
   if (input.bytes.byteLength === 0) throw new Error("没有读到图片");
   if (input.bytes.byteLength > MAX_SEARCH_BYTES) throw new Error("图片超过 8 MB，请缩小后再试");
   const type = SEARCH_TYPES.has(input.type) ? input.type : "image/jpeg";
-  const name = input.filename.replace(/[^\w.\-]+/g, "_").slice(0, 80) || "upload.jpg";
+  const name = input.filename.replace(/[^\w.-]+/g, "_").slice(0, 80) || "upload.jpg";
   const file = asFile(input.bytes, name, type);
   const key = input.apiKey?.trim() || "";
   await pace(input.engine, Boolean(key || process.env.SAUCENAO_API_KEY?.trim()));

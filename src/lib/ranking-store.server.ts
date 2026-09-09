@@ -115,6 +115,9 @@ export function openRankingStore(root = resolveKamiRoot()) {
     clearSite(site: Source) {
       clearSite.run(site);
     },
+    close() {
+      db.close();
+    },
   };
 }
 

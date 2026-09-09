@@ -8,8 +8,8 @@ import { openRankingStore } from "./ranking-store.server.ts";
 describe("ranking store", () => {
   it("writes and lists a daily snapshot", () => {
     const dir = mkdtempSync(join(tmpdir(), "kami-rank-"));
+    const store = openRankingStore(dir);
     try {
-      const store = openRankingStore(dir);
       store.put("yande", "daily", "2026-09-08", [
         {
           source: "yande",
@@ -26,6 +26,8 @@ describe("ranking store", () => {
       assert.equal(list[0]?.date, "2026-09-08");
       assert.equal(store.get(list[0]!.id)?.items[0]?.id, "1");
     } finally {
+      // Windows 上 sqlite 句柄不关就删目录会 EPERM。
+      store.close();
       rmSync(dir, { recursive: true, force: true });
     }
   });

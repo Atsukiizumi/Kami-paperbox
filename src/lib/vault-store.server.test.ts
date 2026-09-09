@@ -8,6 +8,9 @@ import { openVaultStore, parseVaultKey, rowToMeta } from "./vault-store.server.t
 test("parseVaultKey rejects traversal", () => {
   assert.deepEqual(parseVaultKey("pixiv:123"), { source: "pixiv", id: "123" });
   assert.equal(parseVaultKey("pixiv:../etc"), null);
+  assert.equal(parseVaultKey("pixiv:.."), null);
+  assert.equal(parseVaultKey("pixiv:."), null);
+  assert.equal(parseVaultKey("pixiv:a.b"), null);
   assert.equal(parseVaultKey("nope:1"), null);
 });
 

@@ -1,7 +1,7 @@
 import { POST as postSessions } from "@/routes/api/sessions";
-import { withRequest } from "@/lib/next-route";
+import { withDataPlane } from "@/lib/next-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const POST = withRequest(postSessions);
+export const POST = withDataPlane(postSessions);

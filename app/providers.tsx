@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { AccountSyncBridge } from "@/components/account-sync-bridge";
 import { ThemeProvider, useResolvedAppearance } from "@/components/theme-provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { LanTokenGate } from "@/components/lan-token-gate";
 import { hydrateBrowseCache, subscribeBrowsePersist } from "@/lib/browse-cache";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -61,6 +62,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <TooltipProvider delayDuration={350} skipDelayDuration={150}>
             <PreviewHostBridge />
+            <LanTokenGate />
             <AccountSyncBridge />
             <AppShell>{children}</AppShell>
             <ThemedToaster />

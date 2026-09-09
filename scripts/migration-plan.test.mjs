@@ -56,9 +56,14 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("the glob is non-recursive and the auth copy never double-applies", () => {
+  // #105 起应用账号开启：auth 顶层本来就有 0001_auth.sql（migrations/auth/
+  // 是给「关账号形态」的副本，readdir 非递归读不到它，按 basename 也不会重复应用）。
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const pending = pendingMigrations(readdirSync(migrationsDir), []);
+  assert.ok(pending.length >= 1);
+  assert.ok(pending.every((m) => !m.path.split(/[\\/]/).includes("auth")));
+  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), pending.map((m) => m.name)), []);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
