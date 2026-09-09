@@ -27,8 +27,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600&family=Noto+Sans+SC:wght@400;500&display=swap"
         />
-        <link rel="manifest" href="/__grok/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/__grok/icon-180.png" />
       </head>
       <body className="bg-bg text-fg">
         <Providers>{children}</Providers>
