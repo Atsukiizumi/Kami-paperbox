@@ -8,6 +8,7 @@
  *        `.data/pglite`，按 user_id 隔离，不混用。
  */
 import { getSessionUser, UnauthorizedError } from "@/lib/auth/verify.server";
+import { parseBackup } from "@/lib/backup";
 import { ensureDbReady, getSql } from "@/lib/db";
 import { scheduleSnapshotDump } from "@/lib/db-snapshot.server";
 import { withRequest } from "@/lib/next-route";
@@ -59,6 +60,12 @@ export const POST = withRequest(async (request: Request) => {
       parsed = JSON.parse(raw) as { exportedAt?: unknown };
     } catch {
       return Response.json({ error: "不是 JSON" }, { status: 400, headers: { "cache-control": "no-store" } });
+    }
+    // SEC-09：载荷必须是一份合法「备份」——挡住任意 JSON 污染 user_sync
+    // （校验通过后仍存原文，GET→applyBackup 的字节与客户端所发一致）。
+    const check = parseBackup(parsed);
+    if (!check.ok) {
+      return Response.json({ error: `同步载荷不合法：${check.error}` }, { status: 400, headers: { "cache-control": "no-store" } });
     }
     const exportedAt = typeof parsed.exportedAt === "number" && Number.isFinite(parsed.exportedAt) ? parsed.exportedAt : Date.now();
     const sql = await getSql();
