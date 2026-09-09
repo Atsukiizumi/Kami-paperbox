@@ -1,15 +1,18 @@
 /**
  * 出站 HTTP。
  *
- * 作用：上游请求走 Node fetch，过不去再降到 curl（代理、部分 TLS）。
+ * 作用：无代理走 Node fetch；有代理走 undici ProxyAgent 持久连接池，过不去降级 curl。
  * 用法：outboundFetch(url, init)，与 fetch 相近；代理来自 getActiveProxy()。
- * 为什么：Pixiv 在某些网络下 Node 直连会卡或被重置，curl 更接近用户本机浏览器。
+ * 为什么：curl 每请求一个新进程 + 新 TLS 握手，配代理实测 Pixiv 单请求 1~6 秒
+ *        且越连越慢；连接池复用后回到几百毫秒。个别网络 undici 隧道建不起来，
+ *        保留 curl 兜底（连续失败熔断 10 分钟，避免每次都付双份超时）。
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 import { getActiveProxy } from "./proxy.server";
 
 export type CurlFormField = {
@@ -176,12 +179,79 @@ function responseFromCurl(res: CurlResult): Response {
   return new Response(new Uint8Array(res.body), { status: res.status || 502, headers });
 }
 
+// ── 代理出站的持久连接池 ─────────────────────────────────────────────────────
+// 为什么：过去配了代理就走「每请求一个 curl 子进程」——新进程 + 新 TCP + 全新 TLS
+// 握手，实测 Pixiv 单请求 1~6 秒且连续请求越来越慢（出口对频繁新建连接不友好）。
+// undici 的 ProxyAgent 复用连接，预热后单请求回到几百毫秒。个别网络 undici 隧道
+// 过不去（当年模板为此用 curl），所以留 curl 兜底：连续 3 次传输失败就熔断 10 分钟。
+const PROXY_POOL_KEEPALIVE = 10 * 60_000;
+const PROXY_POOL_FAIL_LIMIT = 3;
+const proxyPool = globalThis as typeof globalThis & {
+  __kamiProxyAgent?: ProxyAgent;
+  __kamiProxyFails__?: number;
+  __kamiProxyCooldownUntil__?: number;
+};
+
+function getProxyDispatcher(proxy: string) {
+  proxyPool.__kamiProxyAgent ??= new ProxyAgent({
+    uri: proxy,
+    connect: { timeout: 15_000 },
+    // 与 curl --max-time 40 对齐
+    headersTimeout: 45_000,
+    bodyTimeout: 45_000,
+    connections: 16,
+  });
+  return proxyPool.__kamiProxyAgent;
+}
+
+function proxyPoolAvailable(): boolean {
+  return Date.now() >= (proxyPool.__kamiProxyCooldownUntil__ ?? 0);
+}
+
+function noteProxyPoolResult(ok: boolean) {
+  if (ok) {
+    proxyPool.__kamiProxyFails__ = 0;
+    return;
+  }
+  proxyPool.__kamiProxyFails__ = (proxyPool.__kamiProxyFails__ ?? 0) + 1;
+  if (proxyPool.__kamiProxyFails__ >= PROXY_POOL_FAIL_LIMIT) {
+    proxyPool.__kamiProxyCooldownUntil__ = Date.now() + PROXY_POOL_KEEPALIVE;
+    proxyPool.__kamiProxyFails__ = 0;
+    console.warn("[outbound] 连接池连续失败，接下来 10 分钟走 curl");
+  }
+}
+
+async function proxyPoolFetch(url: string, init: RequestInit, proxy: string): Promise<Response> {
+  const res = await undiciFetch(url, {
+    ...init,
+    dispatcher: getProxyDispatcher(proxy),
+  } as Parameters<typeof undiciFetch>[1]);
+  return res as unknown as Response;
+}
+
 export async function outboundFetch(url: string, init: RequestInit = {}): Promise<Response> {
   if (init.signal?.aborted) {
     throw new DOMException("This operation was aborted", "AbortError");
   }
-  if (!getActiveProxy()) {
+  const proxy = getActiveProxy();
+  if (!proxy) {
     return fetch(url, init);
+  }
+  if (proxyPoolAvailable()) {
+    try {
+      const res = await proxyPoolFetch(url, init, proxy);
+      noteProxyPoolResult(true);
+      return res;
+    } catch (err) {
+      if (init.signal?.aborted) throw err;
+      noteProxyPoolResult(false);
+      if (typeof console !== "undefined") {
+        console.warn(
+          "[outbound] 连接池请求失败，本次降级 curl：",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
   }
   const headers = headersOf(init);
   const body = init.body;
