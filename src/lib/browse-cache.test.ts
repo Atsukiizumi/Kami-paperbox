@@ -133,3 +133,48 @@ test("hydrateBrowseCache paints localStorage before any fetch", () => {
     }
   }
 });
+
+test("hydrateBrowseCache skips stale queries that have no observer", async () => {
+  const mem = new Map<string, string>();
+  const previous = globalThis.localStorage;
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => mem.set(k, String(v)),
+      removeItem: (k: string) => mem.delete(k),
+    },
+  });
+  try {
+    const key = ["home-pixiv", "daily", "", {}, true, false, "", "2026-09-09"];
+    mem.set(
+      "kami-browse-v1",
+      JSON.stringify({
+        queries: [
+          {
+            queryHash: JSON.stringify(key),
+            queryKey: key,
+            state: {
+              data: { pages: [{ op: "pixivRanking", items: [], nextPage: null }], pageParams: [1] },
+              dataUpdatedAt: Date.now() - 2 * 60 * 60 * 1000,
+              status: "success",
+            },
+          },
+        ],
+      }),
+    );
+    const client = new QueryClient();
+    hydrateBrowseCache(client);
+    await new Promise((r) => setTimeout(r, 50));
+    // 没挂观察者的键没有 queryFn；刷新循环要是 fetch 它，状态会变成 error（Missing queryFn）
+    const state = client.getQueryState(key);
+    assert.equal(state?.status, "success");
+    assert.equal(state?.fetchStatus, "idle");
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(globalThis, "localStorage");
+    } else {
+      Object.defineProperty(globalThis, "localStorage", { configurable: true, value: previous });
+    }
+  }
+});

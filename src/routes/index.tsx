@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
+import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { PaperMark } from "@/components/paper-mark";
 import { SavedTagBar } from "@/components/saved-tags";
 import { SearchSuggest } from "@/components/search-suggest";
@@ -351,6 +352,17 @@ export function Home() {
     if (!activeQuery.hasNextPage || activeQuery.isFetchingNextPage) return;
     void activeQuery.fetchNextPage();
   }, [listPage, pooled.length, activeQuery.hasNextPage, activeQuery.isFetchingNextPage, tab]);
+
+  // 回到浏览页时先画 localStorage 里的旧列表，超过 BROWSE_STALE_MS 再后台补刷一次。
+  // 没有这段的话，hydrate 时无观察者的旧键既不能后台刷（会炸 Missing queryFn），
+  // 挂载后也不会自己刷新（refetchOnMount 关着），列表会一直停在昨天的样子。
+  useEffect(() => {
+    if (!settingsReady) return;
+    if (!activeQuery.data || activeQuery.dataUpdatedAt === 0) return;
+    if (activeQuery.isFetching || activeQuery.isFetchingNextPage) return;
+    if (Date.now() - activeQuery.dataUpdatedAt <= BROWSE_STALE_MS) return;
+    void activeQuery.refetch().catch(() => undefined);
+  }, [settingsReady, activeQuery.dataUpdatedAt, activeQuery.isFetching, activeQuery.isFetchingNextPage]);
 
   useEffect(() => {
     if (!refreshing) return;

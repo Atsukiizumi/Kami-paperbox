@@ -108,6 +108,10 @@ export function hydrateBrowseCache(client: QueryClient) {
     const now = Date.now();
     for (const query of client.getQueryCache().getAll()) {
       if (!persistableQuery(query) || query.state.status !== "success") continue;
+      // 只有挂了观察者（浏览页在屏上）的键才有 queryFn；hydrate 进来的其它键直接
+      // fetch 会炸 "Missing queryFn"，未处理拒绝还会弹 Next 开发红屏。没挂载的
+      // 键留给浏览页挂载时按 dataUpdatedAt 自己补刷。
+      if (!query.options.queryFn) continue;
       if (now - query.state.dataUpdatedAt > BROWSE_STALE_MS) void query.fetch();
     }
   };
