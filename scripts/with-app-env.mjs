@@ -57,8 +57,11 @@ export function parseAppEnv(text) {
  * @param {string} root
  */
 export function readAppEnv(root) {
+  // KAMI_APP_ENV（绝对路径）可覆盖读取位置——测试用临时工作区自包含地驱动
+  // wrapper，不依赖本机 .grok（gitignore，CI 上不存在）。
+  const file = process.env.KAMI_APP_ENV || join(root, APP_ENV_REL_PATH);
   try {
-    return parseAppEnv(readFileSync(join(root, APP_ENV_REL_PATH), "utf8"));
+    return parseAppEnv(readFileSync(file, "utf8"));
   } catch {
     return {};
   }

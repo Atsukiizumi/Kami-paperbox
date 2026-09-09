@@ -68,11 +68,6 @@ test("an explicit process-env override wins over the file", () => {
   assert.equal(merged.PATH, "/usr/bin");
 });
 
-test("the shipped app-env turns accounts on", () => {
-  // #105 起本仓库有意开启应用账号（原模板默认 false）。
-  assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "true" });
-});
-
 test("wrapper merge lands VITE_ flags before Next starts", () => {
   const root = makeWorkspace('{"VITE_AUTH_ENABLED":"false"}');
   const merged = mergeAppEnv(readAppEnv(root), process.env);
@@ -80,12 +75,11 @@ test("wrapper merge lands VITE_ flags before Next starts", () => {
 });
 
 test("the wrapped command runs with the app env applied", async () => {
-  const { stdout } = await execFileAsync(process.execPath, [
-    WRAPPER,
-    process.execPath,
-    "-e",
-    PRINT_FLAG,
-  ]);
+  // KAMI_APP_ENV 指向临时文件：不依赖本机 .grok（gitignore，CI 上没有）
+  const envFile = join(makeWorkspace('{"VITE_AUTH_ENABLED":"true"}'), APP_ENV_REL_PATH);
+  const { stdout } = await execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", PRINT_FLAG], {
+    env: { ...process.env, KAMI_APP_ENV: envFile },
+  });
   assert.equal(stdout, "true");
 });
 
@@ -134,12 +128,12 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
     if (process.platform !== "win32" || e.code !== "EPERM") throw err;
     symlinkSync(join(projectRoot(), "scripts"), link, "junction");
   }
-  const { stdout } = await execFileAsync(process.execPath, [
-    join(link, "with-app-env.mjs"),
+  const envFile = join(makeWorkspace('{"VITE_AUTH_ENABLED":"true"}'), APP_ENV_REL_PATH);
+  const { stdout } = await execFileAsync(
     process.execPath,
-    "-e",
-    PRINT_FLAG,
-  ]);
+    [join(link, "with-app-env.mjs"), process.execPath, "-e", PRINT_FLAG],
+    { env: { ...process.env, KAMI_APP_ENV: envFile } },
+  );
   assert.equal(stdout, "true");
 });
 
