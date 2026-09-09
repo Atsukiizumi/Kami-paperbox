@@ -11,7 +11,7 @@
  *   - 原图是普通 jpg/png/gif 文件，不把像素塞进 SQLite。
  *   - Vercel 不能写磁盘：mkdir 失败就当不可用，浏览器回退 IndexedDB。
  */
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { resolveKamiRoot } from "./proxy.server.ts";
@@ -180,6 +180,23 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
     deletePages.run(key);
   }
 
+  /** 清掉崩溃残留的半成品暂存（put 开始时自愈，无需启动钩子）。 */
+  function sweepStaged(dest: string) {
+    try {
+      for (const name of readdirSync(dest)) {
+        if (name.startsWith(".") && name.endsWith(".tmp")) {
+          try {
+            rmSync(join(dest, name), { force: true });
+          } catch {
+            /* 单个清不掉不阻塞 */
+          }
+        }
+      }
+    } catch {
+      /* 目录不存在 */
+    }
+  }
+
   const store: VaultStore = {
     dir,
     put(meta, pages) {
@@ -187,31 +204,67 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       if (!parsed) throw new Error("无效的作品编号");
       const key = `${parsed.source}:${parsed.id}`;
       const at = meta.savedAt || Date.now();
-      dropFiles(key);
       const dest = workDir(parsed.source, parsed.id);
       mkdirSync(dest, { recursive: true });
+      sweepStaged(dest);
+
+      // TD-08：先全部写同目录暂存（rename 原子替换，跨次不会见半文件）；
+      // 任一失败即清理退出——旧文件、旧行原样保留，不出现「删旧后写新到一半」。
+      const staged: { tmp: string; rel: string }[] = [];
+      try {
+        pages.forEach((page, i) => {
+          const ext = (page.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
+          const rel = `files/${safeSeg(parsed.source)}/${safeSeg(parsed.id)}/${i}.${ext}`;
+          const abs = join(dir, ...rel.split("/"));
+          const tmp = join(dest, `.${i}.${ext}.tmp`);
+          writeFileSync(tmp, page.bytes);
+          staged.push({ tmp, rel });
+        });
+      } catch (err) {
+        for (const s of staged) {
+          try {
+            rmSync(s.tmp, { force: true });
+          } catch {
+            /* 清不掉的留给 sweepStaged */
+          }
+        }
+        throw err;
+      }
+
+      dropFiles(key);
       let bytes = 0;
-      pages.forEach((page, i) => {
-        const ext = (page.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
-        const rel = `files/${safeSeg(parsed.source)}/${safeSeg(parsed.id)}/${i}.${ext}`;
-        writeFileSync(join(dir, ...rel.split("/")), page.bytes);
-        bytes += page.bytes.byteLength;
-        insertPage.run(key, i, ext, page.mime || "application/octet-stream", page.bytes.byteLength, rel);
+      staged.forEach((s, i) => {
+        renameSync(s.tmp, join(dir, ...s.rel.split("/")));
+        bytes += pages[i]!.bytes.byteLength;
       });
-      upsertWork.run(
-        key,
-        parsed.source,
-        parsed.id,
-        meta.title || "无题",
-        meta.author || "",
-        meta.authorId || "",
-        tagsJson(meta.tags || []),
-        pages.length,
-        at,
-        bytes,
-        meta.relativePath ?? null,
-        meta.folderLabel ?? null,
-      );
+
+      // 页行 + 目录行同一事务：要么整份可见，要么整份回滚。
+      try {
+        db.exec("BEGIN IMMEDIATE");
+        deletePages.run(key);
+        staged.forEach((s, i) => {
+          const ext = (pages[i]!.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
+          insertPage.run(key, i, ext, pages[i]!.mime || "application/octet-stream", pages[i]!.bytes.byteLength, s.rel);
+        });
+        upsertWork.run(
+          key,
+          parsed.source,
+          parsed.id,
+          meta.title || "无题",
+          meta.author || "",
+          meta.authorId || "",
+          tagsJson(meta.tags || []),
+          pages.length,
+          at,
+          bytes,
+          meta.relativePath ?? null,
+          meta.folderLabel ?? null,
+        );
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
       return store.get(key) as VaultMeta;
     },
     putMeta(meta) {
