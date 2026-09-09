@@ -35,9 +35,6 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# 锁文件（本地 pnpm i 会再生成）
-pnpm-lock.yaml
-
 # 沙箱 / 预览（不属于发布仓库）
 .grok/
 AGENTS.md

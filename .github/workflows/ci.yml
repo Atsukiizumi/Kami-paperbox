@@ -1,6 +1,7 @@
-# node 版本对齐 Dockerfile（node:22）；锁文件用已提交的 package-lock.json
-# （pnpm-lock 的去留见 docs/14 TD-06）。build 不需要 DATABASE_URL ——
-# migrate.mjs 无连接时自动跳过（PGLite 启动时自迁移）。
+# node 版本对齐 Dockerfile（node:22）；包管理统一 pnpm（TD-06）——
+# pnpm/action-setup 按 package.json 的 packageManager 字段选版本，锁文件
+# 只有 pnpm-lock.yaml。build 不需要 DATABASE_URL —— migrate.mjs 无连接时
+# 自动跳过（PGLite 启动时自迁移）。
 
 name: CI
 
@@ -18,12 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run lint
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - run: pnpm run lint
+      - run: pnpm run build
