@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 浏览页 Pixiv 榜单的日期选择框从搜索行挪到榜单行最右、紧挨刷新按钮，与 Yande 等图站的工具栏布局一致；顺带去掉旁边重复的日期文本。
+
+### 文档
+
+- README 精简到只讲本机启用与 Docker 用法。
+
 ## [0.8.60] — 2026-09-10
 
 对应 [PR #107](https://github.com/Atsukiizumi/Kami-paperbox/pull/107)、[PR #108](https://github.com/Atsukiizumi/Kami-paperbox/pull/108)、[PR #109](https://github.com/Atsukiizumi/Kami-paperbox/pull/109)。
