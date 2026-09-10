@@ -8,6 +8,7 @@
  *        失败会重试几次：并发一高代理会 204/429，一次 onError 不该把格子留空。
  */
 import { useEffect, useRef, useState } from "react";
+import { acquireMediaLane } from "@/lib/media-lane";
 import { isGifUrl } from "@/lib/thumb-url";
 import { cn, mediaUrl } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ export function warmMedia(src: string | undefined) {
   if (isGifUrl(src)) return;
   const key = thumbKey(src);
   if (warmThumbs.has(key)) return;
+  const release = acquireMediaLane(false);
   const img = new Image();
   img.decoding = "async";
   try {
@@ -35,7 +37,12 @@ export function warmMedia(src: string | undefined) {
   } catch {
     /* Safari 旧版 */
   }
-  img.addEventListener("load", () => warmThumbs.add(key), { once: true });
+  const done = () => release();
+  img.addEventListener("load", () => {
+    warmThumbs.add(key);
+    done();
+  }, { once: true });
+  img.addEventListener("error", done, { once: true });
   img.src = mediaUrl(src);
 }
 
@@ -71,7 +78,15 @@ export function ProxiedImg({
   const cached = Boolean(src && !gif && warmThumbs.has(thumbKey(src)));
   const [loaded, setLoaded] = useState(cached);
   const [active, setActive] = useState(priority || cached);
+  const [laneOpen, setLaneOpen] = useState(false);
+  const releaseLaneRef = useRef<(() => void) | null>(null);
   const cover = fit === "cover";
+
+  function releaseLane() {
+    releaseLaneRef.current?.();
+    releaseLaneRef.current = null;
+    setLaneOpen(false);
+  }
 
   useEffect(() => {
     const hit = Boolean(src && warmThumbs.has(thumbKey(src)));
@@ -121,6 +136,19 @@ export function ProxiedImg({
     };
   }, [src, priority, active]);
 
+  // 进入预热带后先占一条媒体车道（全局并发闸），拿到才挂 <img>；
+  // load / error / 重试 / 卸载都会释放，连接让给后面的图和导航请求。
+  useEffect(() => {
+    if (!active || loaded) return;
+    const release = acquireMediaLane(priority);
+    releaseLaneRef.current = release;
+    setLaneOpen(true);
+    return () => {
+      release();
+      releaseLaneRef.current = null;
+    };
+  }, [active, priority, tryNo, loaded]);
+
   if (!src || failed) {
     return (
       <div
@@ -148,7 +176,7 @@ export function ProxiedImg({
           aria-hidden
         />
       )}
-      {active ? (
+      {active && (laneOpen || loaded) ? (
         <img
           key={tryNo}
           src={mediaUrl(src)}
@@ -167,9 +195,11 @@ export function ProxiedImg({
           onLoad={() => {
             warmThumbs.add(thumbKey(src));
             setLoaded(true);
+            releaseLane();
             if (warmSrc) warmMedia(warmSrc);
           }}
           onError={() => {
+            releaseLane();
             if (tryNo + 1 >= MAX_TRIES) {
               setFailed(true);
               return;

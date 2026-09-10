@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { credentialTag } from "@/lib/cred-tag";
+import { fetchWorkDetail, workDetailQueryKey } from "@/lib/work-detail";
 import { Link, useNavigate, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
@@ -61,28 +62,8 @@ export function WorkPage() {
   }, [src, pixivCookie]);
 
   const query = useQuery({
-    queryKey: ["work", src, id, safeMode, credentialTag(pixivCookie), credentialTag(fanboxCookie)],
-    queryFn: async () => {
-      if (src === "pixiv") {
-        const r = await fetchSource({
-          data: { op: "pixivIllust", id, ...cookiesFromSettings() },
-        });
-        if (r.op !== "pixivIllust") throw new Error("返回异常");
-        return r.work;
-      }
-      if (src === "fanbox") {
-        const r = await fetchSource({
-          data: { op: "fanboxPost", id, ...cookiesFromSettings() },
-        });
-        if (r.op !== "fanboxPost") throw new Error("返回异常");
-        return r.work;
-      }
-      const r = await fetchSource({
-        data: { op: "booruPost", site: src, id, ...cookiesFromSettings() },
-      });
-      if (r.op !== "booruPost") throw new Error("返回异常");
-      return r.work;
-    },
+    queryKey: workDetailQueryKey(src, id),
+    queryFn: () => fetchWorkDetail(src, id),
   });
 
   const relatedQuery = useQuery({
@@ -164,10 +145,11 @@ export function WorkPage() {
     }
   }
 
-  const workKey = ["work", src, id, safeMode, pixivCookie, fanboxCookie] as const;
-
   function patchWork(partial: Partial<WorkDetail>) {
-    queryClient.setQueryData<WorkDetail>(workKey, (old) => (old ? { ...old, ...partial } : old));
+    // 键必须和 useQuery 的完全一致（带 safeMode 和凭据指纹），否则乐观更新
+    // 写进一条永远没人读的缓存。
+    const key = workDetailQueryKey(src, id);
+    queryClient.setQueryData<WorkDetail>(key, (old) => (old ? { ...old, ...partial } : old));
     patchCachedWork(queryClient, src, id, partial);
   }
 
