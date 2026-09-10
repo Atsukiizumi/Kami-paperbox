@@ -17,8 +17,11 @@ import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { getActiveRequest, readRequestCookie } from "../request-context.ts";
 import { randomBytes } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
 import { emailAndPasswordEnabled } from "./email-password.ts";
 import { pgliteDialect } from "./pglite-dialect.ts";
 
@@ -29,9 +32,35 @@ void ensureDbReady();
 const globalAuthRef = globalThis as typeof globalThis & {
   __kamiAuthSecret__?: string;
 };
+
+// 会话 cookie 是 `token.签名`（HMAC 用 secret）——secret 每次重启随机换的话，
+// 快照恢复的会话行还在、浏览器 cookie 却验不过签，重启即全员掉登录。
+// 所以本地形态把 secret 落在 .data/auth-secret.json，和会话快照同生共死。
+// 读不了 / 写不进（只读文件系统）才退回随机值，保持可启动。
 function processStableSecret(): string {
-  globalAuthRef.__kamiAuthSecret__ ??= randomBytes(32).toString("hex");
+  globalAuthRef.__kamiAuthSecret__ ??= loadOrCreateSecretFile();
   return globalAuthRef.__kamiAuthSecret__;
+}
+
+function loadOrCreateSecretFile(): string {
+  const path = join(resolveKamiRoot(), ".data", "auth-secret.json");
+  try {
+    const saved = JSON.parse(readFileSync(path, "utf8")) as { secret?: unknown };
+    if (typeof saved.secret === "string" && /^[0-9a-f]{64}$/.test(saved.secret)) {
+      return saved.secret;
+    }
+  } catch {
+    /* 没有或坏文件：下面生成一份新的 */
+  }
+  const secret = randomBytes(32).toString("hex");
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(`${path}.tmp`, `${JSON.stringify({ secret }, null, 2)}\n`, "utf8");
+    renameSync(`${path}.tmp`, path);
+  } catch (err) {
+    console.warn("[auth] secret 落盘失败（重启会掉登录）：", err instanceof Error ? err.message : err);
+  }
+  return secret;
 }
 
 /** Read an env var, treating empty/whitespace as unset. */

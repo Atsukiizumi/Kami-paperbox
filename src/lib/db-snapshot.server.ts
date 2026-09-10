@@ -9,8 +9,8 @@
  *        （electric-sql/pglite#327），Windows 关终端就是强杀。快照是普通 JSON 文件，
  *        永远能读；会话表也带上，重启后浏览器 Cookie 仍然有效，不用重新登录。
  */
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { getSql, type Sql } from "./db.ts";
 
@@ -92,6 +92,7 @@ async function dumpNow() {
     const text = JSON.stringify(snap);
     if (text === globalRef.__kamiSnapshotLast__) return;
     const path = snapshotPath();
+    mkdirSync(dirname(path), { recursive: true });
     writeFileSync(`${path}.tmp`, text, "utf8");
     renameSync(`${path}.tmp`, path);
     globalRef.__kamiSnapshotLast__ = text;

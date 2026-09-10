@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SessionRelayDialog } from "@/components/session-relay";
+import { AppAccountSignInForm } from "@/components/app-account-signin";
 import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
 import {
   fanboxSessionFrom,
@@ -18,9 +19,9 @@ import {
   type LoginSite,
 } from "@/lib/browser-login";
 import { SiteAvatar } from "@/components/site-avatar";
-import { authClient, signOut } from "@/lib/auth/client";
+import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { ensureSyncKek, pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/account-sync";
+import { pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/account-sync";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { BackupSection } from "@/components/backup-settings";
@@ -228,8 +229,6 @@ function ProxySection() {
 function AppAccountSection() {
   const { user, isPending } = useCurrentUserState();
   const signedIn = Boolean(user && !user.isDevFallback);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lastSync, setLastSync] = useState<number | null>(null);
@@ -237,32 +236,6 @@ function AppAccountSection() {
   useEffect(() => {
     setLastSync(Math.max(0, ...Object.values(readSyncMarkers()?.marks ?? { _: 0 })) || null);
   }, [user?.id]);
-
-  async function submit(mode: "in" | "up") {
-    setError("");
-    if (!email.trim() || !password) {
-      setError("邮箱和密码都要填");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res =
-        mode === "up"
-          ? await authClient.signUp.email({ email: email.trim(), password, name: email.trim().split("@")[0] })
-          : await authClient.signIn.email({ email: email.trim(), password });
-      if (res.error) {
-        setError(res.error.message || (mode === "up" ? "注册失败" : "登录失败"));
-        return;
-      }
-      // 密码在手的一瞬派生同步密钥（KEK，sessionStorage）——设置段的凭据
-      // 加密推送/拉取都靠它；失败不拦登录，只是设置段暂以省略凭据形态同步
-      await ensureSyncKek(password).catch(() => false);
-      setPassword("");
-      toast.success(mode === "up" ? "已注册并登录" : "已登录");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function sync(direction: "push" | "pull") {
     if (!user) return;
@@ -324,8 +297,6 @@ function AppAccountSection() {
                 variant="ghost"
                 disabled={busy}
                 onClick={() => {
-                  setEmail("");
-                  setPassword("");
                   void signOut().catch(() => undefined);
                 }}
               >
@@ -334,45 +305,7 @@ function AppAccountSection() {
             </div>
           </>
         ) : (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="app-account-email">邮箱</Label>
-                <Input
-                  id="app-account-email"
-                  type="email"
-                  autoComplete="username"
-                  spellCheck={false}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="app-account-password">密码</Label>
-                <Input
-                  id="app-account-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="至少 8 位"
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" disabled={busy} onClick={() => void submit("in")}>
-                <LogIn className="size-3.5" />
-                登录
-              </Button>
-              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void submit("up")}>
-                注册
-              </Button>
-            </div>
-            <p className="text-xs text-subtle">
-              首次使用先注册一个。忘记密码没有找回通道——账号只存本机，忘了就重新注册再「从服务端恢复」绑定新账号。
-            </p>
-          </>
+          <AppAccountSignInForm />
         )}
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
       </CardContent>
