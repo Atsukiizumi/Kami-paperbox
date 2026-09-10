@@ -67,9 +67,22 @@ async function processOne(key: string) {
   if (!item) return;
   useQueue.getState().patch(key, { status: "running", progress: 0, error: undefined });
   try {
+    // PER-2：进度节流——每页一回调 × 全列表订阅，百页作品会刷爆渲染与
+    // localStorage 持久化。合并到 200ms 一拍，终值在成功 patch 前落定。
+    let lastAt = 0;
+    let lastDone = -1;
+    let lastTotal = -1;
     await saveWorkNow(item, {
       download: item.kind !== "vault",
-      onProgress: (done, total) => useQueue.getState().patch(key, { progress: done, total }),
+      onProgress: (done, total) => {
+        if (done === lastDone && total === lastTotal) return;
+        lastDone = done;
+        lastTotal = total;
+        const now = Date.now();
+        if (now - lastAt < 200) return;
+        lastAt = now;
+        useQueue.getState().patch(key, { progress: done, total });
+      },
     });
     useQueue.getState().patch(key, { status: "done", progress: 1, total: 1 });
   } catch (err) {

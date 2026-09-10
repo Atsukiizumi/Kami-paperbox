@@ -94,8 +94,10 @@ test("hydrateBrowseCache paints localStorage before any fetch", () => {
     },
   });
   try {
+    // 顺手放一份 v1 残留：hydrate 后应被清除（SEC-04 弃用带 Cookie 原文的旧存储）
+    mem.set("kami-browse-v1", JSON.stringify({ queries: [] }));
     mem.set(
-      "kami-browse-v1",
+      "kami-browse-v2",
       JSON.stringify({
         queries: [
           {
@@ -125,6 +127,7 @@ test("hydrateBrowseCache paints localStorage before any fetch", () => {
     const rec = client.getQueryData(["home-pixiv", "recommend"]) as { pages: { op: string }[] };
     assert.equal(fanbox.pages[0]?.op, "fanboxHome");
     assert.equal(rec.pages[0]?.op, "pixivRecommend");
+    assert.equal(mem.has("kami-browse-v1"), false, "旧 v1 存储应被删除");
   } finally {
     if (previous === undefined) {
       Reflect.deleteProperty(globalThis, "localStorage");
@@ -148,7 +151,7 @@ test("hydrateBrowseCache skips stale queries that have no observer", async () =>
   try {
     const key = ["home-pixiv", "daily", "", {}, true, false, "", "2026-09-09"];
     mem.set(
-      "kami-browse-v1",
+      "kami-browse-v2",
       JSON.stringify({
         queries: [
           {

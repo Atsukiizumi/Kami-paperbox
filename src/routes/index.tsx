@@ -27,6 +27,7 @@ import {
   type PixivFeed,
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
+import { credentialTag } from "@/lib/cred-tag";
 import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
@@ -126,7 +127,7 @@ export function Home() {
   }
 
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie, boardDate],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, credentialTag(pixivCookie), boardDate],
     enabled: settingsReady && tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -164,7 +165,7 @@ export function Home() {
   });
 
   const fanboxQuery = useInfiniteQuery({
-    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, fanboxCookie],
+    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, credentialTag(fanboxCookie)],
     enabled: settingsReady && tab === "fanbox",
     initialPageParam: (searchWord ? 1 : undefined) as number | FanboxCursor | undefined,
     queryFn: async ({ pageParam }) => {

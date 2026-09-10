@@ -25,6 +25,13 @@ import {
 } from "./view-history.ts";
 
 export const BACKUP_FORMAT = "kami-paperbox-backup-v1";
+/**
+ * v2（SEC-03）：与 v1 同构，但可把「设置 + 代理地址」整段换成 settingsCipher
+ * （PBKDF2+AES-GCM 容器，见 crypto-box.ts）——密文覆盖凭据与代理密码两个
+ * 敏感段；vault / 词表 / 历史是目录性数据，保持明文便于检查内容。
+ * v1 文件永远可直接导入。
+ */
+export const BACKUP_FORMAT_V2 = "kami-paperbox-backup-v2";
 
 export type BackupSettings = {
   pixivCookie: string;
@@ -237,7 +244,7 @@ export function parseVaultRecords(raw: unknown): VaultMeta[] {
   return out.sort((a, b) => b.savedAt - a.savedAt);
 }
 
-function parseCatalog(raw: unknown): TagCatalogEntry[] {
+export function parseCatalog(raw: unknown): TagCatalogEntry[] {
   if (!Array.isArray(raw)) return [];
   const out: TagCatalogEntry[] = [];
   const seen = new Set<string>();
@@ -283,10 +290,26 @@ export function buildBackup(input: BackupInput): BackupFile {
   };
 }
 
-export function parseBackup(raw: unknown): ParseBackupResult {
+/**
+ * v2 加密形态的密文载荷（settings + proxyUrl 打包）。
+ * open 可以为空：此时读到加密文件返回明确错误，由调用方收集口令后重试。
+ */
+export type ParseBackupOptions = {
+  open?: (cipher: import("./crypto-box.ts").CipherBox) => Promise<{ settings: unknown; proxyUrl?: unknown }>;
+};
+
+export function parseBackup(raw: unknown, opts: ParseBackupOptions = {}): ParseBackupResult {
   const rec = asRecord(raw);
   if (!rec) return { ok: false, error: "不是纸匣备份文件" };
-  if (rec.format !== BACKUP_FORMAT) return { ok: false, error: "不是纸匣备份，或版本不对" };
+  const v1 = rec.format === BACKUP_FORMAT;
+  const v2 = rec.format === BACKUP_FORMAT_V2;
+  if (!v1 && !v2) return { ok: false, error: "不是纸匣备份，或版本不对" };
+  const cipher = asRecord(rec.settingsCipher);
+  if (v2 && cipher && typeof cipher.ct === "string") {
+    if (!opts.open) return { ok: false, error: "这份备份用口令加密了，请填口令后重试" };
+    // 异步解密由 parseBackupFile 承担；同步路径（如服务端校验）只认形态
+    return { ok: false, error: "这份备份用口令加密了，请填口令后重试" };
+  }
   try {
     const backup = buildBackup({
       settings: parseBackupSettings(rec.settings),
@@ -302,6 +325,32 @@ export function parseBackup(raw: unknown): ParseBackupResult {
   } catch {
     return { ok: false, error: "备份文件读不出来" };
   }
+}
+
+/** 同步解析（含 v2 加密形态）：需要口令时用 opts.open 解开 settings 段。 */
+export async function parseBackupFile(
+  raw: unknown,
+  opts: ParseBackupOptions = {},
+): Promise<ParseBackupResult> {
+  const rec = asRecord(raw);
+  const cipher = rec ? asRecord(rec.settingsCipher) : null;
+  if (rec && cipher && typeof cipher.ct === "string") {
+    if (!opts.open) return { ok: false, error: "这份备份用口令加密了，请填口令后重试" };
+    let opened: { settings: unknown; proxyUrl?: unknown };
+    try {
+      opened = await opts.open(cipher as import("./crypto-box.ts").CipherBox);
+    } catch {
+      return { ok: false, error: "口令不对" };
+    }
+    const { settingsCipher: _drop, ...rest } = rec;
+    return parseBackup({
+      ...rest,
+      format: BACKUP_FORMAT_V2,
+      settings: opened.settings,
+      proxyUrl: typeof opened.proxyUrl === "string" ? opened.proxyUrl : "",
+    });
+  }
+  return parseBackup(raw);
 }
 
 export function mergeVaultRecords(current: VaultMeta[], incoming: VaultMeta[]): VaultMeta[] {

@@ -12,6 +12,7 @@
 import { createAuthClient } from "better-auth/react";
 import { runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { publicEnv } from "../public-env.ts";
+import { clearSyncKek } from "../account-sync.ts";
 
 export const authClient = createAuthClient();
 
@@ -30,6 +31,7 @@ export const authEnabled = publicEnv("VITE_AUTH_ENABLED") !== "false";
  * visitor retry.
  */
 export async function signOut(redirectTo = "/"): Promise<void> {
+  clearSyncKek();
   await runSignOut({
     // Better Auth resolves with `{ error }` instead of rejecting, so surface a
     // failed response as a rejection for the sequence to act on.

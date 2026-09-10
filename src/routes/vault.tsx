@@ -7,7 +7,8 @@
 "use client";
 
 import { Link } from "@/lib/kami-link";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
 import { EmptySheet } from "@/components/empty-sheet";
@@ -49,7 +50,10 @@ export function VaultPage() {
   const [author, setAuthor] = useState("");
   const [ready, setReady] = useState(false);
 
+  const refreshToken = useRef(0);
+
   async function refresh() {
+    const token = ++refreshToken.current;
     let local: VaultMeta[] = [];
     try {
       local = await listVault();
@@ -72,6 +76,7 @@ export function VaultPage() {
   }
 
   useEffect(() => {
+    // TD-16：请求令牌防竞态——快速操作（删除/导出后刷新）时，旧响应不得覆盖新状态
     void refresh();
   }, []);
 
@@ -84,6 +89,12 @@ export function VaultPage() {
     return vaultAuthors(pool).filter((name) => name.trim() !== "");
   }, [all, source]);
   const totals = vaultTotals(items);
+  // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
+  const [visibleCount, setVisibleCount] = useState(60);
+  const visible = items.slice(0, visibleCount);
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [text, source, author]);
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
@@ -181,7 +192,7 @@ export function VaultPage() {
         <EmptySheet title="没有符合条件的记录。" hint="换个站点或作者再看。" />
       ) : (
         <MasonryBoard>
-          {items.map((item, i) => (
+          {visible.map((item, i) => (
             <VaultCard
               key={item.key}
               item={item}
@@ -198,6 +209,10 @@ export function VaultPage() {
               }}
             />
           ))}
+          <InfiniteSentinel
+            disabled={visible.length >= items.length}
+            onVisible={() => setVisibleCount((n) => Math.min(n + 40, items.length))}
+          />
         </MasonryBoard>
       )}
     </div>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BACKUP_FORMAT, buildBackup, mergeVaultRecords, parseBackup } from "./backup.ts";
+import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile } from "./backup.ts";
+import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 
 const FAKE_SESSION = "11111111_testhashvalue";
 
@@ -149,4 +150,41 @@ test("mergeVaultRecords lets incoming records overwrite the same key", () => {
   assert.equal(merged.length, 2);
   assert.equal(merged.find((row) => row.key === "pixiv:99")?.title, "updated");
   assert.equal(merged.find((row) => row.key === "yande:1")?.id, "1");
+});
+
+// ── v2 加密格式（SEC-03）────────────────────────────────────────────────────
+
+test("v2：加密文件无口令报明确错误，带 opener 解开与明文等价", async () => {
+  const salt = randomSaltB64();
+  const key = await deriveBoxKey("pw", salt);
+  const plain = buildBackup({ settings: { ...sampleSettings(), pixivCookie: "PHPSESSID=secret" }, vault: [], now: 123 });
+  const cipher = await sealJson(key, { settings: plain.settings, proxyUrl: plain.proxyUrl }, salt);
+  const file = { ...plain, format: BACKUP_FORMAT_V2, settings: undefined, proxyUrl: undefined, settingsCipher: cipher };
+
+  const noPass = parseBackup(file);
+  assert.equal(noPass.ok, false);
+  assert.match(noPass.error, /口令/);
+
+  const withPass = await parseBackupFile(file, {
+    open: async (box: CipherBox) => openJson<{ settings: unknown }>(await deriveBoxKey("pw", box.salt, box.iter), box),
+  });
+  assert.equal(withPass.ok, true);
+  // 凭据字段会经多账号提升/清洗改写，断言不参与清洗的普通字段证明「整段往返」无损
+  if (withPass.ok) {
+    assert.equal(withPass.backup.settings.folderLabel, plain.settings.folderLabel);
+    assert.equal(withPass.backup.settings.pathTemplate, plain.settings.pathTemplate);
+    assert.equal(typeof withPass.backup.settings.pixivCookie, "string");
+  }
+
+  const wrongPass = await parseBackupFile(file, {
+    open: async (box: CipherBox) => openJson(await deriveBoxKey("bad", box.salt, box.iter), box),
+  });
+  assert.equal(wrongPass.ok, false);
+  assert.match(String(wrongPass.error), /口令不对|失败/);
+});
+
+test("v1 明文文件不受 v2 影响", () => {
+  const v1 = buildBackup({ settings: sampleSettings(), vault: [], now: 5 });
+  const parsed = parseBackup(JSON.parse(JSON.stringify(v1)));
+  assert.equal(parsed.ok, true);
 });

@@ -20,7 +20,7 @@ import {
 import { SiteAvatar } from "@/components/site-avatar";
 import { authClient, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { pullAccountSync, pushAccountSync, readSyncMarker } from "@/lib/account-sync";
+import { ensureSyncKek, pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/account-sync";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { BackupSection } from "@/components/backup-settings";
@@ -235,7 +235,7 @@ function AppAccountSection() {
   const [lastSync, setLastSync] = useState<number | null>(null);
 
   useEffect(() => {
-    setLastSync(readSyncMarker()?.syncedAt ?? null);
+    setLastSync(Math.max(0, ...Object.values(readSyncMarkers()?.marks ?? { _: 0 })) || null);
   }, [user?.id]);
 
   async function submit(mode: "in" | "up") {
@@ -254,6 +254,9 @@ function AppAccountSection() {
         setError(res.error.message || (mode === "up" ? "注册失败" : "登录失败"));
         return;
       }
+      // 密码在手的一瞬派生同步密钥（KEK，sessionStorage）——设置段的凭据
+      // 加密推送/拉取都靠它；失败不拦登录，只是设置段暂以省略凭据形态同步
+      await ensureSyncKek(password).catch(() => false);
       setPassword("");
       toast.success(mode === "up" ? "已注册并登录" : "已登录");
     } finally {
@@ -267,13 +270,16 @@ function AppAccountSection() {
     setError("");
     try {
       if (direction === "push") {
-        await pushAccountSync(user.id);
-        toast.success("已同步到本机服务端");
+        const pushed: string[] = [];
+        for (const segment of SYNC_SEGMENTS) {
+          if (await pushAccountSyncSegment(user.id, segment)) pushed.push(segment);
+        }
+        toast.success(pushed.length ? `已同步 ${pushed.length}/4 段到本机服务端` : "没有可同步的段（设置段需登录后才能推）");
       } else {
         const r = await pullAccountSync(user.id, { force: true });
-        toast[r.applied ? "success" : "info"](r.applied ? "已从服务端恢复" : "服务端没有存档");
+        toast[r.applied.length ? "success" : "info"](r.applied.length ? `已从服务端恢复 ${r.applied.length} 段` : "服务端没有存档");
       }
-      setLastSync(readSyncMarker()?.syncedAt ?? null);
+      setLastSync(Math.max(0, ...Object.values(readSyncMarkers()?.marks ?? { _: 0 })) || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "同步失败");
     } finally {

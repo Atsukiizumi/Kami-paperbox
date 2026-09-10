@@ -1,6 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { credentialTag } from "@/lib/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -24,7 +25,7 @@ export function UserPage() {
   const queryClient = useQueryClient();
 
   const query = useInfiniteQuery({
-    queryKey: ["user", id, safeMode, hideAi, pixivCookie],
+    queryKey: ["user", id, safeMode, hideAi, credentialTag(pixivCookie)],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const r = await fetchSource({
