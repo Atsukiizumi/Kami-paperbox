@@ -7,7 +7,7 @@
 "use client";
 
 import { Link } from "@/lib/kami-link";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
 import { EmptySheet } from "@/components/empty-sheet";
@@ -49,7 +49,10 @@ export function VaultPage() {
   const [author, setAuthor] = useState("");
   const [ready, setReady] = useState(false);
 
+  const refreshToken = useRef(0);
+
   async function refresh() {
+    const token = ++refreshToken.current;
     let local: VaultMeta[] = [];
     try {
       local = await listVault();
@@ -72,6 +75,7 @@ export function VaultPage() {
   }
 
   useEffect(() => {
+    // TD-16：请求令牌防竞态——快速操作（删除/导出后刷新）时，旧响应不得覆盖新状态
     void refresh();
   }, []);
 

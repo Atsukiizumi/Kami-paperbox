@@ -114,8 +114,9 @@ export async function booruList(
 ): Promise<FetchOk> {
   const composed = composeBooruTags(site, tags, safeMode);
   const json = await booruJson(site, booruListUrl(site, feed, composed, page, date), auth);
+  const records = asBooruPosts(json);
   const items: WorkCard[] = [];
-  for (const rec of asBooruPosts(json)) {
+  for (const rec of records) {
     const card = mapBooruCard(site, rec, safeMode);
     if (card) items.push(card);
   }
@@ -124,7 +125,9 @@ export async function booruList(
     op: "booruList",
     site,
     items,
-    nextPage: canPage && items.length >= 8 ? page + 1 : null,
+    // TD-12：以「过滤前」的原始条数判断还有下一页——safeMode 过滤掉大半时，
+    // items.length 不足阈值不代表源站没了下一页
+    nextPage: canPage && records.length >= 8 ? page + 1 : null,
   };
 }
 

@@ -8,7 +8,7 @@
 "use client";
 
 import { Link } from "@/lib/kami-link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArtworkGrid } from "@/components/artwork-card";
 import { EmptySheet } from "@/components/empty-sheet";
 import { Button } from "@/components/ui/button";
@@ -62,8 +62,12 @@ export function RankingsPage() {
   const [activeId, setActiveId] = useState("");
   const [items, setItems] = useState<WorkCard[]>([]);
 
+  const refreshToken = useRef(0);
+
   async function refresh(preferId?: string) {
+    const token = ++refreshToken.current;
     const list = await listRankings(site, period);
+    if (token !== refreshToken.current) return;
     setRows(list);
     const next = preferId && list.some((row) => row.id === preferId) ? preferId : list[0]?.id ?? "";
     setActiveId(next);
@@ -76,12 +80,18 @@ export function RankingsPage() {
   }
 
   useEffect(() => {
-    void refresh();
+    // TD-16：site/period 快速切换时，旧列表回来不得覆盖新选择
+    const token = ++refreshToken.current;
+    void refresh().finally(() => {
+      if (token !== refreshToken.current) return;
+    });
   }, [site, period]);
 
   async function openRow(id: string) {
     setActiveId(id);
+    const token = ++refreshToken.current;
     const snap = await loadRanking(id);
+    if (token !== refreshToken.current) return;
     setItems(snap?.items ?? []);
   }
 

@@ -185,6 +185,7 @@ export async function pixivSearch(
   const illustManga = asRecord(body.illustManga);
   const data = Array.isArray(illustManga.data) ? illustManga.data : [];
   const items: WorkCard[] = [];
+  // TD-12：记过滤前的条数，翻页判断不受 safeMode/hideAi 过滤影响
   for (const raw of data) {
     const rec = asRecord(raw);
     if (asString(rec.id).startsWith("ad")) continue;
@@ -195,7 +196,7 @@ export async function pixivSearch(
   return {
     op: "pixivSearch",
     items,
-    nextPage: items.length >= 20 ? page + 1 : null,
+    nextPage: data.length >= 20 ? page + 1 : null,
   };
 }
 

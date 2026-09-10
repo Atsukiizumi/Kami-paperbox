@@ -46,6 +46,10 @@ export function parseBoardDate(raw?: string): { year: number; month: number; day
   };
 }
 
+/**
+ * cdn.donmai.us 的 Cloudflare 口径：带账号 + 已知工具 UA 可免人机验证。
+ * gallery-dl 版本号是策略一部分（跟着上游工具版本走，别随手改成浏览器 UA）。
+ */
 export const DANBOORU_UA = "Mozilla/5.0 gallery-dl/1.27.0";
 
 /**
