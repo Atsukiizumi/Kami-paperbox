@@ -12,7 +12,7 @@
  *   - Vercel 不能写磁盘：mkdir 失败就当不可用，浏览器回退 IndexedDB。
  */
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { isSource } from "./sites.ts";
@@ -231,20 +231,18 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         throw err;
       }
 
-      dropFiles(key);
+      // TD-08（自审修订）：页行 + 目录行同一事务**先行**，rename 与清旧随后——
+      // 任何时点崩溃，数据库始终自洽（要么整份旧、要么整份新），文件层最差
+      // 个别页 miss（readPage 返回 undefined，可重新收入补齐），绝无「目录
+      // 说有、文件没有」的事务外删除窗口。
       let bytes = 0;
-      staged.forEach((s, i) => {
-        renameSync(s.tmp, join(dir, ...s.rel.split("/")));
-        bytes += pages[i]!.bytes.byteLength;
-      });
-
-      // 页行 + 目录行同一事务：要么整份可见，要么整份回滚。
       try {
         db.exec("BEGIN IMMEDIATE");
         deletePages.run(key);
         staged.forEach((s, i) => {
           const ext = (pages[i]!.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
           insertPage.run(key, i, ext, pages[i]!.mime || "application/octet-stream", pages[i]!.bytes.byteLength, s.rel);
+          bytes += pages[i]!.bytes.byteLength;
         });
         upsertWork.run(
           key,
@@ -263,7 +261,40 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         db.exec("COMMIT");
       } catch (err) {
         db.exec("ROLLBACK");
+        for (const s of staged) {
+          try {
+            rmSync(s.tmp, { force: true });
+          } catch {
+            /* 清不掉的留给 sweepStaged */
+          }
+        }
         throw err;
+      }
+
+      // 事务已提交：rename 就位（覆盖同名旧文件），再清掉目录里不被新行
+      // 引用的旧残留（如扩展名变了的旧页）。rename 中途失败只影响个别页
+      // 文件，目录行已完整，重新收入即可自愈。
+      const finalNames = new Set(staged.map((s) => basename(s.tmp).replace(/^\./, "").replace(/\.tmp$/, "")));
+      staged.forEach((s) => {
+        try {
+          renameSync(s.tmp, join(dir, ...s.rel.split("/")));
+        } catch {
+          /* 个别 rename 失败：该页 miss，可重收 */
+        }
+      });
+      try {
+        for (const name of readdirSync(dest)) {
+          if (name.startsWith(".") && name.endsWith(".tmp")) continue; // sweepStaged 管
+          if (!finalNames.has(name)) {
+            try {
+              rmSync(join(dest, name), { force: true });
+            } catch {
+              /* 下次再清 */
+            }
+          }
+        }
+      } catch {
+        /* 目录读不了就算了 */
       }
       return store.get(key) as VaultMeta;
     },

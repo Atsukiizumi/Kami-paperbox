@@ -21,7 +21,7 @@
 - 上游层拆解（TD-01）：1257 行的 upstream.server.ts 按站点拆成 pixiv / fanbox / booru / media / dispatch 模块，导入方零改动；补 7 个固定样本映射测试，上游接口改版时破损点一目了然。
 - Konachan 镜像兜底补盲区（TD-11）：被 Cloudflare 拦杀时返回的常是 200 + 挑战页 HTML，此前只有非 200 才切 .net 镜像，现在 HTML 形态也切。
 - 工程脚本进类型检查（TD-05）：tsconfig 覆盖 scripts/，补齐 82 处注解并修掉 2 个真实类型问题。
-- 测试恢复全量 glob（死工具链测试随平台退出删除），当前 242 个测试全绿。
+- 测试恢复全量 glob（死工具链测试随平台退出删除），全绿。
 
 ### 安全（第一批）
 
@@ -31,7 +31,7 @@
 
 ### 工程（第一批）
 
-- 修复测试「假绿」：`npm test` 之前是手写文件清单，10 个测试文件（浏览历史、热榜存储/归档、Pixiv 搜索/主页、标签库等）从未被运行过；改为 glob 自动发现，243 个测试全量执行，并补上热榜存储的 Windows 句柄修复。
+- 修复测试「假绿」：`npm test` 之前是手写文件清单，10 个测试文件（浏览历史、热榜存储/归档、Pixiv 搜索/主页、标签库等）从未被运行过；改为 glob 自动发现、全量执行（当前 241 个），并补上热榜存储的 Windows 句柄修复。
 - 新增 GitHub Actions CI（typecheck + test + lint + build），对齐 Dockerfile 的 Node 22。
 - 媒体层同 URL 并发只打一次上游（多卡片同图不再重复请求），无 Content-Length 的流式转发补上 48MB 累计上限。
 - 顺手清掉 4 个存量 lint error；Next 的 instrumentation 钩子在 pnpm 布局下打不了 `node:` 依赖，配对令牌改为首次被访问闸读到时打印。

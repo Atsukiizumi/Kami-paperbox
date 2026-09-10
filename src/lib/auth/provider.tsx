@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * App-wide client provider mounted once near the root (in `src/routes/__root.tsx`):
+ * App-wide client provider mounted once in `app/providers.tsx`:
  *
  *   <AuthProvider><Outlet /></AuthProvider>
  *

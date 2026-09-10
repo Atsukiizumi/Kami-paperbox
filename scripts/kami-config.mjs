@@ -56,8 +56,6 @@ export function applyKamiEnv(env, root) {
   const next = { ...env };
   if (!next.HOST) next.HOST = cfg.host;
   if (!next.PORT) next.PORT = String(cfg.port);
-  if (!next.NITRO_HOST) next.NITRO_HOST = cfg.host;
-  if (!next.NITRO_PORT) next.NITRO_PORT = String(cfg.port);
   if (cfg.proxy && !next.KAMI_PROXY) next.KAMI_PROXY = cfg.proxy;
   return next;
 }

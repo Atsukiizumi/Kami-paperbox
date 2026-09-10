@@ -7,8 +7,9 @@
  *      SameSite=Strict cookie，此后 <img> 和 fetch 自动携带，零调用点改动；
  *      服务端在 data-plane.server.ts 从 header / query / cookie 三处取值比对。
  * 为什么：绑定 0.0.0.0 意味着局域网里任意设备都能直接打 /api/*（SEC-01），
- *        账号关闭时没有会话 cookie 可用，必须另有一道闸；令牌只进 hash
- *        （不会发到服务端日志），cookie 非 HttpOnly 但与既有凭据落点
+ *        账号关闭时没有会话 cookie 可用，必须另有一道闸；配对引导走 hash
+ *        （不进服务端日志），?token= 查询通道会出现在服务端请求 URL 里、
+ *        仅作为 curl / 一次性链接的兜底；cookie 非 HttpOnly 但与既有凭据落点
  *        （SEC-03/04）同风险面，后续随凭据收敛一起处理。
  */
 
@@ -49,9 +50,10 @@ export function pairingTokenFromLocation(): string | null {
 /** 配对后把 hash 里的令牌抹掉，避免留在地址栏 / 被复制外传。 */
 export function stripPairingHash(): void {
   if (typeof window === "undefined") return;
-  const cleaned = window.location.hash
+  const kept = window.location.hash
     .split("&")
     .filter((part) => !part.startsWith(`${LAN_PAIRING_KEY}=`));
-  const rest = cleaned.join("&").replace(/^#&/, "#");
-  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${rest === "#" ? "" : rest}`);
+  // 去掉 pair 段后若还有别的段（#pair=x&foo=1 → #foo=1），补回 # 分隔符
+  const rest = kept.length ? `#${kept.join("&").replace(/^#+/, "")}` : "";
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${rest}`);
 }

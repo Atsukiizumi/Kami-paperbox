@@ -16,7 +16,10 @@ import { withRequest } from "@/lib/next-route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 备份 JSON 上限：词表和纸匣索引加起来一般 < 1MB，2MB 足够并挡住误传。 */
+/**
+ * 备份 JSON 上限：词表和纸匣索引加起来一般 < 1MB，2MB 足够并挡住误传
+ * （string.length 数的是 UTF-16 码元，全 CJK 载荷实际字节约两倍于此）。
+ */
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 
 async function requireUserId(): Promise<string> {

@@ -12,9 +12,8 @@ export type AppUser = {
 
 /**
  * Stable fallback user, used ONLY when auth is disabled
- * (`VITE_AUTH_ENABLED=false`, the shipped default). With auth on, the sandbox
- * live preview does real sign-in via the baked preview client. Its id is
- * `"dev-user"` — the SAME id `verify.server.ts` returns server-side — so per-user
+ * (`VITE_AUTH_ENABLED=false`，如 Docker 默认形态). Its id is
+ * `"dev-user"` — the SAME id the server resolves in that mode — so per-user
  * rows written in that mode belong to one consistent owner.
  */
 export const DEV_USER: AppUser = {
@@ -34,12 +33,12 @@ export type CurrentUserState = {
 };
 
 /**
- * Current user + loading state. Same behavior in live preview and when deployed:
+ * Current user + loading state. Same behavior in dev and when deployed:
  *   - Auth enabled -> the real signed-in user; `user` is `null` while
  *                            the session resolves (`isPending: true`) and when
  *                            signed out (`isPending: false`). Session comes from
  *                            Better Auth `useSession()` → `/api/auth/get-session`
- *                            (cookie when deployed; bearer in live preview).
+ *                            (HttpOnly session cookie).
  *   - Auth disabled (`VITE_AUTH_ENABLED=false`) -> `DEV_USER`, never pending.
  *
  * Protect a route by waiting out `isPending` before acting on `user` —

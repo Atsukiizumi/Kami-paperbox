@@ -97,6 +97,18 @@ export function getLoginJob(includeFrame = false): LoginJobSnapshot {
   return { ...job, frame: job.frame ? "*" : null };
 }
 
+/**
+ * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
+ * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。
+ */
+export function consumeLoginJobCredentials(): LoginJobSnapshot {
+  const snap = { ...job, frame: null };
+  if (job.pixiv || job.fanbox) {
+    job = { ...job, pixiv: "", fanbox: "" };
+  }
+  return snap;
+}
+
 function proxyArgs(): { args: string[]; user?: string; password?: string } {
   const raw = getActiveProxy();
   if (!raw) return { args: [] };

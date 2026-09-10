@@ -1,4 +1,11 @@
 node_modules
+.data
+.agents
+.codex
+.trellis
+.zcode
+attachments
+pnpm-lock.yaml
 .git
 .vercel
 .output

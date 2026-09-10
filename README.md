@@ -24,7 +24,7 @@
 
 本项目仅供学习交流。个人备份，请尊重作者版权。
 
-## 用法
+## 启用
 
 ### 跑起来
 
@@ -50,21 +50,6 @@ docker compose up --build
 - 开着应用账号（邮箱密码登录）：登录过账号的浏览器才能调数据接口。
 - 没开应用账号（如 Docker 默认形态）：首次打开会弹出「需要配对令牌」，把启动纸匣的终端里 `[kami] 局域网访问令牌` 那一串贴进去即可；终端里也直接给了带令牌的配对链接（`#pair=…`），点开就完成配对。令牌存在服务端 `.data/lan-token.json`，怀疑泄露就删掉它重启，所有设备重新配对。
 
-### 上手
-
-- 公开内容开箱即看：Pixiv 日 / 周 / 月榜，yande.re、Konachan、Danbooru 的帖子，都不用登录。
-- 推荐流、关注、红心、收藏要先登录：**设置 → 账号**，在弹出的官方登录页里登录，会话自动带回，不用手动贴 Cookie。FANBOX 的付费内容需要已订阅的 FANBOXSESSID。
-- 图源在左上角切换；「过滤 AI」和「R-18」开关在浏览页顶部，按需打开。
-
-### 日常
-
-- **浏览**：悬停卡片放大预览，GIF / Pixiv 动图直接播。榜单有「刷新」，跳过缓存重新拉源站。
-- **搜索**：空格分开多个标签；直接粘贴作品 / 画师链接也能跳。图站标签会显示中文。
-- **搜图**：把图拖进窗口就能反搜（SauceNAO / ascii2d / IQDB / TinEye）。
-- **下载 / 收入纸匣**：卡片上的按钮分别入队，进度在「队列」页看。纸匣优先写你在设置里选的用户文件夹。
-- **纸匣 / 历史**：收进来的作品在「纸匣」页管理和导出；看过的自动记进「历史」。
-- **备份**：设置里一键导出 / 导入设置、账号、纸匣目录、词表和浏览历史，不打包原图。
-
 ### 数据在哪儿
 
 数据跟着跑服务的那台机器走，跟你从哪个 IP 打开无关：
@@ -84,6 +69,10 @@ Docker 部署时以上 `.data` 都在 `kami-data` 卷里。更细的落盘说明
 - [yande-re-chinese-patch](https://github.com/zhzwz/yande-re-chinese-patch)
 - [EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)
 - [PixEz](https://github.com/Notsfsssf/pixez-flutter)
+- [Better Auth](https://github.com/better-auth/better-auth) —— 应用账号与会话
+- [PGlite](https://github.com/electric-sql/pglite) —— 内嵌账号库
+- [undici](https://github.com/nodejs/undici) —— 上游持久连接池
+- [Playwright](https://github.com/microsoft/playwright) —— 浏览器验收脚本
 - [Grok](https://grok.com)
 - [ZCode](https://z.ai)
 

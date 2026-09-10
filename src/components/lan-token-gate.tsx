@@ -29,10 +29,12 @@ export function LanTokenGate() {
     if (authEnabled) return;
 
     // 1) 打开配对链接：写入 cookie、抹掉 hash、整页刷新让 <img> 也带上。
+    //    无条件写——服务端换令牌后（删 lan-token.json 重启），浏览器带着旧
+    //    cookie 再点新配对链接也必须能覆盖；reload 循环由「先抹 hash」防住。
     const fromHash = pairingTokenFromLocation();
     if (fromHash) {
       stripPairingHash();
-      if (!hasLanTokenCookie() && isValidLanTokenShape(fromHash) && setLanTokenCookie(fromHash)) {
+      if (isValidLanTokenShape(fromHash) && setLanTokenCookie(fromHash)) {
         window.location.reload();
         return;
       }
@@ -49,7 +51,8 @@ export function LanTokenGate() {
 
     // 3) 兜底监听：任何同源数据面 401（含令牌被换掉）都弹框。
     //    /api/auth 是账号体系自己的 401；/api/account/sync 在账号关闭时恒 401。
-    const originalFetch = window.fetch.bind(window);
+    // 存原始引用（非 bind 副本），卸载时原样还原，不覆盖他方 patch。原生 fetch 不依赖 this。
+    const originalFetch = window.fetch;
     window.fetch = async (input, init) => {
       const res = await originalFetch(input, init);
       if (res.status === 401) {

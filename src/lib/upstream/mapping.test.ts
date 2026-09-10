@@ -44,7 +44,7 @@ test("mapPixivCard：常规字段与 thumb 回退链", () => {
   assert.equal(viaUrls?.thumb, "s.jpg");
 });
 
-test("mapPixivCard：isMasked / lo 内容直接丢弃", () => {
+test("mapPixivCard：isMasked 与 lo 布尔丢弃（数字 lo 不拦，源站是布尔）", () => {
   assert.equal(mapPixivCard({ ...pixivItem, isMasked: true }), null);
   // illust_content_type.lo 源站是布尔；数字形态（老接口/第三方镜像）不拦
   assert.equal(mapPixivCard({ ...pixivItem, illust_content_type: { lo: true } }), null);

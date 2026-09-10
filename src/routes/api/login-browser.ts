@@ -8,6 +8,7 @@
  */
 import {
   cancelBrowserLogin,
+  consumeLoginJobCredentials,
   dispatchLoginInput,
   getLoginJob,
   startBrowserLogin,
@@ -68,9 +69,11 @@ function parseInput(raw: unknown): LoginInputEvent | null {
 export async function GET(request: Request) {
         const url = new URL(request.url);
         const includeFrame = url.searchParams.get("frame") !== "0";
-        const includeCredentials = url.searchParams.get("credentials") === "1";
-        const snap = getLoginJob(includeFrame);
-        return json({ ok: true, ...(includeCredentials ? snap : stripCredentials(snap)) });
+        // credentials=1：取走会话串并从内存清空（只交出这一次）
+        if (url.searchParams.get("credentials") === "1") {
+          return json({ ok: true, ...consumeLoginJobCredentials() });
+        }
+        return json({ ok: true, ...stripCredentials(getLoginJob(includeFrame)) });
 }
 
 export async function POST(request: Request) {
