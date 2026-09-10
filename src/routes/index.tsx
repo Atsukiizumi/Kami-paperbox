@@ -577,20 +577,6 @@ export function Home() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-            ) : !searchWord && rankingPeriodOf(feed) ? (
-              <div className="ml-auto flex h-8 shrink-0 items-center gap-2">
-                <span className="min-w-[5.5rem] text-right text-xs tabular-nums text-subtle">
-                  {rankingDate ? formatRankDate(rankingDate) : "\u00a0"}
-                </span>
-                <Input
-                  type="date"
-                  value={rankingDate ? formatRankDate(rankingDate) : boardDate}
-                  onChange={(e) => {
-                    if (e.target.value) setBoardDate(e.target.value);
-                  }}
-                  className="h-8 w-40"
-                />
-              </div>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -607,6 +593,18 @@ export function Home() {
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
+            {!searchWord && rankingPeriodOf(feed) ? (
+              <Input
+                type="date"
+                value={rankingDate ? formatRankDate(rankingDate) : boardDate}
+                onChange={(e) => {
+                  if (e.target.value) setBoardDate(e.target.value);
+                }}
+                // 与 booru 一致：日期输入在工具行最右、紧挨刷新按钮；
+                // 输入框的值即实际生效期（未公布自动回落时显示回落后的那天）
+                className="ml-auto h-8 w-40"
+              />
+            ) : null}
             {refreshButton}
           </div>
         </div>
