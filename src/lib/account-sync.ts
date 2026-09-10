@@ -69,7 +69,8 @@ export async function ensureSyncKek(password: string): Promise<boolean> {
   if (!res.ok) return false;
   const data = (await res.json()) as { kdfSalt?: string };
   if (!data.kdfSalt) return false;
-  const key = await deriveBoxKey(password, data.kdfSalt);
+  // 可导出：KEK 要以原始字节形态进 sessionStorage（重新 importKey 使用）
+  const key = await deriveBoxKey(password, data.kdfSalt, undefined, true);
   const raw = await crypto.subtle.exportKey("raw", key);
   let bin = "";
   for (const b of new Uint8Array(raw)) bin += String.fromCharCode(b);

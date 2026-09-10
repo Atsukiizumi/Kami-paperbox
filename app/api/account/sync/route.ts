@@ -49,10 +49,13 @@ function validateSegment(segment: string, payload: unknown): string | null {
     const box = rec.box as Record<string, unknown> | null;
     if (!box || typeof box !== "object") return "cipher 缺容器";
     if (box.v !== 1 || box.kdf !== "PBKDF2-SHA256") return "cipher 格式不对";
-    for (const key of ["iter", "salt", "iv", "ct"]) {
+    for (const key of ["salt", "iv", "ct"]) {
       if (typeof box[key] !== "string") return `cipher.${key} 缺失`;
     }
-    if (typeof box.iter === "string" && !/^\d+$/.test(box.iter)) return "cipher.iter 非数字";
+    // iter 数字（crypto-box 产出）或纯数字字符串都收
+    if (typeof box.iter !== "number" || !Number.isFinite(box.iter)) {
+      if (typeof box.iter !== "string" || !/^\d+$/.test(box.iter)) return "cipher.iter 非数字";
+    }
     return null;
   }
   if (rec.kind !== "plain") return "分段缺少 kind";

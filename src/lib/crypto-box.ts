@@ -39,8 +39,17 @@ export function randomSaltB64(): string {
   return toB64(salt);
 }
 
-/** 从口令派生 AES-GCM 256 密钥。salt/iter 必须与封存时一致。 */
-export async function deriveBoxKey(passphrase: string, saltB64: string, iter = DEFAULT_ITER): Promise<CryptoKey> {
+/**
+ * 从口令派生 AES-GCM 256 密钥。salt/iter 必须与封存时一致。
+ * extractable 仅同步 KEK 需要（要导出原始字节进 sessionStorage）；
+ * 备份口令场景保持不可导出。
+ */
+export async function deriveBoxKey(
+  passphrase: string,
+  saltB64: string,
+  iter = DEFAULT_ITER,
+  extractable = false,
+): Promise<CryptoKey> {
   const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, [
     "deriveKey",
   ]);
@@ -48,7 +57,7 @@ export async function deriveBoxKey(passphrase: string, saltB64: string, iter = D
     { name: "PBKDF2", salt: fromB64(saltB64) as BufferSource, iterations: iter, hash: "SHA-256" },
     material,
     { name: "AES-GCM", length: 256 },
-    false,
+    extractable,
     ["encrypt", "decrypt"],
   );
 }
