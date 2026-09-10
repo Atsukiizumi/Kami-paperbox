@@ -33,6 +33,22 @@ type JobView = {
   fanboxProfile?: RelayDone["fanboxProfile"];
 };
 
+/**
+ * 轮询快照已剥离会话串（SEC-02）：done 事件里经 ?credentials=1 单独取一次，
+ * 取不到就按无凭据结束（保存步骤会跳过空值）。
+ */
+async function withCredentials(data: JobView): Promise<JobView> {
+  if (data.pixiv || data.fanbox) return data;
+  try {
+    const res = await fetch("/api/login-browser?credentials=1", { cache: "no-store" });
+    if (!res.ok) return data;
+    const cred = (await res.json()) as JobView;
+    return { ...data, pixiv: cred.pixiv || data.pixiv, fanbox: cred.fanbox || data.fanbox };
+  } catch {
+    return data;
+  }
+}
+
 export function SessionRelayDialog({
   site,
   open,
@@ -69,7 +85,7 @@ export function SessionRelayDialog({
         setJob(data);
         if (data.status === "error") return;
         if (data.status === "done") {
-          await onDoneRef.current(data);
+          await onDoneRef.current(await withCredentials(data));
           onOpenRef.current(false);
           return;
         }
@@ -86,7 +102,7 @@ export function SessionRelayDialog({
           if (stop) return;
           setJob(data);
           if (data.status === "done") {
-            await onDoneRef.current(data);
+            await onDoneRef.current(await withCredentials(data));
             onOpenRef.current(false);
             return;
           }

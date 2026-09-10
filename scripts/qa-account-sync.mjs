@@ -11,12 +11,15 @@ import { chromium } from "playwright";
 const BASE = "http://127.0.0.1:8080";
 const EMAIL = `kami-qa-${Date.now()}@example.com`;
 const PASSWORD = "kami-pass-123";
+/** @type {{ name: string, pass: boolean, detail: string }[]} */
 const results = [];
+/** @param {string} name @param {boolean} pass @param {string} detail */
 function record(name, pass, detail) {
   results.push({ name, pass, detail });
   console.log(`${pass ? "PASS" : "FAIL"}  ${name} — ${detail}`);
 }
 
+/** @param {import('playwright').Page} page */
 async function dismissDialogs(page) {
   for (let i = 0; i < 3; i += 1) {
     const overlay = page.locator('div[data-state="open"][data-aria-hidden="true"]');
@@ -41,6 +44,7 @@ await ctxA.addInitScript(() => {
   localStorage.setItem("kami-settings", JSON.stringify({ state: { onboarded: true }, version: 10 }));
 });
 const pageA = await ctxA.newPage();
+/** @type {string[]} */
 const errorsA = [];
 pageA.on("pageerror", (e) => errorsA.push(String(e).slice(0, 150)));
 
@@ -58,7 +62,7 @@ try {
     await pageA.locator("#app-account-email").fill(EMAIL, { timeout: 30000 });
   } catch {
     const info = await pageA.evaluate(() => {
-      const el = document.querySelector("#app-account-email");
+      const el = /** @type {(HTMLInputElement | null)} */ (document.querySelector("#app-account-email"));
       if (!el) return { exists: false };
       const r = el.getBoundingClientRect();
       const cs = getComputedStyle(el);

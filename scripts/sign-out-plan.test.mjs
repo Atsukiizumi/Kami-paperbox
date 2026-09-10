@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  DEPLOYED_SIGN_OUT_TIMEOUT_MS,
-  PREVIEW_SIGN_OUT_TIMEOUT_MS,
-  runPreSignInSignOut,
   runSignOut,
   settleWithin,
-  signOutTimeoutMs,
+  SIGN_OUT_TIMEOUT_MS,
 } from "./sign-out-plan.mjs";
 
 const TEST_TIMEOUT_MS = 20;
@@ -30,13 +27,10 @@ function harness(overrides = {}) {
   const order = [];
   let requests = 0;
   const steps = {
-    livePreview: false,
-    hasBearer: true,
     requestSignOut: () => {
       requests += 1;
       return Promise.resolve();
     },
-    clearToken: () => order.push("clear"),
     redirect: () => order.push("redirect"),
     timeoutMs: TEST_TIMEOUT_MS,
     ...overrides,
@@ -50,92 +44,37 @@ function harness(overrides = {}) {
   };
 }
 
-/** Live preview: the bearer is the session, so the local clear always wins. */
-const preview = (overrides = {}) => harness({ livePreview: true, ...overrides });
+// 会话是 HttpOnly cookie，只有服务端确认的登出才算数。
 
-/** Deployed: only the server can clear the `__Host-` cookie. */
-const deployed = (overrides = {}) => harness({ livePreview: false, ...overrides });
-
-// ── Live preview ─────────────────────────────────────────────────────────────
-
-test("preview: a successful sign-out clears the token, then redirects", async () => {
-  const h = preview();
+test("a confirmed sign-out redirects", async () => {
+  const h = harness();
   await h.run();
   assert.equal(h.requests, 1);
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["redirect"]);
 });
 
-test("preview: a rejected sign-out still clears the token and redirects", async () => {
-  const h = preview({ requestSignOut: rejects });
-  await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
-});
-
-test("preview: a sign-out that throws synchronously still clears and redirects", async () => {
-  const h = preview({
-    requestSignOut: () => {
-      throw new Error("no fetch");
-    },
-  });
-  await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
-});
-
-test("preview: a sign-out that never settles clears and redirects once the wait expires", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const h = preview({ requestSignOut: hangs });
-  const done = h.run();
-
-  t.mock.timers.tick(TEST_TIMEOUT_MS - 1);
-  await flush();
-  assert.deepEqual(h.order, [], "the server still has its window — do not give up early");
-
-  t.mock.timers.tick(1);
-  await done;
-  assert.deepEqual(h.order, ["clear", "redirect"]);
-});
-
-test("preview: no bearer means nothing to invalidate, so no request is made", async () => {
-  const h = preview({ hasBearer: false });
-  await h.run();
-  assert.equal(h.requests, 0);
-  assert.deepEqual(h.order, ["clear", "redirect"]);
-});
-
-test("preview: a stored bearer is still invalidated server-side", async () => {
-  const h = preview({ hasBearer: true });
-  await h.run();
-  assert.equal(h.requests, 1);
-});
-
-// ── Deployed ─────────────────────────────────────────────────────────────────
-// JS cannot delete the HttpOnly `__Host-` cookie and `cookieCache` keeps
-// serving the cached session, so an unconfirmed sign-out must NOT look like one.
-
-test("deployed: a confirmed sign-out clears the token, then redirects", async () => {
-  const h = deployed();
-  await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
-});
-
-test("deployed: a sign-out that never settles throws and does NOT redirect", async () => {
-  const h = deployed({ requestSignOut: hangs });
+test("a sign-out that never settles throws and does NOT redirect", async () => {
+  const h = harness({ requestSignOut: hangs });
   await assert.rejects(h.run(), /still signed in/);
   assert.deepEqual(h.order, [], "no redirect may claim a sign-out the server never made");
 });
 
-test("deployed: a rejected sign-out throws and does NOT redirect", async () => {
-  const h = deployed({ requestSignOut: rejects });
+test("a rejected sign-out throws and does NOT redirect", async () => {
+  const h = harness({ requestSignOut: rejects });
   await assert.rejects(h.run(), /still signed in/);
   assert.deepEqual(h.order, []);
 });
 
-test("deployed: the timeout is distinguishable from a rejection", async () => {
-  await assert.rejects(deployed({ requestSignOut: hangs }).run(), /timed out/);
-  await assert.rejects(deployed({ requestSignOut: rejects }).run(), /Sign-out failed/);
+test("the timeout is distinguishable from a rejection", async () => {
+  await assert.rejects(harness({ requestSignOut: hangs }).run(), /timed out/);
+  await assert.rejects(harness({ requestSignOut: rejects }).run(), /Sign-out failed/);
 });
 
-// ── Bounded wait (also used by `signIn`'s pre-sign-in session clear) ──────────
+test("the default wait is bounded", () => {
+  assert.ok(SIGN_OUT_TIMEOUT_MS > 0 && SIGN_OUT_TIMEOUT_MS <= 30_000);
+});
+
+// ── Bounded wait ─────────────────────────────────────────────────────────────
 
 test("settleWithin reports the outcome and never rejects", async () => {
   assert.equal(await settleWithin(() => Promise.resolve(), TEST_TIMEOUT_MS), "ok");
@@ -155,94 +94,4 @@ test("settleWithin waits its full window, then gives up rather than hanging", as
   t.mock.timers.tick(1);
   await done;
   assert.equal(outcome, "timeout", "the caller is never left waiting on a wedged request");
-});
-
-// ── Pre-sign-in session clear (`signIn`) ─────────────────────────────────────
-// Same per-environment bound as sign-out, but best effort: it also runs when
-// there is no prior session, so a failure must never block sign-in.
-
-/** A pre-sign-in clear whose request never settles. */
-function preSignIn(livePreview, overrides = {}) {
-  let cleared = 0;
-  const done = runPreSignInSignOut({
-    livePreview,
-    hasBearer: true,
-    requestSignOut: hangs,
-    clearToken: () => (cleared += 1),
-    ...overrides,
-  });
-  return {
-    done,
-    get cleared() {
-      return cleared;
-    },
-  };
-}
-
-test("pre-sign-in: the preview clear gives up at the preview bound", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const h = preSignIn(true);
-
-  t.mock.timers.tick(PREVIEW_SIGN_OUT_TIMEOUT_MS - 1);
-  await flush();
-  assert.equal(h.cleared, 0);
-
-  t.mock.timers.tick(1);
-  await h.done;
-  assert.equal(h.cleared, 1);
-});
-
-test("pre-sign-in: a deployed session gets the deployed window, not the preview one", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const h = preSignIn(false);
-
-  t.mock.timers.tick(PREVIEW_SIGN_OUT_TIMEOUT_MS);
-  await flush();
-  assert.equal(
-    h.cleared,
-    0,
-    "only the server can end a deployed session — do not start OAuth while it is still live",
-  );
-
-  t.mock.timers.tick(DEPLOYED_SIGN_OUT_TIMEOUT_MS - PREVIEW_SIGN_OUT_TIMEOUT_MS);
-  await h.done;
-  assert.equal(h.cleared, 1);
-});
-
-test("pre-sign-in: a failed clear never blocks sign-in", async () => {
-  // Best effort by design: this also runs with no prior session to clear.
-  await preSignIn(false, { requestSignOut: rejects, timeoutMs: TEST_TIMEOUT_MS }).done;
-  await preSignIn(true, { requestSignOut: rejects, timeoutMs: TEST_TIMEOUT_MS }).done;
-});
-
-test("pre-sign-in: the preview skips the request when there is no bearer", async () => {
-  let requests = 0;
-  const h = preSignIn(true, {
-    hasBearer: false,
-    requestSignOut: () => {
-      requests += 1;
-      return hangs();
-    },
-  });
-  await h.done;
-  assert.equal(requests, 0);
-  assert.equal(h.cleared, 1);
-});
-
-test("every sign-out bound comes from one rule", () => {
-  assert.equal(signOutTimeoutMs(true), PREVIEW_SIGN_OUT_TIMEOUT_MS);
-  assert.equal(signOutTimeoutMs(false), DEPLOYED_SIGN_OUT_TIMEOUT_MS);
-});
-
-test("the defaults are bounded, and deployed waits longer than preview", async (t) => {
-  assert.ok(PREVIEW_SIGN_OUT_TIMEOUT_MS > 0 && PREVIEW_SIGN_OUT_TIMEOUT_MS <= 2000);
-  assert.ok(DEPLOYED_SIGN_OUT_TIMEOUT_MS > PREVIEW_SIGN_OUT_TIMEOUT_MS);
-  assert.ok(DEPLOYED_SIGN_OUT_TIMEOUT_MS <= 30_000);
-
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const h = preview({ requestSignOut: hangs, timeoutMs: undefined });
-  const done = h.run();
-  t.mock.timers.tick(PREVIEW_SIGN_OUT_TIMEOUT_MS);
-  await done;
-  assert.deepEqual(h.order, ["clear", "redirect"]);
 });

@@ -5,7 +5,7 @@
  * 用法：siteLabel(source)、workOriginUrl(source, id, authorId)。
  * 为什么：FANBOX 创作者链接要用 creatorId（authorId），不能只用数字 id。
  */
-import type { BooruSite, Source } from "./types";
+import type { BooruSite, Source } from "./types.ts";
 
 export const SITE_LIST = [
   { id: "pixiv", label: "Pixiv" },

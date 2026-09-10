@@ -6,7 +6,7 @@
  * 为什么：备份文件要人手动搬运；这份挂在账号下自动走。本地用 marker 记「已同步到
  *        哪个时间点」，服务端和本地谁新用谁，避免登录瞬间旧数据盖新数据。
  */
-import type { BackupFile } from "./backup";
+import type { BackupFile } from "./backup.ts";
 
 const MARKER_KEY = "kami-account-sync";
 

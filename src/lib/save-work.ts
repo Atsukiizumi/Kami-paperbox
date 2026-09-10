@@ -5,10 +5,10 @@
  * 用法：collectWorkFiles(work, { original })，再交给 archiveWork。
  * 为什么：下载和收入纸匣走同一套，避免两处各拉一次。
  */
-import { unzipUgoira } from "./ugoira-zip";
-import { extFromNameOrType } from "./ugoira-meta";
-import { mediaUrl } from "./utils";
-import type { WorkDetail, WorkPage } from "./types";
+import { unzipUgoira } from "./ugoira-zip.ts";
+import { extFromNameOrType } from "./ugoira-meta.ts";
+import { mediaUrl } from "./utils.ts";
+import type { WorkDetail, WorkPage } from "./types.ts";
 
 async function fetchBlob(url: string): Promise<Blob> {
   const res = await fetch(mediaUrl(url), { signal: AbortSignal.timeout(90_000) });

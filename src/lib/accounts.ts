@@ -5,7 +5,7 @@
  * 用法：createAccount(name, pixiv, fanbox)；displayName(account, site) 给切换器显示。
  * 为什么：不要从这里 import browser-login（循环）。已登录判断用内联的 `数字ID_令牌` 正则。
  */
-import type { SiteProfile } from "./site-identity";
+import type { SiteProfile } from "./site-identity.ts";
 
 export type Account = {
   id: string;

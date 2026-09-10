@@ -34,6 +34,7 @@ const VITE_PREFIX = "VITE_";
  * Anything unparseable is an empty environment — a workspace without the file
  * must behave exactly like today (auth on, no overrides).
  */
+/** @param {string} text @returns {Record<string, string>} */
 export function parseAppEnv(text) {
   let parsed;
   try {
@@ -42,7 +43,7 @@ export function parseAppEnv(text) {
     return {};
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-  const env = {};
+  const env = /** @type {Record<string, string>} */ ({});
   for (const [key, value] of Object.entries(parsed)) {
     if (!key.startsWith(VITE_PREFIX)) continue;
     if (typeof value !== "string") continue;
@@ -51,21 +52,36 @@ export function parseAppEnv(text) {
   return env;
 }
 
-/** The app env recorded under `root`, or `{}` when the file is absent. */
+/**
+ * The app env recorded under `root`, or `{}` when the file is absent.
+ * @param {string} root
+ */
 export function readAppEnv(root) {
+  // KAMI_APP_ENV（绝对路径）可覆盖读取位置——测试用临时工作区自包含地驱动
+  // wrapper，不依赖本机 .grok（gitignore，CI 上不存在）。
+  const file = process.env.KAMI_APP_ENV || join(root, APP_ENV_REL_PATH);
   try {
-    return parseAppEnv(readFileSync(join(root, APP_ENV_REL_PATH), "utf8"));
+    return parseAppEnv(readFileSync(file, "utf8"));
   } catch {
     return {};
   }
 }
 
 /** File values under the process environment: an explicit override wins. */
+/**
+ * File values under the process environment: an explicit override wins.
+ * @param {Record<string, string>} appEnv
+ * @param {NodeJS.ProcessEnv} processEnv
+ * @returns {NodeJS.ProcessEnv}
+ */
 export function mergeAppEnv(appEnv, processEnv) {
   return { ...appEnv, ...processEnv };
 }
 
-/** `<root>/node_modules/.bin` — npm/pnpm put CLIs here. */
+/**
+ * `<root>/node_modules/.bin` — npm/pnpm put CLIs here.
+ * @param {string} [root]
+ */
 export function localBinDir(root = projectRoot()) {
   return join(root, "node_modules", ".bin");
 }
@@ -75,6 +91,7 @@ export function localBinDir(root = projectRoot()) {
  * relying on the parent shell. `npm run` already does this; a raw
  * `node scripts/with-app-env.mjs next` and Windows `.cmd` lookups do not.
  */
+/** @param {NodeJS.ProcessEnv} env @param {string} [root] @returns {NodeJS.ProcessEnv} */
 export function withLocalBin(env, root = projectRoot()) {
   const dir = localBinDir(root);
   const pathKey = Object.keys(env).find((k) => k.toLowerCase() === "path") || "PATH";
@@ -83,7 +100,11 @@ export function withLocalBin(env, root = projectRoot()) {
   return { ...env, [pathKey]: current ? `${dir}${delimiter}${current}` : dir };
 }
 
-/** Absolute path to a local binary, or null if it is not installed. */
+/**
+ * Absolute path to a local binary, or null if it is not installed.
+ * @param {string} command @param {string} [root]
+ * @returns {string | null}
+ */
 export function resolveLocalBin(command, root = projectRoot()) {
   if (!command || command.includes("/") || command.includes("\\")) return null;
   const dir = localBinDir(root);
@@ -102,15 +123,25 @@ export function resolveLocalBin(command, root = projectRoot()) {
  * JS entry for a CLI (avoids Windows `cmd.exe` + paths with spaces).
  * `next` → `node node_modules/next/dist/bin/next`
  */
+/**
+ * JS entry for a CLI (avoids Windows `cmd.exe` + paths with spaces).
+ * `next` → `node node_modules/next/dist/bin/next`
+ * @param {string} command @param {string} [root]
+ * @returns {string | null}
+ */
 export function resolveJsCli(command, root = projectRoot()) {
-  const entries = {
+  const entries = /** @type {Record<string, string>} */ ({
     next: join(root, "node_modules", "next", "dist", "bin", "next"),
-  };
+  });
   const entry = entries[command];
   return entry && existsSync(entry) ? entry : null;
 }
 
-/** How to spawn `command` without a shell. */
+/**
+ * How to spawn `command` without a shell.
+ * @param {string} command @param {string[]} args @param {string} [root]
+ * @returns {{ cmd: string, args: string[] }}
+ */
 export function resolveSpawn(command, args, root = projectRoot()) {
   const js = resolveJsCli(command, root);
   if (js) return { cmd: process.execPath, args: [js, ...args] };
@@ -121,6 +152,7 @@ export function resolveSpawn(command, args, root = projectRoot()) {
   return { cmd: local || command, args };
 }
 
+/** @param {string} command */
 export function missingDepsHint(command) {
   const root = projectRoot();
   const installed = existsSync(join(root, "node_modules"));
@@ -145,6 +177,7 @@ export function missingDepsHint(command) {
  * test worker and fails the image build. `128 + signo` is what a shell reports
  * for a signal-killed command, so a cancelled `next build` is still a failure.
  */
+/** @param {number | null} code @param {NodeJS.Signals | null} signal */
 export function exitStatusFromChild(code, signal) {
   if (signal) {
     const signo = osConstants.signals[signal];
@@ -165,6 +198,7 @@ export function projectRoot() {
  * but leaves `process.argv[1]` as typed, so comparing them raw makes a CLI
  * launched through a symlinked path (`/tmp` on macOS) a silent no-op.
  */
+/** @param {string} moduleUrl */
 export function isMainModule(moduleUrl) {
   const entry = process.argv[1];
   if (!entry) return false;
@@ -175,6 +209,7 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+/** @param {string[]} argv */
 function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
@@ -194,10 +229,10 @@ function main(argv) {
     windowsHide: true,
   });
   // The dev server is long-running and is stopped by signalling this wrapper.
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  for (const signal of /** @type {NodeJS.Signals[]} */ (["SIGINT", "SIGTERM", "SIGHUP"])) {
     process.on(signal, () => child.kill(signal));
   }
-  child.on("error", (err) => {
+  child.on("error", (/** @type {Error & { code?: string }} */ err) => {
     if (err && err.code === "ENOENT") {
       console.error(missingDepsHint(command));
     } else {

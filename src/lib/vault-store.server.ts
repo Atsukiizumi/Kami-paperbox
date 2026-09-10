@@ -11,8 +11,8 @@
  *   - 原图是普通 jpg/png/gif 文件，不把像素塞进 SQLite。
  *   - Vercel 不能写磁盘：mkdir 失败就当不可用，浏览器回退 IndexedDB。
  */
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync } from "node:fs";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { isSource } from "./sites.ts";
@@ -81,12 +81,13 @@ export function parseVaultKey(raw: string): { source: Source; id: string } | nul
   const source = raw.slice(0, cut);
   const id = raw.slice(cut + 1);
   if (!isSource(source)) return null;
-  if (!/^[A-Za-z0-9._-]{1,80}$/.test(id)) return null;
+  // 不含点号：各站作品 id 均为字母数字（含 _ -），点号只给 `..` 上爬留门（SEC-10）。
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) return null;
   return { source, id };
 }
 
 function safeSeg(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "x";
+  return value.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 80) || "x";
 }
 
 function tagsJson(tags: string[]): string {
@@ -179,6 +180,23 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
     deletePages.run(key);
   }
 
+  /** 清掉崩溃残留的半成品暂存（put 开始时自愈，无需启动钩子）。 */
+  function sweepStaged(dest: string) {
+    try {
+      for (const name of readdirSync(dest)) {
+        if (name.startsWith(".") && name.endsWith(".tmp")) {
+          try {
+            rmSync(join(dest, name), { force: true });
+          } catch {
+            /* 单个清不掉不阻塞 */
+          }
+        }
+      }
+    } catch {
+      /* 目录不存在 */
+    }
+  }
+
   const store: VaultStore = {
     dir,
     put(meta, pages) {
@@ -186,31 +204,98 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       if (!parsed) throw new Error("无效的作品编号");
       const key = `${parsed.source}:${parsed.id}`;
       const at = meta.savedAt || Date.now();
-      dropFiles(key);
       const dest = workDir(parsed.source, parsed.id);
       mkdirSync(dest, { recursive: true });
+      sweepStaged(dest);
+
+      // TD-08：先全部写同目录暂存（rename 原子替换，跨次不会见半文件）；
+      // 任一失败即清理退出——旧文件、旧行原样保留，不出现「删旧后写新到一半」。
+      const staged: { tmp: string; rel: string }[] = [];
+      try {
+        pages.forEach((page, i) => {
+          const ext = (page.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
+          const rel = `files/${safeSeg(parsed.source)}/${safeSeg(parsed.id)}/${i}.${ext}`;
+          const abs = join(dir, ...rel.split("/"));
+          const tmp = join(dest, `.${i}.${ext}.tmp`);
+          writeFileSync(tmp, page.bytes);
+          staged.push({ tmp, rel });
+        });
+      } catch (err) {
+        for (const s of staged) {
+          try {
+            rmSync(s.tmp, { force: true });
+          } catch {
+            /* 清不掉的留给 sweepStaged */
+          }
+        }
+        throw err;
+      }
+
+      // TD-08（自审修订）：页行 + 目录行同一事务**先行**，rename 与清旧随后——
+      // 任何时点崩溃，数据库始终自洽（要么整份旧、要么整份新），文件层最差
+      // 个别页 miss（readPage 返回 undefined，可重新收入补齐），绝无「目录
+      // 说有、文件没有」的事务外删除窗口。
       let bytes = 0;
-      pages.forEach((page, i) => {
-        const ext = (page.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
-        const rel = `files/${safeSeg(parsed.source)}/${safeSeg(parsed.id)}/${i}.${ext}`;
-        writeFileSync(join(dir, ...rel.split("/")), page.bytes);
-        bytes += page.bytes.byteLength;
-        insertPage.run(key, i, ext, page.mime || "application/octet-stream", page.bytes.byteLength, rel);
+      try {
+        db.exec("BEGIN IMMEDIATE");
+        deletePages.run(key);
+        staged.forEach((s, i) => {
+          const ext = (pages[i]!.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
+          insertPage.run(key, i, ext, pages[i]!.mime || "application/octet-stream", pages[i]!.bytes.byteLength, s.rel);
+          bytes += pages[i]!.bytes.byteLength;
+        });
+        upsertWork.run(
+          key,
+          parsed.source,
+          parsed.id,
+          meta.title || "无题",
+          meta.author || "",
+          meta.authorId || "",
+          tagsJson(meta.tags || []),
+          pages.length,
+          at,
+          bytes,
+          meta.relativePath ?? null,
+          meta.folderLabel ?? null,
+        );
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        for (const s of staged) {
+          try {
+            rmSync(s.tmp, { force: true });
+          } catch {
+            /* 清不掉的留给 sweepStaged */
+          }
+        }
+        throw err;
+      }
+
+      // 事务已提交：rename 就位（覆盖同名旧文件），再清掉目录里不被新行
+      // 引用的旧残留（如扩展名变了的旧页）。rename 中途失败只影响个别页
+      // 文件，目录行已完整，重新收入即可自愈。
+      const finalNames = new Set(staged.map((s) => basename(s.tmp).replace(/^\./, "").replace(/\.tmp$/, "")));
+      staged.forEach((s) => {
+        try {
+          renameSync(s.tmp, join(dir, ...s.rel.split("/")));
+        } catch {
+          /* 个别 rename 失败：该页 miss，可重收 */
+        }
       });
-      upsertWork.run(
-        key,
-        parsed.source,
-        parsed.id,
-        meta.title || "无题",
-        meta.author || "",
-        meta.authorId || "",
-        tagsJson(meta.tags || []),
-        pages.length,
-        at,
-        bytes,
-        meta.relativePath ?? null,
-        meta.folderLabel ?? null,
-      );
+      try {
+        for (const name of readdirSync(dest)) {
+          if (name.startsWith(".") && name.endsWith(".tmp")) continue; // sweepStaged 管
+          if (!finalNames.has(name)) {
+            try {
+              rmSync(join(dest, name), { force: true });
+            } catch {
+              /* 下次再清 */
+            }
+          }
+        }
+      } catch {
+        /* 目录读不了就算了 */
+      }
       return store.get(key) as VaultMeta;
     },
     putMeta(meta) {

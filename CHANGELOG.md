@@ -6,6 +6,36 @@
 
 ## [Unreleased]
 
+### 安全（第二批）
+
+- 账号同步的推送载荷过备份导入同款校验（SEC-09）：此前任意形状的 JSON（≤2MB）都能写进服务端同步存储，现在不合法直接 400。
+- Grok 平台完全退出（SEC-05 随之消除）：硬编码在源码里的 preview client secret、broker 联邦登录、popup 通道、品牌注入中间件等平台烙印整体删除；鉴权只剩邮箱密码一条通道。
+- 修好手机 / 平板从局域网 IP 登录被 403 的存量缺陷：Better Auth 的 Origin 信任改为「与请求自身 Host 一致的同源放行」，真正的跨站脚本请求仍然被拒。
+- 依赖 audit 清零：postcss ×4 + js-yaml 共 5 个已知 CVE，其中 postcss 的 4 条来自 next 钉死的 8.4.31（用作用域 override 顶到 8.5.28）。
+
+### 工程与可靠性（第二批）
+
+- 包管理统一 pnpm（TD-06）：提交 pnpm-lock.yaml、Dockerfile 改 corepack、CI 换 pnpm，删掉 package-lock.json——本机与镜像依赖树从此一致、构建可复现。
+- 纸匣写入原子化（TD-08）：收入作品先全部写同目录暂存、rename 原子就位、目录与页面行同事务落库；中途断电 / 强杀不再留半文件或丢旧副本，崩溃残留的暂存下次写入自动清。
+- 缓存目录水位（TD-07）：`.data/media` / `.data/source` 不再无界增长——每 50 次写入异步扫描，超水位（默认 2GB / 512MB，`kami.config.json` 可调）按最旧淘汰到 80%。
+- 上游层拆解（TD-01）：1257 行的 upstream.server.ts 按站点拆成 pixiv / fanbox / booru / media / dispatch 模块，导入方零改动；补 7 个固定样本映射测试，上游接口改版时破损点一目了然。
+- Konachan 镜像兜底补盲区（TD-11）：被 Cloudflare 拦杀时返回的常是 200 + 挑战页 HTML，此前只有非 200 才切 .net 镜像，现在 HTML 形态也切。
+- 工程脚本进类型检查（TD-05）：tsconfig 覆盖 scripts/，补齐 82 处注解并修掉 2 个真实类型问题。
+- 测试恢复全量 glob（死工具链测试随平台退出删除），全绿。
+
+### 安全（第一批）
+
+- 数据接口全部上锁（修 12 号文档 SEC-01/02/07）：纸匣读写、热榜、会话写入、代理设置、登录中转、上游读取、搜图、图片代理此前对局域网完全敞开，现在统一过访问闸——开着应用账号时只认已登录会话；没开账号时（如 Docker 默认形态）只认启动时生成的「局域网配对令牌」，新设备首次打开贴一次令牌即完成配对（终端会打印令牌和配对链接，令牌存在 `.data/lan-token.json`，删掉重启即换新）。跨站脚本请求同时被 Fetch-Metadata 隔离挡在 403。
+- 登录中转的轮询快照不再携带 Pixiv / FANBOX 会话明文（SEC-02）：280ms 的画面轮询全程无凭据，前端只在登录完成的那一刻单独取一次。
+- 纸匣键名的作品 id 白名单去掉点号（SEC-10），彻底关掉 `..` 形式的目录上爬缝隙。
+
+### 工程（第一批）
+
+- 修复测试「假绿」：`npm test` 之前是手写文件清单，10 个测试文件（浏览历史、热榜存储/归档、Pixiv 搜索/主页、标签库等）从未被运行过；改为 glob 自动发现、全量执行（当前 241 个），并补上热榜存储的 Windows 句柄修复。
+- 新增 GitHub Actions CI（typecheck + test + lint + build），对齐 Dockerfile 的 Node 22。
+- 媒体层同 URL 并发只打一次上游（多卡片同图不再重复请求），无 Content-Length 的流式转发补上 48MB 累计上限。
+- 顺手清掉 4 个存量 lint error；Next 的 instrumentation 钩子在 pnpm 布局下打不了 `node:` 依赖，配对令牌改为首次被访问闸读到时打印。
+
 ### 文档
 
 - README 写明 `pnpm dev` / `build` / `start` / Docker 都走 Next，并补了技术栈、服务端缓存和 `.data` 落盘。

@@ -19,6 +19,7 @@ const AUTH_MIGRATION = "0001_auth.sql";
  * The auth-on copy of the Better Auth schema and its source, or null when the
  * app has not turned sign-in on (the shipped state).
  */
+/** @param {string} root */
 function authSchemaCopy(root) {
   const copy = join(root, "migrations", AUTH_MIGRATION);
   const source = join(root, "migrations/auth", AUTH_MIGRATION);
@@ -56,9 +57,14 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("the glob is non-recursive and the auth copy never double-applies", () => {
+  // #105 起应用账号开启：auth 顶层本来就有 0001_auth.sql（migrations/auth/
+  // 是给「关账号形态」的副本，readdir 非递归读不到它，按 basename 也不会重复应用）。
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const pending = pendingMigrations(readdirSync(migrationsDir), []);
+  assert.ok(pending.length >= 1);
+  assert.ok(pending.every((m) => !m.path.split(/[\\/]/).includes("auth")));
+  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), pending.map((m) => m.name)), []);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
@@ -82,9 +88,11 @@ test("the copy check reads both files and catches an edit", () => {
 
   writeFileSync(join(root, "migrations", AUTH_MIGRATION), "create table t ();\n");
   const same = authSchemaCopy(root);
+  assert.ok(same);
   assert.equal(same.copy, same.source);
 
   writeFileSync(join(root, "migrations", AUTH_MIGRATION), "create table t (x int);\n");
   const drifted = authSchemaCopy(root);
+  assert.ok(drifted);
   assert.notEqual(drifted.copy, drifted.source);
 });

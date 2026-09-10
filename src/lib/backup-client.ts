@@ -12,14 +12,14 @@ import {
   parseBackupSettings,
   type BackupFile,
   type BackupSettings,
-} from "./backup";
-import { useSettings } from "./store";
-import { useTagCatalog } from "./tag-catalog";
-import { useTagLexicon } from "./tag-lexicon";
-import { downloadBlob, listVault, putVaultMeta } from "./vault";
-import { rememberVaultKey, useVaultIndex } from "./vault-index";
-import { listServerVault, pushVaultMetaToServer } from "./vault-sync";
-import { useViewHistory } from "./view-history";
+} from "./backup.ts";
+import { useSettings } from "./store.ts";
+import { useTagCatalog } from "./tag-catalog.ts";
+import { useTagLexicon } from "./tag-lexicon.ts";
+import { downloadBlob, listVault, putVaultMeta } from "./vault.ts";
+import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
+import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
+import { useViewHistory } from "./view-history.ts";
 
 function snapshotSettings(): BackupSettings {
   const s = useSettings.getState();

@@ -6,9 +6,9 @@
  * 为什么：浏览器不能直接播 ugoira zip，存进纸匣也需要单一文件。
  */
 import { GIFEncoder, applyPalette, quantize } from "gifenc/dist/gifenc.esm.js";
-import { unzipUgoira } from "./ugoira-zip";
+import { unzipUgoira } from "./ugoira-zip.ts";
 
-export { unzipUgoira } from "./ugoira-zip";
+export { unzipUgoira } from "./ugoira-zip.ts";
 
 export async function encodeUgoiraGif(
   frames: { delay: number; bytes: Uint8Array }[],

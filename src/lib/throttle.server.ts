@@ -6,8 +6,8 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { resolveKamiRoot } from "./proxy.server";
-import { DEFAULT_THROTTLE, parseThrottle, type ThrottleConfig } from "./throttle";
+import { resolveKamiRoot } from "./proxy.server.ts";
+import { DEFAULT_THROTTLE, parseThrottle, type ThrottleConfig } from "./throttle.ts";
 
 const CONFIG_REL = "kami.config.json";
 

@@ -6,7 +6,7 @@
  * 为什么：三个站 JSON 形状接近但 rating、标签字段名不同，集中在这里改。
  */
 import { isGifUrl } from "./thumb-url.ts";
-import type { BooruSite, WorkCard, WorkDetail, WorkPage, WorkPoolRef } from "./types";
+import type { BooruSite, WorkCard, WorkDetail, WorkPage, WorkPoolRef } from "./types.ts";
 
 export const BOORU_FEEDS = [
   { id: "recent", label: "最新" },

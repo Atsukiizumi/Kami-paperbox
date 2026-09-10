@@ -1,33 +1,17 @@
 import { getActiveRequest } from "../request-context.ts";
-import { gateIdentityEnabled } from "./gate-identity.server";
-import { auth, authConfigured } from "./server";
+import { auth, authConfigured } from "./server.ts";
 
 /**
  * Server-side session resolution (server-only).
  *
- * Because this app runs its OWN Better Auth at same-origin `/api/auth/*`, the
- * session cookie is sent with every request to this app — server functions AND
- * SSR loaders included. So we resolve the user straight from the request cookies
- * via `auth.api.getSession` (no client-minted JWT needed). Never trust a
- * client-supplied user id — only the result of this verification.
+ * 本应用自己的 Better Auth 跑在同源 `/api/auth/*`，会话 cookie 随每个
+ * 请求自动带上，所以直接从请求 cookie 经 `auth.api.getSession` 解析用户
+ * （不需要客户端签发的 JWT）。永远不要信任客户端传来的 user id ——
+ * 只信这里的验证结果。
  */
-
-/** True when a real database is configured server-side. */
-const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
 
 /** Re-export so callers can branch on it without importing `server.ts`. */
 export { authConfigured };
-
-if (databaseConfigured && !authConfigured) {
-  console.error(
-    "[auth] DATABASE_URL is set but auth is disabled (VITE_AUTH_ENABLED=false) " +
-      "— requireUserId() will reject every request (fail closed) rather than " +
-      "share one dev user on a real database.",
-  );
-}
-
-/** Dev fallback user id, used only when auth is disabled (VITE_AUTH_ENABLED=false). */
-export const DEV_USER_ID = "dev-user";
 
 /**
  * Thrown by `requireUserId` when the caller has no valid session. Carries
@@ -48,50 +32,12 @@ export type VerifiedUser = { id: string; email: string | null };
  * Resolve the signed-in user from the current request, or `null` when auth isn't
  * configured / nobody is signed in. Safe to call from server functions and SSR
  * loaders.
- *
- * `bearerToken` is for the LIVE PREVIEW: the app runs in a partitioned iframe
- * whose cookies don't reach the server, so `authMiddleware` forwards the session
- * as a bearer token, which we present as `Authorization: Bearer …` (the `bearer`
- * plugin resolves it). When deployed no token is passed and the cookie is used.
  */
-export async function getSessionUser(
-  bearerToken?: string,
-): Promise<VerifiedUser | null> {
-  if (!authConfigured && !gateIdentityEnabled()) return null;
+export async function getSessionUser(): Promise<VerifiedUser | null> {
+  if (!authConfigured) return null;
   const request = getActiveRequest();
   if (!request) return null;
-  let headers = request.headers;
-  if (bearerToken) {
-    headers = new Headers(request.headers);
-    headers.set("Authorization", `Bearer ${bearerToken}`);
-  }
-  const session = await auth.api.getSession({ headers });
+  const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) return null;
   return { id: session.user.id, email: session.user.email ?? null };
-}
-
-/**
- * Resolve the current user id for a server function, or throw when unauthorized.
- * Prefer `authMiddleware` (`./middleware`), which calls this for you.
- * - Auth enabled -> the verified session user id; throws
- *   `UnauthorizedError` when signed out. Works in the sandbox preview too (real
- *   sign-in via the baked preview client).
- * - Auth disabled (`VITE_AUTH_ENABLED=false`) + `DATABASE_URL` set -> throw (fail
- *   closed): one shared dev user on a real database would let every visitor
- *   read/write everyone's rows.
- * - Auth disabled + no database -> the shared dev user id.
- */
-export async function requireUserId(bearerToken?: string): Promise<string> {
-  if (!authConfigured && !gateIdentityEnabled()) {
-    if (databaseConfigured) {
-      throw new Error(
-        "Auth is disabled (VITE_AUTH_ENABLED=false) but DATABASE_URL is set — " +
-          "refusing to fall back to the shared dev user against a real database.",
-      );
-    }
-    return DEV_USER_ID;
-  }
-  const user = await getSessionUser(bearerToken);
-  if (!user) throw new UnauthorizedError();
-  return user.id;
 }

@@ -10,7 +10,9 @@
 import { chromium } from "playwright";
 
 const BASE = "http://127.0.0.1:8080";
+/** @type {{ name: string, pass: boolean, detail: string }[]} */
 const results = [];
+/** @param {string} name @param {boolean} pass @param {string} detail */
 function record(name, pass, detail) {
   results.push({ name, pass, detail });
   console.log(`${pass ? "PASS" : "FAIL"}  ${name} — ${detail}`);
@@ -18,6 +20,7 @@ function record(name, pass, detail) {
 
 const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--disk-cache-dir=.pw-cache"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+/** @type {string[]} */
 const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message.slice(0, 220)));
 page.on("console", (m) => {

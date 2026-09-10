@@ -6,9 +6,9 @@
  * 为什么：浏览器只打本站 `/api/source`，Cookie 和上游请求留在服务端。zod 挡住胡来的 id/page。
  */
 import { z } from "zod";
-import { PIXIV_RANK_IDS } from "./pixiv-feed";
-import { BOORU_FEED_IDS } from "./booru";
-import type { FanboxCursor, FetchInput, FetchOk, SocialInput, SocialOk } from "./types";
+import { PIXIV_RANK_IDS } from "./pixiv-feed.ts";
+import { BOORU_FEED_IDS } from "./booru.ts";
+import type { FanboxCursor, FetchInput, FetchOk, SocialInput, SocialOk } from "./types.ts";
 
 const cursorSchema = z
   .object({

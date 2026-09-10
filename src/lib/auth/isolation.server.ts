@@ -7,19 +7,14 @@ import { getActiveRequest } from "../request-context.ts";
  * request-context (Next). If it is imported from a dual client/server module
  * under a non-`.server` name, the bundler can ship Node-only code to the browser.
  *
- * Apps deployed on `*.grok.me` are "same-site" to each other but MUTUALLY
- * UNTRUSTED, and a `SameSite=Lax` session cookie IS sent on same-site
- * subrequests — so without this, a malicious sibling could make a SCRIPTED
- * (fetch/XHR/form-POST) request to this app's server functions and ride this
- * app's session cookie.
+ * Fetch-Metadata 同站校验：别的网站发起的脚本化请求（fetch/XHR/form POST）
+ * 携带 SameSite=Lax 会话 cookie 时会被 403。本机 / 局域网自托管形态下，
+ * 这一道挡的是「恶意网页让访客浏览器偷偷打本应用 API」的跨站脚本路径；
+ * 直连 API 的局域网设备由数据面闸（会话 / 启动令牌）负责拦。
  *
- * We allow only: same-origin requests (this app's own client), non-browser
- * requests (SSR / server-to-server, which send no `Sec-Fetch-Site`), and
- * top-level GET navigations (how the OAuth callback and normal page loads
- * arrive). Every cross-site / same-site *scripted* request is rejected.
- * Together with `__Host-` cookies and Better Auth's `trustedOrigins`, this
- * closes the sibling-tenant attack surface. Enforced at `runAuth`
- * (see `middleware.ts`).
+ * 放行：同源请求（应用自己的前端）、非浏览器请求（SSR / 服务间，
+ * 无 Sec-Fetch-Site 头）、顶层 GET 导航（正常打开页面）。其余跨站
+ * 脚本化请求一律拒绝；在 withDataPlane（next-route.ts）强制执行。
  */
 export class CrossSiteRequestError extends Error {
   readonly status = 403;

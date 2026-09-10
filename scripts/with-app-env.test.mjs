@@ -25,6 +25,7 @@ const execFileAsync = promisify(execFile);
 const WRAPPER = join(projectRoot(), "scripts/with-app-env.mjs");
 const PRINT_FLAG = "process.stdout.write(String(process.env.VITE_AUTH_ENABLED));";
 
+/** @param {string} [appEnvJson] */
 function makeWorkspace(appEnvJson) {
   const root = mkdtempSync(join(tmpdir(), "app-env-"));
   if (appEnvJson !== undefined) {
@@ -61,30 +62,25 @@ test("reads the app env from a workspace", () => {
 test("an explicit process-env override wins over the file", () => {
   const merged = mergeAppEnv(
     { VITE_AUTH_ENABLED: "false" },
-    { VITE_AUTH_ENABLED: "true", PATH: "/usr/bin" },
+    { ...process.env, VITE_AUTH_ENABLED: "true", PATH: "/usr/bin" },
   );
   assert.equal(merged.VITE_AUTH_ENABLED, "true");
   assert.equal(merged.PATH, "/usr/bin");
 });
 
-test("the template ships auth off", () => {
-  assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
-});
-
 test("wrapper merge lands VITE_ flags before Next starts", () => {
   const root = makeWorkspace('{"VITE_AUTH_ENABLED":"false"}');
-  const merged = mergeAppEnv(readAppEnv(root), { PATH: "/usr/bin" });
+  const merged = mergeAppEnv(readAppEnv(root), process.env);
   assert.equal(merged.VITE_AUTH_ENABLED, "false");
 });
 
 test("the wrapped command runs with the app env applied", async () => {
-  const { stdout } = await execFileAsync(process.execPath, [
-    WRAPPER,
-    process.execPath,
-    "-e",
-    PRINT_FLAG,
-  ]);
-  assert.equal(stdout, "false");
+  // KAMI_APP_ENV 指向临时文件：不依赖本机 .grok（gitignore，CI 上没有）
+  const envFile = join(makeWorkspace('{"VITE_AUTH_ENABLED":"true"}'), APP_ENV_REL_PATH);
+  const { stdout } = await execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", PRINT_FLAG], {
+    env: { ...process.env, KAMI_APP_ENV: envFile },
+  });
+  assert.equal(stdout, "true");
 });
 
 test("the wrapped command sees an explicit override, not the file value", async () => {
@@ -99,7 +95,7 @@ test("the wrapped command sees an explicit override, not the file value", async 
 test("the wrapper propagates the command's exit code", async () => {
   await assert.rejects(
     execFileAsync(process.execPath, [WRAPPER, process.execPath, "-e", "process.exit(3)"]),
-    (err) => err.code === 3,
+    (err) => (/** @type {{ code?: number | string }} */ (err)).code === 3,
   );
 });
 
@@ -113,28 +109,38 @@ test("a signal-killed command is never reported as success", async () => {
       "-e",
       "process.kill(process.pid, 'SIGTERM');setTimeout(() => {}, 1000);",
     ]),
-    (err) => err.signal === "SIGTERM" || err.code !== 0,
+    (err) => {
+      const e = /** @type {{ code?: number | string, signal?: string }} */ (err);
+      return e.signal === "SIGTERM" || e.code !== 0;
+    },
   );
 });
 
 test("the CLI still runs when invoked through a symlinked path", async () => {
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.
+  // Windows 无开发者模式时 symlink 被拒，junction 同样让 argv[1] ≠ realpath。
   const link = join(mkdtempSync(join(tmpdir(), "app-env-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
-  const { stdout } = await execFileAsync(process.execPath, [
-    join(link, "with-app-env.mjs"),
+  try {
+    symlinkSync(join(projectRoot(), "scripts"), link);
+  } catch (err) {
+    const e = /** @type {NodeJS.ErrnoException} */ (err);
+    if (process.platform !== "win32" || e.code !== "EPERM") throw err;
+    symlinkSync(join(projectRoot(), "scripts"), link, "junction");
+  }
+  const envFile = join(makeWorkspace('{"VITE_AUTH_ENABLED":"true"}'), APP_ENV_REL_PATH);
+  const { stdout } = await execFileAsync(
     process.execPath,
-    "-e",
-    PRINT_FLAG,
-  ]);
-  assert.equal(stdout, "false");
+    [join(link, "with-app-env.mjs"), process.execPath, "-e", PRINT_FLAG],
+    { env: { ...process.env, KAMI_APP_ENV: envFile } },
+  );
+  assert.equal(stdout, "true");
 });
 
 test("puts node_modules/.bin first on PATH", () => {
   const dir = localBinDir(projectRoot());
-  const env = withLocalBin({ PATH: "/usr/bin" }, projectRoot());
-  assert.equal(env.PATH.split(process.platform === "win32" ? ";" : ":")[0], dir);
+  const env = withLocalBin({ ...process.env, PATH: "/usr/bin" }, projectRoot());
+  assert.equal((env.PATH ?? "").split(process.platform === "win32" ? ";" : ":")[0], dir);
 });
 
 test("resolves next via its JS entry so Windows paths with spaces work", () => {

@@ -18,12 +18,17 @@ ensureKamiConfig(root);
 const task = process.argv[2] || "dev";
 const extra = process.argv.slice(3);
 
+/** @param {string} cmd */
 function which(cmd) {
   const probe = process.platform === "win32" ? "where" : "which";
   const r = spawnSync(probe, [cmd], { encoding: "utf8" });
   return r.status === 0;
 }
 
+/**
+ * @param {string} cmd
+ * @param {string[]} args
+ */
 function run(cmd, args) {
   const r = spawnSync(cmd, args, {
     cwd: root,
@@ -34,6 +39,7 @@ function run(cmd, args) {
   process.exit(r.status ?? 1);
 }
 
+/** @returns {[string, string[]]} */
 function installer() {
   if (which("pnpm")) return ["pnpm", ["install"]];
   if (which("npm")) return ["npm", ["install"]];
@@ -42,6 +48,7 @@ function installer() {
   process.exit(1);
 }
 
+/** @returns {[string, string[]]} */
 function runner() {
   if (which("pnpm")) return ["pnpm", []];
   return ["npm", ["run"]];

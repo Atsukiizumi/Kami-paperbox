@@ -4,8 +4,8 @@
  * 作用：设置页和首次向导共用同一套写入，避免两处各判一次访客 Cookie。
  * 用法：await applyLoginSession({ pixiv, fanbox, pixivProfile })。
  */
-import { isPixivLoggedInSession, parseCookieDump } from "./browser-login";
-import { useSettings } from "./store";
+import { isPixivLoggedInSession, parseCookieDump } from "./browser-login.ts";
+import { useSettings } from "./store.ts";
 
 export type LoginSessionInput = {
   pixiv?: string;

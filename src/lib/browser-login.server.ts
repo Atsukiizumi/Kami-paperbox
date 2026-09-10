@@ -20,11 +20,11 @@ import {
   type LoginInputEvent,
   type LoginJobSnapshot,
   type LoginSite,
-} from "./browser-login";
-import { getActiveProxy } from "./proxy.server";
-import { parseProxyUrl } from "./proxy-url";
-import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity";
-import { resolveIdentities } from "./site-identity.server";
+} from "./browser-login.ts";
+import { getActiveProxy } from "./proxy.server.ts";
+import { parseProxyUrl } from "./proxy-url.ts";
+import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity.ts";
+import { resolveIdentities } from "./site-identity.server.ts";
 
 type MouseButton = "left" | "right" | "middle";
 
@@ -95,6 +95,18 @@ let activeCdp: CdpSession | null = null;
 export function getLoginJob(includeFrame = false): LoginJobSnapshot {
   if (includeFrame) return { ...job };
   return { ...job, frame: job.frame ? "*" : null };
+}
+
+/**
+ * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
+ * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。
+ */
+export function consumeLoginJobCredentials(): LoginJobSnapshot {
+  const snap = { ...job, frame: null };
+  if (job.pixiv || job.fanbox) {
+    job = { ...job, pixiv: "", fanbox: "" };
+  }
+  return snap;
 }
 
 function proxyArgs(): { args: string[]; user?: string; password?: string } {

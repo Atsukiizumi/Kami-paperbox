@@ -10,16 +10,16 @@ import {
   parseIqdbHtml,
   parseSauceNaoHtml,
   parseSauceNaoJson,
-} from "./reverse-search";
+} from "./reverse-search.ts";
 import {
   challengeMessage,
   isBotChallenge,
   isSearchLimited,
   searchGapMs,
-} from "./reverse-search-guard";
-import { outboundFetch } from "./curl-fetch.server";
-import { sleep } from "./utils";
-import { getThrottle } from "./throttle.server";
+} from "./reverse-search-guard.ts";
+import { outboundFetch } from "./curl-fetch.server.ts";
+import { sleep } from "./utils.ts";
+import { getThrottle } from "./throttle.server.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -266,7 +266,7 @@ export async function runReverseSearch(input: {
   if (input.bytes.byteLength === 0) throw new Error("没有读到图片");
   if (input.bytes.byteLength > MAX_SEARCH_BYTES) throw new Error("图片超过 8 MB，请缩小后再试");
   const type = SEARCH_TYPES.has(input.type) ? input.type : "image/jpeg";
-  const name = input.filename.replace(/[^\w.\-]+/g, "_").slice(0, 80) || "upload.jpg";
+  const name = input.filename.replace(/[^\w.-]+/g, "_").slice(0, 80) || "upload.jpg";
   const file = asFile(input.bytes, name, type);
   const key = input.apiKey?.trim() || "";
   await pace(input.engine, Boolean(key || process.env.SAUCENAO_API_KEY?.trim()));

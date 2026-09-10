@@ -6,11 +6,11 @@
  * 为什么：这些接口要 Origin + Cookie + token，只能服务端发。
  *        CSRF 现在藏在 meta-global-data（可能是实体编码），不能再用「只认十六进制」的旧正则。
  */
-import { bookmarkTagsOf, extractPixivCsrfToken, isAlreadySocialError, pixivHtmlLooksLoggedOut } from "./social";
-import type { SocialInput, SocialOk } from "./types";
-import { outboundFetch } from "./curl-fetch.server";
-import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login";
-import { parsePixivMe } from "./site-identity";
+import { bookmarkTagsOf, extractPixivCsrfToken, isAlreadySocialError, pixivHtmlLooksLoggedOut } from "./social.ts";
+import type { SocialInput, SocialOk } from "./types.ts";
+import { outboundFetch } from "./curl-fetch.server.ts";
+import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login.ts";
+import { parsePixivMe } from "./site-identity.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";

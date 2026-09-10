@@ -6,7 +6,7 @@
  * 为什么：Pixiv / 图站空格=同时包含多个标签；点单个标签才走精确匹配。
  *        FANBOX 接口一次只吃一个标签。混用会搜空。
  */
-import type { Source } from "./types";
+import type { Source } from "./types.ts";
 import { currentLexiconMap, translateBooruToken } from "./tag-lexicon.ts";
 
 const SOURCES: readonly Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru"];

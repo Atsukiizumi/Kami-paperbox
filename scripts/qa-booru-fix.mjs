@@ -12,8 +12,11 @@ import { mkdirSync } from "node:fs";
 const BASE = "http://127.0.0.1:8080";
 mkdirSync("screenshots", { recursive: true });
 
+/** @type {string[]} */
 const consoleMsgs = [];
+/** @type {{ name: string, pass: boolean, detail: string }[]} */
 const results = [];
+/** @param {string} name @param {boolean} pass @param {string} detail */
 function record(name, pass, detail) {
   results.push({ name, pass, detail });
   console.log(`${pass ? "PASS" : "FAIL"}  ${name} — ${detail}`);

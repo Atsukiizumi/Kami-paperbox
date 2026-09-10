@@ -12,7 +12,7 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveKamiRoot } from "./proxy.server.ts";
-import { getSql, type Sql } from "./db";
+import { getSql, type Sql } from "./db.ts";
 
 /** 快照覆盖的表：账号（user/account）、会话（session）、账号同步（user_sync）。 */
 const TABLES = ["user", "account", "session", "user_sync"] as const;

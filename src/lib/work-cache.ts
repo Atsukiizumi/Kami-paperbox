@@ -6,10 +6,10 @@
  * 为什么：卡片自己 useState 一卸载就丢；queryKey 前缀匹配能覆盖分页和账号切换。
  */
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
-import { useSettings } from "./store";
-import { fanboxSessionFrom } from "./browser-login";
-import { loadWork } from "./queue-runner";
-import type { FetchOk, Source, WorkCard, WorkDetail } from "./types";
+import { useSettings } from "./store.ts";
+import { fanboxSessionFrom } from "./browser-login.ts";
+import { loadWork } from "./queue-runner.ts";
+import type { FetchOk, Source, WorkCard, WorkDetail } from "./types.ts";
 
 function patchItems(items: WorkCard[], source: Source, id: string, patch: Partial<WorkCard>): WorkCard[] {
   let changed = false;

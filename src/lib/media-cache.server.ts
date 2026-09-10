@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveKamiRoot } from "./proxy.server.ts";
+import { noteCacheWrite } from "./cache-watermark.server.ts";
 
 export const MEDIA_CACHE_TTL_MS = 7 * 24 * 60 * 60_000;
 export const MEDIA_CACHE_MAX_BYTES = 8 * 1024 * 1024;
@@ -108,4 +109,5 @@ export function writeCachedMedia(
   } catch {
     /* Vercel / 只读盘：忽略 */
   }
+  noteCacheWrite("media", root);
 }
