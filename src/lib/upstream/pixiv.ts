@@ -20,6 +20,7 @@ import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } f
 import { pixivIdsNewestFirst, pixivPickupItems } from "../pixiv-profile.ts";
 import type { FetchOk, UserProfile, WorkCard, WorkDetail, WorkPage } from "../types.ts";
 import { asBool, asNumber, asRecord, asString, upstreamJson } from "./http.ts";
+import { jstYesterdayCompact } from "../ranking-archive.ts";
 
 function alwaysBlockedPixiv(item: Record<string, unknown>): boolean {
   if (asBool(item.isMasked) || asBool(item.is_masked)) return true;
@@ -80,7 +81,48 @@ export function mapIllustList(raw: unknown, safeMode: boolean, hideAi = false): 
   return orderCardsByIds(items, ids);
 }
 
+/**
+ * 榜单入口：没指定日期且当天榜未公布（报错或空）时，自动回落到昨天
+ * （JST）——用户要看的永远是「最新已公布的那一期」。
+ */
 export async function pixivRanking(
+  mode: PixivRankMode,
+  page: number,
+  cookie?: string,
+  safeMode = true,
+  hideAi = false,
+  date?: string,
+): Promise<FetchOk> {
+  let first: FetchOk | null = null;
+  let unpublished = false;
+  try {
+    first = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, date);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    // 只有「当天榜还没公布」类报错才回落；登录 / 网络问题如实抛出
+    if (date || page > 1 || !/还没公布|没有内容/.test(message)) throw err;
+    unpublished = true;
+  }
+  // 只在「没指定日期 + 第一页」时回落：用户明确选了某天就尊重其选择
+  const emptyToday =
+    !date &&
+    page === 1 &&
+    !unpublished &&
+    first !== null &&
+    first.op === "pixivRanking" &&
+    first.items.length === 0;
+  if (!unpublished && !emptyToday && first !== null) return first;
+
+  // 没指定日期且当天榜未公布/为空——回落昨天（JST）重取，并把生效日期带给前端
+  const yesterday = jstYesterdayCompact();
+  const result = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, yesterday);
+  if (result.op === "pixivRanking" && !result.date) {
+    return { ...result, date: yesterday };
+  }
+  return result;
+}
+
+async function loadPixivRanking(
   mode: PixivRankMode,
   page: number,
   cookie?: string,

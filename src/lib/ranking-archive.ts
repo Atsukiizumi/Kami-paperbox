@@ -52,6 +52,23 @@ export function pixivRankingDateParam(iso: string, now = new Date()): string | u
   return compact;
 }
 
+/** 东京时区的「昨天」，compact 形态（YYYYMMDD）。日榜回落用。 */
+export function jstYesterdayCompact(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = Number(parts.find((p) => p.type === "year")?.value);
+  const m = Number(parts.find((p) => p.type === "month")?.value);
+  const d = Number(parts.find((p) => p.type === "day")?.value);
+  const yesterday = new Date(Date.UTC(y, m - 1, d) - 86_400_000);
+  return `${yesterday.getUTCFullYear()}${String(yesterday.getUTCMonth() + 1).padStart(2, "0")}${String(
+    yesterday.getUTCDate(),
+  ).padStart(2, "0")}`;
+}
+
 export async function listRankings(site?: Source, period?: RankPeriod): Promise<RankSnapshotMeta[]> {
   const qs = new URLSearchParams();
   if (site) qs.set("site", site);
