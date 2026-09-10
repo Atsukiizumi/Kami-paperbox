@@ -12,17 +12,19 @@ import {
   parseBackup,
   parseBackupFile,
   parseBackupSettings,
+  parseCatalog,
+  parseVaultRecords,
   type BackupFile,
   type BackupSettings,
 } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import { useSettings } from "./store.ts";
 import { useTagCatalog } from "./tag-catalog.ts";
-import { useTagLexicon } from "./tag-lexicon.ts";
+import { parseTagLexicon, useTagLexicon } from "./tag-lexicon.ts";
 import { downloadBlob, listVault, putVaultMeta } from "./vault.ts";
 import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
 import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
-import { useViewHistory } from "./view-history.ts";
+import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "./view-history.ts";
 
 function snapshotSettings(): BackupSettings {
   const s = useSettings.getState();
@@ -95,6 +97,56 @@ export async function downloadBackup(passphrase?: string): Promise<{ accounts: n
   const blob = new Blob([`${JSON.stringify(file, null, 2)}\n`], { type: "application/json" });
   downloadBlob(blob, backupFilename());
   return { accounts: backup.settings.accounts.length, vault: backup.vault.length };
+}
+
+/**
+ * 按「同步分段」应用一段数据（docs/17）：settings 段含 proxyUrl；
+ * vault 段合并写入；lexicon 段含词表 + 目录；history 段整组替换。
+ * 与 applyBackup 共用各段的写入方式，只是范围更小。
+ */
+export async function applySegment(
+  segment: "settings" | "vault" | "lexicon" | "history",
+  data: unknown,
+): Promise<void> {
+  if (segment === "settings") {
+    const seg = data as { settings?: unknown; proxyUrl?: unknown };
+    const settings = parseBackupSettings(seg.settings ?? {});
+    useSettings.setState({ ...settings });
+    await useSettings.getState().syncSessions();
+    if (typeof seg.proxyUrl === "string" && seg.proxyUrl) {
+      try {
+        await fetch("/api/proxy", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: seg.proxyUrl }),
+        });
+      } catch {
+        /* proxy is optional */
+      }
+    }
+    return;
+  }
+  if (segment === "vault") {
+    for (const item of parseVaultRecords(Array.isArray(data) ? data : [])) {
+      await putVaultMeta(item);
+      rememberVaultKey(item.source, item.id);
+      await pushVaultMetaToServer(item);
+    }
+    await useVaultIndex.getState().refresh();
+    return;
+  }
+  if (segment === "lexicon") {
+    const seg = data as { lexicon?: unknown; catalog?: unknown };
+    const rows = parseTagLexicon(seg.lexicon ?? []);
+    useTagLexicon.getState().setRows(rows);
+    useTagCatalog.setState({ entries: parseCatalog(seg.catalog ?? []) });
+    return;
+  }
+  const seg = data as { items?: unknown[]; authors?: unknown[] };
+  useViewHistory.setState({
+    items: parseHistoryItems(Array.isArray(seg.items) ? seg.items : []),
+    authors: parseAuthorHistory(Array.isArray(seg.authors) ? seg.authors : []),
+  });
 }
 
 export async function applyBackup(raw: unknown, passphrase?: string): Promise<{ accounts: number; vault: number }> {

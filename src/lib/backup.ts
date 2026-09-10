@@ -244,7 +244,7 @@ export function parseVaultRecords(raw: unknown): VaultMeta[] {
   return out.sort((a, b) => b.savedAt - a.savedAt);
 }
 
-function parseCatalog(raw: unknown): TagCatalogEntry[] {
+export function parseCatalog(raw: unknown): TagCatalogEntry[] {
   if (!Array.isArray(raw)) return [];
   const out: TagCatalogEntry[] = [];
   const seen = new Set<string>();
