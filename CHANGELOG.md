@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+## [0.8.60] — 2026-09-10
+
+对应 [PR #107](https://github.com/Atsukiizumi/Kami-paperbox/pull/107)、[PR #108](https://github.com/Atsukiizumi/Kami-paperbox/pull/108)、[PR #109](https://github.com/Atsukiizumi/Kami-paperbox/pull/109)。
+
 ### 安全（第三批）
 
 - 浏览列表的本地缓存不再含登录凭据明文（SEC-04）：react-query 的缓存键原先直接放 Cookie 原文，会随浏览缓存写进 localStorage——换成不可逆指纹，旧的污染存储读到即删。
