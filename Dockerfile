@@ -12,7 +12,10 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 ENV NODE_ENV=production
-ENV VITE_AUTH_ENABLED=false
+# TD-17：默认与应用形态一致（账号开启，同步可用）；要无账号的纯浏览形态，
+# 构建时 --build-arg VITE_AUTH_ENABLED=false（数据面届时走局域网配对令牌）
+ARG VITE_AUTH_ENABLED=true
+ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
@@ -32,7 +35,6 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=8080
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV VITE_AUTH_ENABLED=false
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
 
