@@ -14,7 +14,12 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 
-const STORAGE_KEY = "kami-browse-v1";
+/**
+ * v2：v1 的 queryKey 里是 Cookie 原文（SEC-04），升级为凭据指纹后直接弃用
+ * 旧存储——读到旧键时顺手删掉，不把历史明文留在盘上。
+ */
+const STORAGE_KEY = "kami-browse-v2";
+const LEGACY_STORAGE_KEY = "kami-browse-v1";
 const MAX_AGE_MS = 24 * 60 * 60_000;
 export const BROWSE_STALE_MS = 30 * 60_000;
 /** 够铺一屏浏览页（50 张）。FANBOX 一页大约 10 条，所以不能只留 2 页。 */
@@ -75,6 +80,11 @@ export function trimDehydrated(state: DehydratedState, now = Date.now()): Dehydr
 function readState(): DehydratedState | null {
   if (typeof localStorage === "undefined") return null;
   try {
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      /* 忽略 */
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as DehydratedState;

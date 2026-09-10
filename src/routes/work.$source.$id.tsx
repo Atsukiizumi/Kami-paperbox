@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { credentialTag } from "@/lib/cred-tag";
 import { Link, useNavigate, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
 import { ArtworkGrid } from "@/components/artwork-card";
@@ -60,7 +61,7 @@ export function WorkPage() {
   }, [src, pixivCookie]);
 
   const query = useQuery({
-    queryKey: ["work", src, id, safeMode, pixivCookie, fanboxCookie],
+    queryKey: ["work", src, id, safeMode, credentialTag(pixivCookie), credentialTag(fanboxCookie)],
     queryFn: async () => {
       if (src === "pixiv") {
         const r = await fetchSource({
@@ -85,7 +86,7 @@ export function WorkPage() {
   });
 
   const relatedQuery = useQuery({
-    queryKey: ["related", src, id, safeMode, hideAi, pixivCookie, query.data?.tags?.join(" ")],
+    queryKey: ["related", src, id, safeMode, hideAi, credentialTag(pixivCookie), query.data?.tags?.join(" ")],
     enabled: src === "pixiv" || (isBooru(src) && Boolean(query.data)),
     queryFn: async () => {
       if (src === "pixiv") {

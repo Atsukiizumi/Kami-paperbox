@@ -1,6 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { credentialTag } from "@/lib/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
@@ -21,7 +22,7 @@ export function CreatorPage() {
   const safeMode = useSettings((s) => s.safeMode);
 
   const query = useInfiniteQuery({
-    queryKey: ["creator", id, safeMode, fanboxCookie],
+    queryKey: ["creator", id, safeMode, credentialTag(fanboxCookie)],
     initialPageParam: undefined as FanboxCursor | undefined,
     queryFn: async ({ pageParam }) => {
       const r = await fetchSource({
