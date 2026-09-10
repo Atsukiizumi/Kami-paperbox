@@ -673,7 +673,8 @@ export function Home() {
               onChange={(e) => {
                 if (e.target.value) setBoardDate(e.target.value);
               }}
-              className="h-8 w-40"
+              // ml-auto：日期控件与 Pixiv 一致统一靠右（本行最后一组是刷新按钮）
+              className="ml-auto h-8 w-40"
             />
           ) : null}
           {searchWord ? (
