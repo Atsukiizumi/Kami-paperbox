@@ -174,7 +174,7 @@ PY
 
 和 Network 面板等价：浏览器照常跑页面，我们在进程里监听每个请求。
 
-仓库里有脚本 [`scripts/sniff-xhr.mjs`](../scripts/sniff-xhr.mjs)。
+> **2026-09-11 注**：原仓库脚本 `scripts/sniff-xhr.mjs` 已随 Grok 平台清退删除。本节方法论仍有效，脚本可按下面思路用 Playwright 十几行重建（`page.on("request")` 打印 URL/headers/POST body）。
 
 ### 3.1 跑起来
 
@@ -182,7 +182,11 @@ PY
 
 ```bash
 pnpm i    # 已装过可跳过
-node scripts/sniff-xhr.mjs "https://www.pixiv.net/ranking.php?mode=daily&content=illust"
+# sniff-xhr.mjs 已删（见上注），等价的 Playwright 骨架：
+# const { chromium } = require("playwright");
+# const b = await chromium.launch(); const p = await b.newPage();
+# p.on("request", r => console.log(r.method(), r.url(), JSON.stringify(r.headers())));
+# await p.goto(process.argv[2]); await b.close();
 ```
 
 可选环境变量：
@@ -555,4 +559,4 @@ curl -sS -A "Mozilla/5.0 …" \
 | [pixiv-auth.md](pixiv-auth.md) | **Pixiv 认证三条线**（网页 Cookie、App OAuth、开放平台）和纸匣走哪条 |
 | [upstream.md](upstream.md) | **纸匣已经在用的接口清单**和请求头、代码落点 |
 
-上游随时会改。页面和 Network（或 `sniff-xhr.mjs` 的输出）永远比文档新。文档过时就按第 0 节再走一遍循环，改代码，不要改成「猜 URL」。
+上游随时会改。页面和 Network（或方法 B 的拦包输出）永远比文档新。文档过时就按第 0 节再走一遍循环，改代码，不要改成「猜 URL」。
