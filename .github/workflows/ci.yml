@@ -29,3 +29,18 @@ jobs:
       - run: pnpm test
       - run: pnpm run lint
       - run: pnpm run build
+
+  # 只构建不推送：锁文件/.dockerignore/构建上下文类回归只有真实 docker build
+  # 能抓到（2026-09-11 的 pnpm-lock.yaml 被 .dockerignore 排除即此类，verify
+  # 四门禁全绿但 docker compose up --build 必挂）。GHA 缓存免密钥。
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
