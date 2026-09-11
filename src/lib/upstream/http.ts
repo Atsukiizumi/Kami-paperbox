@@ -7,6 +7,17 @@ import { withPixivUserId } from "../browser-login.ts";
 export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
+/**
+ * 上游侧失败（网络 / 源站 5xx / 反爬拦截 / 数据不可解析）。
+ * /api/source 据此回 502（用户态错误如「需要登录」保持 400，S7）。
+ */
+export class UpstreamError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UpstreamError";
+  }
+}
+
 export async function upstreamJson(
   url: string,
   opts: { cookie?: string; origin: "pixiv" | "fanbox" },
@@ -27,13 +38,17 @@ export async function upstreamJson(
 
   const res = await outboundFetch(url, { headers, redirect: "follow" });
   if (!res.ok) {
-    throw new Error(
+    throw new UpstreamError(
       opts.origin === "pixiv"
         ? `Pixiv 请求失败（${res.status}）`
         : `FANBOX 请求失败（${res.status}）`,
     );
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new UpstreamError(`${opts.origin === "pixiv" ? "Pixiv" : "FANBOX"} 返回了无法解析的数据`);
+  }
 }
 
 export function asRecord(v: unknown): Record<string, unknown> {

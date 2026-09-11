@@ -58,7 +58,8 @@ function rowMeta(row: Row): RankSnapshotMeta {
   try {
     const parsed = JSON.parse(row.items) as unknown;
     count = Array.isArray(parsed) ? parsed.length : 0;
-  } catch {
+  } catch (err) {
+    console.warn("[ranking-store:count] 榜单缓存行损坏（按 0 计）：", err instanceof Error ? err.message : err);
     count = 0;
   }
   return {
@@ -100,7 +101,8 @@ export function openRankingStore(root = resolveKamiRoot()) {
       try {
         const parsed = JSON.parse(row.items) as unknown;
         if (Array.isArray(parsed)) items = parsed as WorkCard[];
-      } catch {
+      } catch (err) {
+        console.warn("[ranking-store:parse-items] 榜单缓存行损坏（按空列表）：", err instanceof Error ? err.message : err);
         items = [];
       }
       return { ...rowMeta(row), items };
@@ -128,7 +130,8 @@ export function getRankingStore() {
   try {
     cached = openRankingStore();
     return cached;
-  } catch {
+  } catch (err) {
+    console.warn("[ranking-store:open] 打开榜单存储失败（榜单归档停用）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

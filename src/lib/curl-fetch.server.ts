@@ -114,6 +114,7 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
     try {
       body = readFileSync(bodyPath);
     } catch {
+      console.warn("[curl-fetch:read] curl 结果 body 文件缺失（按空响应处理）：", bodyPath);
       body = Buffer.alloc(0);
     }
     try {

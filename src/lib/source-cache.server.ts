@@ -103,7 +103,8 @@ export function readSourceCache(
       return null;
     }
     return rec.body;
-  } catch {
+  } catch (err) {
+    console.warn("[source-cache:read] 缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

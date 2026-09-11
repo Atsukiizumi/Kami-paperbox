@@ -20,8 +20,7 @@ import {
 import { parseBooruSuggest, parsePixivSuggest } from "../tag-suggest.ts";
 import { outboundFetch } from "../curl-fetch.server.ts";
 import type { BooruSite, FetchOk, Source, WorkCard } from "../types.ts";
-import { asNumber, asRecord, asString, upstreamJson } from "./http.ts";
-import { UA } from "./http.ts";
+import { asNumber, asRecord, asString, UA, UpstreamError, upstreamJson } from "./http.ts";
 
 export type BooruAuth = { danbooruLogin?: string; danbooruApiKey?: string };
 
@@ -54,14 +53,14 @@ export async function booruJson(site: BooruSite, url: string, auth?: BooruAuth):
     const { curlFetch } = await import("../curl-fetch.server");
     const res = await curlFetch(url, headers);
     if (res.status < 200 || res.status >= 300) {
-      throw new Error(`Danbooru 请求失败（${res.status}）`);
+      throw new UpstreamError(`Danbooru 请求失败（${res.status}）`);
     }
     const text = res.body.toString("utf8");
-    if (text.trimStart().startsWith("<")) throw new Error("源站暂时拒绝访问，请稍后再试");
+    if (text.trimStart().startsWith("<")) throw new UpstreamError("源站暂时拒绝访问，请稍后再试");
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      throw new Error("源站返回了无法解析的数据");
+      throw new UpstreamError("源站返回了无法解析的数据");
     }
   }
   let res = await outboundFetch(url, { headers, redirect: "follow" });
@@ -78,17 +77,17 @@ export async function booruJson(site: BooruSite, url: string, auth?: BooruAuth):
     if (res.ok) text = await res.text();
   }
   if (!res.ok) {
-    throw new Error(
+    throw new UpstreamError(
       site === "yande" ? `Yande 请求失败（${res.status}）` : `${site} 请求失败（${res.status}）`,
     );
   }
   if (looksLikeHtml(text)) {
-    throw new Error("源站暂时拒绝访问，请稍后再试");
+    throw new UpstreamError("源站暂时拒绝访问，请稍后再试");
   }
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    throw new Error("源站返回了无法解析的数据");
+    throw new UpstreamError("源站返回了无法解析的数据");
   }
 }
 

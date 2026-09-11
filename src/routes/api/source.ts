@@ -5,6 +5,7 @@
  * key 用账号 id，不含客户端 IP / Host / Cookie 原文。`fresh: true` 跳过缓存重拉源站。
  */
 import { fetchSchema } from "@/lib/source";
+import { classifySourceError } from "@/lib/source-errors";
 import { cachedDispatchFetch, sourceCacheKey } from "@/lib/source-cache.server";
 import type { FetchInput, FetchOk } from "@/lib/types";
 
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
     }
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "请求失败";
-    return Response.json({ error: message }, { status: 400, headers: { "cache-control": "no-store" } });
+    // S7：上游侧失败 502、用户态/参数错误 400，不再一律 400 掩盖源站问题
+    const { status, kind, message } = classifySourceError(err);
+    console.warn(`[api:source] ${kind}: ${message}`);
+    return Response.json({ error: message }, { status, headers: { "cache-control": "no-store" } });
   }
 }

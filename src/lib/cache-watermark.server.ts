@@ -40,7 +40,8 @@ export function watermarkConfig(root = resolveKamiRoot()): Record<CacheKind, num
       media: num(raw.cache?.mediaMaxMb, DEFAULT_WATERMARK_MB.media),
       source: num(raw.cache?.sourceMaxMb, DEFAULT_WATERMARK_MB.source),
     };
-  } catch {
+  } catch (err) {
+    console.warn("[cache-watermark:load-config] 配置不可读，用水位默认值：", err instanceof Error ? err.message : err);
     return { ...DEFAULT_WATERMARK_MB };
   }
 }
@@ -52,7 +53,7 @@ export function noteCacheWrite(kind: CacheKind, root = resolveKamiRoot()): void 
   if (sweeping.has(kind)) return;
   sweeping.add(kind);
   void sweepCache(kind, root)
-    .catch(() => undefined)
+    .catch((err) => console.warn("[cache-watermark:sweep] 清理失败（下个周期再试）：", err instanceof Error ? err.message : err))
     .finally(() => sweeping.delete(kind));
 }
 

@@ -43,7 +43,8 @@ export async function fetchPixivProfile(cookie?: string): Promise<SiteProfile | 
     try {
       const home = await outboundFetch("https://www.pixiv.net/", { headers });
       profile = parsePixivMe({}, await home.text());
-    } catch {
+    } catch (err) {
+      console.warn("[site-identity:pixiv-me] 探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
       profile = null;
     }
   }
@@ -84,7 +85,8 @@ export async function fetchFanboxProfile(cookie?: string): Promise<SiteProfile |
     const home = await outboundFetch("https://www.fanbox.cc/", { headers });
     const html = await home.text();
     return parseFanboxMe({}, html);
-  } catch {
+  } catch (err) {
+    console.warn("[site-identity:fanbox-me] 探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

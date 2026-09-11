@@ -53,7 +53,11 @@ export function readSnapshotFile(): Snapshot | null {
     const parsed = JSON.parse(readFileSync(snapshotPath(), "utf8")) as Snapshot;
     if (!parsed || typeof parsed !== "object" || !parsed.tables) return null;
     return parsed;
-  } catch {
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code !== "ENOENT") {
+      console.warn("[db-snapshot:read] 快照存在但读取失败（视为无快照）：", err instanceof Error ? err.message : err);
+    }
     return null;
   }
 }
@@ -75,7 +79,8 @@ async function restoreOrder(sql: Sql, tables: string[]): Promise<string[]> {
         " and ccu.table_schema = tc.constraint_schema " +
         "where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'",
     );
-  } catch {
+  } catch (err) {
+    console.warn("[db-snapshot:fk-edges] FK 信息查询失败，按快照原序恢复：", err instanceof Error ? err.message : err);
     return tables;
   }
   const inSnap = new Set(tables);
@@ -132,7 +137,8 @@ export async function capture(sql: Sql): Promise<Snapshot | null> {
       tables[table] = await sql.query<Record<string, unknown>>(`select * from ${quoteIdent(table)}`);
     }
     return { at: Date.now(), tables };
-  } catch {
+  } catch (err) {
+    console.warn("[db-snapshot:capture] 导出失败（本周期跳过）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

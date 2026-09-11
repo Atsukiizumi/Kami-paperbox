@@ -88,7 +88,8 @@ export function readCachedMedia(
       return null;
     }
     return { bytes: new Uint8Array(readFileSync(bin)), type: rec.type || "application/octet-stream" };
-  } catch {
+  } catch (err) {
+    console.warn("[media-cache:read] 缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

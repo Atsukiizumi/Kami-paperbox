@@ -25,7 +25,8 @@ export function getThrottle(root = resolveKamiRoot()): ThrottleConfig {
   let parsed = DEFAULT_THROTTLE;
   try {
     parsed = parseThrottle(JSON.parse(readFileSync(path, "utf8")));
-  } catch {
+  } catch (err) {
+    console.warn("[throttle:load] 配置不可读，用默认节流：", err instanceof Error ? err.message : err);
     parsed = DEFAULT_THROTTLE;
   }
   cached = { mtime, value: parsed };
