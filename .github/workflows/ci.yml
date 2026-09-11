@@ -44,3 +44,18 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # E2E（M7）：关键路径打真实上游（yande 无需登录），抖动靠 retry=1 兜。
+  # webServer 自起 dev server（auth 默认开启，spec 里注册临时账号过数据面闸）。
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run test:e2e

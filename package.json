@@ -20,6 +20,7 @@
     "preview": "node scripts/with-app-env.mjs next start --hostname 0.0.0.0 --port 8080",
     "start": "node scripts/with-app-env.mjs next start --hostname 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
     "test": "node --test \"scripts/**/*.test.mjs\" && node --experimental-strip-types --test \"src/lib/**/*.test.ts\"",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -74,6 +75,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.16.5",
     "@types/pg": "^8.11.10",
@@ -86,7 +88,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "lightningcss": "^1.28.0",
-    "playwright": "^1.62.0",
+    "playwright": "^1.63.0",
     "prettier": "^3.4.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1"
