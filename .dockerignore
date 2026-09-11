@@ -5,7 +5,6 @@ node_modules
 .trellis
 .zcode
 attachments
-pnpm-lock.yaml
 .git
 .vercel
 .output
