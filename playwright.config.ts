@@ -21,7 +21,9 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
   },
   webServer: {
-    command: "npm run dev",
+    // 包装脚本把 KAMI_ROOT 指到仓库外临时目录并复制 migrations 进去
+    // （迁移按 KAMI_ROOT 解析），e2e 的账号/快照/缓存不再碰真实 .data。
+    command: "node scripts/e2e-server.mjs",
     url: "http://127.0.0.1:8080",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

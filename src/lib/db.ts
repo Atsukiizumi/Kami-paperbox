@@ -241,9 +241,14 @@ const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
 // node:test also runs this module server-side; booting the real .data snapshot
-// loop there would touch developer data for no test value.
+// loop there would touch developer data for no test value. Same for
+// `next build`: page-data collection imports this module, and an eager
+// bootstrap would restore+dump against the REAL .data during a build —
+// which once silently dropped rows through a then-buggy restore and
+// overwrote the snapshot with the damaged state.
 const underNodeTest = Boolean(process.env.NODE_TEST_CONTEXT);
-if (typeof window === "undefined" && dbSource === "pglite" && !underNodeTest) {
+const underBuild = process.env.NEXT_PHASE === "phase-production-build";
+if (typeof window === "undefined" && dbSource === "pglite" && !underNodeTest && !underBuild) {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     console.error("[db] PGLite bootstrap failed:", err);
