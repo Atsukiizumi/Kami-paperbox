@@ -45,3 +45,9 @@ startup.sh
 
 .pw-cache/
 test-results
+
+# 本地工作流工具目录（Trellis 任务/日志、agent skills）——不入库
+.zcode/
+.codex/
+.trellis/
+.agents/
