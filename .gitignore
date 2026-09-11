@@ -51,3 +51,6 @@ test-results
 .codex/
 .trellis/
 .agents/
+
+# Next 16 生成物：dev/build 会来回改写路径前缀，提交即永久脏区
+next-env.d.ts
