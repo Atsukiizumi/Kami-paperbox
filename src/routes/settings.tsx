@@ -419,6 +419,8 @@ export function SettingsPage() {
   const setSafeMode = useSettings((s) => s.setSafeMode);
   const setHideAi = useSettings((s) => s.setHideAi);
   const setDownloadOriginal = useSettings((s) => s.setDownloadOriginal);
+  const queueConcurrency = useSettings((s) => s.queueConcurrency);
+  const setQueueConcurrency = useSettings((s) => s.setQueueConcurrency);
   const addAccount = useSettings((s) => s.addAccount);
   const renameAccount = useSettings((s) => s.renameAccount);
   const removeAccount = useSettings((s) => s.removeAccount);
@@ -762,6 +764,27 @@ export function SettingsPage() {
             <p className="text-xs text-muted">动图会合成 GIF。关闭则用较小尺寸，速度更快。</p>
           </div>
           <Switch checked={downloadOriginal} onCheckedChange={setDownloadOriginal} />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">队列并发数</p>
+            <p className="text-xs text-muted">同时处理的下载条目。调高更快，但同一图站压力更大、也更容易触发风控。</p>
+          </div>
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4].map((n) => (
+              <Button
+                key={n}
+                type="button"
+                size="icon"
+                variant={queueConcurrency === n ? "default" : "ghost"}
+                aria-label={`并发 ${n}`}
+                onClick={() => setQueueConcurrency(n)}
+                className="size-8 text-xs tabular-nums"
+              >
+                {n}
+              </Button>
+            ))}
+          </div>
         </div>
         </CardContent>
       </Card>

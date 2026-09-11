@@ -10,6 +10,7 @@ import { cookiesOf, migrateLegacySettings, type Account } from "./accounts.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
 import { parseProxyUrl } from "./proxy-url.ts";
+import { clampQueueConcurrency } from "./queue-retry.ts";
 import { parseSearchEngine, type SearchEngine } from "./reverse-search.ts";
 import { parseSavedTags } from "./site-tags.ts";
 import { isSource, parseSource } from "./sites.ts";
@@ -41,6 +42,7 @@ export type BackupSettings = {
   safeMode: boolean;
   hideAi: boolean;
   downloadOriginal: boolean;
+  queueConcurrency?: number;
   vaultMirrorFolder: boolean;
   downloadToFolder: boolean;
   pathPreset: PathPreset;
@@ -182,6 +184,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     safeMode: p.safeMode !== false,
     hideAi: p.hideAi === true,
     downloadOriginal: p.downloadOriginal !== false,
+    queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
     vaultMirrorFolder: p.vaultMirrorFolder !== false,
     downloadToFolder: p.downloadToFolder !== false,
     pathPreset,

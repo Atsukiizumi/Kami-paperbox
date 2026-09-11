@@ -21,7 +21,10 @@ function kindLabel(item: QueueItem) {
 }
 
 function statusLabel(item: QueueItem) {
-  if (item.status === "queued") return "排队";
+  if (item.status === "queued") {
+    if (item.attempts && item.error) return `排队 · 失败 ${item.attempts} 次后自动重试`;
+    return "排队";
+  }
   if (item.status === "running") return `进行中 ${item.progress}/${item.total}`;
   if (item.status === "done") return "完成";
   return item.error || "失败";
@@ -88,7 +91,7 @@ export function QueuePage() {
                   size="icon"
                   aria-label="重试"
                   onClick={() => {
-                    patch(item.key, { status: "queued", error: undefined, progress: 0 });
+                    patch(item.key, { status: "queued", error: undefined, progress: 0, attempts: 0, nextRetryAt: undefined });
                     void runQueue();
                   }}
                 >

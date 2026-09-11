@@ -207,6 +207,10 @@ export type QueueItem = {
   total: number;
   error?: string;
   addedAt: number;
+  /** 自动重试计数（M6）：失败后 +1，达到 MAX_QUEUE_ATTEMPTS 判死。 */
+  attempts?: number;
+  /** 下次可被取走的时间戳（指数退避期间的排队项不算就绪）。 */
+  nextRetryAt?: number;
 };
 
 export type VaultMeta = {

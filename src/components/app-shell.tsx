@@ -7,7 +7,7 @@ import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { playEnter } from "@/lib/motion";
-import { resumeQueue } from "@/lib/queue-runner";
+import { mirrorQueueAcrossTabs, resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
@@ -57,6 +57,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
   const [expanded, setExpanded] = useState(true);
 
+  useEffect(() => mirrorQueueAcrossTabs(), []);
   useEffect(() => {
     let queueReady = false;
     let settingsReady = false;

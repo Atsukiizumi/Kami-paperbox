@@ -9,6 +9,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
+import { clampQueueConcurrency } from "./queue-retry.ts";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types.ts";
 import type { SearchEngine } from "./reverse-search.ts";
@@ -73,6 +74,7 @@ type SettingsState = {
   safeMode: boolean;
   hideAi: boolean;
   downloadOriginal: boolean;
+  queueConcurrency: number;
   vaultMirrorFolder: boolean;
   downloadToFolder: boolean;
   pathPreset: PathPreset;
@@ -97,6 +99,7 @@ type SettingsState = {
   setSafeMode: (v: boolean) => void;
   setHideAi: (v: boolean) => void;
   setDownloadOriginal: (v: boolean) => void;
+  setQueueConcurrency: (v: number) => void;
   setVaultMirrorFolder: (v: boolean) => void;
   setDownloadToFolder: (v: boolean) => void;
   setPathPreset: (v: PathPreset) => void;
@@ -143,6 +146,7 @@ export const useSettings = create<SettingsState>()(
       safeMode: true,
       hideAi: false,
       downloadOriginal: true,
+      queueConcurrency: 1,
       vaultMirrorFolder: true,
       downloadToFolder: true,
       pathPreset: DEFAULT_PATH_PRESET,
@@ -191,6 +195,7 @@ export const useSettings = create<SettingsState>()(
       setSafeMode: (safeMode) => set({ safeMode }),
       setHideAi: (hideAi) => set({ hideAi }),
       setDownloadOriginal: (downloadOriginal) => set({ downloadOriginal }),
+      setQueueConcurrency: (queueConcurrency) => set({ queueConcurrency }),
       setVaultMirrorFolder: (vaultMirrorFolder) => set({ vaultMirrorFolder }),
       setDownloadToFolder: (downloadToFolder) => set({ downloadToFolder }),
       setPathPreset: (preset) => {
@@ -338,6 +343,7 @@ export const useSettings = create<SettingsState>()(
             ? p.pathTemplate
             : templateForPreset(pathPreset);
         const extra = {
+          queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
           vaultMirrorFolder: p.vaultMirrorFolder !== false,
           downloadToFolder: p.downloadToFolder !== false,
           pathPreset,
@@ -364,6 +370,7 @@ export const useSettings = create<SettingsState>()(
         safeMode: s.safeMode,
         hideAi: s.hideAi,
         downloadOriginal: s.downloadOriginal,
+        queueConcurrency: s.queueConcurrency,
         vaultMirrorFolder: s.vaultMirrorFolder,
         downloadToFolder: s.downloadToFolder,
         pathPreset: s.pathPreset,
