@@ -4,4 +4,4 @@ import { withDataPlane } from "@/lib/next-route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const GET = withDataPlane(getMedia);
+export const GET = withDataPlane(getMedia, { guest: true });

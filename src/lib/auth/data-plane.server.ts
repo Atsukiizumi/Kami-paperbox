@@ -23,12 +23,19 @@ import {
  * 统一闸门：Fetch-Metadata 同站校验（CSRF 层）→ 会话或启动令牌。
  * 不满足抛 UnauthorizedError（401）/ CrossSiteRequestError（403），
  * 由 withDataPlane 映射成 JSON 响应。
+ *
+ * guest（访客层）：应用账号开启但未登录时放行「公开内容面」路由
+ * （browse / 榜单 / 图片）。访客的图站凭据只存在其浏览器 localStorage、
+ * 随请求体带上（不落服务端）；个人面路由不传 guest。Fetch-Metadata 同站
+ * 校验对访客同样生效，外站无法借受害者浏览器打这些端点；残余风险是局域
+ * 网内匿名设备可把本服务当上游代理用（带宽/IP），个人自部署形态可接受，
+ * 见 docs/12 SEC-01 访客层注记。
  */
-export async function requireDataPlaneAccess(request: Request): Promise<void> {
+export async function requireDataPlaneAccess(request: Request, opts: { guest?: boolean } = {}): Promise<void> {
   assertSameSiteRequest(request);
   if (authConfigured) {
     const user = await getSessionUser();
-    if (!user) throw new UnauthorizedError();
+    if (!user && !opts.guest) throw new UnauthorizedError();
     return;
   }
   const provided = lanTokenFromRequest(request);

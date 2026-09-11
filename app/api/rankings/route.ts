@@ -4,6 +4,6 @@ import { withDataPlane } from "@/lib/next-route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const GET = withDataPlane(getRankings);
+export const GET = withDataPlane(getRankings, { guest: "read" });
 export const PUT = withDataPlane(putRanking);
 export const DELETE = withDataPlane(deleteRanking);
