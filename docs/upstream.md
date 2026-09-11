@@ -16,7 +16,7 @@
 2. **只抄网站自己用的接口。** `/ajax/…`、`api.fanbox.cc/…`、`ranking.php?format=json` 都是网页前端打的，不是私有破解通道。
 3. **Cookie 和请求头比路径更重要。** 同一条 URL，少 `Origin`、少 `x-userid`、或拿了访客 Cookie，就会 401 / 403。最近 FANBOX 的 401 就是这个。
 4. **状态码是老师。** 200 且 JSON 里有 `body`，这条能用。401 先查会话。403 先查 Referer / Origin / User-Agent。空 `body` 或 `error: true` 再看字段名是不是改了。
-5. **先最小复现，再写进纸匣。** 用「复制为 cURL」在终端打通，再搬到 `upstream.server.ts`。
+5. **先最小复现，再写进纸匣。** 用「复制为 cURL」在终端打通，再搬进 `src/lib/upstream/` 对应站点模块。
 
 ---
 
@@ -232,9 +232,17 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 
 ## 7. 代码落点
 
+> TD-01 拆分（2026-09-10）后，原 `upstream.server.ts` 单文件按站点分家；桶文件仍在，新代码直接进对应模块。
+
 | 文件 | 干什么 |
 | --- | --- |
-| `src/lib/upstream.server.ts` | 上面那些读接口、JSON → 卡片 / 作品 |
+| `src/lib/upstream/pixiv.ts` | Pixiv 读接口、JSON → 卡片 / 作品 |
+| `src/lib/upstream/fanbox.ts` | FANBOX 读接口、游标分页 |
+| `src/lib/upstream/booru-sites.ts` | yande / konachan / danbooru 列表、榜单、合集、镜像回退 |
+| `src/lib/upstream/media.ts` | 图片代理拉取（Referer / Basic / 48MB 上限 / 单飞） |
+| `src/lib/upstream/dispatch.ts` | op → 站点函数分发 |
+| `src/lib/upstream/http.ts` | 共享 JSON 请求 + unknown 清洗 |
+| `src/lib/upstream/mapping.test.ts` | 固定真实样本回归（上游改版时最先红） |
 | `src/lib/social.server.ts` | 红心、收藏、关注；Pixiv CSRF |
 | `src/lib/site-identity.ts` | 从 JSON / HTML 抠用户名和头像 |
 | `src/lib/site-identity.server.ts` | whoami：self/status、user.info |

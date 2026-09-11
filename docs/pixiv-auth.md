@@ -184,7 +184,7 @@ Referer: https://www.fanbox.cc/
 | 步骤 | 代码 |
 | --- | --- |
 | 登录 URL、已登录正则、拼 Cookie 头 | `src/lib/browser-login.ts` |
-| 读 `/ajax`、榜单 | `src/lib/upstream.server.ts` |
+| 读 `/ajax`、榜单 | `src/lib/upstream/pixiv.ts`（TD-01 拆分） |
 | CSRF、红心收藏关注 | `src/lib/social.server.ts` |
 | 预热 CSRF | `warmPixivCsrf`（`src/lib/source.ts`） |
 | 动手怎么拦包 | [reverse-engineering.md](reverse-engineering.md) |
