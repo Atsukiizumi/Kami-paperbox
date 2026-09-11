@@ -20,6 +20,7 @@ import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } f
 import { pixivIdsNewestFirst, pixivPickupItems } from "../pixiv-profile.ts";
 import type { FetchOk, UserProfile, WorkCard, WorkDetail, WorkPage } from "../types.ts";
 import { asBool, asNumber, asRecord, asString, upstreamJson } from "./http.ts";
+import { pixivRankingDateParam } from "../ranking-archive.ts";
 import { jstYesterdayCompact } from "../ranking-archive.ts";
 
 function alwaysBlockedPixiv(item: Record<string, unknown>): boolean {
@@ -85,27 +86,46 @@ export function mapIllustList(raw: unknown, safeMode: boolean, hideAi = false): 
  * 榜单入口：没指定日期且当天榜未公布（报错或空）时，自动回落到昨天
  * （JST）——用户要看的永远是「最新已公布的那一期」。
  */
+/**
+ * 「未公布窗口内」的 404：日期不早于 JST 日历昨天、且上游回 404。
+ * pixiv 日榜公布晚于 JST 午夜——窗口内连日历昨天都会 404（2026-09-11 实测：
+ * JST 09-12 00:39 时 0911 仍未公布）。这种 404 视同「未公布」走回落；
+ * 更早的历史日期 404 是真异常，如实抛出。
+ */
+export function isUnpublishedWindow404(date: string | undefined, message: string, now = new Date()): boolean {
+  return Boolean(date) && date! >= jstYesterdayCompact(now) && /（404）/.test(message);
+}
+
 export async function pixivRanking(
   mode: PixivRankMode,
   page: number,
   cookie?: string,
   safeMode = true,
   hideAi = false,
-  date?: string,
+  rawDate?: string,
 ): Promise<FetchOk> {
+  // 今天/未来的日榜必然 404（公布前当天参数打 pixiv 直接 404）。浏览页的
+  // pixivRankingDateParam 是第一道清洗，这里兜底：任何路径把今天/未来传
+  // 进来都视同「没指定日期」，走最新已公布回落——历史日期原样尊重。
+  const date = rawDate ? pixivRankingDateParam(rawDate) : undefined;
   let first: FetchOk | null = null;
   let unpublished = false;
   try {
     first = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, date);
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
-    // 只有「当天榜还没公布」类报错才回落；登录 / 网络问题如实抛出
-    if (date || page > 1 || !/还没公布|没有内容/.test(message)) throw err;
+    // 「未公布」类失败才回落：显式报错文案，或昨天/更新的日期打 404
+    // （pixiv 的公布晚于 JST 午夜——公布窗口内日历昨天也 404，2026-09-11 实测）。
+    // 更早的历史日期 404 视为真异常；登录 / 网络问题如实抛出。
+    const unpublished404 = isUnpublishedWindow404(date, message);
+    const unpublishedMsg = page === 1 && /还没公布|没有内容/.test(message);
+    // 窗口内 404 任意页码都回落（第 1 页回落后第 2 页必须打同一目标，列表才连贯）
+    if (!unpublishedMsg && !unpublished404) throw err;
     unpublished = true;
   }
-  // 只在「没指定日期 + 第一页」时回落：用户明确选了某天就尊重其选择
+  // 只在第一页时回落；「日历昨天」可能仍未公布，回落首选无日期——pixiv 自己
+  // 返回最新已公布一期并带官方 date，任何时刻都有效。
   const emptyToday =
-    !date &&
     page === 1 &&
     !unpublished &&
     first !== null &&
@@ -113,13 +133,20 @@ export async function pixivRanking(
     first.items.length === 0;
   if (!unpublished && !emptyToday && first !== null) return first;
 
-  // 没指定日期且当天榜未公布/为空——回落昨天（JST）重取，并把生效日期带给前端
-  const yesterday = jstYesterdayCompact();
-  const result = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, yesterday);
-  if (result.op === "pixivRanking" && !result.date) {
-    return { ...result, date: yesterday };
+  if (!date) {
+    // 无日期请求未公布/为空（罕见）：再试昨天作最后兜底
+    const yesterday = jstYesterdayCompact();
+    try {
+      const result = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, yesterday);
+      if (result.op === "pixivRanking" && !result.date) {
+        return { ...result, date: yesterday };
+      }
+      return result;
+    } catch {
+      // 昨天也没公布——把原始失败抛出去
+    }
   }
-  return result;
+  return await loadPixivRanking(mode, page, cookie, safeMode, hideAi, undefined);
 }
 
 async function loadPixivRanking(

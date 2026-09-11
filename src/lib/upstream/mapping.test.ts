@@ -144,3 +144,15 @@ test("asBooruPosts：数组 / {posts} / 单条 / 错误形态", () => {
   assert.throws(() => asBooruPosts({ success: false, message: "maintenance" }), /maintenance/);
   assert.deepEqual(asBooruPosts({ strange: true }), [], "不认识的形态给空");
 });
+
+// ── 日榜未公布窗口的 404 判定 ────────────────────────────────────────────────
+import { isUnpublishedWindow404 } from "./pixiv.ts";
+
+test("isUnpublishedWindow404: 窗口内的昨天/今天 404 视为未公布", () => {
+  const now = new Date("2026-09-12T00:39:00+09:00"); // JST 09-12 凌晨，0911 榜未公布
+  assert.equal(isUnpublishedWindow404("20260911", "Pixiv 请求失败（404）", now), true);
+  assert.equal(isUnpublishedWindow404("20260912", "Pixiv 请求失败（404）", now), true);
+  assert.equal(isUnpublishedWindow404("20260910", "Pixiv 请求失败（404）", now), false); // 历史日期：真异常
+  assert.equal(isUnpublishedWindow404(undefined, "Pixiv 请求失败（404）", now), false);
+  assert.equal(isUnpublishedWindow404("20260911", "需要登录 Pixiv 才能查看该榜单。", now), false);
+});
