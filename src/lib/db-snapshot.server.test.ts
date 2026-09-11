@@ -78,6 +78,40 @@ test("snapshot round-trips user_sync_segments and user_sync_meta", async () => {
   await pgB.close();
 });
 
+test("snapshot round-trips FK child tables (session/account reference user)", async () => {
+  // 字母序快照里 account/session 排在 user 前；restore 必须先插父表，
+  // 否则 FK 违反的行会被静默吞掉——重启丢登录态（TD-19 修复的回归面）。
+  const pgA = await openMigrated();
+  const sqlA = toSql(pgA);
+  await sqlA.query(
+    `insert into "user" ("id", "name", "email", "emailVerified") values ($1,$2,$3,$4)`,
+    ["u9", "Test", "t@example.com", true],
+  );
+  await sqlA.query(
+    `insert into "session" ("id", "expiresAt", "token", "userId", "updatedAt") values ($1,$2,$3,$4,$5)`,
+    // 0001 里 session."updatedAt" 没有 default，必须显式给值
+    ["s9", "2099-01-01T00:00:00Z", "tok-9", "u9", "2026-09-11T00:00:00Z"],
+  );
+  await sqlA.query(
+    `insert into "account" ("id", "accountId", "providerId", "userId", "updatedAt") values ($1,$2,$3,$4,$5)`,
+    ["a9", "acc-9", "credential", "u9", "2026-09-11T00:00:00Z"],
+  );
+  const snap = JSON.parse(JSON.stringify(await capture(sqlA))) as Snapshot;
+  assert.ok(snap.tables.user && snap.tables.session && snap.tables.account);
+  await pgA.close();
+
+  const pgB = await openMigrated();
+  const sqlB = toSql(pgB);
+  await restore(sqlB, snap);
+  const users = await sqlB.query(`select count(*)::int as n from "user"`);
+  const sessions = await sqlB.query(`select count(*)::int as n from "session"`);
+  const accounts = await sqlB.query(`select count(*)::int as n from "account"`);
+  assert.equal(users[0]?.n, 1, "user 必须恢复");
+  assert.equal(sessions[0]?.n, 1, "session 必须恢复（FK 子表）");
+  assert.equal(accounts[0]?.n, 1, "account 必须恢复（FK 子表）");
+  await pgB.close();
+});
+
 test("capture picks up tables not in any hardcoded list", async () => {
   const pg = await openMigrated();
   const sql = toSql(pg);

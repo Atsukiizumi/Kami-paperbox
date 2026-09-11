@@ -58,9 +58,50 @@ export function readSnapshotFile(): Snapshot | null {
   }
 }
 
+/**
+ * 恢复顺序：FK 父表在前。快照表按字母序存（account/session 排在 user 前），
+ * 先插子表会被外键拒掉、行被 try/catch 吞掉——重启丢登录态。
+ * 依据 information_schema 的 FK 边做拓扑排序；查不到 FK 信息或有环时按快照原序兜底。
+ */
+async function restoreOrder(sql: Sql, tables: string[]): Promise<string[]> {
+  if (tables.length < 2) return tables;
+  let edges: { tbl: string; ref: string }[] = [];
+  try {
+    edges = await sql.query<{ tbl: string; ref: string }>(
+      "select tc.table_name as tbl, ccu.table_name as ref " +
+        "from information_schema.table_constraints tc " +
+        "join information_schema.constraint_column_usage ccu " +
+        "  on ccu.constraint_name = tc.constraint_name " +
+        " and ccu.table_schema = tc.constraint_schema " +
+        "where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'",
+    );
+  } catch {
+    return tables;
+  }
+  const inSnap = new Set(tables);
+  const deps = new Map<string, Set<string>>(tables.map((t) => [t, new Set<string>()]));
+  for (const { tbl, ref } of edges) {
+    if (deps.has(tbl) && inSnap.has(ref)) deps.get(tbl)!.add(ref);
+  }
+  const out: string[] = [];
+  const done = new Set<string>();
+  while (out.length < tables.length) {
+    const ready = tables.filter((t) => !done.has(t) && [...deps.get(t)!].every((d) => done.has(d)));
+    if (!ready.length) {
+      out.push(...tables.filter((t) => !done.has(t))); // FK 成环：剩余按原序兜底
+      break;
+    }
+    for (const t of ready) {
+      out.push(t);
+      done.add(t);
+    }
+  }
+  return out;
+}
+
 /** 把快照行写回（刚迁移完的）内存库。列名来自快照本身，值按 jsonb 列转换。 */
 export async function restore(sql: Sql, snap: Snapshot) {
-  for (const table of Object.keys(snap.tables)) {
+  for (const table of await restoreOrder(sql, Object.keys(snap.tables))) {
     const rows = snap.tables[table];
     if (!Array.isArray(rows) || rows.length === 0) continue;
     for (const row of rows) {
