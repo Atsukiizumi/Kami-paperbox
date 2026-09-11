@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### 变更（依赖维护）
+
+- Next 15.5 → 16.3：`revalidateTag` 新签名（带 cacheLife profile）；Next 16 的 dev 源校验要求 `allowedDevOrigins` 白名单——服务绑 0.0.0.0 而浏览器用 127.0.0.1 访问时，不加白名单 HMR WebSocket 拒连、客户端水合整体挂掉（页面只剩骨架卡、零数据请求）。
+- TypeScript 5.7 → 6.0 + `tsgo`（TS 7 原生编译器，typecheck 脚本改 `tsgo --noEmit`）：eslint 的 typescript-eslint 尚不支持 TS 7，按官方并轨方案保留 typescript 6 供 lint。
+- better-auth 1.6 → 1.7（无 API 变化，227 测试 + 三条 e2e 全绿）。
+
 ### 性能
 
 - 修浏览页点开详情的长卡顿：一屏卡片图同时把同源连接占满（HTTP/1.1 每源 6 条），路由和详情数据请求排在图片后面，实测点击到跳转最长等过 10 秒。现在浏览器侧图片加载统一走全局 4 条「车道」，给导航和数据请求永远留出连接；卡片悬停预取的缓存键与详情页对齐（原先键不一致，悬停预取一直没生效），点开即出内容。
