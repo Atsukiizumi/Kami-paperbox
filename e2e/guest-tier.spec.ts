@@ -25,6 +25,12 @@ test("访客能浏览公开内容，个人面仍需登录", async ({ page }) => 
   const rankings = await page.request.get("/api/rankings");
   expect(rankings.status()).toBe(200);
 
+  // 访客绑定链路（TD-20）：HttpOnly 镜像 cookie 对访客放行，media 的
+  // 图站凭据通道才建立得起来；login-browser/whoami 同批放行（不打上游的
+  // 只有 sessions 适合进 e2e）。
+  const sessions = await page.request.post("/api/sessions", { data: {} });
+  expect(sessions.status()).toBe(200);
+
   // 个人面：纸匣写仍要会话
   const vault = await page.request.put("/api/vault");
   expect(vault.status()).toBe(401);

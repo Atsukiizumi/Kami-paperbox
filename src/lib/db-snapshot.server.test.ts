@@ -121,3 +121,28 @@ test("capture picks up tables not in any hardcoded list", async () => {
   assert.ok(!("_migrations" in snap!.tables), "_migrations 不进快照");
   await pg.close();
 });
+
+test("restore reports rows that can never come back, instead of swallowing them", async () => {
+  // TD-22：快照里出现「恢复不了」的行（此处：不存在的表；实际事故面是
+  // schema 漂移/约束违约的 session 行）时，restore 必须把失败行报出来——
+  // 旧实现只 console.warn，随后 dumpNow 覆盖快照，行就这么静默没了。
+  const pg = await openMigrated();
+  const sql = toSql(pg);
+  const snap: Snapshot = {
+    at: Date.now(),
+    tables: {
+      user: [{ id: "u-ok", name: "Ok", email: "ok@example.com", emailVerified: true }],
+      session: [
+        { id: "s-orphan", expiresAt: "2099-01-01T00:00:00Z", token: "tok-x", userId: "u-missing", updatedAt: "2026-09-12T00:00:00Z" },
+      ],
+    },
+  };
+  const failures = await restore(sql, snap);
+  assert.equal(failures.length, 1, "孤儿 session 行必须被报告");
+  assert.equal(failures[0]?.table, "session");
+  assert.match(failures[0]?.error ?? "", /foreign key|violates/i);
+  // 好行不受影响：仍正常恢复
+  const users = await sql.query<{ n: number }>(`select count(*)::int as n from "user"`);
+  assert.equal(users[0]?.n, 1);
+  await pg.close();
+});

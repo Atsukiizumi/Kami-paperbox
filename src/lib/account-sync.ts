@@ -9,6 +9,8 @@
  *      监听四个 store 变化分段推送；pullAccountSync(userId) 拉取合并。
  * 合并规则（关键不变量——凭据永不因同步而丢）：
  *   - 远端 settings 段是密文且本地无 KEK → 跳过该段（本地凭据不动）
+ *   - 密文段解包后若凭据脏标记在（访客期录过凭据）→ 本地非空凭据字段保留，
+ *     合并发生时由桥接补推一次 settings（TD-21）
  *   - 远端 settings 段 credsOmitted → 应用偏好但凭据字段保留本地
  *   - 无 KEK 且上次拉取看到服务端 settings 是密文 → 本机跳推 settings
  *     （防止 omit 段把服务端密文凭据冲掉）
@@ -21,6 +23,53 @@ export const SYNC_SEGMENTS: readonly SyncSegment[] = ["settings", "vault", "lexi
 
 const MARKER_KEY = "kami-account-sync-v2";
 const KEK_KEY = "kami-sync-kek";
+/** 凭据脏标记（TD-21）：未登录期间本地改过凭据 → 密文拉取时本地非空字段保留。 */
+const CREDS_DIRTY_KEY = "kami-cred-dirty-v1";
+
+/**
+ * 设置段里的图站凭据子字段。三个消费方必须同步演进：
+ * omitSettingsCredentials（推 omit 段时置空）、密文拉取的本地保留合并（TD-21）、
+ * 客户端各处的「保留本地」清单。
+ */
+export const SENSITIVE_SETTINGS_FIELDS = [
+  "pixivCookie",
+  "fanboxCookie",
+  "danbooruLogin",
+  "danbooruApiKey",
+  "saucenaoApiKey",
+  "accounts",
+  "activeAccountId",
+] as const;
+
+// ── 凭据脏标记（TD-21） ─────────────────────────────────────────────────────
+// 写入点在 AccountSyncBridge（订阅 settings、未登录且凭据指纹变化时标记）。
+// 全局标记不分会话：本机最新凭据优先于远端档，属有意取舍（见 design.md §2）。
+
+export function markCredsDirty(): void {
+  try {
+    localStorage.setItem(CREDS_DIRTY_KEY, JSON.stringify({ at: Date.now() }));
+  } catch {
+    /* 存不进去就退化为「无脏标记」：密文拉取整段取远端，回到修复前行为 */
+  }
+}
+
+export function readCredsDirty(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    return Boolean(JSON.parse(localStorage.getItem(CREDS_DIRTY_KEY) || "null"));
+  } catch {
+    return false;
+  }
+}
+
+/** 带 KEK 的 settings 推送成功后调用（服务端已拿到本机凭据）。 */
+export function clearCredsDirty(): void {
+  try {
+    localStorage.removeItem(CREDS_DIRTY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 // ── 标记（每段各自记录已同步到的时间点） ────────────────────────────────────
 
@@ -123,18 +172,33 @@ export type SegmentPayload =
 /** credsOmitted 推送：凭据字段真的不上服务端（置空），拉取侧按标记保留本地。 */
 export function omitSettingsCredentials(data: SettingsSegData): SettingsSegData {
   const settings = { ...(data.settings as Record<string, unknown>) };
-  for (const field of [
-    "pixivCookie",
-    "fanboxCookie",
-    "danbooruLogin",
-    "danbooruApiKey",
-    "saucenaoApiKey",
-    "accounts",
-    "activeAccountId",
-  ]) {
+  for (const field of SENSITIVE_SETTINGS_FIELDS) {
     settings[field] = Array.isArray(settings[field]) ? [] : "";
   }
   return { settings, proxyUrl: data.proxyUrl };
+}
+
+/**
+ * TD-21：密文拉取的凭据本地保留合并。远端段是账号密文，但拉取方在访客期
+ * （无 marker 或上次同步点之后）可能录了更新的凭据——这些改动没有 exportedAt，
+ * 直接整段应用会被远端旧档覆盖并随后固化回滚。规则：本地非空且与远端不同
+ * → 取本地；本地为空 → 取远端（保住新设备恢复流）。
+ */
+export function mergeCredentialsOnPull(
+  remote: SettingsSegData,
+  local: Record<string, unknown>,
+): { settings: SettingsSegData; merged: boolean } {
+  const settings = { ...(remote.settings as Record<string, unknown>) };
+  let merged = false;
+  for (const field of SENSITIVE_SETTINGS_FIELDS) {
+    const localVal = local[field];
+    const hasLocal = Array.isArray(localVal) ? localVal.length > 0 : Boolean(localVal);
+    if (hasLocal && JSON.stringify(localVal) !== JSON.stringify(settings[field])) {
+      settings[field] = localVal;
+      merged = true;
+    }
+  }
+  return { settings: { ...remote, settings }, merged };
 }
 
 export async function buildSegmentPayload(
@@ -176,6 +240,9 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
     body: JSON.stringify({ segment, exportedAt, payload }),
   });
   if (!res.ok) throw new Error(res.status === 401 ? "未登录应用账号" : `推送 ${segment} 段失败`);
+  // TD-21：密文推送成功 = 服务端已拿到本机凭据，脏标记使命完成。
+  // 无 KEK 的 credsOmitted 推送不清——凭据仍只在本机，下次拉取还要靠标记保它。
+  if (segment === "settings" && kek) clearCredsDirty();
   const markers = readSyncMarkers();
   writeSyncMarkers({
     userId,
@@ -184,11 +251,11 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
   return exportedAt;
 }
 
-type PullResult = { applied: SyncSegment[]; skipped: string[] };
+type PullResult = { applied: SyncSegment[]; skipped: string[]; credsMerged: boolean };
 
 export async function pullAccountSync(userId: string, opts: { force?: boolean } = {}): Promise<PullResult> {
   const res = await fetch("/api/account/sync", { cache: "no-store" });
-  if (res.status === 401) return { applied: [], skipped: [] };
+  if (res.status === 401) return { applied: [], skipped: [], credsMerged: false };
   if (!res.ok) throw new Error("拉取账号数据失败");
   const data = (await res.json()) as {
     segments: Partial<Record<SyncSegment, { payload: SegmentPayload; exportedAt: number }>>;
@@ -200,7 +267,10 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
   const kek = await loadKek();
   const applied: SyncSegment[] = [];
   const skipped: string[] = [];
+  let credsMerged = false;
   const { applySegment, collectBackup } = await import("./backup-client");
+  // TD-21：脏标记在循环外读一次——合并决策基于拉取时刻的本机状态
+  const credsDirty = readCredsDirty();
 
   for (const segment of SYNC_SEGMENTS) {
     const remote = data.segments[segment];
@@ -216,20 +286,20 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
           continue;
         }
         const opened = await openJson<SettingsSegData>(kek, remote.payload.box);
-        await applySegment("settings", opened);
+        // TD-21：访客期录过凭据（脏标记在）→ 本地非空字段保留，防远端旧档覆盖
+        let settings = opened;
+        if (credsDirty) {
+          const local = (await collectBackup()).settings as Record<string, unknown>;
+          const merged = mergeCredentialsOnPull(opened, local);
+          settings = merged.settings;
+          credsMerged = merged.merged || credsMerged;
+        }
+        await applySegment("settings", settings);
       } else if (segment === "settings" && remote.payload.kind === "plain") {
         // 应用偏好，凭据字段保留本地
         const local = (await collectBackup()).settings as Record<string, unknown>;
         const incoming = (remote.payload.data as SettingsSegData).settings as Record<string, unknown>;
-        for (const field of [
-          "pixivCookie",
-          "fanboxCookie",
-          "danbooruLogin",
-          "danbooruApiKey",
-          "saucenaoApiKey",
-          "accounts",
-          "activeAccountId",
-        ]) {
+        for (const field of SENSITIVE_SETTINGS_FIELDS) {
           incoming[field] = local[field] ?? (Array.isArray(incoming[field]) ? [] : "");
         }
         await applySegment("settings", remote.payload.data as SettingsSegData);
@@ -258,5 +328,5 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
     }
     writeSyncMarkers({ userId, marks });
   }
-  return { applied, skipped };
+  return { applied, skipped, credsMerged };
 }

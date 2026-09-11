@@ -9,7 +9,13 @@
  */
 import { useEffect, useRef } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { pullAccountSync, pushAccountSyncSegment, type SyncSegment } from "@/lib/account-sync";
+import {
+  markCredsDirty,
+  pullAccountSync,
+  pushAccountSyncSegment,
+  SENSITIVE_SETTINGS_FIELDS,
+  type SyncSegment,
+} from "@/lib/account-sync";
 import { useSettings } from "@/lib/store";
 import { useTagCatalog } from "@/lib/tag-catalog";
 import { useTagLexicon } from "@/lib/tag-lexicon";
@@ -17,6 +23,12 @@ import { useVaultIndex } from "@/lib/vault-index";
 import { useViewHistory } from "@/lib/view-history";
 
 const PUSH_DEBOUNCE_MS = 4_000;
+
+/** TD-21：settings 凭据子字段的指纹（JSON 比较，数组/字符串都覆盖）。 */
+function credsFingerprint(): string {
+  const s = useSettings.getState() as unknown as Record<string, unknown>;
+  return JSON.stringify(SENSITIVE_SETTINGS_FIELDS.map((field) => s[field] ?? null));
+}
 
 /** store → 同步段的映射：同一段的多个 store 共享一个防抖。 */
 const STORE_SEGMENTS: { subscribe: (fn: () => void) => () => void; segment: SyncSegment }[] = [
@@ -33,12 +45,15 @@ export function AccountSyncBridge() {
   const userId = user?.id ?? "";
   const suppressUntil = useRef(0);
   const debounces = useRef(new Map<SyncSegment, number>());
+  /** TD-21：上次见到的凭据指纹；null = 尚未观察到（首事件只记基准不判脏）。 */
+  const credsSeen = useRef<string | null>(null);
 
   // 登录 / 启动：拉一次服务端各段，比本地新就恢复
   useEffect(() => {
     if (isPending || !signedIn || !userId) return;
     let alive = true;
     suppressUntil.current = Date.now() + 5_000;
+    credsSeen.current = credsFingerprint();
     pullAccountSync(userId)
       .then((r) => {
         if (!alive) return;
@@ -46,6 +61,17 @@ export function AccountSyncBridge() {
         suppressUntil.current = Date.now() + (r.applied.length ? PUSH_DEBOUNCE_MS + 1_500 : 0);
         if (r.applied.length) {
           for (const timer of debounces.current.values()) window.clearTimeout(timer);
+        }
+        // TD-21：访客期凭据已在拉取时保留——这次补推正是要把它们上送服务端，
+        // 因此显式绕过静默窗口（与订阅路径的防抖同一把钥匙，不重复排程）。
+        if (r.credsMerged) {
+          window.clearTimeout(debounces.current.get("settings"));
+          debounces.current.set(
+            "settings",
+            window.setTimeout(() => {
+              void pushAccountSyncSegment(userId, "settings").catch(() => undefined);
+            }, PUSH_DEBOUNCE_MS),
+          );
         }
       })
       .catch(() => {
@@ -57,10 +83,20 @@ export function AccountSyncBridge() {
   }, [signedIn, userId, isPending]);
 
   // 各段变化：防抖只推对应段。到点时再判静默窗口（真实修改可能发生在窗口内）。
+  // 订阅常驻（含访客态）：访客期的凭据变化要记脏（TD-21），只是不推送。
   useEffect(() => {
-    if (!signedIn || !userId) return;
     const unsubs = STORE_SEGMENTS.map(({ subscribe, segment }) =>
       subscribe(() => {
+        if (segment === "settings") {
+          const fp = credsFingerprint();
+          if (credsSeen.current === null) {
+            credsSeen.current = fp;
+          } else if (fp !== credsSeen.current) {
+            if (!signedIn) markCredsDirty();
+            credsSeen.current = fp;
+          }
+        }
+        if (!signedIn || !userId) return;
         window.clearTimeout(debounces.current.get(segment));
         debounces.current.set(
           segment,
