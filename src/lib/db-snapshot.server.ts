@@ -14,13 +14,25 @@ import { dirname, join } from "node:path";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { getSql, type Sql } from "./db.ts";
 
-/** 快照覆盖的表：账号（user/account）、会话（session）、账号同步（user_sync）。 */
-const TABLES = ["user", "account", "session", "user_sync"] as const;
+/**
+ * 快照覆盖的表：public 下除 _migrations 外的全部基表，启动时动态枚举。
+ * （曾用硬编码清单，0003 加 user_sync_segments/user_sync_meta 时漏掉导致
+ * PGlite 重启丢分段同步数据，TD-19；全量枚举让新表自动纳入。）
+ */
+async function snapshotTables(sql: Sql): Promise<string[]> {
+  const rows = await sql.query<{ table_name: string }>(
+    "select table_name from information_schema.tables " +
+      "where table_schema = 'public' and table_type = 'BASE TABLE' " +
+      "and table_name <> '_migrations' order by table_name",
+  );
+  return rows.map((r) => r.table_name);
+}
+
 /** 这些列是 jsonb：恢复时要带 ::jsonb 转换。 */
 const JSONB_COLUMNS = new Set(["payload"]);
 const WATCH_INTERVAL_MS = 30_000;
 
-type Snapshot = { at: number; tables: Record<string, Record<string, unknown>[]> };
+export type Snapshot = { at: number; tables: Record<string, Record<string, unknown>[]> };
 
 function snapshotPath() {
   return join(resolveKamiRoot(), ".data", "kami-db-snapshot.json");
@@ -47,8 +59,8 @@ export function readSnapshotFile(): Snapshot | null {
 }
 
 /** 把快照行写回（刚迁移完的）内存库。列名来自快照本身，值按 jsonb 列转换。 */
-async function restore(sql: Sql, snap: Snapshot) {
-  for (const table of TABLES) {
+export async function restore(sql: Sql, snap: Snapshot) {
+  for (const table of Object.keys(snap.tables)) {
     const rows = snap.tables[table];
     if (!Array.isArray(rows) || rows.length === 0) continue;
     for (const row of rows) {
@@ -71,11 +83,11 @@ async function restore(sql: Sql, snap: Snapshot) {
   }
 }
 
-/** 全量导出四张表。任何一步出错返回 null（宁可重新注册，不要把服务拖死）。 */
-async function capture(sql: Sql): Promise<Snapshot | null> {
+/** 全量导出所有业务表。任何一步出错返回 null（宁可重新注册，不要把服务拖死）。 */
+export async function capture(sql: Sql): Promise<Snapshot | null> {
   const tables: Record<string, Record<string, unknown>[]> = {};
   try {
-    for (const table of TABLES) {
+    for (const table of await snapshotTables(sql)) {
       tables[table] = await sql.query<Record<string, unknown>>(`select * from ${quoteIdent(table)}`);
     }
     return { at: Date.now(), tables };

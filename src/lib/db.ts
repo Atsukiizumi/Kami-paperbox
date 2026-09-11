@@ -240,7 +240,10 @@ export function ensureDbReady(): Promise<void> {
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
-if (typeof window === "undefined" && dbSource === "pglite") {
+// node:test also runs this module server-side; booting the real .data snapshot
+// loop there would touch developer data for no test value.
+const underNodeTest = Boolean(process.env.NODE_TEST_CONTEXT);
+if (typeof window === "undefined" && dbSource === "pglite" && !underNodeTest) {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     console.error("[db] PGLite bootstrap failed:", err);
