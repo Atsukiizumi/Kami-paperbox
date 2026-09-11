@@ -37,6 +37,15 @@ type JobView = {
  * 轮询快照已剥离会话串（SEC-02）：done 事件里经 ?credentials=1 单独取一次，
  * 取不到就按无凭据结束（保存步骤会跳过空值）。
  */
+/** 401 = 应用账号未登录（LAN 令牌形态不会走到这）；其余按网关不可用报。 */
+function loginGateError(status: number): string {
+  return status === 401 ? "需要先登录应用账号（设置 → 应用账号）" : `登录中转不可用（${status}）`;
+}
+
+/**
+ * 轮询快照已剥离会话串（SEC-02）：done 事件里经 ?credentials=1 单独取一次，
+ * 取不到就按无凭据结束（保存步骤会跳过空值）。
+ */
 async function withCredentials(data: JobView): Promise<JobView> {
   if (data.pixiv || data.fanbox) return data;
   try {
@@ -80,6 +89,12 @@ export function SessionRelayDialog({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ site }),
         });
+        // TD-20：非 2xx 快速失败——401 body 不是 JobView，塞进 setJob 会让
+        // status 变 undefined、轮询循环永不退出（界面卡「正在打开」+脚注「已结束」）。
+        if (!res.ok) {
+          setJob({ status: "error", error: loginGateError(res.status) });
+          return;
+        }
         const data = (await res.json()) as JobView;
         if (stop) return;
         setJob(data);
@@ -98,6 +113,11 @@ export function SessionRelayDialog({
       while (!stop) {
         try {
           const res = await fetch("/api/login-browser?frame=1", { cache: "no-store" });
+          if (!res.ok) {
+            if (stop) return;
+            setJob({ status: "error", error: loginGateError(res.status) });
+            return;
+          }
           const data = (await res.json()) as JobView;
           if (stop) return;
           setJob(data);

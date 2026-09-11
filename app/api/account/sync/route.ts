@@ -16,7 +16,7 @@ import { getSessionUser, UnauthorizedError } from "@/lib/auth/verify.server";
 import { parseBackup, parseVaultRecords } from "@/lib/backup";
 import { ensureDbReady, getSql } from "@/lib/db";
 import { scheduleSnapshotDump } from "@/lib/db-snapshot.server";
-import { withRequest } from "@/lib/next-route";
+import { withDataPlane } from "@/lib/next-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +76,10 @@ function validateSegment(segment: string, payload: unknown): string | null {
   return null;
 }
 
-export const GET = withRequest(async (request: Request) => {
+// SEC-12：与数据面路由同闸——补 Fetch-Metadata 同站校验（跨站 scripted
+// 请求 403），不再只靠 SameSite=Lax cookie 兜底。不传 guest：账号关闭
+// （LAN 令牌）形态过闸后 requireUserId 仍 401，行为不变。
+export const GET = withDataPlane(async (request: Request) => {
   await ensureDbReady();
   try {
     const userId = await requireUserId();
@@ -99,7 +102,7 @@ export const GET = withRequest(async (request: Request) => {
   }
 });
 
-export const POST = withRequest(async (request: Request) => {
+export const POST = withDataPlane(async (request: Request) => {
   await ensureDbReady();
   try {
     const userId = await requireUserId();

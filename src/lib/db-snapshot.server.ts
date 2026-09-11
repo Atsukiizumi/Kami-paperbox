@@ -104,29 +104,53 @@ async function restoreOrder(sql: Sql, tables: string[]): Promise<string[]> {
   return out;
 }
 
-/** 把快照行写回（刚迁移完的）内存库。列名来自快照本身，值按 jsonb 列转换。 */
-export async function restore(sql: Sql, snap: Snapshot) {
+/** 单行恢复失败：restore 结束后仍插不回去的行（TD-22：收集而非静默吞）。 */
+export type RestoreFailure = { table: string; row: Record<string, unknown>; error: string };
+
+async function insertRow(sql: Sql, table: string, row: Record<string, unknown>): Promise<void> {
+  const cols = Object.keys(row).filter((c) => row[c] !== null && row[c] !== undefined);
+  if (!cols.length) return;
+  const params: unknown[] = [];
+  const marks = cols.map((c) => {
+    params.push(JSONB_COLUMNS.has(c) ? JSON.stringify(row[c]) : row[c]);
+    return JSONB_COLUMNS.has(c) ? `$${params.length}::jsonb` : `$${params.length}`;
+  });
+  await sql.query(
+    `insert into ${quoteIdent(table)} (${cols.map(quoteIdent).join(", ")}) values (${marks.join(", ")}) on conflict do nothing`,
+    params,
+  );
+}
+
+/**
+ * 把快照行写回（刚迁移完的）内存库。列名来自快照本身，值按 jsonb 列转换。
+ * 返回重试一轮后仍失败的行（TD-22：此前单行失败只 warn 跳过、随后即被
+ * dumpNow 覆盖快照——失败行就这么静默没了，可能是 session/账号行）。
+ * 重试兜的是「子表先于父表」之外的次序问题（如同表内自引用、FK 成环兜底序）。
+ */
+export async function restore(sql: Sql, snap: Snapshot): Promise<RestoreFailure[]> {
+  let pending: RestoreFailure[] = [];
+  const runPass = async (rows: RestoreFailure[]): Promise<RestoreFailure[]> => {
+    const failed: RestoreFailure[] = [];
+    for (const item of rows) {
+      try {
+        await insertRow(sql, item.table, item.row);
+      } catch (err) {
+        failed.push({ ...item, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return failed;
+  };
   for (const table of await restoreOrder(sql, Object.keys(snap.tables))) {
     const rows = snap.tables[table];
     if (!Array.isArray(rows) || rows.length === 0) continue;
-    for (const row of rows) {
-      const cols = Object.keys(row).filter((c) => row[c] !== null && row[c] !== undefined);
-      if (!cols.length) continue;
-      const params: unknown[] = [];
-      const marks = cols.map((c) => {
-        params.push(JSONB_COLUMNS.has(c) ? JSON.stringify(row[c]) : row[c]);
-        return JSONB_COLUMNS.has(c) ? `$${params.length}::jsonb` : `$${params.length}`;
-      });
-      try {
-        await sql.query(
-          `insert into ${quoteIdent(table)} (${cols.map(quoteIdent).join(", ")}) values (${marks.join(", ")}) on conflict do nothing`,
-          params,
-        );
-      } catch (err) {
-        console.warn(`[db-snapshot] 恢复 ${table} 一行失败（跳过）：`, err instanceof Error ? err.message : err);
-      }
-    }
+    const failed = await runPass(rows.map((row) => ({ table, row, error: "" })));
+    pending = [...pending, ...failed];
   }
+  if (pending.length) {
+    console.warn(`[db-snapshot:restore] 首轮 ${pending.length} 行失败，重试一轮：`, pending.map((f) => f.table).join(" "));
+    pending = await runPass(pending);
+  }
+  return pending;
 }
 
 /** 全量导出所有业务表。任何一步出错返回 null（宁可重新注册，不要把服务拖死）。 */
@@ -171,6 +195,25 @@ export function scheduleSnapshotDump() {
 }
 
 /**
+ * 恢复仍失败的行隔离落盘（TD-22）：主快照随后会被 dumpNow 覆盖（否则新写入
+ * 永不落盘），被隔离行在这里原样留存——凭据/会话行永不静默销毁，由人处置。
+ */
+function quarantineRestoreFailures(failures: RestoreFailure[]) {
+  try {
+    const path = join(resolveKamiRoot(), ".data", "kami-db-snapshot.restore-failed.json");
+    const text = JSON.stringify({ at: Date.now(), rows: failures }, null, 2);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(`${path}.tmp`, text, "utf8");
+    renameSync(`${path}.tmp`, path);
+  } catch (err) {
+    console.warn(
+      "[db-snapshot:quarantine] 失败行隔离落盘失败（行将丢失）：",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+/**
  * 启动时恢复快照，然后开 30s 的看护：表内容有变就自动落一份。
  * 在 db 初始化（含迁移）之后调用。
  */
@@ -178,7 +221,16 @@ export async function restoreSnapshotThenWatch() {
   const sql = await getSql();
   const snap = readSnapshotFile();
   if (snap) {
-    await restore(sql, snap);
+    const failures = await restore(sql, snap);
+    if (failures.length) {
+      const byTable = new Map<string, number>();
+      for (const f of failures) byTable.set(f.table, (byTable.get(f.table) ?? 0) + 1);
+      console.warn(
+        `[db-snapshot:restore] ${failures.length} 行两轮恢复仍失败，已隔离到 .data/kami-db-snapshot.restore-failed.json：`,
+        [...byTable].map(([t, n]) => `${t}×${n}`).join(" "),
+      );
+      quarantineRestoreFailures(failures);
+    }
     console.log(`[db-snapshot] 已从快照恢复（${Object.entries(snap.tables).map(([t, r]) => `${t}:${r.length}`).join(" ")}）`);
   }
   await dumpNow();

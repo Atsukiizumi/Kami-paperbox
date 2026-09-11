@@ -124,6 +124,12 @@ export const auth = betterAuth({
   // 不打 DB，缩小 loading 窗口、减少闪烁。
   session: { cookieCache: { enabled: true, maxAge: 300 } },
 
+  // SEC-11：注册/登录等认证端点限速（better-auth 默认仅生产启用，这里显式
+  // 常开）。storage 维持默认 memory——database 存储需要 schema 里的 rateLimit
+  // 表而 0001 没有；单进程自托管形态 memory 足够。60 秒 20 次：交互使用远够，
+  // 脚本批量注册会被 429 挡住。
+  rateLimit: { enabled: true, window: 60, max: 20 },
+
   // 本地邮箱密码 —— 开关只在 ./email-password。
   ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
 
