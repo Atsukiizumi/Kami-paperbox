@@ -13,7 +13,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "e2e",
-  timeout: 180_000,
+  timeout: 300_000, // Next 16 dev 冷编译更慢，首屏用例留足余量
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   use: {

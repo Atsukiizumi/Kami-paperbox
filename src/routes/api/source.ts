@@ -33,7 +33,8 @@ export async function POST(request: Request) {
       if (cacheKey && data.fresh) {
         try {
           const { revalidateTag } = await import("next/cache");
-          revalidateTag(SOURCE_CACHE_TAG(cacheKey));
+          // Next 16：revalidateTag 要带 cacheLife profile；{ expire: 0 } = 立即失效
+          revalidateTag(SOURCE_CACHE_TAG(cacheKey), { expire: 0 });
         } catch {
           /* 非 Next 环境 */
         }
