@@ -33,6 +33,9 @@ const NAV = [
   { to: "/settings", label: "设置", icon: Settings },
 ] as const;
 
+/** 移动端底部栏固定六格；队列只在桌面侧栏出现，塞七项会挤爆网格。 */
+const MOBILE_NAV = NAV.filter((item) => item.to !== "/queue");
+
 function LogoMark({ className }: { className?: string }) {
   return <PaperMark className={className} />;
 }
@@ -105,6 +108,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     0,
     NAV.findIndex((item) => isActive(pathname, item.to)),
   );
+  const mobileRawIndex = MOBILE_NAV.findIndex((item) => isActive(pathname, item.to));
+  const activeIndexMobile = Math.max(0, mobileRawIndex);
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -206,19 +211,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="relative grid grid-cols-6">
           <span
             aria-hidden
-            className="pointer-events-none absolute top-1 left-0 flex w-1/6 justify-center transition-transform duration-200 ease-out"
-            style={{ transform: `translateX(${activeIndex * 100}%)` }}
+            className={cn(
+              "pointer-events-none absolute top-1 left-0 flex w-1/6 justify-center transition-transform duration-200 ease-out",
+              mobileRawIndex < 0 && "opacity-0",
+            )}
+            style={{ transform: `translateX(${activeIndexMobile * 100}%)` }}
           >
             <span className="h-0.5 w-8 rounded-full bg-accent" />
           </span>
-          {NAV.map((item) => {
+          {MOBILE_NAV.map((item) => {
             const active = isActive(pathname, item.to);
             const Icon = item.icon;
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
                   "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-200",
                   active ? "text-fg" : "text-muted",
@@ -226,11 +233,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <Icon className="size-5" />
                 {item.label}
-                {item.to === "/queue" && queued > 0 ? (
-                  <span className="kami-pop absolute right-3 top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-xs tabular-nums text-accent-fg">
-                    {queued}
-                  </span>
-                ) : null}
               </Link>
             );
           })}
