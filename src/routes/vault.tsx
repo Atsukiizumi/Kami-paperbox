@@ -23,7 +23,8 @@ import { exportVaultItem, previewFromFolder } from "@/lib/persist-files";
 import { useSettings } from "@/lib/store";
 import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/vault";
 import { forgetVaultKey } from "@/lib/vault-index";
-import { filterVaultItems, vaultAuthors, vaultTotals } from "@/lib/vault-query";
+import { filterVaultItems, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "@/lib/vault-query";
+import { VaultDedup } from "@/components/vault-dedup";
 import { listServerVault, vaultPageUrl } from "@/lib/vault-sync";
 import type { Source, WorkCard } from "@/lib/types";
 
@@ -44,10 +45,16 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
 
 export function VaultPage() {
   const folderLabel = useSettings((s) => s.folderLabel);
+  const smartFolders = useSettings((s) => s.smartFolders);
+  const addSmartFolder = useSettings((s) => s.addSmartFolder);
+  const removeSmartFolder = useSettings((s) => s.removeSmartFolder);
   const [all, setAll] = useState<VaultMeta[]>([]);
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
   const [author, setAuthor] = useState("");
+  const [tagsSel, setTagsSel] = useState<string[]>([]);
+  const [month, setMonth] = useState("");
+  const [dedupOpen, setDedupOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
   const refreshToken = useRef(0);
@@ -87,20 +94,23 @@ export function VaultPage() {
   }, []);
 
   const items = useMemo(
-    () => filterVaultItems(all, { text, source, author }),
-    [all, text, source, author],
+    () => filterVaultItems(all, { text, source, author, tags: tagsSel.length ? tagsSel : undefined, month: month || undefined }),
+    [all, text, source, author, tagsSel, month],
   );
   const authors = useMemo(() => {
     const pool = source === "all" ? all : all.filter((item) => item.source === source);
     return vaultAuthors(pool).filter((name) => name.trim() !== "");
   }, [all, source]);
+  const tagOptions = useMemo(() => vaultTags(all).slice(0, 24), [all]);
+  const monthOptions = useMemo(() => vaultMonths(all), [all]);
+  const filterActive = Boolean(text || (source !== "all" && source) || author || tagsSel.length || month);
   const totals = vaultTotals(items);
   // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
   const [visibleCount, setVisibleCount] = useState(60);
   const visible = items.slice(0, visibleCount);
   useEffect(() => {
     setVisibleCount(60);
-  }, [text, source, author]);
+  }, [text, source, author, tagsSel, month]);
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
@@ -175,12 +185,94 @@ export function VaultPage() {
                 </SelectContent>
               </Select>
             ) : null}
+            {monthOptions.length > 1 ? (
+              <Select value={month || "all"} onValueChange={(v) => setMonth(v === "all" ? "" : v)}>
+                <SelectTrigger className="h-9 min-w-[7.5rem] rounded-full bg-elevated px-3.5">
+                  <SelectValue placeholder="月份" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部时间</SelectItem>
+                  {monthOptions.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <span className="ml-auto text-xs tabular-nums text-subtle">
               {totals.count} 条 · {formatBytes(totals.bytes)}
             </span>
           </div>
+          {tagOptions.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {tagOptions.map((tag) => {
+                const active = tagsSel.includes(tag);
+                return (
+                  <FilterChip
+                    key={tag}
+                    active={active}
+                    onClick={() =>
+                      setTagsSel((prev) => (active ? prev.filter((t) => t !== tag) : [...prev, tag]))
+                    }
+                  >
+                    {tag}
+                  </FilterChip>
+                );
+              })}
+              {tagsSel.length > 0 ? (
+                <button type="button" className="text-xs text-muted underline-offset-2 hover:underline" onClick={() => setTagsSel([])}>
+                  清空标签
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {smartFolders.map((folder) => (
+              <span key={folder.id} className="inline-flex items-center gap-1 rounded-full bg-accent/15 pl-3 pr-1 text-sm">
+                <button
+                  type="button"
+                  className="h-9 text-accent-fg"
+                  onClick={() => {
+                    setText(folder.query.text ?? "");
+                    setSource(folder.query.source ?? "all");
+                    setAuthor(folder.query.author ?? "");
+                    setTagsSel(folder.query.tags ?? []);
+                    setMonth(folder.query.month ?? "");
+                  }}
+                >
+                  {folder.name}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`删除文件夹 ${folder.name}`}
+                  className="grid size-7 place-items-center rounded-full text-muted hover:text-fg"
+                  onClick={() => removeSmartFolder(folder.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {filterActive ? (
+              <button
+                type="button"
+                className="text-xs text-muted underline-offset-2 hover:underline"
+                onClick={() => {
+                  const name = window.prompt("智能文件夹名字", `${tagsSel[0] ?? author ?? source}收藏`);
+                  if (name) addSmartFolder(name, { text, source, author, tags: tagsSel, month: month || undefined });
+                }}
+              >
+                存为智能文件夹
+              </button>
+            ) : null}
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
+              {dedupOpen ? "收起查重" : "查重"}
+            </Button>
+          </div>
         </div>
       ) : null}
+
+      {dedupOpen ? <VaultDedup items={all} onChanged={() => void refresh()} /> : null}
 
       {!ready ? (
         <p className="text-sm text-muted">正在读取纸匣…</p>
