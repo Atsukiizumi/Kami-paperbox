@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterVaultItems, vaultAuthors, vaultTotals } from "./vault-query.ts";
+import { filterVaultItems, parseSmartFolders, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "./vault-query.ts";
 import type { VaultMeta } from "./types.ts";
 
 function item(over: Partial<VaultMeta> & Pick<VaultMeta, "key" | "title" | "author">): VaultMeta {
@@ -38,4 +38,43 @@ test("vaultAuthors and totals", () => {
   ];
   assert.deepEqual(vaultAuthors(rows), ["_AGOTO", "zero"]);
   assert.deepEqual(vaultTotals(rows), { count: 3, bytes: 30 });
+});
+
+test("tags 任一命中；month 按 savedAt 本地年月；与既有谓词叠加（智能库）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "zero", tags: ["landscape", "sky"], savedAt: new Date(2026, 7, 15).getTime() }),
+    item({ key: "b", title: "b", author: "zero", tags: ["portrait"], savedAt: new Date(2026, 8, 2).getTime() }),
+    item({ key: "c", title: "c", author: "_AGOTO", tags: ["sky"], savedAt: new Date(2025, 11, 30).getTime() }),
+  ];
+  assert.equal(filterVaultItems(rows, { tags: ["sky"] }).length, 2);
+  assert.equal(filterVaultItems(rows, { tags: ["sky", "portrait"] }).length, 3); // 任一命中
+  assert.equal(filterVaultItems(rows, { tags: ["nope"] }).length, 0);
+  assert.equal(filterVaultItems(rows, { month: "2026-08" })[0]?.key, "a");
+  assert.equal(filterVaultItems(rows, { month: "2026-09" })[0]?.key, "b");
+  assert.equal(filterVaultItems(rows, { month: "2025-12" })[0]?.key, "c");
+  assert.equal(filterVaultItems(rows, { author: "zero", tags: ["portrait"], month: "2026-09" })[0]?.key, "b");
+  assert.equal(filterVaultItems(rows, { author: "_AGOTO", tags: ["portrait"] }).length, 0);
+});
+
+test("vaultTags 与 vaultMonths 派生选项列表", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "z", tags: ["sky", "sky", "night"], savedAt: new Date(2026, 7, 1).getTime() }),
+    item({ key: "b", title: "b", author: "z", tags: ["sky"], savedAt: new Date(2026, 8, 1).getTime() }),
+  ];
+  assert.deepEqual(vaultTags(rows), ["sky", "night"]);
+  assert.deepEqual(vaultMonths(rows), ["2026-09", "2026-08"]); // 新月在前
+});
+
+test("parseSmartFolders 往返 + 脏数据丢弃", () => {
+  const folders = [
+    { id: "f1", name: "风景", query: { tags: ["landscape", "sky"], month: "2026-08" } },
+    { id: "f2", name: "画师X", query: { author: "zero", source: "pixiv", text: "海" } },
+  ];
+  const back = parseSmartFolders(JSON.parse(JSON.stringify(folders)));
+  assert.deepEqual(back, folders);
+  assert.equal(parseSmartFolders("nope").length, 0);
+  assert.equal(parseSmartFolders([{ id: "", name: "x", query: {} }, { id: "a", name: " ", query: {} }, "junk"]).length, 0);
+  assert.deepEqual(parseSmartFolders([{ id: "a", name: "n", query: { month: "2026-13" } }]), [
+    { id: "a", name: "n", query: {} },
+  ]);
 });

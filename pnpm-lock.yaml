@@ -98,6 +98,9 @@ importers:
       gifenc:
         specifier: ^1.0.3
         version: 1.0.3
+      jpeg-js:
+        specifier: ^0.4.4
+        version: 0.4.4
       kysely:
         specifier: ^0.28.5
         version: 0.28.17
@@ -110,6 +113,9 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.23.0
+      pngjs:
+        specifier: ^7.0.0
+        version: 7.0.0
       puppeteer-core:
         specifier: ^25.9.0
         version: 25.9.0
@@ -159,6 +165,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.23.1
+      '@types/pngjs':
+        specifier: ^6.0.5
+        version: 6.0.5
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.18
@@ -1665,6 +1674,9 @@ packages:
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
 
+  '@types/pngjs@6.0.5':
+    resolution: {integrity: sha512-0k5eKfrA83JOZPppLtS2C7OUtyNAl2wKNxfyYl9Q5g9lPkgBl/9hNyAu6HuEH2J4XmIv2znEpkDd0SaZVxW6iQ==}
+
   '@types/react-dom@19.2.5':
     resolution: {integrity: sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==}
     peerDependencies:
@@ -2239,6 +2251,9 @@ packages:
   jose@6.2.9:
     resolution: {integrity: sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA==}
 
+  jpeg-js@0.4.4:
+    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -2565,6 +2580,10 @@ packages:
     resolution: {integrity: sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==}
     engines: {node: '>=20'}
     hasBin: true
+
+  pngjs@7.0.0:
+    resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
+    engines: {node: '>=14.19.0'}
 
   postcss@8.5.28:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
@@ -4450,6 +4469,10 @@ snapshots:
       pg-protocol: 1.16.0
       pg-types: 2.2.0
 
+  '@types/pngjs@6.0.5':
+    dependencies:
+      '@types/node': 22.20.1
+
   '@types/react-dom@19.2.5(@types/react@19.2.18)':
     dependencies:
       '@types/react': 19.2.18
@@ -4961,6 +4984,8 @@ snapshots:
 
   jose@6.2.9: {}
 
+  jpeg-js@0.4.4: {}
+
   js-tokens@4.0.0:
     optional: true
 
@@ -5229,6 +5254,8 @@ snapshots:
   playwright@1.63.0:
     dependencies:
       playwright-core: 1.63.0
+
+  pngjs@7.0.0: {}
 
   postcss@8.5.28:
     dependencies:

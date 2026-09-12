@@ -1,6 +1,6 @@
 # 纸匣智能库（B）实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 把纸匣从平铺列表升级成可管理的库：标签/月份组合筛选、智能文件夹、感知哈希查重（只标记+手动处理）、统计面板四模块。
 
@@ -32,13 +32,13 @@
 - `hammingHex(a: string, b: string): number`
 - `dhashFromBytes(bytes: Uint8Array, mime: string): Promise<string | null>` — null = 不支持的格式/解码失败
 
-- [ ] **Step 1: 安装依赖**
+- [x] **Step 1: 安装依赖**
 
 ```bash
 pnpm add jpeg-js pngjs
 ```
 
-- [ ] **Step 2: 写失败测试**（`src/lib/dhash.test.ts`）
+- [x] **Step 2: 写失败测试**（`src/lib/dhash.test.ts`）
 
 ```ts
 import assert from "node:assert/strict";
@@ -82,11 +82,11 @@ test("png 解码路径 + webp 返回 null", async () => {
 });
 ```
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 Run: `node --experimental-strip-types --test src/lib/dhash.test.ts` → FAIL（模块不存在）
 
-- [ ] **Step 4: 实现**（`src/lib/dhash.ts`）
+- [x] **Step 4: 实现**（`src/lib/dhash.ts`）
 
 ```ts
 /**
@@ -160,8 +160,8 @@ export async function dhashFromBytes(bytes: Uint8Array, mime: string): Promise<s
 }
 ```
 
-- [ ] **Step 5: 跑测试确认通过** → PASS
-- [ ] **Step 6: Commit** `feat: dHash 感知哈希核心（查重地基）`
+- [x] **Step 5: 跑测试确认通过** → PASS
+- [x] **Step 6: Commit** `feat: dHash 感知哈希核心（查重地基）`
 
 ---
 
@@ -178,7 +178,7 @@ export async function dhashFromBytes(bytes: Uint8Array, mime: string): Promise<s
 - `VaultStore.dismissedPairs(): string[]`
 - `VaultStore.storageBy(group: "source" | "author"): { name: string; bytes: number; count: number }[]`（works.bytes 已有，SQL 聚合）
 
-- [ ] **Step 1: 写失败测试**（追加到 vault-store.server.test.ts）
+- [x] **Step 1: 写失败测试**（追加到 vault-store.server.test.ts）
 
 ```ts
 test("put 后可查哈希；remove 清理；dismiss 往返；storageBy 聚合", () => {
@@ -205,8 +205,8 @@ test("put 后可查哈希；remove 清理；dismiss 往返；storageBy 聚合", 
 
 （`metaOf` / `grayData` 为测试内小工具，按现有测试的 meta 构造习惯写。）
 
-- [ ] **Step 2: 跑测试确认失败** → FAIL（方法不存在）
-- [ ] **Step 3: 实现**
+- [x] **Step 2: 跑测试确认失败** → FAIL（方法不存在）
+- [x] **Step 3: 实现**
   - `SCHEMA` 追加：
 
 ```sql
@@ -227,8 +227,8 @@ CREATE TABLE IF NOT EXISTS vault_dup_dismissed (
   - `put()` 内：第一页写入成功后 `void dhashFromBytes(...)` 同步调用（同步 IO 流程内，解码毫秒级）写 `putHash`；解码失败不写。
   - `remove()` 内：`DELETE FROM vault_hash WHERE key = ?`。
   - `storageBy`：`SELECT source AS name, SUM(bytes) AS bytes, COUNT(*) AS count FROM works GROUP BY source ORDER BY bytes DESC`（author 同理，author 空串归 `"(未命名)"`）。
-- [ ] **Step 4: 跑测试确认通过** → PASS
-- [ ] **Step 5: Commit** `feat: vault-store 哈希/忽略表与入库即算`
+- [x] **Step 4: 跑测试确认通过** → PASS
+- [x] **Step 5: Commit** `feat: vault-store 哈希/忽略表与入库即算`
 
 ---
 
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS vault_dup_dismissed (
 - `pairKeyOf(a: string, b: string): string`
 - `clusterDupes(items: { key: string; dhash: string }[], threshold = 10, dismissed: string[] = []): { keys: string[]; maxDistance: number }[]`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", () => {
@@ -260,8 +260,8 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 
 （`flip(hex, n)` = 翻转前 n bit 的测试工具。）
 
-- [ ] **Step 2: 确认失败 → Step 3: 实现**（union-find；O(n²) 两两汉明；组件 ≥2 才成组；组内 maxDistance 汇报；dismissed 的 pair 两端不连边，孤立端不出现）
-- [ ] **Step 4: 通过 → Step 5: Commit** `feat: 查重聚类（并查集 + 忽略对排除）`
+- [x] **Step 2: 确认失败 → Step 3: 实现**（union-find；O(n²) 两两汉明；组件 ≥2 才成组；组内 maxDistance 汇报；dismissed 的 pair 两端不连边，孤立端不出现）
+- [x] **Step 4: 通过 → Step 5: Commit** `feat: 查重聚类（并查集 + 忽略对排除）`
 
 ---
 
@@ -277,10 +277,10 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 - `GET /api/vault/dedup` → `{groups, hashed, total}`（不补算，纯重算）
 - `GET /api/vault/stats/storage` → `{bySource:{name,bytes,count}[], byAuthor:{name,bytes,count}[]}`
 
-- [ ] **Step 1: 实现 `src/routes/api/vault-dedup.ts`**：scan = 遍历 `list()`，对 `hashes()` 里没有的 key `readPage(key, 0)` 取首页字节 → `dhashFromBytes` → `putHash`（每 50 条 `setImmediate` yield）；然后 `clusterDupes(hashes(), threshold, dismissedPairs())`。GET 同 scan 但跳过补算。dismiss = 校验 a/b 存在后 `dismissPair`。
-- [ ] **Step 2: app 路由薄封装**（对照 `app/api/vault/route.ts` 的 import + withDataPlane 写法）。
-- [ ] **Step 3: 手动验证**：本地起 dev，`curl -X POST localhost:8080/api/vault/dedup -d '{"action":"scan"}'`（无凭据时按数据面闸行为预期 401/403——验证路由接线与错误路径不 500）。
-- [ ] **Step 4: Commit** `feat: 查重扫描/忽略与存储聚合 API（个人面）`
+- [x] **Step 1: 实现 `src/routes/api/vault-dedup.ts`**：scan = 遍历 `list()`，对 `hashes()` 里没有的 key `readPage(key, 0)` 取首页字节 → `dhashFromBytes` → `putHash`（每 50 条 `setImmediate` yield）；然后 `clusterDupes(hashes(), threshold, dismissedPairs())`。GET 同 scan 但跳过补算。dismiss = 校验 a/b 存在后 `dismissPair`。
+- [x] **Step 2: app 路由薄封装**（对照 `app/api/vault/route.ts` 的 import + withDataPlane 写法）。
+- [x] **Step 3: 手动验证**：本地起 dev，`curl -X POST localhost:8080/api/vault/dedup -d '{"action":"scan"}'`（无凭据时按数据面闸行为预期 401/403——验证路由接线与错误路径不 500）。
+- [x] **Step 4: Commit** `feat: 查重扫描/忽略与存储聚合 API（个人面）`
 
 ---
 
@@ -293,9 +293,9 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 - `VaultQuery` 增加 `tags?: string[]`（任一命中）、`month?: string`（"YYYY-MM"，按 `savedAt` 本地时区）
 - `export type SmartFolder = { id: string; name: string; query: VaultQuery }`
 
-- [ ] **Step 1: 失败测试**（tags 任一命中；month 匹配 `new Date(savedAt)` 的年月；两者与 text/source/author 叠加）
-- [ ] **Step 2: 确认失败 → Step 3: 实现**（`item.tags.some(t => tags.includes(t))`；`const d = new Date(item.savedAt); `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` === month）
-- [ ] **Step 4: 通过 → Step 5: Commit** `feat: 纸匣标签/月份筛选与智能文件夹类型`
+- [x] **Step 1: 失败测试**（tags 任一命中；month 匹配 `new Date(savedAt)` 的年月；两者与 text/source/author 叠加）
+- [x] **Step 2: 确认失败 → Step 3: 实现**（`item.tags.some(t => tags.includes(t))`；`const d = new Date(item.savedAt); `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` === month）
+- [x] **Step 4: 通过 → Step 5: Commit** `feat: 纸匣标签/月份筛选与智能文件夹类型`
 
 ---
 
@@ -306,9 +306,9 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 - Modify: `src/lib/backup.ts`（`parseBackupSettings` 解析 + build 序列化，对齐 folderLabel 的写法：store.ts:351/378、backup.ts:192/230）
 - Test: `src/lib/backup.test.ts`（往返用例）
 
-- [ ] **Step 1: 失败测试**：build → parse 往返保留 `smartFolders: [{id:"f1",name:"风景",query:{tags:["landscape"]}}]`；脏数据（非数组/缺 name）解析为 `[]`。
-- [ ] **Step 2: 确认失败 → Step 3: 实现**（解析函数 `parseSmartFolders(raw): SmartFolder[]`，逐项校验 id/name 为 string、query 为对象且字段合法才收）。
-- [ ] **Step 4: 通过（含全量 pnpm test）→ Step 5: Commit** `feat: 智能文件夹随设置同步`
+- [x] **Step 1: 失败测试**：build → parse 往返保留 `smartFolders: [{id:"f1",name:"风景",query:{tags:["landscape"]}}]`；脏数据（非数组/缺 name）解析为 `[]`。
+- [x] **Step 2: 确认失败 → Step 3: 实现**（解析函数 `parseSmartFolders(raw): SmartFolder[]`，逐项校验 id/name 为 string、query 为对象且字段合法才收）。
+- [x] **Step 4: 通过（含全量 pnpm test）→ Step 5: Commit** `feat: 智能文件夹随设置同步`
 
 ---
 
@@ -319,11 +319,11 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 - Create: `src/components/vault-dedup.tsx`（查重视图组件）
 
 **要点（实现时对照现有 vault.tsx 结构）:**
-- [ ] 筛选条：`vaultAuthors` 同款新增 `vaultTags(items)` / `vaultMonths(items)`（vault-query.ts 导出，带测试）；标签 chips 多选 → `query.tags`；月份下拉 → `query.month`。
-- [ ] 智能文件夹：侧栏区块列出 `smartFolders`，点击套用 query；「保存当前筛选为文件夹」按钮（生成 id `crypto.randomUUID()`）；条目可删。
-- [ ] 查重视图：`VaultDedup` 组件——「扫描重复」按钮 → POST scan → 组列表（组内卡片并排，标注 source/距离）→ 每张卡「删除」（复用 `deleteVaultWork` + toast）/ 每组「忽略本对」（dismiss 后从列表消失）。空结果显示「没有发现重复」。扫描中显示进度（hashed/total）。
-- [ ] 手动 QA（浏览器）：筛选、文件夹保存/套用/删除、扫描→忽略→重扫描不再现。
-- [ ] Commit `feat: 纸匣筛选条/智能文件夹/查重视图`
+- [x] 筛选条：`vaultAuthors` 同款新增 `vaultTags(items)` / `vaultMonths(items)`（vault-query.ts 导出，带测试）；标签 chips 多选 → `query.tags`；月份下拉 → `query.month`。
+- [x] 智能文件夹：侧栏区块列出 `smartFolders`，点击套用 query；「保存当前筛选为文件夹」按钮（生成 id `crypto.randomUUID()`）；条目可删。
+- [x] 查重视图：`VaultDedup` 组件——「扫描重复」按钮 → POST scan → 组列表（组内卡片并排，标注 source/距离）→ 每张卡「删除」（复用 `deleteVaultWork` + toast）/ 每组「忽略本对」（dismiss 后从列表消失）。空结果显示「没有发现重复」。扫描中显示进度（hashed/total）。
+- [x] 手动 QA（浏览器）：筛选、文件夹保存/套用/删除、扫描→忽略→重扫描不再现。
+- [x] Commit `feat: 纸匣筛选条/智能文件夹/查重视图`
 
 ---
 
@@ -334,18 +334,18 @@ test("A~B、B~C、A≁C：并查集聚成一组；dismissed 对排除成员", ()
 - Modify: `src/components/app-shell.tsx` 不动（stats 入口放纸匣页头部链接，避免动全局导航）
 
 **要点:**
-- [ ] 客户端聚合 `listVault()` meta：来源占比、画师 Top10、标签 Top10、按月时间线——CSS/SVG 条形（不引库）。
-- [ ] `GET /api/vault/stats/storage` 拉 bySource/byAuthor 占用卡片（失败显示「服务端不可用」，不阻塞其余卡片）。
-- [ ] 查重状态卡：`GET /api/vault/dedup` 的 hashed/total/groups 数 + 「去处理」链接回纸匣页查重视图。
-- [ ] 手动 QA + Commit `feat: 纸匣统计页`
+- [x] 客户端聚合 `listVault()` meta：来源占比、画师 Top10、标签 Top10、按月时间线——CSS/SVG 条形（不引库）。
+- [x] `GET /api/vault/stats/storage` 拉 bySource/byAuthor 占用卡片（失败显示「服务端不可用」，不阻塞其余卡片）。
+- [x] 查重状态卡：`GET /api/vault/dedup` 的 hashed/total/groups 数 + 「去处理」链接回纸匣页查重视图。
+- [x] 手动 QA + Commit `feat: 纸匣统计页`
 
 ---
 
 ### Task 9: 收尾——全量验证 + docs + PR
 
-- [ ] `pnpm typecheck && pnpm test && pnpm build` 全绿；`npx eslint` 改动文件无 error。
-- [ ] docs 回写：`docs/05-模块设计说明.md`（纸匣模块补智能库小节）、`CHANGELOG.md` Unreleased 用户可见条目、spec 文件状态行改「已实现」。
-- [ ] 分支 `feat/vault-smart-library` 开 PR，等 CI 绿（按用户口径直接合并）。
+- [x] `pnpm typecheck && pnpm test && pnpm build` 全绿；`npx eslint` 改动文件无 error。
+- [x] docs 回写：`docs/05-模块设计说明.md`（纸匣模块补智能库小节）、`CHANGELOG.md` Unreleased 用户可见条目、spec 文件状态行改「已实现」。
+- [x] 分支 `feat/vault-smart-library` 开 PR，等 CI 绿（按用户口径直接合并）。
 
 ---
 
