@@ -14,9 +14,14 @@ import { fetchSource, mutateSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { formatCount } from "@/lib/utils";
 import { rememberAuthor } from "@/lib/view-history";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { UserMinus, UserPlus } from "lucide-react";
+import { Layers, UserMinus, UserPlus } from "lucide-react";
+import { enqueueWorks } from "@/lib/queue-runner";
+import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
+import { useQueue } from "@/lib/store";
+import { useVaultIndex } from "@/lib/vault-index";
+import { BatchToolbar } from "@/components/batch-toolbar";
 
 export function UserPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +29,16 @@ export function UserPage() {
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
   const queryClient = useQueryClient();
+  // 批量收藏（D）
+  const [batchMode, setBatchMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const vaultKeys = useVaultIndex((s) => s.keys);
+  const queueItems = useQueue((s) => s.items);
+  const queueKeys = useMemo(
+    () => queueItems.filter((x) => x.status === "queued" || x.status === "running").map((x) => x.key),
+    [queueItems],
+  );
 
   const query = useInfiniteQuery({
     queryKey: ["user", id, safeMode, hideAi, credentialTag(pixivCookie)],
@@ -81,6 +96,52 @@ export function UserPage() {
   const total = first.total;
   const items = query.data.pages.flatMap((page, i) => (i === 0 ? page.items : page.items));
   const pinned = pickup;
+  const allCards = [...pinned, ...items];
+
+  function countLoaded(data: typeof query.data): number {
+    return (data?.pages ?? []).reduce((sum, page) => sum + page.items.length, 0);
+  }
+  function toggleSelected(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  async function loadToCap() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      let guard = 0;
+      let res = await query.fetchNextPage();
+      while (res.hasNextPage && guard < 30 && countLoaded(res.data) < BATCH_MAX) {
+        res = await query.fetchNextPage();
+        guard += 1;
+      }
+      if (countLoaded(res.data) >= BATCH_MAX) toast.info(`已达单批上限 ${BATCH_MAX} 张`);
+    } catch {
+      toast.error("加载更多失败，已加载部分仍可选择");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+  function enqueueSelected(kind: "vault" | "download") {
+    const cards = allCards.filter((c) => selected.has(workKeyOf(c)));
+    const { batchable, skippedVault, skippedQueue } = filterBatchable(cards, {
+      inVaultKeys: new Set(Object.keys(vaultKeys)),
+      inQueueKeys: new Set(queueKeys),
+    });
+    enqueueWorks(batchable, kind);
+    const skipped: string[] = [];
+    if (skippedVault) skipped.push(`已在纸匣 ${skippedVault}`);
+    if (skippedQueue) skipped.push(`队列中 ${skippedQueue}`);
+    toast.success(
+      `${kind === "vault" ? "已入队：纸匣" : "已入队：下载"} ${batchable.length} 张${skipped.length ? `（跳过 ${skipped.join("、")}）` : ""}`,
+    );
+    setSelected(new Set());
+    setBatchMode(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -130,6 +191,23 @@ export function UserPage() {
             {profile.isFollowed ? "已关注" : "关注"}
           </Button>
           <WatchToggle source="pixiv" id={profile.id} name={profile.name} avatar={profile.avatar} />
+          <Button
+            size="sm"
+            variant={batchMode ? "default" : "outline"}
+            className="mt-2"
+            onClick={() => {
+              setBatchMode((v) => !v);
+              setSelected(new Set());
+            }}
+          >
+            <Layers className="size-4" />
+            {batchMode ? "退出批量" : "批量收藏"}
+          </Button>
+          {batchMode ? (
+            <Button size="sm" variant="ghost" className="mt-2" onClick={() => void loadToCap()} disabled={loadingMore}>
+              {loadingMore ? "加载中…" : `加载至 ${BATCH_MAX} 张`}
+            </Button>
+          ) : null}
         </div>
       </header>
       {pinned.length > 0 ? (
@@ -142,17 +220,35 @@ export function UserPage() {
               if (work.id === newestId) marks.unshift("最新");
               return marks;
             }}
+            selection={batchMode ? { selected, onToggle: toggleSelected } : undefined}
           />
         </section>
       ) : null}
       <section className="space-y-3">
         {pinned.length > 0 ? <h2 className="text-sm font-medium text-muted">作品</h2> : null}
-        <ArtworkGrid items={items} marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)} />
+        <ArtworkGrid
+          items={items}
+          marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)}
+          selection={batchMode ? { selected, onToggle: toggleSelected } : undefined}
+        />
         <InfiniteSentinel
           disabled={!query.hasNextPage || query.isFetchingNextPage}
           onVisible={() => void query.fetchNextPage()}
         />
       </section>
+      {batchMode ? (
+        <BatchToolbar
+          selectedCount={selected.size}
+          total={allCards.length}
+          onSelectAll={() => setSelected(new Set(allCards.map(workKeyOf)))}
+          onClear={() => setSelected(new Set())}
+          onEnqueue={enqueueSelected}
+          onDone={() => {
+            setBatchMode(false);
+            setSelected(new Set());
+          }}
+        />
+      ) : null}
     </div>
   );
 }
