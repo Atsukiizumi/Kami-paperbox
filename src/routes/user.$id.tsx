@@ -6,6 +6,7 @@ import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
+import { WatchToggle } from "@/components/watch-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -128,6 +129,7 @@ export function UserPage() {
             {profile.isFollowed ? <UserMinus className="size-4" /> : <UserPlus className="size-4" />}
             {profile.isFollowed ? "已关注" : "关注"}
           </Button>
+          <WatchToggle source="pixiv" id={profile.id} name={profile.name} avatar={profile.avatar} />
         </div>
       </header>
       {pinned.length > 0 ? (

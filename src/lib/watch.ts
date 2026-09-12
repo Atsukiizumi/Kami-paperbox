@@ -5,7 +5,6 @@
  *      检测时用 diffNewCount 数出水位之上的新作数。
  * 为什么无水位返回 0：刚追踪的画师不该虚报一屏红点，从「下一次检查」开始算新。
  */
-import type { Source } from "./types.ts";
 
 export const WATCH_SOURCES = ["pixiv", "fanbox"] as const;
 export type WatchSource = (typeof WATCH_SOURCES)[number];

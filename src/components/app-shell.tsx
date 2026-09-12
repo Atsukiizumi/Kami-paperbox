@@ -5,10 +5,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
+import { Archive, Bell, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { mirrorQueueAcrossTabs, resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/vault-index";
+import { useWatchBadge } from "@/lib/watch-badge";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
 import { warmPixivCsrf } from "@/lib/source";
@@ -28,6 +29,7 @@ import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
   { to: "/", label: "浏览", icon: Compass },
+  { to: "/watch", label: "追踪", icon: Bell },
   { to: "/rankings", label: "热榜", icon: Trophy },
   { to: "/history", label: "历史", icon: Clock },
   { to: "/search", label: "搜图", icon: ScanSearch },
@@ -36,8 +38,8 @@ const NAV = [
   { to: "/settings", label: "设置", icon: Settings },
 ] as const;
 
-/** 移动端底部栏固定六格；队列只在桌面侧栏出现，塞七项会挤爆网格。 */
-const MOBILE_NAV = NAV.filter((item) => item.to !== "/queue");
+/** 移动端底部栏固定六格；队列与追踪只在桌面侧栏/顶栏出现，塞七项会挤爆网格。 */
+const MOBILE_NAV = NAV.filter((item) => item.to !== "/queue" && item.to !== "/watch");
 
 function LogoMark({ className }: { className?: string }) {
   return <PaperMark className={className} />;
@@ -58,6 +60,7 @@ function isActive(pathname: string, to: (typeof NAV)[number]["to"]) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
+  const watchBadge = useWatchBadge((s) => s.newCount);
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => mirrorQueueAcrossTabs(), []);
@@ -137,6 +140,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Separator className="hidden h-5 w-px shrink-0 bg-border sm:block" />
         <SiteSwitcher />
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
+          <Hint label="追踪" side="bottom">
+            <Link
+              to="/watch"
+              className="relative inline-flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:text-fg md:hidden"
+              aria-label="追踪"
+            >
+              <Bell className="size-5" />
+              {watchBadge > 0 ? (
+                <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-0.5 text-[9px] font-medium tabular-nums text-accent-fg">
+                  {watchBadge > 9 ? "9+" : watchBadge}
+                </span>
+              ) : null}
+            </Link>
+          </Hint>
           <ThemeMenu />
           <AccountSwitcher />
         </div>
@@ -177,7 +194,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {item.to === "/queue" && queued > 0 ? (
                       <span className="kami-pop ml-auto tabular-nums text-xs text-accent">{queued}</span>
                     ) : null}
+                    {item.to === "/watch" && watchBadge > 0 ? (
+                      <span className="kami-pop ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-medium tabular-nums text-accent-fg">
+                        {watchBadge > 99 ? "99+" : watchBadge}
+                      </span>
+                    ) : null}
                   </>
+                ) : item.to === "/watch" && watchBadge > 0 ? (
+                  <span className="absolute right-2 top-2 size-2 rounded-full bg-accent" />
                 ) : null}
               </Link>
             );

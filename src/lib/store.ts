@@ -99,7 +99,7 @@ type SettingsState = {
   onboarded: boolean;
   addSmartFolder: (name: string, query: VaultQuery) => void;
   removeSmartFolder: (id: string) => void;
-  toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => boolean;
+  toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => "added" | "removed" | "full";
   setWatchSeen: (source: WatchArtist["source"], id: string, lastSeenId: string) => void;
   setWatchLimit: (n: number) => void;
   setPixivCookie: (v: string) => void;
@@ -257,16 +257,16 @@ export const useSettings = create<SettingsState>()(
         const existing = current.watchArtists.find((w) => w.source === source && w.id === id);
         if (existing) {
           set({ watchArtists: current.watchArtists.filter((w) => !(w.source === source && w.id === id)) });
-          return false;
+          return "removed";
         }
-        if (current.watchArtists.length >= current.watchLimit) return true; // 满员不加入，调用方提示
+        if (current.watchArtists.length >= current.watchLimit) return "full"; // 满员不加入，调用方提示
         set({
           watchArtists: [
             ...current.watchArtists,
             { source, id, name, avatar, addedAt: Date.now() },
           ],
         });
-        return true;
+        return "added";
       },
       setWatchSeen: (source, id, lastSeenId) =>
         set((s) => ({
