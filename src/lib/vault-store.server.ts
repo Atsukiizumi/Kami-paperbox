@@ -17,6 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { isSource } from "./sites.ts";
 import type { Source, VaultMeta } from "./types.ts";
+import { dhashInfoFromBytesSync } from "./dhash.ts";
 import { filterVaultItems, vaultAuthors, vaultTotals, type VaultQuery } from "./vault-query.ts";
 
 const SCHEMA = `
@@ -45,6 +46,17 @@ CREATE TABLE IF NOT EXISTS pages (
   bytes INTEGER NOT NULL,
   path TEXT NOT NULL,
   PRIMARY KEY (key, page)
+);
+CREATE TABLE IF NOT EXISTS vault_hash (
+  key TEXT PRIMARY KEY,
+  dhash TEXT NOT NULL,
+  w INTEGER NOT NULL,
+  h INTEGER NOT NULL,
+  computed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS vault_dup_dismissed (
+  pair TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
 
@@ -131,6 +143,11 @@ export type VaultStore = {
   readPage: (key: string, page: number) => VaultPageRead | undefined;
   patch: (key: string, patch: Partial<Pick<VaultMeta, "relativePath" | "folderLabel" | "title">>) => VaultMeta | undefined;
   remove: (key: string) => boolean;
+  putHash: (key: string, dhash: string, w: number, h: number) => void;
+  hashes: () => { key: string; dhash: string }[];
+  dismissPair: (a: string, b: string) => void;
+  dismissedPairs: () => string[];
+  storageBy: (group: "source" | "author") => { name: string; bytes: number; count: number }[];
   authors: () => string[];
   stats: () => { count: number; bytes: number; dir: string };
   close: () => void;
@@ -163,6 +180,16 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const selectPages = db.prepare("SELECT path FROM pages WHERE key = ?");
   const selectPageKeys = db.prepare("SELECT DISTINCT key FROM pages");
   const selectHasPage = db.prepare("SELECT 1 AS ok FROM pages WHERE key = ? AND page = 0 LIMIT 1");
+  // 查重（纸匣智能库）：哈希入库即算，忽略对持久化，存储聚合走 works.bytes
+  const upsertHash = db.prepare(
+    "INSERT INTO vault_hash (key, dhash, w, h) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET dhash=excluded.dhash, w=excluded.w, h=excluded.h",
+  );
+  const selectHashes = db.prepare("SELECT key, dhash FROM vault_hash");
+  const deleteHash = db.prepare("DELETE FROM vault_hash WHERE key = ?");
+  const insertDismiss = db.prepare("INSERT INTO vault_dup_dismissed (pair) VALUES (?) ON CONFLICT(pair) DO NOTHING");
+  const selectDismissed = db.prepare("SELECT pair FROM vault_dup_dismissed");
+  const selectStorageBy = (col: "source" | "author") =>
+    db.prepare(`SELECT ${col} AS name, SUM(bytes) AS bytes, COUNT(*) AS count FROM works GROUP BY ${col} ORDER BY bytes DESC`);
 
   function workDir(source: string, id: string) {
     return join(filesDir, safeSeg(source), safeSeg(id));
@@ -296,6 +323,13 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       } catch {
         /* 目录读不了就算了 */
       }
+      // 入库即算（纸匣智能库）：首页感知哈希；解码失败（webp/坏字节）不落行
+      try {
+        const info = dhashInfoFromBytesSync(pages[0]!.bytes, pages[0]!.mime || "");
+        if (info) upsertHash.run(key, info.dhash, info.w, info.h);
+      } catch {
+        /* 哈希失败不影响收藏主流程 */
+      }
       return store.get(key) as VaultMeta;
     },
     putMeta(meta) {
@@ -367,6 +401,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       if (!store.get(key)) return false;
       dropFiles(key);
       deleteWork.run(key);
+      deleteHash.run(key);
       const parsed = parseVaultKey(key);
       if (parsed) {
         try {
@@ -376,6 +411,26 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         }
       }
       return true;
+    },
+    putHash(key, dhash, w, h) {
+      upsertHash.run(key, dhash, w, h);
+    },
+    hashes() {
+      return selectHashes.all() as { key: string; dhash: string }[];
+    },
+    dismissPair(a, b) {
+      insertDismiss.run([a, b].sort().join("|"));
+    },
+    dismissedPairs() {
+      return (selectDismissed.all() as { pair: string }[]).map((row) => row.pair);
+    },
+    storageBy(group) {
+      const rows = selectStorageBy(group).all() as { name: string | null; bytes: number | null; count: number }[];
+      return rows.map((row) => ({
+        name: row.name?.trim() || "(未命名)",
+        bytes: Number(row.bytes) || 0,
+        count: Number(row.count) || 0,
+      }));
     },
     authors() {
       return vaultAuthors(store.list());

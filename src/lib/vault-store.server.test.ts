@@ -3,6 +3,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { PNG } from "pngjs";
 import { openVaultStore, parseVaultKey, rowToMeta, type VaultPageFile } from "./vault-store.server.ts";
 
 test("parseVaultKey rejects traversal", () => {
@@ -196,6 +197,61 @@ test("put 成功后无暂存残留，且清掉上次崩溃的孤儿暂存", () =
     assert.ok(files.every((f) => !f.endsWith(".tmp")), "孤儿暂存应被顺走");
     assert.deepEqual([...store.readPage("pixiv:88", 1)!.bytes], [8, 8], "新页面就位");
     assert.equal(store.get("pixiv:88")?.pageCount, 2);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("put 入库即算哈希；hashes/dismiss/storageBy/remove 清理", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-dh-"));
+  const store = openVaultStore(root);
+  try {
+    // 真实 PNG（左半亮右半暗），保证解码成功
+    const img = new PNG({ width: 32, height: 32 });
+    for (let y = 0; y < 32; y++) {
+      for (let x = 0; x < 32; x++) {
+        const i = (32 * y + x) << 2;
+        const v = x < 16 ? 240 : 20;
+        img.data[i] = v;
+        img.data[i + 1] = v;
+        img.data[i + 2] = v;
+        img.data[i + 3] = 255;
+      }
+    }
+    const png = new Uint8Array(PNG.sync.write(img));
+    store.put(
+      {
+        key: "pixiv:9001",
+        source: "pixiv",
+        id: "9001",
+        title: "t",
+        author: "a",
+        authorId: "a1",
+        tags: ["x"],
+        pageCount: 1,
+        savedAt: 1_700_000_000_000,
+        bytes: 0,
+      },
+      [{ bytes: png, ext: "png", mime: "image/png" }],
+    );
+    const hs = store.hashes();
+    assert.equal(hs.length, 1);
+    assert.equal(hs[0]!.key, "pixiv:9001");
+    assert.match(hs[0]!.dhash, /^[0-9a-f]{16}$/);
+
+    store.dismissPair("pixiv:9001", "danbooru:1");
+    assert.equal(store.dismissedPairs().length, 1);
+    // 同一对再 dismiss 幂等
+    store.dismissPair("danbooru:1", "pixiv:9001");
+    assert.equal(store.dismissedPairs().length, 1);
+
+    const bySource = store.storageBy("source");
+    assert.ok(bySource.some((g) => g.name === "pixiv" && g.count === 1 && g.bytes === png.byteLength));
+    assert.ok(store.storageBy("author").some((g) => g.name === "a"));
+
+    assert.equal(store.remove("pixiv:9001"), true);
+    assert.equal(store.hashes().length, 0);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });

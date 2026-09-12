@@ -62,14 +62,26 @@ function popcount(v: number): number {
 
 /** jpeg/png 解码入口；其它 mime（webp 等）或解码失败返回 null——覆盖率如实统计。 */
 export async function dhashFromBytes(bytes: Uint8Array, mime: string): Promise<string | null> {
+  return dhashInfoFromBytesSync(bytes, mime)?.dhash ?? null;
+}
+
+/** 同步版（vault-store 的 put 是同步流程），附带图片尺寸。 */
+export function dhashInfoFromBytesSync(
+  bytes: Uint8Array,
+  mime: string,
+): { dhash: string; w: number; h: number } | null {
   try {
     if (mime.includes("png")) {
       const png = PNG.sync.read(Buffer.from(bytes));
-      return dhashFromRgba(png.width, png.height, new Uint8Array(png.data));
+      return { dhash: dhashFromRgba(png.width, png.height, new Uint8Array(png.data)), w: png.width, h: png.height };
     }
     if (mime.includes("jpeg") || mime.includes("jpg")) {
       const img = jpeg.decode(Buffer.from(bytes), { useTArray: true });
-      return dhashFromRgba(img.width, img.height, img.data as unknown as Uint8Array);
+      return {
+        dhash: dhashFromRgba(img.width, img.height, img.data as unknown as Uint8Array),
+        w: img.width,
+        h: img.height,
+      };
     }
     return null;
   } catch {
