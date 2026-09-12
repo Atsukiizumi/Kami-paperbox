@@ -106,7 +106,7 @@ export function UserPage() {
                 data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings() },
               })
                 .then(() => {
-                  queryClient.setQueryData(["user", id, safeMode, hideAi, pixivCookie], (old: unknown) => {
+                  queryClient.setQueryData(["user", id, safeMode, hideAi, credentialTag(pixivCookie)], (old: unknown) => {
                     if (!old || typeof old !== "object") return old;
                     const rec = old as { pages?: { profile: { isFollowed?: boolean } }[] };
                     if (!rec.pages) return old;

@@ -13,7 +13,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { getSessionUser, UnauthorizedError } from "@/lib/auth/verify.server";
-import { parseBackup, parseVaultRecords } from "@/lib/backup";
+import { parseVaultRecords } from "@/lib/backup";
 import { ensureDbReady, getSql } from "@/lib/db";
 import { scheduleSnapshotDump } from "@/lib/db-snapshot.server";
 import { withDataPlane } from "@/lib/next-route";
@@ -145,20 +145,9 @@ export const POST = withDataPlane(async (request: Request) => {
       return json({ ok: true, exportedAt });
     }
 
-    // 过渡期：旧整份备份格式（parseBackup 校验，写 legacy 单行）
-    const check = parseBackup(body);
-    if (!check.ok) return json({ error: `同步载荷不合法：${check.error}` }, 400);
-    const exportedAt = typeof body.exportedAt === "number" && Number.isFinite(body.exportedAt) ? body.exportedAt : Date.now();
-    const sql = await getSql();
-    await sql`
-      insert into user_sync (user_id, payload, exported_at, updated_at)
-      values (${userId}, ${raw}::jsonb, ${String(exportedAt)}, now())
-      on conflict (user_id) do update
-        set payload = excluded.payload,
-            exported_at = excluded.exported_at,
-            updated_at = now()`;
-    scheduleSnapshotDump();
-    return json({ ok: true, exportedAt });
+    // SEC-14（=TD-25）：legacy 整份写路径已关闭——明文 settings 会随快照落盘，
+    // 分段化上线后此路径无正当调用方（客户端只推 segment）。旧数据仍可经 GET 读回。
+    return json({ error: "旧整份同步已停用，请更新客户端使用分段同步" }, 410);
   } catch (err) {
     if (err instanceof UnauthorizedError) return unauthorized();
     return json({ error: err instanceof Error ? err.message : "保存失败" }, 500);

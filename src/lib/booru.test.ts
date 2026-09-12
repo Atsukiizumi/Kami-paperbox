@@ -39,9 +39,10 @@ describe("booru filters", () => {
     assert.equal(isNsfwRating("e", "danbooru"), true);
   });
 
-  it("keeps two danbooru tags and only adds rating when there is room", () => {
-    assert.equal(composeBooruTags("danbooru", "landscape sky", true), "landscape sky");
+  it("keeps two danbooru tags when safeMode is off; safeMode forces rating:g to keep a slot (TD-24)", () => {
+    assert.equal(composeBooruTags("danbooru", "landscape sky", true), "landscape rating:g");
     assert.equal(composeBooruTags("danbooru", "landscape", true), "landscape rating:g");
+    assert.equal(composeBooruTags("danbooru", "", true), "rating:g");
     assert.equal(composeBooruTags("danbooru", "landscape sky wet", false), "landscape sky");
   });
 
