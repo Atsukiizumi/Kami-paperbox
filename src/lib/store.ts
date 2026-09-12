@@ -24,6 +24,7 @@ import {
 import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
 import type { SiteProfile } from "./site-identity.ts";
 import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./vault-query.ts";
+import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts";
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_THEME,
@@ -89,6 +90,8 @@ type SettingsState = {
   browseExact: boolean;
   savedTags: Record<Source, string[]>;
   smartFolders: SmartFolder[];
+  watchArtists: WatchArtist[];
+  watchLimit: number;
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -96,6 +99,9 @@ type SettingsState = {
   onboarded: boolean;
   addSmartFolder: (name: string, query: VaultQuery) => void;
   removeSmartFolder: (id: string) => void;
+  toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => boolean;
+  setWatchSeen: (source: WatchArtist["source"], id: string, lastSeenId: string) => void;
+  setWatchLimit: (n: number) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
   setDanbooruLogin: (v: string) => void;
@@ -164,6 +170,8 @@ export const useSettings = create<SettingsState>()(
       browseExact: false,
       savedTags: emptySavedTags(),
       smartFolders: [],
+      watchArtists: [],
+      watchLimit: 100,
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -244,6 +252,35 @@ export const useSettings = create<SettingsState>()(
           return { smartFolders: [...s.smartFolders, folder].slice(0, 50) };
         }),
       removeSmartFolder: (id) => set((s) => ({ smartFolders: s.smartFolders.filter((f) => f.id !== id) })),
+      toggleWatchArtist: ({ source, id, name, avatar }) => {
+        const current = get();
+        const existing = current.watchArtists.find((w) => w.source === source && w.id === id);
+        if (existing) {
+          set({ watchArtists: current.watchArtists.filter((w) => !(w.source === source && w.id === id)) });
+          return false;
+        }
+        if (current.watchArtists.length >= current.watchLimit) return true; // 满员不加入，调用方提示
+        set({
+          watchArtists: [
+            ...current.watchArtists,
+            { source, id, name, avatar, addedAt: Date.now() },
+          ],
+        });
+        return true;
+      },
+      setWatchSeen: (source, id, lastSeenId) =>
+        set((s) => ({
+          watchArtists: s.watchArtists.map((w) =>
+            w.source === source && w.id === id ? { ...w, lastSeenId, lastCheckedAt: Date.now() } : w,
+          ),
+        })),
+      setWatchLimit: (n) => {
+        const watchLimit = clampWatchLimit(n);
+        set((s) => ({
+          watchLimit,
+          watchArtists: parseWatchArtists(s.watchArtists, watchLimit), // 降上限时截断
+        }));
+      },
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setOnboarded: (onboarded) => set({ onboarded }),
@@ -367,6 +404,8 @@ export const useSettings = create<SettingsState>()(
           folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
           savedTags: parseSavedTags(p.savedTags),
           smartFolders: parseSmartFolders(p.smartFolders),
+          watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
+          watchLimit: clampWatchLimit(p.watchLimit),
           onboarded:
             p.onboarded === true ||
             legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -399,6 +438,8 @@ export const useSettings = create<SettingsState>()(
         recents: s.recents,
         savedTags: s.savedTags,
         smartFolders: s.smartFolders,
+        watchArtists: s.watchArtists,
+        watchLimit: s.watchLimit,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
         theme: s.theme,

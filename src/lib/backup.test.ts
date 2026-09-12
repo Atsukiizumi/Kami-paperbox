@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import type { SmartFolder } from "./vault-query.ts";
+import type { WatchArtist } from "./watch.ts";
 
 const FAKE_SESSION = "11111111_testhashvalue";
 
@@ -10,6 +11,8 @@ function sampleSettings() {
   return {
     pixivCookie: FAKE_SESSION,
     smartFolders: [{ id: "f1", name: "样例", query: { tags: ["1girl"] } }],
+    watchArtists: [],
+    watchLimit: 100,
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
@@ -209,4 +212,18 @@ test("smartFolders 随备份往返（智能库）", () => {
   // 脏数据 → 空数组不连坐
   const dirty = parseBackupSettings({ smartFolders: [{ id: 1 }, "junk"] });
   assert.deepEqual(dirty.smartFolders, []);
+});
+
+test("watchArtists/watchLimit 随备份往返（追踪）", () => {
+  const artists: WatchArtist[] = [{ source: "pixiv", id: "11", name: "画师", avatar: "https://i.pximg.net/a.jpg", addedAt: 1, lastSeenId: "900" }];
+  const backup = buildBackup({
+    settings: { ...sampleSettings(), watchArtists: artists, watchLimit: 50 },
+  });
+  assert.deepEqual(backup.settings.watchArtists, artists);
+  assert.equal(backup.settings.watchLimit, 50);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  const settings = (parsed.backup as { settings: { watchArtists: typeof artists; watchLimit: number } }).settings;
+  assert.deepEqual(settings.watchArtists, artists);
+  assert.equal(settings.watchLimit, 50);
 });
