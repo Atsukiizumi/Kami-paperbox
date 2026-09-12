@@ -17,7 +17,7 @@
 - 原图文件在服务端 → 哈希计算、查重聚类、存储占用聚合在**服务端**（vault-store SQLite + 新 API）。
 - 收藏 meta 全量同步在浏览器 → 检索筛选、智能文件夹、分布统计/时间线在**客户端**（vault-query 扩展 + 新统计页），保持现有「输入即筛」手感。
 
-## 数据模型（迁移 0004_vault_dedup.sql）
+## 数据模型（vault-store SCHEMA 内建表；侦察修正：vault SQLite 建表内联在 vault-store.server.ts，migrations/ 是账号库）
 
 - `vault_hash(key TEXT PK, dhash TEXT NOT NULL, w INTEGER, h INTEGER, computed_at TEXT)`：dHash 为 64-bit hex。key 对应收藏条目；解码失败的条目不落行（而非 NULL 行）。
 - `vault_dup_dismissed(pair TEXT PK, created_at TEXT)`：pair = 排序后 `a|b`。**不建重复组表**——组由扫描时按距离动态聚类，只有人的决定（忽略对）才持久化。
