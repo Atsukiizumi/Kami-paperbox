@@ -230,21 +230,27 @@ async function proxyPoolFetch(url: string, init: RequestInit, proxy: string): Pr
   return res as unknown as Response;
 }
 
+// TD-28：无代理直连时 Node fetch 默认无超时，上游挂起会占死请求——统一挂
+// 45s AbortSignal（代理路径 undici 池已是 45s，curl --max-time 40，量级一致）。
+const OUTBOUND_TIMEOUT_MS = 45_000;
+
 export async function outboundFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  if (init.signal?.aborted) {
+  const signal = init.signal ?? AbortSignal.timeout(OUTBOUND_TIMEOUT_MS);
+  const resolved: RequestInit = { ...init, signal };
+  if (signal.aborted) {
     throw new DOMException("This operation was aborted", "AbortError");
   }
   const proxy = getActiveProxy();
   if (!proxy) {
-    return fetch(url, init);
+    return fetch(url, resolved);
   }
   if (proxyPoolAvailable()) {
     try {
-      const res = await proxyPoolFetch(url, init, proxy);
+      const res = await proxyPoolFetch(url, resolved, proxy);
       noteProxyPoolResult(true);
       return res;
     } catch (err) {
-      if (init.signal?.aborted) throw err;
+      if (signal.aborted) throw err;
       noteProxyPoolResult(false);
       if (typeof console !== "undefined") {
         console.warn(

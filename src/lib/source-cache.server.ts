@@ -11,10 +11,12 @@ import { join } from "node:path";
 import { pixivUserIdFromCookie } from "./browser-login.ts";
 import { mediaCacheName } from "./media-cache.server.ts";
 import { resolveKamiRoot } from "./proxy.server.ts";
-import { noteCacheWrite } from "./cache-watermark.server.ts";
 import type { FanboxCursor, FetchInput, FetchOk } from "./types.ts";
 
-export const SOURCE_CACHE_TTL_MS = 30 * 60_000;
+// TD-27：两层缓存的 TTL 单一来源——routes/api/source.ts 的 unstable_cache
+// revalidate（秒）与本层磁盘 TTL（毫秒）都从这里取，改一处不再漂移。
+export const SOURCE_CACHE_TTL_SECONDS = 1800;
+export const SOURCE_CACHE_TTL_MS = SOURCE_CACHE_TTL_SECONDS * 1000;
 
 type CacheFile = { at: number; body: FetchOk };
 
@@ -43,13 +45,13 @@ export function sourceCacheKey(input: FetchInput): string | null {
     case "pixivFollowing":
       return hashKey({ op: input.op, page: input.page, safe, hideAi, uid });
     case "fanboxHome":
-      return hashKey({ op: input.op, cursor: cursorKey(input.cursor), safe, uid });
+      return hashKey({ op: input.op, cursor: cursorKey(input.cursor), safe, hideAi, uid });
     case "fanboxSupporting":
-      return hashKey({ op: input.op, cursor: cursorKey(input.cursor), safe, uid });
+      return hashKey({ op: input.op, cursor: cursorKey(input.cursor), safe, hideAi, uid });
     case "fanboxCreator":
-      return hashKey({ op: input.op, id: input.id, cursor: cursorKey(input.cursor), safe, uid });
+      return hashKey({ op: input.op, id: input.id, cursor: cursorKey(input.cursor), safe, hideAi, uid });
     case "fanboxTagged":
-      return hashKey({ op: input.op, tag: input.tag, page: input.page, safe, uid });
+      return hashKey({ op: input.op, tag: input.tag, page: input.page, safe, hideAi, uid });
     case "booruList":
       return hashKey({
         op: input.op,
@@ -123,7 +125,8 @@ export function writeSourceCache(
   } catch {
     /* 只读盘 */
   }
-  noteCacheWrite("source", root);
+  // TD-27：水位计数外移到 routes/api/source.ts——unstable_cache 命中时本函数
+  // 不执行，写层计数会让扫描节奏低估实际流量；外层按响应计数。
 }
 
 export async function cachedDispatchFetch(

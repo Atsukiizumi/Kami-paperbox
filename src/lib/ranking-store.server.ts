@@ -125,13 +125,19 @@ export function openRankingStore(root = resolveKamiRoot()) {
 
 let cached: ReturnType<typeof openRankingStore> | null = null;
 
+// TD-39：open 失败后冷却——坏目录时每次 GET 都重试 open + warn，纯噪音。
+const OPEN_COOLDOWN_MS = 5 * 60_000;
+let openCooldownUntil = 0;
+
 export function getRankingStore() {
   if (cached) return cached;
+  if (Date.now() < openCooldownUntil) return null;
   try {
     cached = openRankingStore();
     return cached;
   } catch (err) {
-    console.warn("[ranking-store:open] 打开榜单存储失败（榜单归档停用）：", err instanceof Error ? err.message : err);
+    openCooldownUntil = Date.now() + OPEN_COOLDOWN_MS;
+    console.warn("[ranking-store:open] 打开榜单存储失败（榜单归档停用，5 分钟内不再重试）：", err instanceof Error ? err.message : err);
     return null;
   }
 }
