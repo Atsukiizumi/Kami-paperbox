@@ -7,7 +7,7 @@ WORKDIR /app
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
