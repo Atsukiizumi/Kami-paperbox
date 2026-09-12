@@ -65,6 +65,17 @@ test("FANBOX list keys include hideAi (TD-36: 参数集与 pixiv 系对齐)", ()
   assert.notEqual(taggedOff, taggedOn);
 });
 
+test("pixivUser caches by id/offset (PER-9: 大画师翻页不重复全量回源)", () => {
+  const a = sourceCacheKey({ op: "pixivUser", id: "123", offset: 0, pixivCookie: "11111111_aaaaaaaa" });
+  const aAgain = sourceCacheKey({ op: "pixivUser", id: "123", offset: 0, pixivCookie: "11111111_bbbbbbbb" });
+  const page2 = sourceCacheKey({ op: "pixivUser", id: "123", offset: 30, pixivCookie: "11111111_aaaaaaaa" });
+  const other = sourceCacheKey({ op: "pixivUser", id: "456", offset: 0, pixivCookie: "11111111_aaaaaaaa" });
+  assert.ok(a);
+  assert.equal(a, aAgain); // 同账号翻回同页命中
+  assert.notEqual(a, page2);
+  assert.notEqual(a, other);
+});
+
 test("cachedDispatchFetch reuses a ranking payload without calling fetch again", async () => {
   const root = mkdtempSync(join(tmpdir(), "kami-source-"));
   try {

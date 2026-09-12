@@ -60,11 +60,13 @@ export function noteCacheWrite(kind: CacheKind, root = resolveKamiRoot()): void 
 /**
  * 扫目录 + 按水位淘汰。直接导出给测试用；运行时走 noteCacheWrite 的
  * 惰性触发。返回删除的文件数（无超限 / 扫描失败为 0）。
+ * PER-11：扫描与删除都分批 setImmediate yield——数万缓存文件时不再把
+ * 事件循环卡出一个同步长尖峰（外层本来就是异步壳，不改调用方签名）。
  */
 export async function sweepCache(kind: CacheKind, root = resolveKamiRoot()): Promise<number> {
   const dir = join(root, ".data", kind);
   const capBytes = watermarkConfig(root)[kind] * 1024 * 1024;
-  const entries = scanEntries(dir);
+  const entries = await scanEntries(dir);
   if (entries.length === 0) return 0;
   let total = 0;
   for (const e of entries) total += e.bytes;
@@ -76,6 +78,9 @@ export async function sweepCache(kind: CacheKind, root = resolveKamiRoot()): Pro
   let removed = 0;
   for (const e of entries) {
     if (total <= target) break;
+    if (removed > 0 && removed % YIELD_EVERY_DELETES === 0) {
+      await new Promise((r) => setImmediate(r));
+    }
     try {
       unlinkSync(join(dir, e.name));
       total -= e.bytes;
@@ -87,10 +92,16 @@ export async function sweepCache(kind: CacheKind, root = resolveKamiRoot()): Pro
   return removed;
 }
 
-function scanEntries(dir: string): { name: string; bytes: number; mtime: number }[] {
+const YIELD_EVERY_SCANS = 200;
+const YIELD_EVERY_DELETES = 50;
+
+async function scanEntries(dir: string): Promise<{ name: string; bytes: number; mtime: number }[]> {
   try {
     const out = [];
+    let seen = 0;
     for (const name of readdirSync(dir)) {
+      seen += 1;
+      if (seen % YIELD_EVERY_SCANS === 0) await new Promise((r) => setImmediate(r));
       if (!name.endsWith(".bin") && !name.endsWith(".json")) continue;
       try {
         const st = statSync(join(dir, name));

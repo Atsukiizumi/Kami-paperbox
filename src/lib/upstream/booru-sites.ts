@@ -46,22 +46,62 @@ function booruHeaders(
   return headers;
 }
 
+/** S14/PER-10 观测计数：undici 池通道成功 / 降级 curl 的次数（测试与排障用）。 */
+export const danbooruChannel = { poolOk: 0, poolFallback: 0 };
+
+/** danbooru 双通道的注入形态（booruJson 接真实通道，测试注 fake）。 */
+export type DanbooruChannels = {
+  poolFetch: (url: string, headers: Record<string, string>) => Promise<{ ok: boolean; text: () => Promise<string> }>;
+  curlFetch: (url: string, headers: Record<string, string>) => Promise<{ status: number; body: Buffer }>;
+};
+
+/**
+ * S14/PER-10：danbooru JSON 先试 undici 池（连接复用，省掉每请求一次
+ * curl 进程 + TLS 握手）；池通道被 Cloudflare 挑战（HTML）/非 2xx / 网络失败
+ * 时自动降级原 curl 子进程通道——降级路径行为与改造前完全一致。
+ */
+export async function danbooruJsonWithChannels(
+  url: string,
+  headers: Record<string, string>,
+  channels: DanbooruChannels,
+): Promise<unknown> {
+  try {
+    const res = await channels.poolFetch(url, headers);
+    if (res.ok) {
+      const text = await res.text();
+      if (!text.trimStart().startsWith("<")) {
+        danbooruChannel.poolOk += 1;
+        return JSON.parse(text) as unknown;
+      }
+    }
+  } catch {
+    /* 池通道失败不致命——降级 curl */
+  }
+  danbooruChannel.poolFallback += 1;
+  const res = await channels.curlFetch(url, headers);
+  if (res.status < 200 || res.status >= 300) {
+    throw new UpstreamError(`Danbooru 请求失败（${res.status}）`);
+  }
+  const text = res.body.toString("utf8");
+  if (text.trimStart().startsWith("<")) throw new UpstreamError("源站暂时拒绝访问，请稍后再试");
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new UpstreamError("源站返回了无法解析的数据");
+  }
+}
+
 export async function booruJson(site: BooruSite, url: string, auth?: BooruAuth): Promise<unknown> {
   const origin = BOORU_ORIGIN[site];
   const headers = booruHeaders(site, origin, auth);
   if (site === "danbooru") {
-    const { curlFetch } = await import("../curl-fetch.server");
-    const res = await curlFetch(url, headers);
-    if (res.status < 200 || res.status >= 300) {
-      throw new UpstreamError(`Danbooru 请求失败（${res.status}）`);
-    }
-    const text = res.body.toString("utf8");
-    if (text.trimStart().startsWith("<")) throw new UpstreamError("源站暂时拒绝访问，请稍后再试");
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      throw new UpstreamError("源站返回了无法解析的数据");
-    }
+    return danbooruJsonWithChannels(url, headers, {
+      poolFetch: (u, h) => outboundFetch(u, { headers: h, redirect: "follow" }),
+      curlFetch: async (u, h) => {
+        const { curlFetch } = await import("../curl-fetch.server");
+        return curlFetch(u, h);
+      },
+    });
   }
   let res = await outboundFetch(url, { headers, redirect: "follow" });
   let text = res.ok ? await res.text() : "";
