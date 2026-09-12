@@ -157,11 +157,13 @@ function extractJsonObject(source: string, key: string): unknown {
   return null;
 }
 
-function decodeHtmlEntities(value: string): string {
+// TD-37：此前 &quot;/&amp; 写成了恒等替换（/"/g → '"'），meta 属性里的
+// 实体从未真正解码。顺序注意：&amp; 必须最后解，避免二次展开。
+export function decodeHtmlEntities(value: string): string {
   return value
-    .replace(/"/g, '"')
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&/g, "&");
+    .replace(/&amp;/g, "&");
 }
 
 function asRecord(v: unknown): Record<string, unknown> {

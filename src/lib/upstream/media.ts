@@ -7,7 +7,7 @@
 import { closeOnAbort, isAbortError } from "../abort.ts";
 import { danbooruAuthHeader, DANBOORU_UA } from "../booru.ts";
 import { outboundFetch } from "../curl-fetch.server.ts";
-import { fanboxCookieHeader } from "../browser-login.ts";
+import { fanboxCookieHeader, pixivUserIdFromCookie } from "../browser-login.ts";
 import { sleep, withMediaGate } from "../media-gate.ts";
 import { getThrottle } from "../throttle.server.ts";
 import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../media-cache.server.ts";
@@ -98,8 +98,24 @@ function rememberMedia(url: URL, bytes: Uint8Array, type: string) {
 
 // PER-4：同 URL 并发（多卡片同图）只打一次上游，各调用方拿 clone 互不干扰。
 // 共享请求绑定首个调用方的 signal：被其 abort 掐断时，其余调用方自拉一次。
-// cookie 按首个调用方的算 —— 单用户应用，各请求凭据一致；盘缓存路径本来就不带 cookie。
+// TD-40：单飞键带凭据指纹——访客层开放后访客与登录用户并发同图，裸 URL 共享
+// 会让后来者拿到前者凭据的结果。指纹只区分到「账号」（pixiv/fanbox 用户 id +
+// danbooru login），同账号并发仍共享；cookie 原文不进键。盘缓存路径不带 cookie。
 const inflightMedia = new Map<string, Promise<Response>>();
+
+function inflightKey(
+  rawUrl: string,
+  cookies: {
+    pixiv?: string;
+    fanbox?: string;
+    danbooru?: { login: string };
+  },
+): string {
+  const uid =
+    pixivUserIdFromCookie(cookies.pixiv) ?? pixivUserIdFromCookie(cookies.fanbox) ?? "guest";
+  const danbooru = cookies.danbooru?.login ?? "";
+  return `${rawUrl}|${uid}|${danbooru}`;
+}
 
 export function fetchMediaResponse(
   rawUrl: string,
@@ -113,7 +129,8 @@ export function fetchMediaResponse(
   retried = false,
 ): Promise<Response> {
   if (signal?.aborted) return Promise.resolve(new Response(null, { status: 204 }));
-  const shared = inflightMedia.get(rawUrl);
+  const key = inflightKey(rawUrl, cookies);
+  const shared = inflightMedia.get(key);
   if (shared) {
     return shared.then(
       (res) => res.clone(),
@@ -126,14 +143,14 @@ export function fetchMediaResponse(
     );
   }
   const load = loadMediaResponse(rawUrl, cookies, signal);
-  inflightMedia.set(rawUrl, load);
+  inflightMedia.set(key, load);
   return load.then(
     (res) => {
-      inflightMedia.delete(rawUrl);
+      inflightMedia.delete(key);
       return res.clone();
     },
     (err) => {
-      inflightMedia.delete(rawUrl);
+      inflightMedia.delete(key);
       throw err;
     },
   );

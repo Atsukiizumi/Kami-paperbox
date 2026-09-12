@@ -96,6 +96,21 @@ export function isUnpublishedWindow404(date: string | undefined, message: string
   return Boolean(date) && date! >= jstYesterdayCompact(now) && /（404）/.test(message);
 }
 
+// PER-12：未公布日期的进程内短记忆——窗口内同一 (mode,date) 的后续请求
+// 跳过原始日期直打回落，省掉「原始→昨天→无日期」的连环回源放大。
+// 10 分钟足够覆盖公布窗口；成功拿到内容即清除（下一请求恢复正常路径）。
+const UNPUBLISHED_MEMO_MS = 10 * 60_000;
+const unpublishedMemo = new Map<string, number>();
+
+function unpublishedRecently(mode: PixivRankMode, date: string): boolean {
+  const at = unpublishedMemo.get(`${mode}:${date}`);
+  return typeof at === "number" && Date.now() - at < UNPUBLISHED_MEMO_MS;
+}
+
+function noteUnpublished(mode: PixivRankMode, date: string): void {
+  unpublishedMemo.set(`${mode}:${date}`, Date.now());
+}
+
 export async function pixivRanking(
   mode: PixivRankMode,
   page: number,
@@ -110,18 +125,23 @@ export async function pixivRanking(
   const date = rawDate ? pixivRankingDateParam(rawDate) : undefined;
   let first: FetchOk | null = null;
   let unpublished = false;
-  try {
-    first = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, date);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    // 「未公布」类失败才回落：显式报错文案，或昨天/更新的日期打 404
-    // （pixiv 的公布晚于 JST 午夜——公布窗口内日历昨天也 404，2026-09-11 实测）。
-    // 更早的历史日期 404 视为真异常；登录 / 网络问题如实抛出。
-    const unpublished404 = isUnpublishedWindow404(date, message);
-    const unpublishedMsg = page === 1 && /还没公布|没有内容/.test(message);
-    // 窗口内 404 任意页码都回落（第 1 页回落后第 2 页必须打同一目标，列表才连贯）
-    if (!unpublishedMsg && !unpublished404) throw err;
-    unpublished = true;
+  if (date && unpublishedRecently(mode, date)) {
+    unpublished = true; // 窗口内已知未公布：不再付一次注定 404/空的原始请求
+  } else {
+    try {
+      first = await loadPixivRanking(mode, page, cookie, safeMode, hideAi, date);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      // 「未公布」类失败才回落：显式报错文案，或昨天/更新的日期打 404
+      // （pixiv 的公布晚于 JST 午夜——公布窗口内日历昨天也 404，2026-09-11 实测）。
+      // 更早的历史日期 404 视为真异常；登录 / 网络问题如实抛出。
+      const unpublished404 = isUnpublishedWindow404(date, message);
+      const unpublishedMsg = page === 1 && /还没公布|没有内容/.test(message);
+      // 窗口内 404 任意页码都回落（第 1 页回落后第 2 页必须打同一目标，列表才连贯）
+      if (!unpublishedMsg && !unpublished404) throw err;
+      unpublished = true;
+      if (date) noteUnpublished(mode, date);
+    }
   }
   // 只在第一页时回落；「日历昨天」可能仍未公布，回落首选无日期——pixiv 自己
   // 返回最新已公布一期并带官方 date，任何时刻都有效。
@@ -131,7 +151,11 @@ export async function pixivRanking(
     first !== null &&
     first.op === "pixivRanking" &&
     first.items.length === 0;
-  if (!unpublished && !emptyToday && first !== null) return first;
+  if (!unpublished && !emptyToday && first !== null) {
+    if (date && first.op === "pixivRanking" && first.items.length > 0) unpublishedMemo.delete(`${mode}:${date}`);
+    return first;
+  }
+  if (!unpublished && emptyToday && date) noteUnpublished(mode, date);
 
   if (!date) {
     // 无日期请求未公布/为空（罕见）：再试昨天作最后兜底

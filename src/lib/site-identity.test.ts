@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseFanboxMe, parsePixivMe } from "./site-identity.ts";
+import { decodeHtmlEntities, parseFanboxMe, parsePixivMe } from "./site-identity.ts";
+
+test("decodes html entities in attribute payloads (TD-37)", () => {
+  assert.equal(decodeHtmlEntities("&quot;a&#39;b&amp;c&quot;"), `"a'b&c"`);
+  // &amp; 最后解：&amp;quot; 是被转义过的字面 &quot;，不能再展开成引号
+  assert.equal(decodeHtmlEntities("&amp;quot;"), "&quot;");
+  // meta 属性里真实出现的转义 JSON
+  assert.equal(
+    decodeHtmlEntities("{&quot;name&quot;:&quot;紙&quot;}"),
+    `{"name":"紙"}`,
+  );
+});
 
 test("keeps pixiv avatar url", () => {
   const got = parsePixivMe({

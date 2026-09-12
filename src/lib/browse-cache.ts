@@ -116,14 +116,25 @@ export function hydrateBrowseCache(client: QueryClient) {
   if (state) hydrate(client, state);
   const refresh = () => {
     const now = Date.now();
+    const stale = [];
     for (const query of client.getQueryCache().getAll()) {
       if (!persistableQuery(query) || query.state.status !== "success") continue;
       // 只有挂了观察者（浏览页在屏上）的键才有 queryFn；hydrate 进来的其它键直接
       // fetch 会炸 "Missing queryFn"，未处理拒绝还会弹 Next 开发红屏。没挂载的
       // 键留给浏览页挂载时按 dataUpdatedAt 自己补刷。
       if (!query.options.queryFn) continue;
-      if (now - query.state.dataUpdatedAt > BROWSE_STALE_MS) void query.fetch();
+      if (now - query.state.dataUpdatedAt > BROWSE_STALE_MS) stale.push(query);
     }
+    if (stale.length === 0) return;
+    // PER-14：在屏（有观察者）的键先补——此前秒切 tab 时三路 home-* 无上限
+    // 并发既抢连接也互相挤占；改为分小批串行推进，每批 2 个。
+    stale.sort((a, b) => b.getObserversCount() - a.getObserversCount());
+    const REFRESH_BATCH = 2;
+    void (async () => {
+      for (let i = 0; i < stale.length; i += REFRESH_BATCH) {
+        await Promise.allSettled(stale.slice(i, i + REFRESH_BATCH).map((q) => q.fetch()));
+      }
+    })();
   };
   if (typeof window === "undefined") {
     refresh();
