@@ -6,7 +6,8 @@
  */
 import { fetchSchema } from "@/lib/source";
 import { classifySourceError } from "@/lib/source-errors";
-import { cachedDispatchFetch, sourceCacheKey } from "@/lib/source-cache.server";
+import { cachedDispatchFetch, SOURCE_CACHE_TTL_SECONDS, sourceCacheKey } from "@/lib/source-cache.server";
+import { noteCacheWrite } from "@/lib/cache-watermark.server";
 import type { FetchInput, FetchOk } from "@/lib/types";
 
 const SOURCE_CACHE_TAG = (key: string) => `source:${key}`;
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       try {
         const { unstable_cache } = await import("next/cache");
         body = await unstable_cache(load, ["source", cacheKey], {
-          revalidate: 1800,
+          revalidate: SOURCE_CACHE_TTL_SECONDS,
           tags: [SOURCE_CACHE_TAG(cacheKey)],
         })();
       } catch {
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
       }
       body = await load();
     }
+    // TD-27：水位计数按响应触发（unstable_cache 命中也计数），不再依赖
+    // 磁盘写层——外层命中时 .data 不落盘，写层计数会低估扫描节奏。
+    if (cacheKey) noteCacheWrite("source");
     return Response.json(body, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     // S7：上游侧失败 502、用户态/参数错误 400，不再一律 400 掩盖源站问题

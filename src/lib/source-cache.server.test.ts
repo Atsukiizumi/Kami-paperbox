@@ -50,6 +50,21 @@ test("recommend, following and FANBOX cache by account id", () => {
   assert.equal(sourceCacheKey({ op: "pixivIllust", id: "1" }), null);
 });
 
+test("FANBOX list keys include hideAi (TD-36: 参数集与 pixiv 系对齐)", () => {
+  for (const op of ["fanboxHome", "fanboxSupporting"] as const) {
+    const off = sourceCacheKey({ op, fanboxCookie: "11111111_aaaaaaaa", hideAi: false });
+    const on = sourceCacheKey({ op, fanboxCookie: "11111111_aaaaaaaa", hideAi: true });
+    assert.ok(off && on);
+    assert.notEqual(off, on);
+  }
+  const creatorOff = sourceCacheKey({ op: "fanboxCreator", id: "official", hideAi: false });
+  const creatorOn = sourceCacheKey({ op: "fanboxCreator", id: "official", hideAi: true });
+  assert.notEqual(creatorOff, creatorOn);
+  const taggedOff = sourceCacheKey({ op: "fanboxTagged", tag: "t", page: 1, hideAi: false });
+  const taggedOn = sourceCacheKey({ op: "fanboxTagged", tag: "t", page: 1, hideAi: true });
+  assert.notEqual(taggedOff, taggedOn);
+});
+
 test("cachedDispatchFetch reuses a ranking payload without calling fetch again", async () => {
   const root = mkdtempSync(join(tmpdir(), "kami-source-"));
   try {

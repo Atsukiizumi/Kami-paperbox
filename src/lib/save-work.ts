@@ -10,10 +10,27 @@ import { extFromNameOrType } from "./ugoira-meta.ts";
 import { mediaUrl } from "./utils.ts";
 import type { WorkDetail, WorkPage } from "./types.ts";
 
+// TD-29：单页抖动（网络断闪 / 5xx / 429）不再让整单失败——重试 2 次、递增等待。
+// 服务端媒体代理对 429/503 已有自己的重试，这里兜的是浏览器侧的网络层失败。
+const FETCH_BLOB_RETRIES = 2;
+
 async function fetchBlob(url: string): Promise<Blob> {
-  const res = await fetch(mediaUrl(url), { signal: AbortSignal.timeout(90_000) });
-  if (!res.ok) throw new Error(`下载失败（${res.status}）`);
-  return res.blob();
+  let lastErr: unknown = new Error("下载失败");
+  for (let attempt = 0; attempt <= FETCH_BLOB_RETRIES; attempt += 1) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 800 * attempt));
+    let res: Response;
+    try {
+      res = await fetch(mediaUrl(url), { signal: AbortSignal.timeout(90_000) });
+    } catch (err) {
+      lastErr = err;
+      continue; // 网络层失败：可重试
+    }
+    if (res.ok) return res.blob();
+    lastErr = new Error(`下载失败（${res.status}）`);
+    // 4xx（429 除外）是确定失败（凭据/权限），重试没有意义
+    if (res.status >= 400 && res.status < 500 && res.status !== 429) break;
+  }
+  throw lastErr;
 }
 
 export async function collectWorkFiles(

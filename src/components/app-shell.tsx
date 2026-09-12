@@ -17,7 +17,10 @@ import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
 import { PaperMark } from "@/components/paper-mark";
 import { DetailNav, isDetailPath, isMainNavPath, isWorkPath } from "@/components/back-to-browse";
-import { Home as BrowsePage } from "@/routes/index";
+import dynamic from "next/dynamic";
+// PER-13：首页是 778 行大组件，静态 import 会让所有路由都背它的 bundle——
+// 拆成按需 chunk。keep-alive 隐藏挂载的行为不变，只是首帧变成异步加载。
+const BrowsePage = dynamic(() => import("@/routes/index").then((m) => m.Home));
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
