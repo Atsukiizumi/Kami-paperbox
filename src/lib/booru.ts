@@ -121,9 +121,9 @@ export function composeBooruTags(site: BooruSite, user: string, safeMode: boolea
     .filter((p) => !BLOCKED_TAGS.has(p.replace(/^[-~]/, "").toLowerCase()))
     .slice(0, 6);
   if (site === "danbooru") {
-    // 未登录最多 2 个标签。用户词优先，rating:g 只在还有空位时加上。
-    const picked = parts.slice(0, 2);
-    if (safeMode && picked.length < 2) picked.push("rating:g");
+    // 未登录最多 2 个标签。TD-24：safeMode 下 rating:g 强制占一个位，
+    // 用户词输满也不能把它挤掉（挤掉即出成人内容），只保留首词。
+    const picked = safeMode ? [...parts.slice(0, 1), "rating:g"] : parts.slice(0, 2);
     return picked.join(" ").trim();
   }
   const extra = safeMode ? ["rating:s", "-loli", "-shota", "-toddlercon"] : ["-loli", "-shota", "-toddlercon"];

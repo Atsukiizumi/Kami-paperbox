@@ -60,7 +60,13 @@ export function VaultPage() {
     } catch {
       local = [];
     }
-    const remote = await listServerVault();
+    // TD-38：listServerVault 与本地路径同防——远端异常退回本地目录，不冒泡
+    let remote: Awaited<ReturnType<typeof listServerVault>> | null = null;
+    try {
+      remote = await listServerVault();
+    } catch {
+      remote = null;
+    }
     const remoteItems = remote?.items ?? [];
     if (remoteItems.length > 0) {
       const map = new Map(remoteItems.map((item) => [item.key, item]));
