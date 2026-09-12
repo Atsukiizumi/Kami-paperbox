@@ -55,6 +55,7 @@ export function VaultPage() {
   const [tagsSel, setTagsSel] = useState<string[]>([]);
   const [month, setMonth] = useState("");
   const [dedupOpen, setDedupOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
 
   const refreshToken = useRef(0);
@@ -131,6 +132,44 @@ export function VaultPage() {
     await refresh();
   }
 
+  async function exportZip() {
+    // 有图才打：只收 hasFile 条目；缺图的由服务端记进包内 _skipped.json
+    const keys = items.filter((item) => item.hasFile).map((item) => item.key);
+    if (keys.length === 0) {
+      toast.info("当前筛选里没有应用内原图可打包");
+      return;
+    }
+    const truncated = keys.length > 400;
+    const bytesTotal = items.filter((item) => keys.includes(item.key)).reduce((sum, item) => sum + (item.bytes || 0), 0);
+    if (bytesTotal > 500 * 1024 * 1024) {
+      toast.info(`预计 ${formatBytes(bytesTotal)}，建议用筛选缩小范围分批导出`);
+    }
+    setExporting(true);
+    try {
+      const res = await fetch("/api/vault/export", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ keys: truncated ? keys.slice(0, 400) : keys }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `导出失败（${res.status}）`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kami-vault-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`已导出 ${formatBytes(blob.size)}${truncated ? `（超出 400 上限，仅含前 400 条）` : ""}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "导出失败");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function removeWork(item: VaultMeta) {
     await deleteVaultWork(item.key);
     forgetVaultKey(item.key);
@@ -154,6 +193,9 @@ export function VaultPage() {
             </p>
           ) : null}
         </div>
+        <Button size="sm" variant="secondary" onClick={() => void exportZip()} disabled={exporting || items.length === 0}>
+          {exporting ? "打包中…" : "导出 ZIP"}
+        </Button>
         <Button asChild size="sm" variant="secondary">
           <Link to="/vault/stats">统计</Link>
         </Button>
