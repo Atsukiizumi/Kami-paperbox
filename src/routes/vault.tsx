@@ -140,18 +140,23 @@ export function VaultPage() {
 
   return (
     <div className="space-y-5">
-      <header>
-        <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
-        <p className="mt-1 text-sm text-muted">
-          {folderLabel
-            ? `原图在「${folderLabel}」，这里只记路径和校验。`
-            : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}
-        </p>
-        {folderOnly > 0 ? (
-          <p className="mt-2 text-sm text-muted">
-            {folderOnly} 条只有文件夹副本，应用内库没有像素。授权「存储」里的文件夹后才能预览封面；不是没保存。
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
+          <p className="mt-1 text-sm text-muted">
+            {folderLabel
+              ? `原图在「${folderLabel}」，这里只记路径和校验。`
+              : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}
           </p>
-        ) : null}
+          {folderOnly > 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              {folderOnly} 条只有文件夹副本，应用内库没有像素。授权「存储」里的文件夹后才能预览封面；不是没保存。
+            </p>
+          ) : null}
+        </div>
+        <Button asChild size="sm" variant="secondary">
+          <Link to="/vault/stats">统计</Link>
+        </Button>
       </header>
 
       {all.length > 0 ? (
