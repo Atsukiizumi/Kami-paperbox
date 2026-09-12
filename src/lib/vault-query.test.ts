@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterVaultItems, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "./vault-query.ts";
+import { filterVaultItems, parseSmartFolders, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "./vault-query.ts";
 import type { VaultMeta } from "./types.ts";
 
 function item(over: Partial<VaultMeta> & Pick<VaultMeta, "key" | "title" | "author">): VaultMeta {
@@ -63,4 +63,18 @@ test("vaultTags 与 vaultMonths 派生选项列表", () => {
   ];
   assert.deepEqual(vaultTags(rows), ["sky", "night"]);
   assert.deepEqual(vaultMonths(rows), ["2026-09", "2026-08"]); // 新月在前
+});
+
+test("parseSmartFolders 往返 + 脏数据丢弃", () => {
+  const folders = [
+    { id: "f1", name: "风景", query: { tags: ["landscape", "sky"], month: "2026-08" } },
+    { id: "f2", name: "画师X", query: { author: "zero", source: "pixiv", text: "海" } },
+  ];
+  const back = parseSmartFolders(JSON.parse(JSON.stringify(folders)));
+  assert.deepEqual(back, folders);
+  assert.equal(parseSmartFolders("nope").length, 0);
+  assert.equal(parseSmartFolders([{ id: "", name: "x", query: {} }, { id: "a", name: " ", query: {} }, "junk"]).length, 0);
+  assert.deepEqual(parseSmartFolders([{ id: "a", name: "n", query: { month: "2026-13" } }]), [
+    { id: "a", name: "n", query: {} },
+  ]);
 });

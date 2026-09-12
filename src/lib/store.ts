@@ -23,6 +23,7 @@ import {
 } from "./accounts.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
 import type { SiteProfile } from "./site-identity.ts";
+import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./vault-query.ts";
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_THEME,
@@ -87,11 +88,14 @@ type SettingsState = {
   browseQuery: string;
   browseExact: boolean;
   savedTags: Record<Source, string[]>;
+  smartFolders: SmartFolder[];
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
   appearance: Appearance;
   onboarded: boolean;
+  addSmartFolder: (name: string, query: VaultQuery) => void;
+  removeSmartFolder: (id: string) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
   setDanbooruLogin: (v: string) => void;
@@ -159,6 +163,7 @@ export const useSettings = create<SettingsState>()(
       browseQuery: "",
       browseExact: false,
       savedTags: emptySavedTags(),
+      smartFolders: [],
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -228,6 +233,17 @@ export const useSettings = create<SettingsState>()(
             [source]: toggleSavedTagList(s.savedTags[source] ?? [], source, tag),
           },
         })),
+      addSmartFolder: (name, query) =>
+        set((s) => {
+          const trimmed = name.trim().slice(0, 40);
+          if (!trimmed) return s;
+          // 复用备份解析做白名单清洗，保证持久化形状与同步段一致
+          const [folder] = parseSmartFolders([{ id: crypto.randomUUID(), name: trimmed, query }]);
+          if (!folder) return s;
+          if (s.smartFolders.some((f) => f.name === folder.name && JSON.stringify(f.query) === JSON.stringify(folder.query))) return s;
+          return { smartFolders: [...s.smartFolders, folder].slice(0, 50) };
+        }),
+      removeSmartFolder: (id) => set((s) => ({ smartFolders: s.smartFolders.filter((f) => f.id !== id) })),
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setOnboarded: (onboarded) => set({ onboarded }),
@@ -350,6 +366,7 @@ export const useSettings = create<SettingsState>()(
           pathTemplate,
           folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
           savedTags: parseSavedTags(p.savedTags),
+          smartFolders: parseSmartFolders(p.smartFolders),
           onboarded:
             p.onboarded === true ||
             legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -381,6 +398,7 @@ export const useSettings = create<SettingsState>()(
         saucenaoApiKey: s.saucenaoApiKey,
         recents: s.recents,
         savedTags: s.savedTags,
+        smartFolders: s.smartFolders,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
         theme: s.theme,

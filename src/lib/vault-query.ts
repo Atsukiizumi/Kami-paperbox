@@ -98,3 +98,30 @@ export function vaultTags(items: VaultMeta[]): string[] {
 export function vaultMonths(items: VaultMeta[]): string[] {
   return [...new Set(items.map((item) => monthOf(item.savedAt)))].sort().reverse();
 }
+
+const SMART_FOLDER_LIMIT = 50;
+
+/** 解析外部（备份/同步段）来的智能文件夹列表：逐项校验，坏项丢弃不连坐。 */
+export function parseSmartFolders(raw: unknown): SmartFolder[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SmartFolder[] = [];
+  for (const entry of raw.slice(0, SMART_FOLDER_LIMIT)) {
+    if (!entry || typeof entry !== "object") continue;
+    const rec = entry as Record<string, unknown>;
+    const id = typeof rec.id === "string" ? rec.id.slice(0, 64) : "";
+    const name = typeof rec.name === "string" ? rec.name.trim().slice(0, 40) : "";
+    const q = rec.query as Record<string, unknown>;
+    if (!id || !name || !q || typeof q !== "object") continue;
+    const query: VaultQuery = {};
+    if (typeof q.text === "string" && q.text.trim()) query.text = q.text.slice(0, 120);
+    if (typeof q.source === "string" && q.source !== "all") query.source = q.source as Source;
+    if (typeof q.author === "string" && q.author.trim()) query.author = q.author.slice(0, 80);
+    if (Array.isArray(q.tags)) {
+      const tags = q.tags.filter((t): t is string => typeof t === "string" && t.trim() !== "").slice(0, 20);
+      if (tags.length) query.tags = tags;
+    }
+    if (typeof q.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(q.month)) query.month = q.month;
+    out.push({ id, name, query });
+  }
+  return out;
+}

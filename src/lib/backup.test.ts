@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile } from "./backup.ts";
+import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
+import type { SmartFolder } from "./vault-query.ts";
 
 const FAKE_SESSION = "11111111_testhashvalue";
 
 function sampleSettings() {
   return {
     pixivCookie: FAKE_SESSION,
+    smartFolders: [{ id: "f1", name: "样例", query: { tags: ["1girl"] } }],
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
@@ -187,4 +189,24 @@ test("v1 明文文件不受 v2 影响", () => {
   const v1 = buildBackup({ settings: sampleSettings(), vault: [], now: 5 });
   const parsed = parseBackup(JSON.parse(JSON.stringify(v1)));
   assert.equal(parsed.ok, true);
+});
+
+test("smartFolders 随备份往返（智能库）", () => {
+  const folders: SmartFolder[] = [
+    { id: "f1", name: "风景", query: { tags: ["landscape"], month: "2026-08" } },
+    { id: "f2", name: "画师", query: { author: "zero", source: "pixiv" } },
+  ];
+  const backup = buildBackup({
+    settings: {
+      ...parseBackupSettings({}),
+      smartFolders: folders,
+    },
+  });
+  assert.deepEqual(backup.settings.smartFolders, folders);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.deepEqual((parsed.backup as { settings: { smartFolders: typeof folders } }).settings.smartFolders, folders);
+  // 脏数据 → 空数组不连坐
+  const dirty = parseBackupSettings({ smartFolders: [{ id: 1 }, "junk"] });
+  assert.deepEqual(dirty.smartFolders, []);
 });
