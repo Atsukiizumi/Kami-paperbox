@@ -248,6 +248,44 @@ export async function pixivFollowing(
   return { op: "pixivFollowing", items, nextPage: last ? null : page + 1 };
 }
 
+/** ajax/my/following 响应 → 画师名单（纯映射，可测）。 */
+export function mapMyFollowing(json: unknown, offset: number): { items: { id: string; name: string; avatar: string }[]; nextPage: number | null } {
+  const root = asRecord(json);
+  if (root.error) throw new Error(asString(root.message, "关注列表加载失败，请确认 Cookie 仍然有效"));
+  const body = asRecord(root.body);
+  const users = Array.isArray(body.users) ? body.users : [];
+  const items = users
+    .map((raw) => {
+      const u = asRecord(raw);
+      const id = asString(u.userId);
+      if (!id) return null;
+      return {
+        id,
+        name: asString(u.userName),
+        avatar: asString(u.profileImageUrl).startsWith("http") ? asString(u.profileImageUrl) : "",
+      };
+    })
+    .filter((u): u is { id: string; name: string; avatar: string } => u !== null);
+  const total = asNumber(body.total, offset + items.length);
+  const nextPage = offset + items.length < total ? Math.floor(offset / 24) + 2 : null;
+  return { items, nextPage };
+}
+
+export async function pixivMyFollowing(
+  page: number,
+  cookie?: string,
+): Promise<FetchOk> {
+  // 追踪导入用：自己的关注画师分页名单（每页 24，与官方一致）。
+  if (!cookie) throw new Error("需要登录 Pixiv 才能读关注列表。");
+  const offset = (page - 1) * 24;
+  const json = await upstreamJson(
+    `https://www.pixiv.net/ajax/my/following?offset=${offset}&limit=24&lang=zh`,
+    { cookie, origin: "pixiv" },
+  );
+  const { items, nextPage } = mapMyFollowing(json, offset);
+  return { op: "pixivMyFollowing", items, nextPage };
+}
+
 export async function pixivRelated(id: string, cookie?: string, safeMode = true, hideAi = false): Promise<FetchOk> {
   try {
     const json = await upstreamJson(

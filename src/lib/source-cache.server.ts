@@ -44,6 +44,9 @@ export function sourceCacheKey(input: FetchInput): string | null {
       return hashKey({ op: input.op, safe, hideAi, uid });
     case "pixivFollowing":
       return hashKey({ op: input.op, page: input.page, safe, hideAi, uid });
+    case "pixivMyFollowing":
+      // 追踪导入用：画师名单与 safe/hideAi 无关，按账号 + 页即可
+      return hashKey({ op: input.op, page: input.page, uid });
     // PER-9：画师列表进缓存——大画师每翻一页都要全量重拉 profile/all（可达
     // 数万 id）+ 60 个批量 illusts，不缓存时翻页放大非常明显。
     case "pixivUser":

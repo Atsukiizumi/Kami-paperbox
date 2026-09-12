@@ -9,6 +9,7 @@ import { fanboxCreator, fanboxFeedList, fanboxPost, fanboxTagged } from "./fanbo
 import {
   pixivFollowing,
   pixivIllust,
+  pixivMyFollowing,
   pixivRanking,
   pixivRecommend,
   pixivRelated,
@@ -35,6 +36,8 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return pixivRecommend(pixiv, safe, hideAi);
     case "pixivFollowing":
       return pixivFollowing(input.page, pixiv, safe, hideAi);
+    case "pixivMyFollowing":
+      return pixivMyFollowing(input.page, pixiv);
     case "pixivRelated":
       return pixivRelated(input.id, pixiv, safe, hideAi);
     case "pixivIllust":

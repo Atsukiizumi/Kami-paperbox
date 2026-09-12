@@ -106,6 +106,7 @@ export type FetchOk =
   | { op: "pixivSearch"; items: WorkCard[]; nextPage: number | null }
   | { op: "pixivRecommend"; items: WorkCard[]; nextPage: number | null }
   | { op: "pixivFollowing"; items: WorkCard[]; nextPage: number | null }
+  | { op: "pixivMyFollowing"; items: { id: string; name: string; avatar: string }[]; nextPage: number | null }
   | { op: "pixivRelated"; items: WorkCard[] }
   | { op: "pixivIllust"; work: WorkDetail }
   | { op: "pixivUgoira"; ugoira: UgoiraMeta }
@@ -157,6 +158,7 @@ export type FetchInput = {
   | { op: "pixivSearch"; word: string; page: number; filter?: PixivSearchFilter }
   | { op: "pixivRecommend" }
   | { op: "pixivFollowing"; page: number }
+  | { op: "pixivMyFollowing"; page: number }
   | { op: "pixivRelated"; id: string }
   | { op: "pixivIllust"; id: string }
   | { op: "pixivUgoira"; id: string }
