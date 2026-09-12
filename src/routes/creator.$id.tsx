@@ -5,6 +5,7 @@ import { credentialTag } from "@/lib/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
+import { WatchToggle } from "@/components/watch-toggle";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { ProxiedImg } from "@/components/proxied-img";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,6 +91,7 @@ export function CreatorPage() {
           </h1>
           <p className="text-xs text-muted">@{profile?.id ?? id}</p>
           {profile?.description ? <FoldableText text={profile.description} lines={4} /> : null}
+          <WatchToggle source="fanbox" id={profile?.id ?? id} name={profile?.name ?? id} avatar={profile?.avatar ?? ""} />
         </div>
       </header>
       <ArtworkGrid items={items} />

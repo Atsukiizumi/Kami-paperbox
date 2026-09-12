@@ -765,7 +765,7 @@ function collectWorks(pages: FetchOk[] | undefined, source?: WorkCard["source"])
   const seen = new Set<string>();
   const out: WorkCard[] = [];
   for (const page of pages ?? []) {
-    if (!("items" in page) || page.op === "tagSuggest") continue;
+    if (!("items" in page) || page.op === "tagSuggest" || page.op === "pixivMyFollowing") continue;
     for (const work of page.items) {
       if (source && work.source !== source) continue;
       const key = `${work.source}-${work.id}`;

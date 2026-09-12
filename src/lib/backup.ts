@@ -14,6 +14,7 @@ import { clampQueueConcurrency } from "./queue-retry.ts";
 import { parseSearchEngine, type SearchEngine } from "./reverse-search.ts";
 import { parseSavedTags } from "./site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
+import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts";
 import { isSource, parseSource } from "./sites.ts";
 import { parseAppearance, parseThemeId, type Appearance, type ThemeId } from "./theme.ts";
 import type { TagCatalogEntry } from "./tag-catalog.ts";
@@ -55,6 +56,8 @@ export type BackupSettings = {
   recents: string[];
   savedTags: Record<Source, string[]>;
   smartFolders: SmartFolder[];
+  watchArtists: WatchArtist[];
+  watchLimit: number;
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -200,6 +203,8 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     recents: parseRecents(p.recents),
     savedTags: parseSavedTags(p.savedTags),
     smartFolders: parseSmartFolders(p.smartFolders),
+    watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
+    watchLimit: clampWatchLimit(p.watchLimit),
     accounts: legacy.accounts,
     activeAccountId: legacy.activeAccountId,
     theme: parseThemeId(p.theme),

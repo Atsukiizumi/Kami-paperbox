@@ -56,6 +56,10 @@ export const fetchSchema = z.intersection(
       page: z.number().int().min(1).max(20),
     }),
     z.object({
+      op: z.literal("pixivMyFollowing"),
+      page: z.number().int().min(1).max(40),
+    }),
+    z.object({
       op: z.literal("pixivRelated"),
       id: z.string().regex(/^\d{1,12}$/),
     }),
