@@ -50,6 +50,7 @@ export function ArtworkCard({
   marks,
   onExport,
   onDelete,
+  selection,
 }: {
   work: WorkCard;
   index?: number;
@@ -57,6 +58,8 @@ export function ArtworkCard({
   marks?: string[];
   onExport?: (e: MouseEvent) => void;
   onDelete?: (e: MouseEvent) => void;
+  /** 批量收藏（D）：勾选 chip（壳左上角）；不传不渲染。 */
+  selection?: { checked: boolean; onToggle: () => void };
 }) {
   const hasMedia = Boolean(work.thumb);
   const pages = pageThumbUrls(work.thumb, work.pageCount);
@@ -201,6 +204,25 @@ export function ArtworkCard({
       }}
     >
       <div className={cn("kami-card-shell relative", inVault && variant !== "vault" && "kami-card-folded")}>
+        {selection ? (
+          <button
+            type="button"
+            aria-label={selection.checked ? "取消选择" : "选择"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              selection.onToggle();
+            }}
+            className={cn(
+              "absolute left-2 top-2 z-20 grid size-7 place-items-center rounded-full border backdrop-blur-sm transition-colors",
+              selection.checked
+                ? "border-transparent bg-accent text-accent-fg"
+                : "border-white/50 bg-black/35 text-transparent hover:bg-black/50 hover:text-white/70",
+            )}
+          >
+            <Check className="size-4" />
+          </button>
+        ) : null}
         <div className="relative">
         <Link
           to="/work/$source/$id"
@@ -527,10 +549,13 @@ export function ArtworkGrid({
   items,
   empty,
   marksOf,
+  selection,
 }: {
   items: WorkCard[];
   empty?: string;
   marksOf?: (work: WorkCard) => string[] | undefined;
+  /** 批量收藏（D）：传入即进入勾选形态，key 为 `${source}:${id}`。 */
+  selection?: { selected: Set<string>; onToggle: (key: string) => void };
 }) {
   useEffect(() => {
     useTagCatalog.getState().ingestMany(items);
@@ -542,7 +567,20 @@ export function ArtworkGrid({
   return (
     <MasonryBoard key={boardKey}>
       {items.map((work, i) => (
-        <ArtworkCard key={`${work.source}-${work.id}`} work={work} index={i} marks={marksOf?.(work)} />
+        <ArtworkCard
+          key={`${work.source}-${work.id}`}
+          work={work}
+          index={i}
+          marks={marksOf?.(work)}
+          selection={
+            selection
+              ? {
+                  checked: selection.selected.has(`${work.source}:${work.id}`),
+                  onToggle: () => selection.onToggle(`${work.source}:${work.id}`),
+                }
+              : undefined
+          }
+        />
       ))}
     </MasonryBoard>
   );
