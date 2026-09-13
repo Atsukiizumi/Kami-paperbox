@@ -40,8 +40,14 @@ export function UserPage() {
     [queueItems],
   );
 
+  // M9/TD-23 教训成规：写路径（setQueryData）与读路径共用同一个 key 实例。
+  const userQueryKey = useMemo(
+    () => ["user", id, safeMode, hideAi, credentialTag(pixivCookie)],
+    [id, safeMode, hideAi, pixivCookie],
+  );
+
   const query = useInfiniteQuery({
-    queryKey: ["user", id, safeMode, hideAi, credentialTag(pixivCookie)],
+    queryKey: userQueryKey,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const r = await fetchSource({
@@ -168,7 +174,7 @@ export function UserPage() {
                 data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings() },
               })
                 .then(() => {
-                  queryClient.setQueryData(["user", id, safeMode, hideAi, credentialTag(pixivCookie)], (old: unknown) => {
+                  queryClient.setQueryData(userQueryKey, (old: unknown) => {
                     if (!old || typeof old !== "object") return old;
                     const rec = old as { pages?: { profile: { isFollowed?: boolean } }[] };
                     if (!rec.pages) return old;
