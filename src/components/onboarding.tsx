@@ -13,9 +13,9 @@ import { toast } from "sonner";
 import { SessionRelayDialog } from "@/components/session-relay";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { applyLoginSession } from "@/lib/apply-session";
+import { applyLoginSession } from "@/lib/sync/apply-session";
 import { canPickFolder, pickDownloadFolder } from "@/lib/folder-access";
-import { type LoginSite } from "@/lib/browser-login";
+import { type LoginSite } from "@/lib/sync/browser-login";
 import { onPersisted, useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
 

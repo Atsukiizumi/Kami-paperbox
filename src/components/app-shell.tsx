@@ -8,7 +8,7 @@ import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Bell, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { mirrorQueueAcrossTabs, resumeQueue } from "@/lib/queue-runner";
-import { useVaultIndex } from "@/lib/vault-index";
+import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useWatchBadge } from "@/lib/watch-badge";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";

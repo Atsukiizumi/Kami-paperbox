@@ -9,9 +9,9 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getVaultBlob } from "@/lib/vault";
-import { vaultPageUrl } from "@/lib/vault-sync";
-import { previewFromFolder } from "@/lib/persist-files";
+import { getVaultBlob } from "@/lib/storage/vault";
+import { vaultPageUrl } from "@/lib/storage/vault-sync";
+import { previewFromFolder } from "@/lib/storage/persist-files";
 import { formatBytes } from "@/lib/utils";
 import type { VaultMeta } from "@/lib/types";
 

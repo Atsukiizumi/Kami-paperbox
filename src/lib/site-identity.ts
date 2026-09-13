@@ -1,3 +1,6 @@
+
+import { asRecordStrict as asRecord, asStringTrimmed as str } from "./parse.ts";
+
 /**
  * 从 JSON/HTML 抠登录用户的名字和头像。
  *
@@ -166,15 +169,7 @@ export function decodeHtmlEntities(value: string): string {
     .replace(/&amp;/g, "&");
 }
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-}
 
-function str(v: unknown): string {
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  return "";
-}
 
 function decodeJsonString(value: string): string {
   try {

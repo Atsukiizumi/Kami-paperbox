@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
 import { test } from "node:test";
-import { DEFAULT_WATERMARK_MB, sweepCache, watermarkConfig } from "./cache-watermark.server.ts";
+import { DEFAULT_WATERMARK_MB, sweepCache, watermarkConfig } from "./storage/cache-watermark.server.ts";
 
 function workspace(configJson?: string): string {
   const root = mkdtempSync(join(tmpdir(), "kami-wm-"));

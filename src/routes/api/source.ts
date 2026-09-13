@@ -6,8 +6,8 @@
  */
 import { fetchSchema } from "@/lib/source";
 import { classifySourceError } from "@/lib/source-errors";
-import { cachedDispatchFetch, SOURCE_CACHE_TTL_SECONDS, sourceCacheKey } from "@/lib/source-cache.server";
-import { noteCacheWrite } from "@/lib/cache-watermark.server";
+import { cachedDispatchFetch, SOURCE_CACHE_TTL_SECONDS, sourceCacheKey } from "@/lib/storage/source-cache.server";
+import { noteCacheWrite } from "@/lib/storage/cache-watermark.server";
 import type { FetchInput, FetchOk } from "@/lib/types";
 
 const SOURCE_CACHE_TAG = (key: string) => `source:${key}`;

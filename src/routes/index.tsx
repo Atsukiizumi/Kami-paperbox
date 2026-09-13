@@ -27,12 +27,12 @@ import {
   type PixivFeed,
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
-import { credentialTag } from "@/lib/cred-tag";
+import { credentialTag } from "@/lib/sync/cred-tag";
 import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/browser-login";
+import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/sync/browser-login";
 import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "@/lib/booru";
-import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/ranking-archive";
+import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/storage/ranking-archive";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import type { FanboxCursor, FetchOk, WorkCard } from "@/lib/types";

@@ -20,10 +20,10 @@ import {
   cookiesOf,
   createAccount,
   migrateLegacySettings,
-} from "./accounts.ts";
-import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
+} from "./sync/accounts.ts";
+import { fanboxSessionFrom, sanitizePixivCookie } from "./sync/browser-login.ts";
 import type { SiteProfile } from "./site-identity.ts";
-import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./vault-query.ts";
+import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./storage/vault-query.ts";
 import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts";
 import {
   DEFAULT_APPEARANCE,
@@ -40,7 +40,7 @@ import {
   type PathPreset,
   parsePathPreset,
   templateForPreset,
-} from "./download-path.ts";
+} from "./storage/download-path.ts";
 import {
   emptySavedTags,
   parseSavedTags,

@@ -8,8 +8,8 @@
 import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { resolveKamiRoot } from "./proxy.server.ts";
-import type { Source, WorkCard } from "./types.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
+import type { Source, WorkCard } from "../types.ts";
 
 export type RankPeriod = "daily" | "weekly" | "monthly";
 

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pendingMigrations } from "../../scripts/migration-plan.mjs";
-import { resolveKamiRoot } from "./proxy.server.ts";
+import { pendingMigrations } from "../../../scripts/migration-plan.mjs";
+import { resolveKamiRoot } from "../proxy.server.ts";
 
 /** Which database backend is active. */
 export type DbSource = "neon" | "pglite";

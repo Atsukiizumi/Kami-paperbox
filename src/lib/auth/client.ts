@@ -12,7 +12,7 @@
 import { createAuthClient } from "better-auth/react";
 import { runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { publicEnv } from "../public-env.ts";
-import { clearSyncKek } from "../account-sync.ts";
+import { clearSyncKek } from "../sync/account-sync.ts";
 
 export const authClient = createAuthClient();
 

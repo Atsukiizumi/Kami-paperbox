@@ -7,8 +7,8 @@
  * 为什么 zip 级别 0：原图已是压缩格式，压缩只烧 CPU 不省体积。
  */
 import { strToU8, Zip, ZipDeflate } from "fflate";
-import { getVaultStore } from "@/lib/vault-store.server";
-import { buildExportEntries, EXPORT_MAX_KEYS } from "@/lib/vault-export.server";
+import { getVaultStore } from "@/lib/storage/vault-store.server";
+import { buildExportEntries, EXPORT_MAX_KEYS } from "@/lib/storage/vault-export.server";
 
 export async function POST(request: Request) {
   try {

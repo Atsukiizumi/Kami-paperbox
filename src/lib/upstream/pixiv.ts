@@ -20,8 +20,8 @@ import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } f
 import { pixivIdsNewestFirst, pixivPickupItems } from "../pixiv-profile.ts";
 import type { FetchOk, UserProfile, WorkCard, WorkDetail, WorkPage } from "../types.ts";
 import { asBool, asNumber, asRecord, asString, upstreamJson } from "./http.ts";
-import { pixivRankingDateParam } from "../ranking-archive.ts";
-import { jstYesterdayCompact } from "../ranking-archive.ts";
+import { pixivRankingDateParam } from "../storage/ranking-archive.ts";
+import { jstYesterdayCompact } from "../storage/ranking-archive.ts";
 
 function alwaysBlockedPixiv(item: Record<string, unknown>): boolean {
   if (asBool(item.isMasked) || asBool(item.is_masked)) return true;

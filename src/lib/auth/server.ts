@@ -20,7 +20,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Pool } from "pg";
-import { ensureDbReady, getPglite } from "../db.ts";
+import { ensureDbReady, getPglite } from "../storage/db.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import { emailAndPasswordEnabled } from "./email-password.ts";
 import { pgliteDialect } from "./pglite-dialect.ts";

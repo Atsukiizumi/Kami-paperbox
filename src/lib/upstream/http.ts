@@ -2,7 +2,7 @@
  * 上游共享通道：JSON 请求 + unknown 清洗（由 upstream.server.ts 拆出，TD-01）。
  */
 import { outboundFetch } from "../curl-fetch.server.ts";
-import { withPixivUserId } from "../browser-login.ts";
+import { withPixivUserId } from "../sync/browser-login.ts";
 
 export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -51,23 +51,5 @@ export async function upstreamJson(
   }
 }
 
-export function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
-}
-
-export function asString(v: unknown, fallback = ""): string {
-  if (typeof v === "string") return v;
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  if (typeof v === "boolean") return v ? "true" : "false";
-  return fallback;
-}
-
-export function asNumber(v: unknown, fallback = 0): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v !== "" && Number.isFinite(Number(v))) return Number(v);
-  return fallback;
-}
-
-export function asBool(v: unknown): boolean {
-  return v === true;
-}
+// 四件套唯一定义在 parse.ts（TD-32）；此处原样再导出维持既有消费路径。
+export { asRecord, asString, asNumber, asBool } from "../parse.ts";

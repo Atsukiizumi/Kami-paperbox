@@ -7,10 +7,10 @@
 import { closeOnAbort, isAbortError } from "../abort.ts";
 import { danbooruAuthHeader, DANBOORU_UA } from "../booru.ts";
 import { outboundFetch } from "../curl-fetch.server.ts";
-import { fanboxCookieHeader, pixivUserIdFromCookie } from "../browser-login.ts";
+import { fanboxCookieHeader, pixivUserIdFromCookie } from "../sync/browser-login.ts";
 import { sleep, withMediaGate } from "../media-gate.ts";
 import { getThrottle } from "../throttle.server.ts";
-import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../media-cache.server.ts";
+import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../storage/media-cache.server.ts";
 import { UA } from "./http.ts";
 
 const MEDIA_HOSTS = new Set([

@@ -6,7 +6,7 @@
  *        跟客户端 IP / Host 无关。FANBOX 才读登录 Cookie。abort 当正常结束。
  */
 import { isAbortError } from "@/lib/abort";
-import { isDiskCacheableMedia } from "@/lib/media-cache.server";
+import { isDiskCacheableMedia } from "@/lib/storage/media-cache.server";
 import { fetchMediaResponse, parseAllowedMediaUrl } from "@/lib/upstream.server";
 
 function readCookie(header: string | null, name: string): string | undefined {

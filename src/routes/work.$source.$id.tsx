@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { credentialTag } from "@/lib/cred-tag";
+import { credentialTag } from "@/lib/sync/cred-tag";
 import { fetchWorkDetail, workDetailQueryKey } from "@/lib/work-detail";
 import { Link, useNavigate, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
@@ -22,11 +22,11 @@ import { enqueueWork } from "@/lib/queue-runner";
 import { flyPaperToQueue } from "@/lib/paper-fly";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
-import { fanboxSessionFrom } from "@/lib/browser-login";
+import { fanboxSessionFrom } from "@/lib/sync/browser-login";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
-import { workKey as vaultWorkKey } from "@/lib/vault";
-import { useVaultIndex } from "@/lib/vault-index";
+import { workKey as vaultWorkKey } from "@/lib/storage/vault";
+import { useVaultIndex } from "@/lib/storage/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseSource, workOriginUrl, isBooru } from "@/lib/sites";

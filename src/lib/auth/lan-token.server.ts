@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { networkInterfaces } from "node:os";
 import { resolveKamiRoot } from "../proxy.server.ts";
-import { LAN_TOKEN_COOKIE, isValidLanTokenShape } from "../lan-pairing.ts";
+import { LAN_TOKEN_COOKIE, isValidLanTokenShape } from "../sync/lan-pairing.ts";
 
 const LAN_TOKEN_BYTES = 24;
 

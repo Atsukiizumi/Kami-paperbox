@@ -7,6 +7,7 @@
  *        不要改代码。改完保存即生效（按文件 mtime 重读）。
  */
 import type { SearchEngine } from "./reverse-search.ts";
+import { asRecordStrict as asRecord } from "./parse.ts";
 
 export type ThrottleConfig = {
   mediaConcurrency: number;
@@ -31,9 +32,6 @@ function clamp(n: number, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-}
 
 export function parseThrottle(raw: unknown): ThrottleConfig {
   const root = asRecord(raw);
