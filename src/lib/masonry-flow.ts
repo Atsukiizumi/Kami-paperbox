@@ -175,6 +175,19 @@ export function packJustified({
   const aspects = items.map((item) => clampAspect(item.aspect));
   let y = 0;
 
+  // 手机单列（width < MASONRY_SINGLE_COL_MAX）：不走行拼版——统一满宽、
+  // 高度随原始长宽比（clampAspect 已限 0.45~3.2）。行拼版在窄容器上凑不满
+  // 最小卡宽，会产生「每行一张、左对齐留半屏空」的破布局。
+  if (width < MASONRY_SINGLE_COL_MAX) {
+    let yy = 0;
+    items.forEach((_, i) => {
+      const h = Math.round(width / (aspects[i] ?? FALLBACK_ASPECT));
+      placements[i] = { x: 0, y: yy, width, height: h };
+      yy += h + captionBand + gap;
+    });
+    return { placements, height: yy > 0 ? yy - gap : 0 };
+  }
+
   const flush = (indices: number[], _lastRow: boolean) => {
     const n = indices.length;
     if (n === 0) return;
