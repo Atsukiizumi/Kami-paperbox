@@ -123,7 +123,10 @@ test("hydrateBrowseCache paints localStorage before any fetch", () => {
     );
     const client = new QueryClient();
     hydrateBrowseCache(client);
+    // 断言 hydrate 后的可读键——键形状本身是被测契约，字面量有意为之
+    // eslint-disable-next-line no-restricted-syntax
     const fanbox = client.getQueryData(["home-fanbox", "home"]) as { pages: { op: string }[] };
+    // eslint-disable-next-line no-restricted-syntax
     const rec = client.getQueryData(["home-pixiv", "recommend"]) as { pages: { op: string }[] };
     assert.equal(fanbox.pages[0]?.op, "fanboxHome");
     assert.equal(rec.pages[0]?.op, "pixivRecommend");
