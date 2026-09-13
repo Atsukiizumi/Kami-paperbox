@@ -86,12 +86,29 @@ export function openRankingStore(root = resolveKamiRoot()) {
   );
   const remove = db.prepare("DELETE FROM snapshots WHERE id = ?");
   const clearSite = db.prepare("DELETE FROM snapshots WHERE site = ?");
+  // TD-31：保留上限——每个 (site, period) 只留最近 KEEP_PERIODS 期，更旧的
+  // 在写入路径惰性清理（对齐缓存水位模式），榜单归档不再无界。
+  const KEEP_PERIODS = 60;
+  const countPeriod = db.prepare("SELECT COUNT(*) AS n FROM snapshots WHERE site = ? AND period = ?");
+  const oldestPeriods = db.prepare(
+    "SELECT id FROM snapshots WHERE site = ? AND period = ? ORDER BY date DESC, fetched_at DESC LIMIT -1 OFFSET ?",
+  );
+  const deleteIds = db.prepare("DELETE FROM snapshots WHERE id = ?");
+
+  function enforceRetention(site: Source, period: RankPeriod) {
+    const { n } = countPeriod.get(site, period) as { n: number };
+    if (n <= KEEP_PERIODS) return;
+    for (const row of oldestPeriods.all(site, period, KEEP_PERIODS) as { id: string }[]) {
+      deleteIds.run(row.id);
+    }
+  }
 
   return {
     put(site: Source, period: RankPeriod, date: string, items: WorkCard[]): RankSnapshot {
       const id = snapshotId(site, period, date);
       const fetchedAt = Date.now();
       upsert.run(id, site, period, date, fetchedAt, JSON.stringify(items));
+      enforceRetention(site, period);
       return { id, site, period, date, fetchedAt, count: items.length, items };
     },
     get(id: string): RankSnapshot | undefined {
