@@ -1,4 +1,7 @@
 # Kami 纸匣 — Next.js standalone
+
+# VITE_AUTH_ENABLED 是会进客户端 bundle 的公开构建旗标（非密钥）；跳过 buildx 的假阳性密钥检查。
+# check=skip=SecretsUsedInArgOrEnv
 # docker compose up --build
 
 FROM node:22-bookworm-slim AS build

@@ -17,7 +17,8 @@ import { ThemeMenu } from "@/components/theme-picker";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
 import { PaperMark } from "@/components/paper-mark";
-import { DetailNav, isDetailPath, isMainNavPath, isWorkPath } from "@/components/back-to-browse";
+import { DetailNav } from "@/components/back-to-browse";
+import { isDetailPath, isMainNavPath, isWorkPath } from "@/lib/route-shape";
 import dynamic from "next/dynamic";
 // PER-13：首页是 778 行大组件，静态 import 会让所有路由都背它的 bundle——
 // 拆成按需 chunk。keep-alive 隐藏挂载的行为不变，只是首帧变成异步加载。

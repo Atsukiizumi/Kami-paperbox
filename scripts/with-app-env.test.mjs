@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import {
@@ -13,7 +13,6 @@ import {
   parseAppEnv,
   projectRoot,
   readAppEnv,
-  resolveLocalBin,
   resolveJsCli,
   resolveSpawn,
   withLocalBin,

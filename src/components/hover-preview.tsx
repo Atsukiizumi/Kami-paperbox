@@ -7,7 +7,7 @@
  */
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { animateFlip, cancelAnimations } from "@/lib/motion";
+import { animateFlip } from "@/lib/motion";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
 import { ProxiedImg } from "./proxied-img";
 import { UgoiraPlayer, useUgoiraMeta } from "./ugoira-player";

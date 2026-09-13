@@ -85,6 +85,7 @@ export function RankingsPage() {
     void refresh().finally(() => {
       if (token !== refreshToken.current) return;
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh 随渲染重建，按站点/周期触发即可
   }, [site, period]);
 
   async function openRow(id: string) {

@@ -78,10 +78,8 @@ export function ArtworkCard({
   );
   const liked = Boolean(work.liked || work.bookmarked);
   const resolution = formatResolution(work.width, work.height);
-  const [saving, setSaving] = useState(false);
   const [liking, setLiking] = useState(false);
   const [heartPop, setHeartPop] = useState(false);
-  const [savedPop, setSavedPop] = useState(false);
   const [menu, setMenu] = useState<CardMenuPos | null>(null);
   const [preview, setPreview] = useState<DOMRect | null>(null);
   const [pageI, setPageI] = useState(0);
@@ -381,15 +379,15 @@ export function ArtworkCard({
             <>
               <CardIconButton
                 label={inVault ? "已在纸匣" : "收入纸匣"}
-                disabled={saving || work.restricted}
+                disabled={work.restricted}
                 active={inVault}
                 onClick={(e) => void saveCard(e)}
                 onHover={hidePreview}
               >
                 {inVault ? (
-                  <Check className={cn("size-4", savedPop && "kami-pop-heart")} />
+                  <Check className="size-4" />
                 ) : (
-                  <Archive className={cn("size-4", saving && "animate-pulse")} />
+                  <Archive className="size-4" />
                 )}
               </CardIconButton>
               <CardIconButton

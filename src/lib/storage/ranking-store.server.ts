@@ -5,7 +5,7 @@
  * 用法：只在服务端。HTTP 见 `/api/rankings`。
  * 为什么：站点榜单会滚走；纸匣自己存一份，不设条数上限。
  */
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { resolveKamiRoot } from "../proxy.server.ts";

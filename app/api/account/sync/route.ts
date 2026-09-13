@@ -79,7 +79,7 @@ function validateSegment(segment: string, payload: unknown): string | null {
 // SEC-12：与数据面路由同闸——补 Fetch-Metadata 同站校验（跨站 scripted
 // 请求 403），不再只靠 SameSite=Lax cookie 兜底。不传 guest：账号关闭
 // （LAN 令牌）形态过闸后 requireUserId 仍 401，行为不变。
-export const GET = withDataPlane(async (request: Request) => {
+export const GET = withDataPlane(async () => {
   await ensureDbReady();
   try {
     const userId = await requireUserId();
