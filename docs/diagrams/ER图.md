@@ -2,7 +2,7 @@
 
 - **目的**：全部持久化实体的关系与基数（PK/FK/核心字段）。
 - **依据**：migrations/*.sql + vault-store.server.ts + ranking-store.server.ts（优先级：数据库实际结构 > Migration > 业务代码推导）。
-- **基线**：`main@75e7de0`。
+- **基线**：`main@75e7de0`；2026-09-13 增量：vault_hash / vault_dup_dismissed（#122 纸匣智能库）。
 
 ## 1. 账号库（Postgres/PGlite，migrations/）
 
@@ -61,6 +61,7 @@ erDiagram
 ```mermaid
 erDiagram
   works ||--o{ pages : "key 关联 (无声明式FK)"
+  works ||--o| vault_hash : "key 关联 (无FK, #122)"
 
   works {
     text key PK "source:id 禁点号"
@@ -77,6 +78,17 @@ erDiagram
     integer page PK "0 起"
     text ext
     text path "files/{source}/{id}/{n}.{ext}"
+  }
+  vault_hash {
+    text key PK "对应 works.key"
+    text dhash "64-bit hex 感知哈希"
+    integer w
+    integer h
+    text computed_at
+  }
+  vault_dup_dismissed {
+    text pair PK "排序后 a|b 忽略对"
+    text created_at
   }
 ```
 
@@ -100,11 +112,12 @@ erDiagram
 flowchart LR
   A[user 应用账号] --- B[user_sync 分段×4<br>（KEK 密文 settings）]
   C[works 纸匣条目] --- D[pages 原图页]
+  C --- H[vault_hash 感知哈希<br>vault_dup_dismissed 忽略对<br>（查重，#122）]
   E[snapshots 榜单快照]
   F[浏览器 IndexedDB<br>kami-vault 镜像] -.->|最终一致| C
   G[localStorage settings] -.->|KEK 加密上送| B
 ```
 
-**关系业务意义**：user→session/account 是 better-auth 标准三表（级联删除）；user_sync 系列无 FK 是有意为之——快照恢复需要灵活插入顺序（FK 拓扑排序在应用层做）；works→pages 的 key 复合关联支撑原子写协议；snapshots 独立无关系（纯归档）。
+**关系业务意义**：user→session/account 是 better-auth 标准三表（级联删除）；user_sync 系列无 FK 是有意为之——快照恢复需要灵活插入顺序（FK 拓扑排序在应用层做）；works→pages 的 key 复合关联支撑原子写协议；vault_hash 挂在 works.key 上（解码失败无行 = 覆盖率如实反映）、vault_dup_dismissed 只持久化「人的决定」（忽略对），候选组永远现场重算所以独立无关系（#122 查重：不落聚合状态，删除/忽略后重算即时生效）；snapshots 独立无关系（纯归档）。
 
 **风险点**：① user_sync 三表无 FK，scope 全靠 requireUserId（12 号）；② exported_at 两表类型不一致（TD-30）；③ vault 浏览器镜像与服务端最终一致无冲突检测（06 号 6.5）。
