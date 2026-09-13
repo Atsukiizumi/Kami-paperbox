@@ -2,7 +2,7 @@
  * 上游分发器：把 FetchInput 路由到各站点适配（由 upstream.server.ts 拆出，TD-01）。
  * 签名与行为不变——上层（/api/source、source-cache）零改动。
  */
-import { fanboxCookieHeader, pixivCookieHeader } from "../browser-login.ts";
+import { fanboxCookieHeader, pixivCookieHeader } from "../sync/browser-login.ts";
 import type { FetchInput, FetchOk } from "../types.ts";
 import { booruList, booruPool, booruPost, tagSuggest, type BooruAuth } from "./booru-sites.ts";
 import { fanboxCreator, fanboxFeedList, fanboxPost, fanboxTagged } from "./fanbox.ts";

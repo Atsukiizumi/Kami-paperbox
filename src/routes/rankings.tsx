@@ -19,7 +19,7 @@ import {
   loadRanking,
   type RankPeriod,
   type RankSnapshotMeta,
-} from "@/lib/ranking-archive";
+} from "@/lib/storage/ranking-archive";
 import { SITE_LIST, siteLabel } from "@/lib/sites";
 import type { Source, WorkCard } from "@/lib/types";
 import { cn } from "@/lib/utils";

@@ -11,7 +11,7 @@
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { resolveKamiRoot } from "./proxy.server.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
 import { getSql, type Sql } from "./db.ts";
 
 /**

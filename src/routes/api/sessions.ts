@@ -5,7 +5,7 @@
  * 用法：saveSessions → POST /api/sessions
  */
 import { sessionSchema } from "@/lib/source";
-import { kamiSessionCookies, kamiSessionSetCookieHeader } from "@/lib/session-cookies.server";
+import { kamiSessionCookies, kamiSessionSetCookieHeader } from "@/lib/sync/session-cookies.server";
 
 function isNextRuntime() {
   return Boolean(process.env.NEXT_RUNTIME) || Boolean(process.env.NEXT_PHASE);

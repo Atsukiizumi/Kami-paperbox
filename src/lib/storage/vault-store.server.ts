@@ -14,9 +14,9 @@
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, rmSync, existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { resolveKamiRoot } from "./proxy.server.ts";
-import { isSource } from "./sites.ts";
-import type { Source, VaultMeta } from "./types.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
+import { isSource } from "../sites.ts";
+import type { Source, VaultMeta } from "../types.ts";
 import { dhashInfoFromBytesSync } from "./dhash.ts";
 import { filterVaultItems, vaultAuthors, vaultTotals, type VaultQuery } from "./vault-query.ts";
 

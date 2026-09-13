@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { credentialTag } from "@/lib/cred-tag";
+import { credentialTag } from "@/lib/sync/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
@@ -14,11 +14,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
-import { fanboxSessionFrom } from "@/lib/browser-login";
+import { fanboxSessionFrom } from "@/lib/sync/browser-login";
 import { rememberAuthor } from "@/lib/view-history";
 import { enqueueWorks } from "@/lib/queue-runner";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
-import { useVaultIndex } from "@/lib/vault-index";
+import { useVaultIndex } from "@/lib/storage/vault-index";
 import { toast } from "sonner";
 import { Layers } from "lucide-react";
 import type { FanboxCursor, WorkCard } from "@/lib/types";

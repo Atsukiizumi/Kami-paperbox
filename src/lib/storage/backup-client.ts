@@ -18,13 +18,13 @@ import {
   type BackupSettings,
 } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
-import { useSettings } from "./store.ts";
-import { useTagCatalog } from "./tag-catalog.ts";
-import { parseTagLexicon, useTagLexicon } from "./tag-lexicon.ts";
+import { useSettings } from "../store.ts";
+import { useTagCatalog } from "../tag-catalog.ts";
+import { parseTagLexicon, useTagLexicon } from "../tag-lexicon.ts";
 import { downloadBlob, listVault, putVaultMeta } from "./vault.ts";
 import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
 import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
-import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "./view-history.ts";
+import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "../view-history.ts";
 
 function snapshotSettings(): BackupSettings {
   const s = useSettings.getState();

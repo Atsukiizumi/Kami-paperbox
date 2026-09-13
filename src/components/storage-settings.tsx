@@ -6,7 +6,7 @@ import {
   PATH_PRESETS,
   PATH_TOKEN_HELP,
   SAMPLE_PATH_CONTEXT,
-} from "@/lib/download-path";
+} from "@/lib/storage/download-path";
 import {
   canPickFolder,
   clearFolderHandle,
@@ -15,9 +15,9 @@ import {
 } from "@/lib/folder-access";
 import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
-import { rescanFolderHashes } from "@/lib/persist-files";
-import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/vault";
-import { listServerVault } from "@/lib/vault-sync";
+import { rescanFolderHashes } from "@/lib/storage/persist-files";
+import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/storage/vault";
+import { listServerVault } from "@/lib/storage/vault-sync";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";

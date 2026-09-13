@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveKamiRoot } from "./proxy.server.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
 import { noteCacheWrite } from "./cache-watermark.server.ts";
 
 export const MEDIA_CACHE_TTL_MS = 7 * 24 * 60 * 60_000;

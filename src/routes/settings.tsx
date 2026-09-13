@@ -10,24 +10,24 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SessionRelayDialog } from "@/components/session-relay";
 import { AppAccountSignInForm } from "@/components/app-account-signin";
-import { accountLabel, displayName, siteProfile } from "@/lib/accounts";
+import { accountLabel, displayName, siteProfile } from "@/lib/sync/accounts";
 import {
   fanboxSessionFrom,
   isPixivLoggedInSession,
   parseCookieDump,
   pixivUserIdFromCookie,
   type LoginSite,
-} from "@/lib/browser-login";
+} from "@/lib/sync/browser-login";
 import { SiteAvatar } from "@/components/site-avatar";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/account-sync";
+import { pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/sync/account-sync";
 import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { BackupSection } from "@/components/backup-settings";
 import { TagLexiconSection } from "@/components/tag-lexicon-settings";
 import { useSettings } from "@/lib/store";
-import { applyCookieDump, applyLoginSession } from "@/lib/apply-session";
+import { applyCookieDump, applyLoginSession } from "@/lib/sync/apply-session";
 import { cn } from "@/lib/utils";
 
 const SETTINGS_PAGES = [

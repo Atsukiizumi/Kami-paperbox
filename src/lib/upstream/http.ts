@@ -2,7 +2,7 @@
  * 上游共享通道：JSON 请求 + unknown 清洗（由 upstream.server.ts 拆出，TD-01）。
  */
 import { outboundFetch } from "../curl-fetch.server.ts";
-import { withPixivUserId } from "../browser-login.ts";
+import { withPixivUserId } from "../sync/browser-login.ts";
 
 export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";

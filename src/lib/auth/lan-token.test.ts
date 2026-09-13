@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { LAN_TOKEN_COOKIE, isValidLanTokenShape } from "../lan-pairing.ts";
+import { LAN_TOKEN_COOKIE, isValidLanTokenShape } from "../sync/lan-pairing.ts";
 
 test("lan token 形状校验", () => {
   assert.equal(isValidLanTokenShape("a".repeat(24)), true);

@@ -19,13 +19,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SITE_LIST } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatBytes, cn } from "@/lib/utils";
-import { exportVaultItem, previewFromFolder } from "@/lib/persist-files";
+import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
-import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/vault";
-import { forgetVaultKey } from "@/lib/vault-index";
-import { filterVaultItems, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "@/lib/vault-query";
+import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/storage/vault";
+import { forgetVaultKey } from "@/lib/storage/vault-index";
+import { filterVaultItems, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
-import { listServerVault, vaultPageUrl } from "@/lib/vault-sync";
+import { listServerVault, vaultPageUrl } from "@/lib/storage/vault-sync";
 import type { Source, WorkCard } from "@/lib/types";
 
 function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {

@@ -5,7 +5,7 @@
  *      选不了文件夹（Safari / 火狐 / 手机）才退到应用内目录。
  * 用法：只从队列 runner 调 archiveWork。
  */
-import { extFromNameOrType } from "./ugoira-meta.ts";
+import { extFromNameOrType } from "../ugoira-meta.ts";
 import {
   flattenDownloadName,
   formatDownloadPath,
@@ -16,10 +16,10 @@ import {
   canPickFolder,
   readRelativeFile,
   writeRelativeFile,
-} from "./folder-access.ts";
+} from "../folder-access.ts";
 import { sha256Hex } from "./file-hash.ts";
-import { useSettings } from "./store.ts";
-import type { VaultMeta, WorkDetail, WorkPage } from "./types.ts";
+import { useSettings } from "../store.ts";
+import type { VaultMeta, WorkDetail, WorkPage } from "../types.ts";
 import { downloadBlob, listVault, patchVaultMeta, saveVaultWork } from "./vault.ts";
 import { rememberVaultKey } from "./vault-index.ts";
 import { patchServerVault, pushVaultToServer } from "./vault-sync.ts";

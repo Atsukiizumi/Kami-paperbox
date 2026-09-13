@@ -17,7 +17,7 @@ import {
   pairingTokenFromLocation,
   setLanTokenCookie,
   stripPairingHash,
-} from "@/lib/lan-pairing";
+} from "@/lib/sync/lan-pairing";
 
 export function LanTokenGate() {
   const [needed, setNeeded] = useState(false);

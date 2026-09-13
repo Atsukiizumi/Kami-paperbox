@@ -13,7 +13,7 @@
 import { readdirSync, statSync, unlinkSync } from "node:fs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveKamiRoot } from "./proxy.server.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
 
 export type CacheKind = "media" | "source";
 

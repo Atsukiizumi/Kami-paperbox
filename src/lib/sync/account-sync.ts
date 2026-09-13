@@ -15,8 +15,8 @@
  *   - 无 KEK 且上次拉取看到服务端 settings 是密文 → 本机跳推 settings
  *     （防止 omit 段把服务端密文凭据冲掉）
  */
-import type { BackupFile } from "./backup.ts";
-import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
+import type { BackupFile } from "../storage/backup.ts";
+import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "../storage/crypto-box.ts";
 
 export type SyncSegment = "settings" | "vault" | "lexicon" | "history";
 export const SYNC_SEGMENTS: readonly SyncSegment[] = ["settings", "vault", "lexicon", "history"];
@@ -230,7 +230,7 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
     // 等下次登录（KEK 在手）再推设置段；其余段不受影响。
     return null;
   }
-  const { collectBackup } = await import("./backup-client");
+  const { collectBackup } = await import("../storage/backup-client");
   const backup = await collectBackup();
   const payload = await buildSegmentPayload(segment, backup, { kek });
   const exportedAt = Date.now();
@@ -268,7 +268,7 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
   const applied: SyncSegment[] = [];
   const skipped: string[] = [];
   let credsMerged = false;
-  const { applySegment, collectBackup } = await import("./backup-client");
+  const { applySegment, collectBackup } = await import("../storage/backup-client");
   // TD-21：脏标记在循环外读一次——合并决策基于拉取时刻的本机状态
   const credsDirty = readCredsDirty();
 
@@ -315,7 +315,7 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
   // 过渡期：只有旧单行数据（分段表为空）时整份应用一次，之后按段走
   if (applied.length === 0 && skipped.length === 0 && data.legacy && data.legacy.payload) {
     if (shouldApplySegment("settings", data.legacy.exportedAt, markers, userId, opts.force)) {
-      const { applyBackup } = await import("./backup-client");
+      const { applyBackup } = await import("../storage/backup-client");
       await applyBackup(data.legacy.payload);
       applied.push("settings", "vault", "lexicon", "history");
     }

@@ -6,7 +6,7 @@
  * 为什么：listVault 要读完所有 meta 才知道有没有，不能每次点卡片都扫一遍。
  */
 import { create } from "zustand";
-import type { VaultMeta } from "./types.ts";
+import type { VaultMeta } from "../types.ts";
 import { listVault, workKey } from "./vault.ts";
 import { listServerVault } from "./vault-sync.ts";
 
