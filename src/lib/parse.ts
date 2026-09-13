@@ -6,7 +6,8 @@
  *      本模块把语义差异「命名化」，行为逐一保真，不再复制。
  *
  * 变体选择指南（原实现 → 用哪个）：
- * - http.ts / booru.ts 家族（数组当对象、布尔转字符串）→ asRecord / asString / asNumber / asBool
+ * - http.ts 家族（数组当对象、布尔转字符串）→ asRecord / asString / asNumber / asBool
+ * - booru.ts（数组当对象、布尔不转字符串、有 fallback）→ asRecord / asStringLoose / asNumber / asBool
  * - pixiv-feed.ts / site-identity.ts（trim、不认布尔）  → asRecordStrict / asStringTrimmed
  * - reverse-search.ts / social.ts（不 trim、不认布尔）  → asStringLoose
  * - throttle.ts（数组不算对象）                          → asRecordStrict

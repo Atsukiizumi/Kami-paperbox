@@ -1,5 +1,7 @@
 
 import { asRecordStrict as asRecord, asStringTrimmed as str } from "./parse.ts";
+import { decodeHtmlEntities } from "./utils.ts";
+export { decodeHtmlEntities };
 
 /**
  * 从 JSON/HTML 抠登录用户的名字和头像。
@@ -160,14 +162,6 @@ function extractJsonObject(source: string, key: string): unknown {
   return null;
 }
 
-// TD-37：此前 &quot;/&amp; 写成了恒等替换（/"/g → '"'），meta 属性里的
-// 实体从未真正解码。顺序注意：&amp; 必须最后解，避免二次展开。
-export function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&");
-}
 
 
 

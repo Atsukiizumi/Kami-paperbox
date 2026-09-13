@@ -46,7 +46,7 @@ describe("BatchToolbar（批量收藏）", () => {
 
   it("全选/清除按钮随选择状态切换", () => {
     renderBar(0, 10);
-    fireEvent.click(screen.getByRole("button", { name: /全选本页/ }));
+    fireEvent.click(screen.getByRole("button", { name: /全选/ }));
     assert.deepEqual(events, ["select-all"]);
   });
 

@@ -7,6 +7,7 @@
  * 为什么单独拆文件：存储层（vault.ts）依赖浏览器 IDB，查询逻辑可以在 Node 测试里跑，
  *        也避免 UI 直接拼字符串。
  */
+import { isSource } from "../sites.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
 export type VaultQuery = {
@@ -114,7 +115,7 @@ export function parseSmartFolders(raw: unknown): SmartFolder[] {
     if (!id || !name || !q || typeof q !== "object") continue;
     const query: VaultQuery = {};
     if (typeof q.text === "string" && q.text.trim()) query.text = q.text.slice(0, 120);
-    if (typeof q.source === "string" && q.source !== "all") query.source = q.source as Source;
+    if (typeof q.source === "string" && q.source !== "all" && isSource(q.source)) query.source = q.source as Source;
     if (typeof q.author === "string" && q.author.trim()) query.author = q.author.slice(0, 80);
     if (Array.isArray(q.tags)) {
       const tags = q.tags.filter((t): t is string => typeof t === "string" && t.trim() !== "").slice(0, 20);
