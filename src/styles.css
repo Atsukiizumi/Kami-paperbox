@@ -686,6 +686,77 @@ a:focus-visible .kami-logo .kami-logo-fold {
   }
 }
 
+/* ── 动效批（2026-09-14）────────────────────────────────────────── */
+
+/* B 主题圆形揭示：切换期间禁用默认交叉淡入，让 clip-path 圆形扩撒接管。 */
+html[data-theme-transitioning]::view-transition-old(root),
+html[data-theme-transitioning]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* D 滚动渐入：masonry 子卡进视口才显形（transform/opacity only）。 */
+[data-packed] > * {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+[data-packed] > .kami-enter {
+  animation: none;
+}
+[data-packed] > [data-inview] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.4s var(--ease-out),
+    transform 0.4s var(--ease-out);
+}
+
+/* C-空态：纸标轻微漂浮。 */
+@keyframes kami-float {
+  from {
+    transform: translateY(-2px);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+.kami-float {
+  animation: kami-float 3.2s ease-in-out infinite alternate;
+}
+
+/* C-队列完成：状态标签一次性弹跳。 */
+@keyframes kami-done-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.kami-done-pop {
+  display: inline-block;
+  animation: kami-done-pop 0.4s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-packed] > * {
+    opacity: 1;
+    transform: none;
+  }
+  [data-packed] > [data-inview] {
+    transition: none;
+  }
+  .kami-float,
+  .kami-done-pop {
+    animation: none;
+  }
+}
+
 .kami-vault-fall {
   column-width: 170px;
   column-gap: 0.9rem;

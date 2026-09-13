@@ -34,6 +34,21 @@ function readAspect(el: HTMLElement): number {
   return 0.75;
 }
 
+let inviewObserver: IntersectionObserver | null = null;
+if (typeof IntersectionObserver !== "undefined") {
+  inviewObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.setAttribute("data-inview", "");
+          inviewObserver?.unobserve(entry.target);
+        }
+      }
+    },
+    { rootMargin: "120px 0px" },
+  );
+}
+
 function packBoard(root: HTMLElement) {
   const children = [...root.children] as HTMLElement[];
   const width = root.clientWidth;
@@ -68,6 +83,7 @@ function packBoard(root: HTMLElement) {
     el.style.setProperty("--masonry-w", `${place.width}px`);
     el.style.setProperty("--masonry-media-h", `${place.height}px`);
     el.setAttribute("data-placed", "");
+    if (inviewObserver && !el.hasAttribute("data-inview")) inviewObserver.observe(el);
     if (fresh && settled) {
       requestAnimationFrame(() => el.style.removeProperty("transition"));
     }

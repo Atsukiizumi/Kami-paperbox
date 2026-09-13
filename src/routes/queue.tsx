@@ -9,6 +9,7 @@
 import { Link } from "@/lib/kami-link";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptySheet } from "@/components/empty-sheet";
@@ -82,7 +83,15 @@ export function QueuePage() {
                     value={item.total > 0 ? Math.round((item.progress / item.total) * 100) : 0}
                     className={item.status === "error" ? "mt-1.5 [&>div]:bg-danger" : "mt-1.5"}
                   />
-                  <p className="mt-1 text-xs tabular-nums text-subtle">{statusLabel(item)}</p>
+                  <p
+                    className={
+                      item.status === "done"
+                        ? "kami-done-pop mt-1 text-xs tabular-nums text-subtle"
+                        : "mt-1 text-xs tabular-nums text-subtle"
+                    }
+                  >
+                    {statusLabel(item)}
+                  </p>
                 </div>
               </Link>
               {item.status === "error" ? (

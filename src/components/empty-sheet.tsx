@@ -27,7 +27,7 @@ export function EmptySheet({
         className,
       )}
     >
-      <PaperMark className="size-10 text-muted" />
+      <PaperMark className="kami-float size-10 text-muted" />
       <p className="font-display text-xl tracking-tight text-fg">{title}</p>
       {hint ? <p className="max-w-sm text-sm leading-relaxed text-muted">{hint}</p> : null}
       {action}

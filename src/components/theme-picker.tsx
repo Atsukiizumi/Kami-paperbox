@@ -5,7 +5,42 @@ import {
   type ThemeId,
   themeTokens,
 } from "@/lib/theme";
+import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
+
+/** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器直接切。 */
+function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
+  const doc = document as Document & {
+    startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
+  };
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!doc.startViewTransition || reduce) {
+    apply();
+    return;
+  }
+  const transition = doc.startViewTransition(() => {
+    flushSync(apply);
+  });
+  if (!point) return;
+  document.documentElement.setAttribute("data-theme-transitioning", "");
+  void transition.ready.then(() => {
+    const radius = Math.hypot(
+      Math.max(point.x, window.innerWidth - point.x),
+      Math.max(point.y, window.innerHeight - point.y),
+    );
+    document.documentElement.animate(
+      {
+        clipPath: [
+          `circle(0px at ${point.x}px ${point.y}px)`,
+          `circle(${radius}px at ${point.x}px ${point.y}px)`,
+        ],
+      },
+      { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)", pseudoElement: "::view-transition-new(root)" },
+    );
+  }).finally(() => {
+    void transition.finished.finally(() => document.documentElement.removeAttribute("data-theme-transitioning"));
+  });
+}
 import { cn } from "@/lib/utils";
 import { useResolvedAppearance } from "@/components/theme-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +132,7 @@ function ThemeSwatches() {
           <button
             key={def.id}
             type="button"
-            onClick={() => setTheme(def.id)}
+            onClick={(e) => transitionTheme(() => setTheme(def.id), { x: e.clientX, y: e.clientY })}
             aria-pressed={active}
             className={cn(
               "rounded-xl p-2 text-left transition-colors duration-200",
@@ -189,7 +224,7 @@ export function ThemeMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuLabel>主题</DropdownMenuLabel>
         {THEME_LIST.map((def) => (
-          <DropdownMenuItem key={def.id} onSelect={() => setTheme(def.id)}>
+          <DropdownMenuItem key={def.id} onSelect={() => transitionTheme(() => setTheme(def.id))}>
             {theme === def.id ? (
               <Check className="size-4 text-accent" />
             ) : (
