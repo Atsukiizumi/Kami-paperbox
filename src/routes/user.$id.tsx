@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Layers, UserMinus, UserPlus } from "lucide-react";
 import { enqueueWorks } from "@/lib/queue-runner";
+import { applyFollowPatch } from "@/lib/user-follow";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useQueue } from "@/lib/store";
 import { useVaultIndex } from "@/lib/storage/vault-index";
@@ -174,18 +175,7 @@ export function UserPage() {
                 data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings() },
               })
                 .then(() => {
-                  queryClient.setQueryData(userQueryKey, (old: unknown) => {
-                    if (!old || typeof old !== "object") return old;
-                    const rec = old as { pages?: { profile: { isFollowed?: boolean } }[] };
-                    if (!rec.pages) return old;
-                    return {
-                      ...rec,
-                      pages: rec.pages.map((page) => ({
-                        ...page,
-                        profile: { ...page.profile, isFollowed: on },
-                      })),
-                    };
-                  });
+                  applyFollowPatch(queryClient, userQueryKey, on);
                   toast.success(on ? `已关注 ${profile.name}` : "已取消关注");
                 })
                 .catch((err: unknown) => {
