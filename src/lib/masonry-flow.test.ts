@@ -3,7 +3,10 @@ import { test } from "node:test";
 import { masonryColumns, masonryRowHeight, masonrySpan, packJustified, packMasonry } from "./masonry-flow.ts";
 
 test("masonryColumns follows container width", () => {
-  assert.equal(masonryColumns(360, 12), 2);
+  // 窄容器（<480）强制单列：手机上两列竖图凑不满最小卡宽，会左对齐留半屏空。
+  assert.equal(masonryColumns(360, 12), 1);
+  assert.equal(masonryColumns(479, 12), 1);
+  assert.equal(masonryColumns(480, 12), 2);
   assert.equal(masonryColumns(600, 12), 3);
   assert.equal(masonryColumns(800, 12), 4);
   assert.equal(masonryColumns(976, 12), 5);
@@ -78,10 +81,10 @@ test("packMasonry sits a wide card next to leftover tiles", () => {
 
 test("packJustified fills a row with no leftover gap", () => {
   const packed = packJustified({
-    containerWidth: 430,
+    containerWidth: 510,
     gap: 10,
     items: [{ aspect: 1 }, { aspect: 1 }, { aspect: 1 }, { aspect: 1 }],
-    idealHeight: 100,
+    idealHeight: 120,
     minWidth: 40,
     captionBand: 0,
   });
@@ -90,11 +93,11 @@ test("packJustified fills a row with no leftover gap", () => {
   assert.equal(packed.placements[3]?.y, 0);
   const right =
     (packed.placements[3]?.x ?? 0) + (packed.placements[3]?.width ?? 0);
-  assert.equal(right, 430);
+  assert.equal(right, 510);
   for (const p of packed.placements) {
-    assert.equal(Math.round(p.height), 100);
+    assert.equal(Math.round(p.height), 120);
   }
-  assert.equal(packed.height, 100);
+  assert.equal(packed.height, 120);
 });
 
 test("packJustified mixes portrait and landscape without a hole", () => {
@@ -256,4 +259,21 @@ test("packJustified pulls a later portrait into a leftover gap", () => {
   assert.ok(pulled.x > first.x, "filler should sit in the leftover gap");
   const wide = packed.placements[1]!;
   assert.ok(wide.y >= first.y + first.height - 1);
+});
+
+test("packJustified 手机单列：统一满宽、高度随长宽比", () => {
+  const { placements, height } = packJustified({
+    containerWidth: 358,
+    gap: 12,
+    items: [{ aspect: 0.63 }, { aspect: 0.81 }, { aspect: 1.5 }],
+    captionBand: 88,
+  });
+  assert.equal(placements.length, 3);
+  for (const p of placements) {
+    assert.equal(p.x, 0);
+    assert.equal(p.width, 358);
+  }
+  assert.equal(placements[0]!.height, Math.round(358 / 0.63));
+  assert.equal(placements[1]!.y, placements[0]!.height + 88 + 12);
+  assert.ok(height > 0);
 });
