@@ -15,6 +15,7 @@ import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered
 import { toast } from "sonner";
 import { CardMenu, type CardMenuPos } from "@/components/card-menu";
 import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
+import { wheelDir, wrapPage } from "@/lib/page-flip";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
 import { enqueueWork } from "@/lib/queue-runner";
@@ -181,6 +182,26 @@ export function ArtworkCard({
     window.addEventListener("scroll", hide, true);
     return () => window.removeEventListener("scroll", hide, true);
   }, [preview]);
+
+  // 滚轮切页（多 P 预览）：浮层打开时，滚轮落在卡片媒体区（浮层本身
+  // pointer-events-none，事件穿透到卡片）即翻页；浮层关着时不挂监听，
+  // 网格滚动不受影响。React 的 onWheel 是 passive，必须原生挂载才能
+  // preventDefault 拦住页面滚动。
+  const lastFlipAt = useRef(0);
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!preview || pages.length <= 1 || !el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const now = Date.now();
+      const dir = wheelDir(e.deltaY, lastFlipAt.current, now);
+      if (dir === 0) return;
+      lastFlipAt.current = now;
+      setPageI((i) => wrapPage(i, dir, pages.length));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [preview, pages.length]);
 
   return (
     <article
