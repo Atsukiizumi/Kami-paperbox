@@ -50,6 +50,9 @@ export type JustifiedPlacement = {
   height: number;
 };
 
+/** 窄于该宽度的容器强制单列——手机上两列竖图凑不满行会左对齐留半屏空（2026-09-13）。 */
+export const MASONRY_SINGLE_COL_MAX = 480;
+
 export function masonryColumns(
   width: number,
   gap = MASONRY_GAP,
@@ -57,6 +60,9 @@ export function masonryColumns(
   maxCols = MASONRY_MAX_COLS,
 ): number {
   if (width <= 0) return Math.max(1, Math.min(2, maxCols));
+  // 手机端单列大图：宽度不足以让两张竖图都满足最小卡宽时，两列必然出现
+  // 「每行一张、左对齐留半屏空」的破布局，不如单列铺满。
+  if (width < MASONRY_SINGLE_COL_MAX) return 1;
   return Math.max(1, Math.min(maxCols, Math.floor((width + gap) / (minCol + gap))));
 }
 
@@ -198,6 +204,8 @@ export function packJustified({
         h = w / a;
       }
       if (fill && k === n - 1) w = Math.max(1, width - x);
+      // 单卡行居中：超高竖图被高度帽缩宽后不顶着左边（手机端观感）。
+      if (!fill && n === 1) x = Math.max(0, (width - w) / 2);
       placements[i] = { x, y, width: Math.max(1, w), height: h };
       x += w + gap;
     }

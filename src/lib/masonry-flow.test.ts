@@ -3,7 +3,10 @@ import { test } from "node:test";
 import { masonryColumns, masonryRowHeight, masonrySpan, packJustified, packMasonry } from "./masonry-flow.ts";
 
 test("masonryColumns follows container width", () => {
-  assert.equal(masonryColumns(360, 12), 2);
+  // 窄容器（<480）强制单列：手机上两列竖图凑不满最小卡宽，会左对齐留半屏空。
+  assert.equal(masonryColumns(360, 12), 1);
+  assert.equal(masonryColumns(479, 12), 1);
+  assert.equal(masonryColumns(480, 12), 2);
   assert.equal(masonryColumns(600, 12), 3);
   assert.equal(masonryColumns(800, 12), 4);
   assert.equal(masonryColumns(976, 12), 5);
