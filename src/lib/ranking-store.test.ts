@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
-import { openRankingStore } from "./ranking-store.server.ts";
+import { openRankingStore } from "./storage/ranking-store.server.ts";
 
 describe("ranking store", () => {
   it("writes and lists a daily snapshot", () => {

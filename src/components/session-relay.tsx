@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, typ
 import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { LOGIN_VIEW, type LoginInputEvent, type LoginSite } from "@/lib/browser-login";
+import { LOGIN_VIEW, type LoginInputEvent, type LoginSite } from "@/lib/sync/browser-login";
 import { isAbortError } from "@/lib/error-component";
 import { cn } from "@/lib/utils";
 

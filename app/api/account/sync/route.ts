@@ -13,9 +13,9 @@
  */
 import { randomBytes } from "node:crypto";
 import { getSessionUser, UnauthorizedError } from "@/lib/auth/verify.server";
-import { parseVaultRecords } from "@/lib/backup";
-import { ensureDbReady, getSql } from "@/lib/db";
-import { scheduleSnapshotDump } from "@/lib/db-snapshot.server";
+import { parseVaultRecords } from "@/lib/storage/backup";
+import { ensureDbReady, getSql } from "@/lib/storage/db";
+import { scheduleSnapshotDump } from "@/lib/storage/db-snapshot.server";
 import { withDataPlane } from "@/lib/next-route";
 
 export const runtime = "nodejs";

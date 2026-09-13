@@ -132,12 +132,12 @@ export async function booruJson(site: BooruSite, url: string, auth?: BooruAuth):
 }
 
 export function asBooruPosts(json: unknown): Record<string, unknown>[] {
-  if (Array.isArray(json)) return json.map(asRecord);
+  if (Array.isArray(json)) return json.map((v) => asRecord(v));
   const rec = asRecord(json);
   if (rec.success === false || rec.error) {
     throw new Error(asString(rec.message || rec.error, "检索失败"));
   }
-  if (Array.isArray(rec.posts)) return rec.posts.map(asRecord);
+  if (Array.isArray(rec.posts)) return rec.posts.map((v) => asRecord(v));
   if (asString(rec.id)) return [rec];
   return [];
 }

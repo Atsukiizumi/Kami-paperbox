@@ -18,7 +18,7 @@ import {
 import { catalogKeys, useTagCatalog, type TagCatalogEntry } from "@/lib/tag-catalog";
 import { TAG_DATABASE, TAG_NAMESPACES, type TagNamespace } from "@/lib/tag-database";
 import { useSettings } from "@/lib/store";
-import { listVault, downloadBlob } from "@/lib/vault";
+import { listVault, downloadBlob } from "@/lib/storage/vault";
 
 const PAGE_SIZE = 80;
 

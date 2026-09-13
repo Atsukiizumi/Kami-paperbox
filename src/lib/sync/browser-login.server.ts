@@ -21,10 +21,10 @@ import {
   type LoginJobSnapshot,
   type LoginSite,
 } from "./browser-login.ts";
-import { getActiveProxy } from "./proxy.server.ts";
-import { parseProxyUrl } from "./proxy-url.ts";
-import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity.ts";
-import { resolveIdentities } from "./site-identity.server.ts";
+import { getActiveProxy } from "../proxy.server.ts";
+import { parseProxyUrl } from "../proxy-url.ts";
+import { parseFanboxMe, parsePixivMe, type SiteProfile } from "../site-identity.ts";
+import { resolveIdentities } from "../site-identity.server.ts";
 
 type MouseButton = "left" | "right" | "middle";
 

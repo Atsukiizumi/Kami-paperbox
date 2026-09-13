@@ -11,7 +11,7 @@
 import { LogIn } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ensureSyncKek } from "@/lib/account-sync";
+import { ensureSyncKek } from "@/lib/sync/account-sync";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";

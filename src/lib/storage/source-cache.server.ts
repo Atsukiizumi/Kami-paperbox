@@ -8,10 +8,10 @@
  */
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pixivUserIdFromCookie } from "./browser-login.ts";
+import { pixivUserIdFromCookie } from "../sync/browser-login.ts";
 import { mediaCacheName } from "./media-cache.server.ts";
-import { resolveKamiRoot } from "./proxy.server.ts";
-import type { FanboxCursor, FetchInput, FetchOk } from "./types.ts";
+import { resolveKamiRoot } from "../proxy.server.ts";
+import type { FanboxCursor, FetchInput, FetchOk } from "../types.ts";
 
 // TD-27：两层缓存的 TTL 单一来源——routes/api/source.ts 的 unstable_cache
 // revalidate（秒）与本层磁盘 TTL（毫秒）都从这里取，改一处不再漂移。

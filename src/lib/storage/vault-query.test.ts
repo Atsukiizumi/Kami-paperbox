@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { filterVaultItems, parseSmartFolders, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "./vault-query.ts";
-import type { VaultMeta } from "./types.ts";
+import type { VaultMeta } from "../types.ts";
 
 function item(over: Partial<VaultMeta> & Pick<VaultMeta, "key" | "title" | "author">): VaultMeta {
   return {

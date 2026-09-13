@@ -9,8 +9,8 @@
  *        命中不了——集中在这一处，换键时只改一个地方。
  */
 import type { QueryClient } from "@tanstack/react-query";
-import { credentialTag } from "./cred-tag";
-import { fanboxSessionFrom } from "./browser-login";
+import { credentialTag } from "./sync/cred-tag";
+import { fanboxSessionFrom } from "./sync/browser-login";
 import { loadWork } from "./queue-runner";
 import { useSettings } from "./store";
 import type { Source, WorkDetail } from "./types";

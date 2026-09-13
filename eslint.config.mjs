@@ -56,4 +56,43 @@ export default tseslint.config(
   },
   // Disable rules that conflict with Prettier formatting.
   prettier,
+  // ── 分域边界（M10）───────────────────────────────────────────────
+  {
+    // 客户端文件不得引 server-only 模块（进浏览器 bundle = 泄密/构建期炸）。
+    files: [
+      "src/components/**/*.{ts,tsx}",
+      "src/routes/**/*.tsx",
+      "src/app/**/*.tsx",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*.server", "*.server.ts", "*/*.server", "*/*.server.ts", "@lib/*.server*", "@/lib/*.server*"],
+              message: "server-only 模块不能进客户端代码（M10 边界）",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // 存储域不得反向依赖路由/组件（依赖方向：routes → 域 → 内核）。
+    files: ["src/lib/storage/**/*.ts", "src/lib/sync/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/routes/*", "@/components/*", "@/app/*", "../*/routes/*"],
+              message: "存储/同步域不得依赖路由与组件层（M10 边界）",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

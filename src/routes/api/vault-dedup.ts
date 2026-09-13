@@ -5,9 +5,9 @@
  *      action=dismiss 忽略一对。候选组不落库——忽略/删除后重算即时生效。
  * 为什么不开 guest：查重与处理是收藏管理动作，属个人面（与 /api/vault 同口径）。
  */
-import { dhashInfoFromBytesSync } from "@/lib/dhash";
-import { clusterDupes, pairKeyOf } from "@/lib/vault-dedup";
-import { getVaultStore } from "@/lib/vault-store.server";
+import { dhashInfoFromBytesSync } from "@/lib/storage/dhash";
+import { clusterDupes, pairKeyOf } from "@/lib/storage/vault-dedup";
+import { getVaultStore } from "@/lib/storage/vault-store.server";
 
 const DEFAULT_THRESHOLD = 10;
 const SCAN_YIELD_EVERY = 50;

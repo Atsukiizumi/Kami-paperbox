@@ -5,7 +5,7 @@
  * 用法：await applyLoginSession({ pixiv, fanbox, pixivProfile })。
  */
 import { isPixivLoggedInSession, parseCookieDump } from "./browser-login.ts";
-import { useSettings } from "./store.ts";
+import { useSettings } from "../store.ts";
 
 export type LoginSessionInput = {
   pixiv?: string;

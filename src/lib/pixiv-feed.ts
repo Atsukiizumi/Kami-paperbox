@@ -5,6 +5,7 @@
  * 用法：upstream.server 调这里；UI 只用 PIXIV_RANK_MODES 做按钮。
  * 为什么：JSON 形状经常变（illustId vs illust_id），集中兼容，方便单测。
  */
+import { asRecord, asStringTrimmed as asString } from "./parse.ts";
 export const PIXIV_RANK_MODES = [
   { id: "daily", label: "日榜", nsfw: false, login: false },
   { id: "weekly", label: "周榜", nsfw: false, login: false },
@@ -67,13 +68,7 @@ export function isAiWork(work: { aiType?: number; tags?: readonly string[] }): b
   return (work.tags ?? []).some((t) => PIXIV_AI_TAGS.has(t.trim().toLowerCase()));
 }
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
-}
 
-function asString(v: unknown): string {
-  return typeof v === "string" ? v.trim() : typeof v === "number" && Number.isFinite(v) ? String(v) : "";
-}
 
 /**
  * 从 Pixiv illust / 榜单 JSON 抽出标签名。
@@ -119,7 +114,7 @@ export function collectIllustRecords(raw: unknown): Record<string, unknown>[] {
   const thumbs = asRecord(body.thumbnails);
   const buckets = [thumbs.illust, body.illusts, asRecord(body.illustManga).data];
   for (const bucket of buckets) {
-    if (Array.isArray(bucket) && bucket.length > 0) return bucket.map(asRecord);
+    if (Array.isArray(bucket) && bucket.length > 0) return bucket.map((v) => asRecord(v));
   }
   return [];
 }

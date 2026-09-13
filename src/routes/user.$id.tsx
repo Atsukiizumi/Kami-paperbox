@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { credentialTag } from "@/lib/cred-tag";
+import { credentialTag } from "@/lib/sync/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -20,7 +20,7 @@ import { Layers, UserMinus, UserPlus } from "lucide-react";
 import { enqueueWorks } from "@/lib/queue-runner";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useQueue } from "@/lib/store";
-import { useVaultIndex } from "@/lib/vault-index";
+import { useVaultIndex } from "@/lib/storage/vault-index";
 import { BatchToolbar } from "@/components/batch-toolbar";
 
 export function UserPage() {

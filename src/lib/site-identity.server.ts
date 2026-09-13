@@ -5,7 +5,7 @@
  * 用法：/api/whoami → resolveIdentities。
  */
 import { outboundFetch } from "./curl-fetch.server.ts";
-import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./browser-login.ts";
+import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./sync/browser-login.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity.ts";
 
 const UA =

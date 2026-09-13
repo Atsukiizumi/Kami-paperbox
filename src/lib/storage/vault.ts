@@ -13,10 +13,10 @@
  *   真正扛量和可查询的目录在服务端 vault-store.server.ts（`.data/vault`）。
  *   磁盘用户文件夹自己不能搜，所以 meta 里记下 relativePath。
  */
-import type { VaultMeta, WorkDetail, WorkPage } from "./types.ts";
+import type { VaultMeta, WorkDetail, WorkPage } from "../types.ts";
 import { deleteServerVault, fetchServerVaultBlob } from "./vault-sync.ts";
 
-export type { VaultMeta } from "./types.ts";
+export type { VaultMeta } from "../types.ts";
 
 const DB_NAME = "kami-vault";
 const VERSION = 2;

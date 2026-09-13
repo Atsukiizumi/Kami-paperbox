@@ -7,7 +7,7 @@
  * 为什么单独拆文件：存储层（vault.ts）依赖浏览器 IDB，查询逻辑可以在 Node 测试里跑，
  *        也避免 UI 直接拼字符串。
  */
-import type { Source, VaultMeta } from "./types.ts";
+import type { Source, VaultMeta } from "../types.ts";
 
 export type VaultQuery = {
   text?: string;

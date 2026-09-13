@@ -6,26 +6,27 @@
  * 为什么：清站点数据或换浏览器会丢掉 Cookie 和纸匣索引。原图仍在用户文件夹 / `.data/vault`，
  *        这份文件只记目录和登录，不把像素 base64 进去。
  */
-import { cookiesOf, migrateLegacySettings, type Account } from "./accounts.ts";
-import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
+import { cookiesOf, migrateLegacySettings, type Account } from "../sync/accounts.ts";
+import { asRecordOrNull as asRecord } from "../parse.ts";
+import { fanboxSessionFrom, sanitizePixivCookie } from "../sync/browser-login.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
-import { parseProxyUrl } from "./proxy-url.ts";
-import { clampQueueConcurrency } from "./queue-retry.ts";
-import { parseSearchEngine, type SearchEngine } from "./reverse-search.ts";
-import { parseSavedTags } from "./site-tags.ts";
+import { parseProxyUrl } from "../proxy-url.ts";
+import { clampQueueConcurrency } from "../queue-retry.ts";
+import { parseSearchEngine, type SearchEngine } from "../reverse-search.ts";
+import { parseSavedTags } from "../site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
-import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts";
-import { isSource, parseSource } from "./sites.ts";
-import { parseAppearance, parseThemeId, type Appearance, type ThemeId } from "./theme.ts";
-import type { TagCatalogEntry } from "./tag-catalog.ts";
-import { parseTagLexicon, type TagLexiconRow } from "./tag-lexicon.ts";
-import type { Source, VaultMeta } from "./types.ts";
+import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "../watch.ts";
+import { isSource, parseSource } from "../sites.ts";
+import { parseAppearance, parseThemeId, type Appearance, type ThemeId } from "../theme.ts";
+import type { TagCatalogEntry } from "../tag-catalog.ts";
+import { parseTagLexicon, type TagLexiconRow } from "../tag-lexicon.ts";
+import type { Source, VaultMeta } from "../types.ts";
 import {
   parseAuthorHistory,
   parseHistoryItems,
   type AuthorHistoryEntry,
   type HistoryEntry,
-} from "./view-history.ts";
+} from "../view-history.ts";
 
 export const BACKUP_FORMAT = "kami-paperbox-backup-v1";
 /**
@@ -103,10 +104,6 @@ function parseBackupKey(raw: string): { source: Source; id: string } | null {
   return { source, id };
 }
 
-function asRecord(raw: unknown): Record<string, unknown> | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  return raw as Record<string, unknown>;
-}
 
 function parseProfile(raw: unknown): Account["pixivProfile"] {
   const rec = asRecord(raw);

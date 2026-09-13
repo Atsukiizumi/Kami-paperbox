@@ -5,6 +5,7 @@
  * 用法：socialFromPixivIllust(body)；真正 POST 在 social.server.ts。
  */
 import { decodeHtmlEntities } from "./utils.ts";
+import { asRecord, asStringLoose as asString } from "./parse.ts";
 export type SocialState = {
   liked: boolean;
   bookmarked: boolean;
@@ -12,15 +13,7 @@ export type SocialState = {
   followed: boolean;
 };
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
-}
 
-function asString(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  return "";
-}
 
 export function socialFromPixivIllust(body: Record<string, unknown>): SocialState {
   const bookmark = asRecord(body.bookmarkData);

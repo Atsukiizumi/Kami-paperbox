@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { PNG } from "pngjs";
 import { openVaultStore } from "./vault-store.server.ts";
-import type { VaultMeta } from "./types.ts";
+import type { VaultMeta } from "../types.ts";
 import { buildExportEntries, entryName } from "./vault-export.server.ts";
 
 function png24(): Uint8Array {

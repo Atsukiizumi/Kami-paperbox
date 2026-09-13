@@ -14,8 +14,8 @@
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
-import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/vault-store.server";
-import type { VaultQuery } from "@/lib/vault-query";
+import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
+import type { VaultQuery } from "@/lib/storage/vault-query";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });

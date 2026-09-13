@@ -15,11 +15,11 @@ import {
   pushAccountSyncSegment,
   SENSITIVE_SETTINGS_FIELDS,
   type SyncSegment,
-} from "@/lib/account-sync";
+} from "@/lib/sync/account-sync";
 import { useSettings } from "@/lib/store";
 import { useTagCatalog } from "@/lib/tag-catalog";
 import { useTagLexicon } from "@/lib/tag-lexicon";
-import { useVaultIndex } from "@/lib/vault-index";
+import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useViewHistory } from "@/lib/view-history";
 
 const PUSH_DEBOUNCE_MS = 4_000;

@@ -9,7 +9,7 @@
 import { bookmarkTagsOf, extractPixivCsrfToken, isAlreadySocialError, pixivHtmlLooksLoggedOut } from "./social.ts";
 import type { SocialInput, SocialOk } from "./types.ts";
 import { outboundFetch } from "./curl-fetch.server.ts";
-import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./browser-login.ts";
+import { fanboxCookieHeader, pixivCookieHeader, withPixivUserId } from "./sync/browser-login.ts";
 import { parsePixivMe } from "./site-identity.ts";
 
 const UA =

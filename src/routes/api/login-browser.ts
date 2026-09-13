@@ -12,8 +12,8 @@ import {
   dispatchLoginInput,
   getLoginJob,
   startBrowserLogin,
-} from "@/lib/browser-login.server";
-import type { LoginInputEvent, LoginJobSnapshot } from "@/lib/browser-login";
+} from "@/lib/sync/browser-login.server";
+import type { LoginInputEvent, LoginJobSnapshot } from "@/lib/sync/browser-login";
 
 function aborted(err: unknown, signal?: AbortSignal) {
   if (signal?.aborted) return true;

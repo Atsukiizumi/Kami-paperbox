@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import type { SmartFolder } from "./vault-query.ts";
-import type { WatchArtist } from "./watch.ts";
+import type { WatchArtist } from "../watch.ts";
 
 const FAKE_SESSION = "11111111_testhashvalue";
 

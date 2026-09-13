@@ -10,8 +10,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/kami-link";
 import { Button } from "@/components/ui/button";
-import { listVault } from "@/lib/vault";
-import { monthOf, vaultTotals } from "@/lib/vault-query";
+import { listVault } from "@/lib/storage/vault";
+import { monthOf, vaultTotals } from "@/lib/storage/vault-query";
 import { formatBytes } from "@/lib/utils";
 import type { VaultMeta } from "@/lib/types";
 
