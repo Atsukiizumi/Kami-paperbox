@@ -130,25 +130,7 @@ export function composeBooruTags(site: BooruSite, user: string, safeMode: boolea
   return [...parts, ...extra].join(" ").trim();
 }
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
-}
-
-function asString(v: unknown, fallback = ""): string {
-  if (typeof v === "string") return v;
-  if (typeof v === "number" && Number.isFinite(v)) return String(v);
-  return fallback;
-}
-
-function asNumber(v: unknown, fallback = 0): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v !== "" && Number.isFinite(Number(v))) return Number(v);
-  return fallback;
-}
-
-function asBool(v: unknown): boolean {
-  return v === true;
-}
+import { asBool, asNumber, asRecord, asStringLoose as asString } from "./parse.ts";
 
 export function tagsOf(rec: Record<string, unknown>): string[] {
   if (typeof rec.tag_string === "string") return splitTags(rec.tag_string);

@@ -7,6 +7,7 @@
  *        这份文件只记目录和登录，不把像素 base64 进去。
  */
 import { cookiesOf, migrateLegacySettings, type Account } from "./accounts.ts";
+import { asRecordOrNull as asRecord } from "./parse.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "./browser-login.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
 import { parseProxyUrl } from "./proxy-url.ts";
@@ -103,10 +104,6 @@ function parseBackupKey(raw: string): { source: Source; id: string } | null {
   return { source, id };
 }
 
-function asRecord(raw: unknown): Record<string, unknown> | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  return raw as Record<string, unknown>;
-}
 
 function parseProfile(raw: unknown): Account["pixivProfile"] {
   const rec = asRecord(raw);

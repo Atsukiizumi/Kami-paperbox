@@ -6,6 +6,7 @@
  */
 import type { Source } from "./types.ts";
 import { decodeHtmlEntities } from "./utils.ts";
+import { asNumber, asRecord, asStringLoose as asString } from "./parse.ts";
 
 export type SearchEngine = "saucenao" | "ascii2d" | "iqdb";
 
@@ -162,7 +163,7 @@ export function parseSauceNaoJson(raw: unknown, _safeMode: boolean): ReverseHit[
     const header = asRecord(rec.header);
     const data = asRecord(rec.data);
     const sim = asNumber(header.similarity);
-    const urls = Array.isArray(data.ext_urls) ? data.ext_urls.map(asString).filter(Boolean) : [];
+    const urls = Array.isArray(data.ext_urls) ? data.ext_urls.map((v) => asString(v)).filter(Boolean) : [];
     const pixivId = asString(data.pixiv_id) || asString(data.pixivid);
     if (pixivId && !urls.some((u) => /pixiv\.net/i.test(u))) {
       urls.unshift(`https://www.pixiv.net/artworks/${pixivId}`);
@@ -170,7 +171,7 @@ export function parseSauceNaoJson(raw: unknown, _safeMode: boolean): ReverseHit[
     const sourceUrl = urls.find((h) => h && !/saucenao\.com/i.test(h)) || urls[0] || "";
     const creator = data.creator;
     const author = Array.isArray(creator)
-      ? creator.map(asString).filter(Boolean).join(", ")
+      ? creator.map((v) => asString(v)).filter(Boolean).join(", ")
       : asString(data.member_name) || asString(creator) || asString(data.author_name);
     const title = asString(data.title) || asString(data.material) || asString(header.index_name);
     const extra = asString(header.index_name);
@@ -231,19 +232,8 @@ export function parseIqdbHtml(html: string, safeMode: boolean): ReverseHit[] {
   return hits;
 }
 
-function asRecord(v: unknown): Record<string, unknown> {
-  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
-}
 
-function asString(v: unknown): string {
-  return typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : "";
-}
 
-function asNumber(v: unknown): number {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v !== "" && Number.isFinite(Number(v))) return Number(v);
-  return 0;
-}
 
 export function parseAscii2dHtml(html: string, extra = "特征"): ReverseHit[] {
   const blocks = html.split(/class="[^"]*item-box[^"]*"/i).slice(1);
