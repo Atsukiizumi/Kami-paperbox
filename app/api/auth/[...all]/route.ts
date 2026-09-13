@@ -1,7 +1,7 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { auth } from "@/lib/auth/server";
 import { withRequest } from "@/lib/next-route";
-import { scheduleSnapshotDump } from "@/lib/db-snapshot.server";
+import { scheduleSnapshotDump } from "@/lib/storage/db-snapshot.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

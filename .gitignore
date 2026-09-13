@@ -56,3 +56,4 @@ test-results
 next-env.d.ts
 
 .tmp-kami-root.txt
+coverage/
