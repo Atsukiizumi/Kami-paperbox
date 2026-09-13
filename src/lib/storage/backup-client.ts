@@ -9,7 +9,6 @@ import {
   backupFilename,
   buildBackup,
   mergeVaultRecords,
-  parseBackup,
   parseBackupFile,
   parseBackupSettings,
   parseCatalog,

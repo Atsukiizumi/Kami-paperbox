@@ -169,7 +169,7 @@ export function packJustified({
   const aspects = items.map((item) => clampAspect(item.aspect));
   let y = 0;
 
-  const flush = (indices: number[], lastRow: boolean) => {
+  const flush = (indices: number[], _lastRow: boolean) => {
     const n = indices.length;
     if (n === 0) return;
     const sum = indices.reduce((s, i) => s + (aspects[i] ?? FALLBACK_ASPECT), 0);

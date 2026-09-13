@@ -126,6 +126,7 @@ export function SearchSuggest({
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pick 每渲染重建，按可变快照订阅
   }, [open, items, active, query, source]);
 
   function pick(word: string) {

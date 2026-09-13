@@ -23,7 +23,6 @@ import { flyPaperToQueue } from "@/lib/paper-fly";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/sync/browser-login";
-import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
 import { workKey as vaultWorkKey } from "@/lib/storage/vault";
 import { useVaultIndex } from "@/lib/storage/vault-index";

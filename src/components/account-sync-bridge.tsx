@@ -107,9 +107,10 @@ export function AccountSyncBridge() {
         );
       }),
     );
+    const timers = debounces.current; // cleanup 捕获快照，不追 live ref
     return () => {
       for (const unsub of unsubs) unsub();
-      for (const timer of debounces.current.values()) window.clearTimeout(timer);
+      for (const timer of timers.values()) window.clearTimeout(timer);
     };
   }, [signedIn, userId]);
 

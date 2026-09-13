@@ -44,36 +44,6 @@ export function BackToBrowse() {
   );
 }
 
-export function isWorkPath(pathname: string) {
-  return pathname.startsWith("/work/");
-}
-
-export function isDetailPath(pathname: string) {
-  return (
-    pathname.startsWith("/work/") ||
-    pathname.startsWith("/user/") ||
-    pathname.startsWith("/creator/") ||
-    pathname.startsWith("/pool/")
-  );
-}
-
-export function isMainNavPath(pathname: string) {
-  return (
-    pathname === "/queue" ||
-    pathname === "/vault" ||
-    pathname === "/settings" ||
-    pathname === "/search" ||
-    pathname === "/history" ||
-    pathname === "/rankings" ||
-    pathname.startsWith("/queue/") ||
-    pathname.startsWith("/vault/") ||
-    pathname.startsWith("/settings/") ||
-    pathname.startsWith("/search/") ||
-    pathname.startsWith("/history/") ||
-    pathname.startsWith("/rankings/")
-  );
-}
-
 export function DetailNav() {
   return (
     <nav className="kami-detail-nav sticky top-14 z-20 -mx-4 flex flex-wrap items-center gap-1 border-b border-border/70 bg-bg/85 px-4 backdrop-blur-md md:-mx-10 md:px-10">
@@ -82,3 +52,4 @@ export function DetailNav() {
     </nav>
   );
 }
+

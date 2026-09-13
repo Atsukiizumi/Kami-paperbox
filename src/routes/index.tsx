@@ -110,6 +110,7 @@ export function Home() {
     if (!loggedIn && (feed === "recommend" || feed === "following")) {
       setFeed("daily");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 登录态翻转时一次性纠正 feed，feed 变化不该重跑
   }, [loggedIn]);
 
   useEffect(() => {
@@ -119,6 +120,7 @@ export function Home() {
     if (!fanboxCookie && (fanboxFeed === "home" || fanboxFeed === "supporting")) {
       setFanboxFeed("creator");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上：cookie 变化时一次性纠正 fanboxFeed
   }, [fanboxCookie]);
 
   function sourceCreds() {
@@ -352,6 +354,7 @@ export function Home() {
     if (pooled.length >= listPage * BROWSE_PAGE_SIZE) return;
     if (!activeQuery.hasNextPage || activeQuery.isFetchingNextPage) return;
     void activeQuery.fetchNextPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只随页码/可见性推进，整对象依赖会因 identity 每渲染重跑
   }, [listPage, pooled.length, activeQuery.hasNextPage, activeQuery.isFetchingNextPage, tab]);
 
   // 回到浏览页时先画 localStorage 里的旧列表，超过 BROWSE_STALE_MS 再后台补刷一次。
@@ -363,6 +366,7 @@ export function Home() {
     if (activeQuery.isFetching || activeQuery.isFetchingNextPage) return;
     if (Date.now() - activeQuery.dataUpdatedAt <= BROWSE_STALE_MS) return;
     void activeQuery.refetch().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 按字段订阅 activeQuery，整对象 identity 每渲染都变
   }, [settingsReady, activeQuery.dataUpdatedAt, activeQuery.isFetching, activeQuery.isFetchingNextPage]);
 
   useEffect(() => {

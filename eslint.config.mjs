@@ -54,6 +54,24 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Next 惯例：layout 导出 metadata/viewport 常量——fast-refresh 规则误报。
+    files: ["src/app/**/layout.tsx", "app/**/layout.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
+    // 既定模式：组件文件伴生导出 hooks/工具（kami-link 的 Link+usePathname、
+    // theme-provider 的 useTheme 等）——拆文件收益小于噪音，整类豁免。
+    files: [
+      "src/lib/kami-link.tsx",
+      "src/lib/error-component.tsx",
+      "src/components/theme-provider.tsx",
+      "src/components/proxied-img.tsx",
+      "src/components/hover-preview.tsx",
+      "src/components/ugoira-player.tsx",
+    ],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
   // Disable rules that conflict with Prettier formatting.
   prettier,
   // ── 分域边界（M10）───────────────────────────────────────────────

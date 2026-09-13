@@ -13,7 +13,7 @@ import { credentialTag } from "./sync/cred-tag";
 import { fanboxSessionFrom } from "./sync/browser-login";
 import { loadWork } from "./queue-runner";
 import { useSettings } from "./store";
-import type { Source, WorkDetail } from "./types";
+import type { Source } from "./types";
 
 export function workDetailQueryKey(src: Source, id: string) {
   const s = useSettings.getState();

@@ -244,7 +244,6 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         pages.forEach((page, i) => {
           const ext = (page.ext || "jpg").replace(/[^a-z0-9]/g, "") || "jpg";
           const rel = `files/${safeSeg(parsed.source)}/${safeSeg(parsed.id)}/${i}.${ext}`;
-          const abs = join(dir, ...rel.split("/"));
           const tmp = join(dest, `.${i}.${ext}.tmp`);
           writeFileSync(tmp, page.bytes);
           staged.push({ tmp, rel });

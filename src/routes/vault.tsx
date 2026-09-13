@@ -7,7 +7,7 @@
 "use client";
 
 import { Link } from "@/lib/kami-link";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
@@ -58,10 +58,7 @@ export function VaultPage() {
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const refreshToken = useRef(0);
-
   async function refresh() {
-    const token = ++refreshToken.current;
     let local: VaultMeta[] = [];
     try {
       local = await listVault();
@@ -427,6 +424,7 @@ function VaultCard({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖字段级快照：整 item 对象每渲染 identity 都变会死循环
   }, [item.key, item.relativePath, item.hasFile]);
 
   return (
