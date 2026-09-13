@@ -60,6 +60,7 @@ export function WatchPage() {
       toast.error("先在设置里添加 Pixiv 账号");
       return;
     }
+    try {
     const existing = new Set(watchArtists.map((w) => keyOf(w.source, w.id)));
     const merged: { source: "pixiv"; id: string; name: string; avatar: string }[] = [];
     for (let page = 1; page <= Math.ceil(watchLimit / 24) + 1; page += 1) {
@@ -81,7 +82,14 @@ export function WatchPage() {
       toggleWatchArtist(a);
       added += 1;
     }
-    toast.success(`已导入 ${added} 位画师`);
+    if (added < merged.length) {
+      toast.info(`已达追踪上限，只导入了 ${added} 位（还有 ${merged.length - added} 位未导入）`);
+    } else {
+      toast.success(`已导入 ${added} 位画师`);
+    }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "导入失败");
+    }
   }
 
   function markAllSeen() {

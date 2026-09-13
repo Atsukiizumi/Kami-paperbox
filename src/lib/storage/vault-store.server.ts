@@ -141,6 +141,7 @@ export type VaultStore = {
   list: (q?: VaultQuery) => VaultMeta[];
   get: (key: string) => VaultMeta | undefined;
   readPage: (key: string, page: number) => VaultPageRead | undefined;
+  pageExtList: (key: string) => { page: number; ext: string }[];
   patch: (key: string, patch: Partial<Pick<VaultMeta, "relativePath" | "folderLabel" | "title">>) => VaultMeta | undefined;
   remove: (key: string) => boolean;
   putHash: (key: string, dhash: string, w: number, h: number) => void;
@@ -177,6 +178,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
     "INSERT INTO pages (key, page, ext, mime, bytes, path) VALUES (?, ?, ?, ?, ?, ?)",
   );
   const selectPage = db.prepare("SELECT ext, mime, bytes, path FROM pages WHERE key = ? AND page = ?");
+  const selectPageMeta = db.prepare("SELECT page, ext FROM pages WHERE key = ? ORDER BY page");
   const selectPages = db.prepare("SELECT path FROM pages WHERE key = ?");
   const selectPageKeys = db.prepare("SELECT DISTINCT key FROM pages");
   const selectHasPage = db.prepare("SELECT 1 AS ok FROM pages WHERE key = ? AND page = 0 LIMIT 1");
@@ -371,6 +373,12 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       const abs = join(dir, ...row.path.split("/"));
       if (!existsSync(abs)) return undefined;
       return { bytes: readFileSync(abs), ext: row.ext, mime: row.mime };
+    },
+    pageExtList(key) {
+      return (selectPageMeta.all(key) as { page: number; ext: string }[]).map((row) => ({
+        page: Number(row.page) || 0,
+        ext: row.ext,
+      }));
     },
     patch(key, patch) {
       const current = store.get(key);

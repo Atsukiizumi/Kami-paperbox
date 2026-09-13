@@ -1,14 +1,16 @@
 /**
  * 纸匣导出（E）：条目 → zip 内路径的纯映射。
  *
- * 作用：把 keys 解析成可打包条目（有文件的）与跳过清单（缺条目/无文件）。
- * 为什么拆纯函数：分组逻辑可单测；zip 流本身信任 fflate。
+ * 作用：把 keys 解析成待打包清单（文件名/键/页码元数据）与跳过清单。
+ * 为什么只出元数据不带字节（评审 #130）：字节必须在流式 pull 里逐页读——
+ * 预读全部页会把整个包堆进内存，与「不整包进内存」的 spec 相悖。
  */
+import type { VaultMeta } from "../types.ts";
 import type { VaultStore } from "./vault-store.server.ts";
 
 export const EXPORT_MAX_KEYS = 400;
 
-export type ExportEntry = { name: string; key: string; page: number; bytes: Uint8Array };
+export type ExportItem = { name: string; key: string; page: number };
 export type ExportSkip = { key: string; reason: "missing" | "no-file" | "read-error" };
 
 function safeSeg(value: string): string {
@@ -17,7 +19,7 @@ function safeSeg(value: string): string {
 
 /** 文件夹名：作者（空则 unknown）；文件名：标题_source_id_p页.ext。 */
 export function entryName(
-  meta: { author: string; title: string; source: string; id: string },
+  meta: Pick<VaultMeta, "author" | "title" | "source" | "id">,
   page: number,
   ext: string,
 ): string {
@@ -26,11 +28,11 @@ export function entryName(
   return `${author}/${base}.${(ext || "jpg").replace(/[^a-z0-9]/g, "")}`;
 }
 
-export function buildExportEntries(
-  store: Pick<VaultStore, "get" | "readPage">,
+export function listExportEntries(
+  store: Pick<VaultStore, "get" | "pageExtList">,
   keys: string[],
-): { entries: ExportEntry[]; skipped: ExportSkip[] } {
-  const entries: ExportEntry[] = [];
+): { items: ExportItem[]; skipped: ExportSkip[] } {
+  const items: ExportItem[] = [];
   const skipped: ExportSkip[] = [];
   for (const key of keys) {
     const meta = store.get(key);
@@ -38,26 +40,14 @@ export function buildExportEntries(
       skipped.push({ key, reason: "missing" });
       continue;
     }
-    const pageCount = Math.max(0, meta.pageCount || 0);
-    if (!pageCount) {
+    const pages = store.pageExtList(key);
+    if (pages.length === 0) {
       skipped.push({ key, reason: "no-file" });
       continue;
     }
-    let broken = false;
-    for (let page = 0; page < pageCount; page += 1) {
-      const read = store.readPage(key, page);
-      if (!read) {
-        broken = true;
-        continue;
-      }
-      entries.push({
-        name: entryName(meta, page, read.ext),
-        key,
-        page,
-        bytes: new Uint8Array(read.bytes),
-      });
+    for (const { page, ext } of pages) {
+      items.push({ name: entryName(meta, page, ext), key, page });
     }
-    if (broken) skipped.push({ key, reason: "read-error" });
   }
-  return { entries, skipped };
+  return { items, skipped };
 }

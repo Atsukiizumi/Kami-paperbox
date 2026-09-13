@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { PNG } from "pngjs";
 import { openVaultStore } from "./vault-store.server.ts";
 import type { VaultMeta } from "../types.ts";
-import { buildExportEntries, entryName } from "./vault-export.server.ts";
+import { entryName, listExportEntries } from "./vault-export.server.ts";
 
 function png24(): Uint8Array {
   const img = new PNG({ width: 16, height: 16 });
@@ -39,7 +39,7 @@ test("entryName：按作者分文件夹 + 清洗 + 页码", () => {
   assert.equal(entryName({ author: "", title: "", source: "danbooru", id: "x-9" }, 2, "jpeg"), "unknown/x-9_danbooru_x-9_p2.jpeg");
 });
 
-test("buildExportEntries：有文件打包、缺文件跳过分组", () => {
+test("listExportEntries：只出元数据不带字节；缺文件跳过分组", () => {
   const root = mkdtempSync(join(tmpdir(), "kami-vault-exp-"));
   const store = openVaultStore(root);
   try {
@@ -49,16 +49,20 @@ test("buildExportEntries：有文件打包、缺文件跳过分组", () => {
       { bytes: png, ext: "png", mime: "image/png" },
       { bytes: png, ext: "png", mime: "image/png" },
     ]);
-    // put 需要至少 1 页；目录行页数>0 但磁盘无文件 = read-error
+    // 目录行页数>0 但磁盘无文件 = 流式阶段 read-error
     store.putMeta(meta("pixiv:104", {}));
-    const { entries, skipped } = buildExportEntries(store, ["pixiv:101", "pixiv:102", "pixiv:104", "pixiv:999"]);
-    assert.equal(entries.length, 3);
-    assert.ok(entries.every((e) => e.name.includes("/")));
-    assert.deepEqual(skipped, [
-      { key: "pixiv:104", reason: "read-error" },
-      { key: "pixiv:999", reason: "missing" },
-    ]);
-    assert.ok(entries[0]!.bytes.byteLength > 0);
+    const { items, skipped } = listExportEntries(store, ["pixiv:101", "pixiv:102", "pixiv:104", "pixiv:999"]);
+    assert.equal(items.length, 3);
+    assert.ok(items.every((e) => e.name.includes("/")));
+    assert.ok(items.every((e) => !("bytes" in e)), "元数据不得携带字节（评审 #130：字节在流式 pull 里逐页读）");
+    assert.deepEqual(
+      skipped,
+      [
+        { key: "pixiv:104", reason: "no-file" },
+        { key: "pixiv:999", reason: "missing" },
+      ],
+    );
+    assert.equal(items[0]!.name.startsWith("artistA/"), true);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });

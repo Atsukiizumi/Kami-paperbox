@@ -12,7 +12,7 @@
 
 ## 架构
 
-- **服务端打包**（对齐「文件在哪侧哪侧处理」）：`POST /api/vault/export` `{keys: string[]}`（个人面 withDataPlane，上限 500 key）→ 校验条目存在且有首页文件 → `fflate`（纯 JS，新增依赖）流式 zip：`ReadableStream` 边压边吐，响应 `application/zip`。不整包进内存。
+- **服务端打包**（对齐「文件在哪侧哪侧处理」）：`POST /api/vault/export` `{keys: string[]}`（个人面 withDataPlane，上限 400 key）→ 校验条目存在且有首页文件 → `fflate`（纯 JS，新增依赖）流式 zip：`ReadableStream` 边压边吐，响应 `application/zip`。不整包进内存。
 - **zip 结构**：`<safeAuthor>/<safeTitle>_<source>_<id>_p<i>.<ext>`（safeSeg 复用现有清洗；重名由 source+id 保证唯一）；包内 `_skipped.json`：`{reasons: {key, reason}[]}`。
 - **客户端**：纸匣页头部「导出 ZIP」按钮（筛选结果非空即可用）→ 收集当前筛选条目 keys → POST → `res.blob()` 触发下载。导出前按 meta.bytes 合计预估体积，>500MB toast 建议分批。
 

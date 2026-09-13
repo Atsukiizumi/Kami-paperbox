@@ -44,7 +44,7 @@ export function BatchToolbar({
         disabled={total === 0}
       >
         {selectedCount >= total && total > 0 ? <Square className="size-4" /> : <CheckSquare className="size-4" />}
-        {selectedCount >= total && total > 0 ? "清除" : "全选本页"}
+        {selectedCount >= total && total > 0 ? "清除" : "全选"}
       </Button>
       <div className="ml-auto flex items-center gap-2">
         <Button size="sm" disabled={selectedCount === 0 || over} onClick={() => onEnqueue("vault")}>
