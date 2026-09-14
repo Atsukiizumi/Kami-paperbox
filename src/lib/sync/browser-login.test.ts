@@ -113,6 +113,12 @@ test("parses cookie dumps from headers, json, and netscape files", () => {
   const guest = parseCookieDump("PHPSESSID=abcdef0123456789deadbeef");
   assert.equal(guest.pixiv, "");
   assert.equal(parseCookieDump("FANBOXSESSID=fanbox-guest-token-16ok").fanbox, "");
+
+  // 拆框（2026-09-14）：裸会话值只认 Pixiv，不再同时填 fanbox——两站格式同形，
+  // 双填会让「粘一个框、另一个框跟着变」。FANBOX 裸值走定向粘贴按站点解释。
+  const bare = parseCookieDump("77_abcdef0123456789deadbeef");
+  assert.equal(bare.pixiv, "77_abcdef0123456789deadbeef");
+  assert.equal(bare.fanbox, "");
 });
 
 test("windows chrome candidates include edge", () => {
