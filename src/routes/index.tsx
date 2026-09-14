@@ -16,6 +16,7 @@ import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/date-picker";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { parseUserInput } from "@/lib/parse-input";
@@ -598,15 +599,9 @@ export function Home() {
               ))}
             </ToggleGroup>
             {!searchWord && rankingPeriodOf(feed) ? (
-              <Input
-                type="date"
+              <DatePicker
                 value={rankingDate ? formatRankDate(rankingDate) : boardDate}
-                onChange={(e) => {
-                  if (e.target.value) setBoardDate(e.target.value);
-                }}
-                // 与 booru 一致：日期输入在工具行最右、紧挨刷新按钮；
-                // 输入框的值即实际生效期（未公布自动回落时显示回落后的那天）
-                className="ml-auto h-8 w-40"
+                onChange={(v) => setBoardDate(v)}
               />
             ) : null}
             {refreshButton}
@@ -669,15 +664,7 @@ export function Home() {
             ))}
           </ToggleGroup>
           {!searchWord && isBooruPeriodFeed(booruFeed) ? (
-            <Input
-              type="date"
-              value={boardDate}
-              onChange={(e) => {
-                if (e.target.value) setBoardDate(e.target.value);
-              }}
-              // ml-auto：日期控件与 Pixiv 一致统一靠右（本行最后一组是刷新按钮）
-              className="ml-auto h-8 w-40"
-            />
+            <DatePicker value={boardDate} onChange={(v) => setBoardDate(v)} />
           ) : null}
           {searchWord ? (
             <Button

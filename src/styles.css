@@ -1075,3 +1075,94 @@ html[data-kami-style="hand"] .kami-card-shell:hover {
     transform: none !important;
   }
 }
+
+/* ── 控件落地（纸感质感批 PR3）──────────────────────────────────── */
+
+/* 日历面板（react-day-picker 纸感换皮）：宣纸选中、墨点今天、hover 微浮。 */
+.kami-calendar {
+  --rdp-accent-color: var(--color-accent-fg);
+  --rdp-accent-bg-color: var(--color-accent);
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-day_button-border-radius: 0.625rem;
+  --rdp-nav_button-height: 2rem;
+  --rdp-nav_button-width: 2rem;
+  --rdp-nav-height: 2.5rem;
+  --rdp-selected-border: none;
+  padding: 0.5rem;
+}
+
+.kami-calendar .rdp-day_button {
+  transition:
+    background var(--motion-quick) var(--ease-out),
+    color var(--motion-quick) var(--ease-out);
+}
+
+.kami-calendar .rdp-day_button:hover {
+  background: var(--color-elevated);
+}
+
+.kami-calendar .rdp-today {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.kami-calendar .rdp-month_caption,
+.kami-calendar .rdp-weekday {
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.kami-calendar .rdp-months {
+  font-size: 0.8125rem;
+}
+
+/* 按月筛选：选中月的每一天铺底高亮（月语义，非单日）。 */
+.kami-calendar .kami-cal-inmonth .rdp-day_button {
+  background: color-mix(in oklab, var(--color-accent) 24%, transparent);
+  color: var(--color-fg);
+}
+
+/* vaul 底部抽屉（移动端设置分区）：纸片从底部拖出，可拖拽收起。 */
+.kami-drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem 2rem;
+  border-radius: 1.25rem 1.25rem 0 0;
+  border-top: 1px solid color-mix(in oklab, var(--color-fg) 10%, transparent);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-paper-3);
+}
+
+.kami-drawer-grabber {
+  align-self: center;
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-fg) 22%, transparent);
+}
+
+.kami-drawer-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.625rem;
+  text-align: left;
+  transition: background var(--motion-quick) var(--ease-out);
+}
+
+.kami-drawer-item[data-active="true"],
+.kami-drawer-item:hover {
+  background: var(--color-elevated);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kami-calendar .rdp-day_button,
+  .kami-drawer-item {
+    transition: none !important;
+  }
+}
