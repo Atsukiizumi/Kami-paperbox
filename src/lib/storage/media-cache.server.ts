@@ -9,8 +9,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { getLogger } from "../log.server.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import { noteCacheWrite } from "./cache-watermark.server.ts";
+
+const log = getLogger("media-cache:read");
 
 export const MEDIA_CACHE_TTL_MS = 7 * 24 * 60 * 60_000;
 export const MEDIA_CACHE_MAX_BYTES = 8 * 1024 * 1024;
@@ -89,7 +92,7 @@ export function readCachedMedia(
     }
     return { bytes: new Uint8Array(readFileSync(bin)), type: rec.type || "application/octet-stream" };
   } catch (err) {
-    console.warn("[media-cache:read] 缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
+    log.warn("缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

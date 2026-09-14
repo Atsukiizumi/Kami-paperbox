@@ -25,6 +25,18 @@ import { getActiveProxy } from "../proxy.server.ts";
 import { parseProxyUrl } from "../proxy-url.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "../site-identity.ts";
 import { resolveIdentities } from "../site-identity.server.ts";
+import { getLogger } from "../log.server.ts";
+
+const log = {
+  listProfiles: getLogger("browser-login:list-profiles"),
+  kami: getLogger("kami"),
+  pixivMe: getLogger("browser-login:pixiv-me"),
+  fanboxMe: getLogger("browser-login:fanbox-me"),
+  openPixiv: getLogger("browser-login:open-pixiv"),
+  resolveIdentity: getLogger("browser-login:resolve-identity"),
+  warmPixiv: getLogger("browser-login:warm-pixiv"),
+  warmFanbox: getLogger("browser-login:warm-fanbox"),
+};
 
 type MouseButton = "left" | "right" | "middle";
 
@@ -132,7 +144,7 @@ function playwrightChromeBins(): string[] {
     try {
       names = readdirSync(root);
     } catch (err) {
-      console.warn("[browser-login:list-profiles] 目录不可读（跳过）：", err instanceof Error ? err.message : err);
+      log.listProfiles.warn("目录不可读（跳过）：", err instanceof Error ? err.message : err);
       continue;
     }
     for (const name of names) {
@@ -194,7 +206,7 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
       return { browser, chrome: executablePath, proxy };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[kami] 无法启动 ${executablePath}: ${message}`);
+      log.kami.warn(`无法启动 ${executablePath}: ${message}`);
     }
   }
 
@@ -218,7 +230,7 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
       return { browser, chrome: channel, proxy };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[kami] 无法启动 channel:${channel}: ${message}`);
+      log.kami.warn(`无法启动 channel:${channel}: ${message}`);
     }
   }
 
@@ -255,7 +267,7 @@ async function profileFromPixivPage(page: PageLike): Promise<SiteProfile | null>
     });
     return parsePixivMe(json);
   } catch (err) {
-    console.warn("[browser-login:pixiv-me] 身份探测失败（按未登录）：", err instanceof Error ? err.message : err);
+    log.pixivMe.warn("身份探测失败（按未登录）：", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -274,7 +286,7 @@ async function profileFromFanboxPage(page: PageLike): Promise<SiteProfile | null
     });
     return parseFanboxMe(json);
   } catch (err) {
-    console.warn("[browser-login:fanbox-me] 身份探测失败（按未登录）：", err instanceof Error ? err.message : err);
+    log.fanboxMe.warn("身份探测失败（按未登录）：", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -284,7 +296,7 @@ async function confirmPixivLogin(page: PageLike, pixiv: string): Promise<SitePro
     try {
       await page.goto("https://www.pixiv.net/", { waitUntil: "domcontentloaded", timeout: 20_000 });
     } catch (err) {
-      console.warn("[browser-login:open-pixiv] 打开 Pixiv 失败：", err instanceof Error ? err.message : err);
+      log.openPixiv.warn("打开 Pixiv 失败：", err instanceof Error ? err.message : err);
       return null;
     }
   }
@@ -294,7 +306,7 @@ async function confirmPixivLogin(page: PageLike, pixiv: string): Promise<SitePro
     const remote = await resolveIdentities({ pixiv, fanbox: "" });
     return remote.pixiv;
   } catch (err) {
-    console.warn("[browser-login:resolve-identity] 远端身份解析失败：", err instanceof Error ? err.message : err);
+    log.resolveIdentity.warn("远端身份解析失败：", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -403,7 +415,7 @@ async function runJob(site: LoginSite): Promise<void> {
       error: null,
       pageUrl: "",
     };
-    console.info(`[kami] 登录中转已启动: ${launched.chrome}${isHeadlessShell(launched.chrome) ? " (headless)" : ""}`);
+    log.kami.info(`登录中转已启动: ${launched.chrome}${isHeadlessShell(launched.chrome) ? " (headless)" : ""}`);
 
     const page = (await browser.pages())[0] ?? (await browser.newPage());
     activePage = page;
@@ -453,7 +465,7 @@ async function runJob(site: LoginSite): Promise<void> {
           try {
             await page.goto("https://www.pixiv.net/", { waitUntil: "domcontentloaded", timeout: 20_000 });
           } catch (err) {
-            console.warn("[browser-login:warm-pixiv] 预热 Pixiv 失败：", err instanceof Error ? err.message : err);
+            log.warmPixiv.warn("预热 Pixiv 失败：", err instanceof Error ? err.message : err);
             openedPixivHome = false;
           }
         }
@@ -476,7 +488,7 @@ async function runJob(site: LoginSite): Promise<void> {
         try {
           await page.goto(FANBOX_AUTH_START, { waitUntil: "domcontentloaded", timeout: 25_000 });
         } catch (err) {
-          console.warn("[browser-login:warm-fanbox] 打开 FANBOX 授权页失败：", err instanceof Error ? err.message : err);
+          log.warmFanbox.warn("打开 FANBOX 授权页失败：", err instanceof Error ? err.message : err);
           openedFanboxAuth = false;
         }
       }

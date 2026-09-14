@@ -5,8 +5,14 @@
  * 用法：/api/whoami → resolveIdentities。
  */
 import { outboundFetch } from "./curl-fetch.server.ts";
+import { getLogger } from "./log.server.ts";
 import { pixivCookieHeader, fanboxCookieHeader, withPixivUserId } from "./sync/browser-login.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "./site-identity.ts";
+
+const log = {
+  pixivMe: getLogger("site-identity:pixiv-me"),
+  fanboxMe: getLogger("site-identity:fanbox-me"),
+};
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -44,7 +50,7 @@ export async function fetchPixivProfile(cookie?: string): Promise<SiteProfile | 
       const home = await outboundFetch("https://www.pixiv.net/", { headers });
       profile = parsePixivMe({}, await home.text());
     } catch (err) {
-      console.warn("[site-identity:pixiv-me] 探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
+      log.pixivMe.warn("探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
       profile = null;
     }
   }
@@ -86,7 +92,7 @@ export async function fetchFanboxProfile(cookie?: string): Promise<SiteProfile |
     const html = await home.text();
     return parseFanboxMe({}, html);
   } catch (err) {
-    console.warn("[site-identity:fanbox-me] 探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
+    log.fanboxMe.warn("探测失败（按未登录处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

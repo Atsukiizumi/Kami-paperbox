@@ -6,8 +6,11 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { getLogger } from "./log.server.ts";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import { DEFAULT_THROTTLE, parseThrottle, type ThrottleConfig } from "./throttle.ts";
+
+const log = getLogger("throttle:load");
 
 const CONFIG_REL = "kami.config.json";
 
@@ -26,7 +29,7 @@ export function getThrottle(root = resolveKamiRoot()): ThrottleConfig {
   try {
     parsed = parseThrottle(JSON.parse(readFileSync(path, "utf8")));
   } catch (err) {
-    console.warn("[throttle:load] 配置不可读，用默认节流：", err instanceof Error ? err.message : err);
+    log.warn("配置不可读，用默认节流：", err instanceof Error ? err.message : err);
     parsed = DEFAULT_THROTTLE;
   }
   cached = { mtime, value: parsed };

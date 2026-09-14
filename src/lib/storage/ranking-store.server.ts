@@ -8,8 +8,15 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { getLogger } from "../log.server.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import type { Source, WorkCard } from "../types.ts";
+
+const log = {
+  count: getLogger("ranking-store:count"),
+  parseItems: getLogger("ranking-store:parse-items"),
+  open: getLogger("ranking-store:open"),
+};
 
 export type RankPeriod = "daily" | "weekly" | "monthly";
 
@@ -59,7 +66,7 @@ function rowMeta(row: Row): RankSnapshotMeta {
     const parsed = JSON.parse(row.items) as unknown;
     count = Array.isArray(parsed) ? parsed.length : 0;
   } catch (err) {
-    console.warn("[ranking-store:count] 榜单缓存行损坏（按 0 计）：", err instanceof Error ? err.message : err);
+    log.count.warn("榜单缓存行损坏（按 0 计）：", err instanceof Error ? err.message : err);
     count = 0;
   }
   return {
@@ -119,7 +126,7 @@ export function openRankingStore(root = resolveKamiRoot()) {
         const parsed = JSON.parse(row.items) as unknown;
         if (Array.isArray(parsed)) items = parsed as WorkCard[];
       } catch (err) {
-        console.warn("[ranking-store:parse-items] 榜单缓存行损坏（按空列表）：", err instanceof Error ? err.message : err);
+        log.parseItems.warn("榜单缓存行损坏（按空列表）：", err instanceof Error ? err.message : err);
         items = [];
       }
       return { ...rowMeta(row), items };
@@ -154,7 +161,7 @@ export function getRankingStore() {
     return cached;
   } catch (err) {
     openCooldownUntil = Date.now() + OPEN_COOLDOWN_MS;
-    console.warn("[ranking-store:open] 打开榜单存储失败（榜单归档停用，5 分钟内不再重试）：", err instanceof Error ? err.message : err);
+    log.open.warn("打开榜单存储失败（榜单归档停用，5 分钟内不再重试）：", err instanceof Error ? err.message : err);
     return null;
   }
 }

@@ -8,10 +8,13 @@
  */
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { getLogger } from "../log.server.ts";
 import { pixivUserIdFromCookie } from "../sync/browser-login.ts";
 import { mediaCacheName } from "./media-cache.server.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import type { FanboxCursor, FetchInput, FetchOk } from "../types.ts";
+
+const log = getLogger("source-cache:read");
 
 // TD-27：两层缓存的 TTL 单一来源——routes/api/source.ts 的 unstable_cache
 // revalidate（秒）与本层磁盘 TTL（毫秒）都从这里取，改一处不再漂移。
@@ -113,7 +116,7 @@ export function readSourceCache(
     }
     return rec.body;
   } catch (err) {
-    console.warn("[source-cache:read] 缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
+    log.warn("缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
     return null;
   }
 }
