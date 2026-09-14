@@ -10,11 +10,12 @@
 
 <p align="center">
   <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.0-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.10.0"></a>
+  <a href="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml"><img src="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">
   <img src="https://img.shields.io/badge/next.js-16-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Next.js 16">
-  <img src="https://img.shields.io/badge/typescript-6-tsgo-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="TypeScript 6 (tsgo)">
+  <img src="https://img.shields.io/badge/typescript--6--tsgo-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="TypeScript 6 (tsgo)">
   <img src="https://img.shields.io/badge/tailwind-4-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Tailwind CSS 4">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="MIT License"></a>
   <a href="https://grok.com"><img src="https://img.shields.io/badge/AI-powered_by_Grok-0e0d0c?style=flat-square&labelColor=e8dfd2&logo=x&logoColor=0e0d0c" alt="AI powered by Grok"></a>
