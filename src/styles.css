@@ -84,10 +84,20 @@
     0 12px 32px color-mix(in oklab, #000 35%, transparent);
   --shadow-float: 0 18px 40px color-mix(in oklab, #000 40%, transparent);
 
+  /* 三级纸影（纸感质感批 PR1）：暖墨投影 + 顶部一线纸边高光，弹层家族分级用。 */
+  --shadow-paper-1: 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px color-mix(in oklab, #000 18%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-fg) 5%, transparent);
+  --shadow-paper-2: 0 2px 6px rgb(0 0 0 / 26%), 0 10px 24px color-mix(in oklab, #000 30%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-fg) 7%, transparent);
+  --shadow-paper-3: 0 6px 16px rgb(0 0 0 / 32%), 0 24px 56px color-mix(in oklab, #000 40%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-fg) 9%, transparent);
+
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-micro: 80ms;
   --motion-quick: 150ms;
   --motion-fast: 250ms;
+  /* 浮层进场档（纸感质感批 PR1）：弹层/抽屉/灯箱的「纸片浮起」，介于 quick 与 fast。 */
+  --motion-layer: 220ms;
   --motion-slow: 400ms;
   --motion-stagger: 40ms;
 }
@@ -232,6 +242,16 @@ html[data-appearance="light"] {
   --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 10%, transparent),
     0 12px 32px color-mix(in oklab, var(--color-fg) 10%, transparent);
   --shadow-float: 0 18px 40px color-mix(in oklab, var(--color-fg) 12%, transparent);
+  /* 纸影浅色形态：投影改由墨色派生并降浓度，纸边高光转白。 */
+  --shadow-paper-1: 0 1px 2px color-mix(in oklab, var(--color-fg) 10%, transparent),
+    0 2px 6px color-mix(in oklab, var(--color-fg) 8%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 60%);
+  --shadow-paper-2: 0 2px 6px color-mix(in oklab, var(--color-fg) 12%, transparent),
+    0 10px 24px color-mix(in oklab, var(--color-fg) 10%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 70%);
+  --shadow-paper-3: 0 6px 16px color-mix(in oklab, var(--color-fg) 14%, transparent),
+    0 24px 56px color-mix(in oklab, var(--color-fg) 12%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 80%);
 }
 
 html.kami-motion {
@@ -863,6 +883,97 @@ html[data-theme-transitioning]::view-transition-new(root) {
   background: color-mix(in oklab, var(--color-bg) 92%, black);
 }
 
+/* ── 纸感基座（纸感质感批 PR1）──────────────────────────────────── */
+
+/* 弹层家族统一动效：同一条「纸片落下」曲线（--ease-out），浮层档 220ms。
+   只动 transform/opacity；关闭态类供 forceMount 场景，默认挂载即播进场。 */
+@keyframes kami-layer-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes kami-layer-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@keyframes kami-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes kami-veil-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes kami-veil-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.kami-layer-in {
+  animation: kami-layer-in var(--motion-layer) var(--ease-out);
+}
+
+.kami-layer-out {
+  animation: kami-layer-out var(--motion-quick) var(--ease-out) forwards;
+}
+
+.kami-drop-in {
+  animation: kami-drop-in var(--motion-quick) var(--ease-out);
+}
+
+.kami-veil-in {
+  animation: kami-veil-in var(--motion-layer) var(--ease-out);
+}
+
+.kami-veil-out {
+  animation: kami-veil-out var(--motion-quick) var(--ease-out);
+}
+
+/* 全局细噪点纹理：纸面颗粒盖在一切之上（含弹层），overlay 混合不遮内容。 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+}
+
+/* 卷轴滚动条（Chromium 造型）：Firefox 侧已由 html 级 scrollbar-* 承担。 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-fg) 22%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-fg) 34%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kami-enter,
   .kami-page,
@@ -874,7 +985,12 @@ html[data-theme-transitioning]::view-transition-new(root) {
   .kami-shimmer,
   .kami-logo-busy .kami-logo-fold,
   .kami-vt-out,
-  .kami-vt-in {
+  .kami-vt-in,
+  .kami-layer-in,
+  .kami-layer-out,
+  .kami-drop-in,
+  .kami-veil-in,
+  .kami-veil-out {
     animation: none !important;
     transition: none !important;
   }
