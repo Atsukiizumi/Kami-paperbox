@@ -1,0 +1,40 @@
+# 上游 fixtures 手动刷新（M1 / docs/06 §6.4#1）。
+#
+# 仅 workflow_dispatch，不打 cron/schedule——GitHub 出口 IP 常态打上游会触发
+# 风控/封禁（R-01，yande/danbooru 已有 Cloudflare 拦杀前科）；fixtures 刷新是
+# 低频动作，由维护者按需手动触发。
+#
+# 产物只上传 artifact、不自动 commit：脱敏审查（下方凭据 grep 闸 + 人工复核）
+# 通过后由维护者手动提交——凭据零入库是人工闸，机器闸只兜底。
+
+name: Refresh upstream fixtures
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # node 版本对齐 ci.yml（Node 24）；脚本只用 node 内建模块，无需 pnpm install
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: 抓取上游真实响应（匿名端点 + 脱敏落盘）
+        run: node scripts/fetch-upstream-fixtures.mjs
+      # 凭据零入库机器闸：命中即红（人工闸 = 维护者提交前亲自复核 artifact）
+      - name: 凭据自检（命中即失败）
+        if: always()
+        run: |
+          if grep -rniE "sessid|token|csrf|secret|authorization|api[_-]?key" tests/fixtures/upstream/; then
+            echo "凭据模式命中：fixtures 未过脱敏审查，禁止入库"
+            exit 1
+          fi
+      - name: 上传 fixtures 供人工审查
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-fixtures
+          path: tests/fixtures/upstream/
+          if-no-files-found: warn
