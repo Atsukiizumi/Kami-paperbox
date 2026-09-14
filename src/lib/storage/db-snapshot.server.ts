@@ -28,9 +28,39 @@ async function snapshotTables(sql: Sql): Promise<string[]> {
   return rows.map((r) => r.table_name);
 }
 
-/** 这些列是 jsonb：恢复时要带 ::jsonb 转换。 */
-const JSONB_COLUMNS = new Set(["payload"]);
+/**
+ * 回退集：information_schema 枚举失败时按旧行为兜底（现 schema 里 jsonb
+ * 列只有 payload）。仅枚举失败时使用——枚举成功而表缺失说明该表真没有
+ * jsonb 列，此时回退 payload 反而会复现「文本列被强转 ::jsonb」的老病。
+ */
+const FALLBACK_JSONB_COLUMNS = new Set(["payload"]);
 const WATCH_INTERVAL_MS = 30_000;
+
+/**
+ * 按 information_schema 逐表枚举 jsonb 列（PGlite 与 Postgres 均原生支持）。
+ * 恢复时决定哪些参数带 ::jsonb 转换；导出侧是 select * 直取 JS 值，无需转换，
+ * 因此唯一消费方是 restore。查询失败返回空表 + ok:false，由调用方按回退集兜底。
+ */
+async function jsonbColumnsByTable(sql: Sql): Promise<{ map: Map<string, Set<string>>; ok: boolean }> {
+  try {
+    const rows = await sql.query<{ table_name: string; column_name: string }>(
+      "select table_name, column_name from information_schema.columns " +
+        "where table_schema = 'public' and data_type = 'jsonb'",
+    );
+    const map = new Map<string, Set<string>>();
+    for (const { table_name, column_name } of rows) {
+      if (!map.has(table_name)) map.set(table_name, new Set());
+      map.get(table_name)!.add(column_name);
+    }
+    return { map, ok: true };
+  } catch (err) {
+    console.warn(
+      "[db-snapshot:jsonb] jsonb 列枚举失败，恢复时回退 payload 白名单：",
+      err instanceof Error ? err.message : err,
+    );
+    return { map: new Map(), ok: false };
+  }
+}
 
 export type Snapshot = { at: number; tables: Record<string, Record<string, unknown>[]> };
 
@@ -107,13 +137,18 @@ async function restoreOrder(sql: Sql, tables: string[]): Promise<string[]> {
 /** 单行恢复失败：restore 结束后仍插不回去的行（TD-22：收集而非静默吞）。 */
 export type RestoreFailure = { table: string; row: Record<string, unknown>; error: string };
 
-async function insertRow(sql: Sql, table: string, row: Record<string, unknown>): Promise<void> {
+async function insertRow(
+  sql: Sql,
+  table: string,
+  row: Record<string, unknown>,
+  jsonbColumns: Set<string>,
+): Promise<void> {
   const cols = Object.keys(row).filter((c) => row[c] !== null && row[c] !== undefined);
   if (!cols.length) return;
   const params: unknown[] = [];
   const marks = cols.map((c) => {
-    params.push(JSONB_COLUMNS.has(c) ? JSON.stringify(row[c]) : row[c]);
-    return JSONB_COLUMNS.has(c) ? `$${params.length}::jsonb` : `$${params.length}`;
+    params.push(jsonbColumns.has(c) ? JSON.stringify(row[c]) : row[c]);
+    return jsonbColumns.has(c) ? `$${params.length}::jsonb` : `$${params.length}`;
   });
   await sql.query(
     `insert into ${quoteIdent(table)} (${cols.map(quoteIdent).join(", ")}) values (${marks.join(", ")}) on conflict do nothing`,
@@ -129,11 +164,14 @@ async function insertRow(sql: Sql, table: string, row: Record<string, unknown>):
  */
 export async function restore(sql: Sql, snap: Snapshot): Promise<RestoreFailure[]> {
   let pending: RestoreFailure[] = [];
+  const { map: jsonbMap, ok: jsonbOk } = await jsonbColumnsByTable(sql);
+  const jsonbColsOf = (table: string): Set<string> =>
+    jsonbOk ? (jsonbMap.get(table) ?? new Set()) : FALLBACK_JSONB_COLUMNS;
   const runPass = async (rows: RestoreFailure[]): Promise<RestoreFailure[]> => {
     const failed: RestoreFailure[] = [];
     for (const item of rows) {
       try {
-        await insertRow(sql, item.table, item.row);
+        await insertRow(sql, item.table, item.row, jsonbColsOf(item.table));
       } catch (err) {
         failed.push({ ...item, error: err instanceof Error ? err.message : String(err) });
       }
