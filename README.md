@@ -51,6 +51,14 @@ docker compose up --build
 - 令牌存在服务端 `.data/lan-token.json`，怀疑泄露就删掉它重启，所有设备重新配对。
 - 所有数据都在 `kami-data` 卷里（容器内 `.data/`）。
 
+**升级**：main 每次合并都会自动构建镜像到 GHCR（打 `v*` 标签时额外出版本 tag），所以已有部署可以直接：
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+不想等镜像就在原地 `docker compose up --build`。GHCR 包首次发布默认是私有的——在 GitHub 包设置里改成 public，或本机 `docker login ghcr.io` 一次。
+
 ### 数据在哪儿
 
 数据跟着跑服务的那台机器走，跟你从哪个 IP 打开无关：

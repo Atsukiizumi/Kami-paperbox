@@ -1,7 +1,11 @@
 services:
   kami:
+    # image 与 build 并存（compose 语义）：`docker compose pull && docker compose up -d`
+    # 走 GHCR 预构建镜像一键升级；`up --build` 本地构建并打同一个镜像名（兜底）。
+    # 首次 pull 若包还是 private，先 `docker login ghcr.io` 一次（或在 GitHub
+    # 包设置改 public），见 .github/workflows/docker-release.yml 头注。
     build: .
-    image: kami-paperbox:latest
+    image: ghcr.io/atsukiizumi/kami-paperbox:latest
     ports:
       - "8080:8080"
     environment:
