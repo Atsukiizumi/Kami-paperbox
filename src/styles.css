@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* 霞鹜文楷（手绘风标题）：直引字重文件（聚合 style.css 内嵌套 @import 会被
+   Tailwind PostCSS 内联到规则之后而报错）；unicode-range 分片，只有手绘态
+   被 --font-display 引用时浏览器才下载对应分片。 */
+@import "lxgw-wenkai-webfont/lxgwwenkai-regular.css";
+@import "lxgw-wenkai-webfont/lxgwwenkai-bold.css";
 
 @custom-variant dark (&:where([data-appearance="dark"], [data-appearance="dark"] *));
 
@@ -972,6 +977,73 @@ body::after {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* ── 手绘记号层（纸感质感批 PR2）──────────────────────────────────
+   只在 html[data-kami-style="hand"] 下生效；clean 态零成本移除。
+   原则：手绘只做「标注」，不做控件——字体换手写、笺条微歪、卡片墨晕，
+   控件形态两态同构（AGENTS.project.md 纸感语言不变式）。 */
+
+/* 标题字体整体换霞鹜文楷（token 级替换，h1-h3/.font-display 全部跟着走）。 */
+html[data-kami-style="hand"] {
+  --font-display: "LXGW WenKai", "Noto Serif SC", serif;
+}
+
+html[data-kami-style="hand"] h1,
+html[data-kami-style="hand"] h2,
+html[data-kami-style="hand"] h3 {
+  letter-spacing: 0.01em;
+}
+
+/* 笺条：直角 → 手写边微歪（transform 会覆盖默认的 -7deg 旋转，合并成歪斜+旋转）。 */
+html[data-kami-style="hand"] .kami-slip {
+  border-radius: 255px 12px 225px 12px / 12px 225px 12px 255px;
+  transform: rotate(-7.6deg);
+}
+
+/* 分区标题的毛笔笔触下划线：两道错位弧线叠出墨感。用法：标题元素加 kami-brush。 */
+.kami-brush {
+  position: relative;
+  display: inline-block;
+}
+
+.kami-brush::after {
+  content: "";
+  display: none;
+  position: absolute;
+  left: -2px;
+  right: -6px;
+  bottom: -6px;
+  height: 8px;
+  background: no-repeat left center / 100% 100%
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M2 5.2 Q 30 1.5 60 4.4 T 118 3.2' stroke='%23e8dfd2' stroke-width='2.6' stroke-linecap='round' fill='none' opacity='0.9'/%3E%3Cpath d='M8 6.6 Q 40 3.8 76 5.6 T 114 5' stroke='%23e8dfd2' stroke-width='1.1' stroke-linecap='round' fill='none' opacity='0.5'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+html[data-kami-style="hand"] .kami-brush::after {
+  display: block;
+}
+
+/* 卡片悬停墨晕：极淡的宣纸色晕开 + 半度歪斜，像纸片被指尖轻碰。 */
+html[data-kami-style="hand"] .kami-card-shell {
+  transition:
+    transform var(--motion-layer) var(--ease-out),
+    box-shadow var(--motion-layer) var(--ease-out);
+}
+
+html[data-kami-style="hand"] .kami-card-shell:hover {
+  transform: translateY(-1px) rotate(-0.15deg);
+  box-shadow:
+    var(--shadow-paper-2),
+    0 0 28px color-mix(in oklab, var(--color-accent) 6%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-kami-style="hand"] .kami-card-shell,
+  html[data-kami-style="hand"] .kami-card-shell:hover {
+    transition: none !important;
+    transform: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

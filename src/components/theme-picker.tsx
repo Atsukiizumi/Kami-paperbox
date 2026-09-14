@@ -154,6 +154,41 @@ function ThemeSwatches() {
   );
 }
 
+/** 界面风格（纸感质感批 PR2）：利落（默认）↔ 手绘记号层，切换即时生效。 */
+function StyleToggle() {
+  const uiStyle = useSettings((s) => s.uiStyle);
+  const setUiStyle = useSettings((s) => s.setUiStyle);
+  const options = [
+    { id: "clean", name: "利落", description: "直角规整，默认形态" },
+    { id: "hand", name: "手绘", description: "手写标题、笺条微歪、墨晕" },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {options.map((opt) => {
+        const active = uiStyle === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => setUiStyle(opt.id)}
+            aria-pressed={active}
+            className={cn(
+              "rounded-xl p-3 text-left transition-colors duration-200",
+              active ? "bg-elevated ring-1 ring-accent" : "bg-bg hover:bg-elevated/70",
+            )}
+          >
+            <span className={cn("text-sm font-medium text-fg", opt.id === "hand" && "font-display")}>
+              {opt.name}
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">{opt.description}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ThemeSection() {
   return (
     <Card>
@@ -163,6 +198,13 @@ export function ThemeSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <AppearanceToggle />
+        <div>
+          <h2 className="text-sm font-medium">界面风格</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            手绘风在纸面上做记号：标题换手写字、笺条微歪、悬停有墨晕。控件形态两种风格一致。
+          </p>
+        </div>
+        <StyleToggle />
         <div>
           <h2 className="text-sm font-medium">主题</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">

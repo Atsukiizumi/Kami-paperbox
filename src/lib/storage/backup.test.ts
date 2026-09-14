@@ -48,6 +48,7 @@ function sampleSettings() {
     activeAccountId: "acc-1",
     theme: "shusha" as const,
     appearance: "light" as const,
+    uiStyle: "hand" as const,
     onboarded: true,
   };
 }

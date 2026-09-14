@@ -17,7 +17,7 @@ import { parseSavedTags } from "../site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
 import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "../watch.ts";
 import { isSource, parseSource } from "../sites.ts";
-import { parseAppearance, parseThemeId, type Appearance, type ThemeId } from "../theme.ts";
+import { parseAppearance, parseThemeId, parseUiStyle, type Appearance, type ThemeId, type UiStyle } from "../theme.ts";
 import type { TagCatalogEntry } from "../tag-catalog.ts";
 import { parseTagLexicon, type TagLexiconRow } from "../tag-lexicon.ts";
 import type { Source, VaultMeta } from "../types.ts";
@@ -63,6 +63,7 @@ export type BackupSettings = {
   activeAccountId: string | null;
   theme: ThemeId;
   appearance: Appearance;
+  uiStyle: UiStyle;
   onboarded: boolean;
 };
 
@@ -206,6 +207,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     activeAccountId: legacy.activeAccountId,
     theme: parseThemeId(p.theme),
     appearance: parseAppearance(p.appearance),
+    uiStyle: parseUiStyle(p.uiStyle),
     onboarded: p.onboarded === true || legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
   };
 }

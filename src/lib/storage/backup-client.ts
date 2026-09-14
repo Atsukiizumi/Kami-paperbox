@@ -49,6 +49,7 @@ function snapshotSettings(): BackupSettings {
     activeAccountId: s.activeAccountId,
     theme: s.theme,
     appearance: s.appearance,
+    uiStyle: s.uiStyle,
     onboarded: s.onboarded,
   });
 }
