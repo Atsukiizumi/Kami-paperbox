@@ -116,7 +116,9 @@ export function WorkPage() {
       ];
     }
     return images.map((page, i) => ({
-      src: mediaUrl(page.regular || page.original),
+      // 灯箱主图用原图（regular 是 ~1200px 中档，全屏/放大就糊）；缩略图条用中档省流量。
+      src: mediaUrl(page.original || page.regular),
+      thumb: mediaUrl(page.regular || page.original),
       alt: `${work.title} ${i + 1}`,
       caption: formatResolution(page.width, page.height),
     }));

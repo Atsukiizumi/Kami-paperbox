@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils";
 import { UgoiraPlayer } from "./ugoira-player";
 
 export type LightboxItem = {
+  /** 主图：优先原图——灯箱就是用来看细节的（媒体代理带 Referer，原图可达）。 */
   src: string;
+  /** 底部缩略图条专用：中档图就够，别为 14 个小格子拉原图。缺省回退 src。 */
+  thumb?: string;
   alt: string;
   caption?: string;
   ugoira?: { zipUrl: string; frames: UgoiraFrame[] };
@@ -346,7 +349,7 @@ export function ImageLightbox({
               {it.ugoira ? (
                 <span className="flex size-full items-center justify-center bg-elevated text-[10px] text-muted">GIF</span>
               ) : (
-                <img src={it.src} alt="" className="size-full object-cover" draggable={false} />
+                <img src={it.thumb || it.src} alt="" className="size-full object-cover" draggable={false} />
               )}
             </button>
           ))}

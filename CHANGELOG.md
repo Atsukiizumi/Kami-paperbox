@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 大图灯箱之前放的是 ~1200px 的中档图（regular），全屏和放大发糊——现在主图改用原图（original，经媒体代理可达），底部缩略图条仍用中档省流量。实测同一张 Pixiv 作品从 1200px 换到 2000px 原图。
+
 ### 文档
 
 - 修 README TypeScript 徽章 404（shields 静态徽章右侧文本里的 `-` 需写成 `--` 转义）；新增 GitHub Actions CI 状态徽章（通过绿 / 失败红）。
