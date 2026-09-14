@@ -1,0 +1,53 @@
+# GHCR 镜像自动构建（M5 / docs/06 §6.4#5）——docker compose 一键升级的镜像源。
+#
+# main push → latest + sha-<short>；v* tag → 原样 tag + latest。构建输入与
+# ci.yml 的 docker job 逐字对齐（context `.`、gha 缓存、不传 target 与
+# build-args——Dockerfile 的默认值即应用形态），只多 push: true；登录用
+# GITHUB_TOKEN + packages:write，零新密钥。
+#
+# 注意：首次发布后 GHCR 包默认 PRIVATE——compose pull 之前，维护者要么在
+# GitHub → Packages → kami-paperbox 包设置里改成 public，要么本机
+# `docker login ghcr.io` 一次（README 与 docs/04 均有此一句说明）。
+
+name: Docker release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ghcr:
+    runs-on: ubuntu-latest
+    steps:
+      # action 版本对齐 ci.yml（buildx v4 / build-push v7 = Node 24 运行时
+      # 起始的大版本）；ci.yml 不 push 所以没有 login，这里补 login-action
+      # 同期大版本 v3。
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # tag 计算不用 docker/metadata-action：就一条 if 分支，shell 更直白，
+      # 也少一个要跟版本的 action。
+      - id: image-tags
+        name: 计算镜像 tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "tags=ghcr.io/atsukiizumi/kami-paperbox:${GITHUB_REF#refs/tags/},ghcr.io/atsukiizumi/kami-paperbox:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=ghcr.io/atsukiizumi/kami-paperbox:latest,ghcr.io/atsukiizumi/kami-paperbox:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image-tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -109,6 +109,8 @@ type SettingsState = {
   appearance: Appearance;
   uiStyle: UiStyle;
   onboarded: boolean;
+  /** 最近一次成功导出备份的时间（ms）。null = 从未备份；只在设置页导出成功时写。 */
+  lastBackupAt: number | null;
   addSmartFolder: (name: string, query: VaultQuery) => void;
   removeSmartFolder: (id: string) => void;
   toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => "added" | "removed" | "full";
@@ -137,6 +139,7 @@ type SettingsState = {
   setAppearance: (v: Appearance) => void;
   setUiStyle: (v: UiStyle) => void;
   setOnboarded: (v: boolean) => void;
+  markBackedUp: () => void;
   addAccount: (name: string) => string;
   renameAccount: (id: string, name: string) => void;
   removeAccount: (id: string) => void;
@@ -191,6 +194,7 @@ export const useSettings = create<SettingsState>()(
       appearance: DEFAULT_APPEARANCE,
       uiStyle: DEFAULT_UI_STYLE,
       onboarded: false,
+      lastBackupAt: null,
       setPixivCookie: (pixivCookie) => {
         set((s) => {
           if (!s.activeAccountId) {
@@ -299,6 +303,7 @@ export const useSettings = create<SettingsState>()(
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setUiStyle: (uiStyle) => set({ uiStyle: parseUiStyle(uiStyle) }),
       setOnboarded: (onboarded) => set({ onboarded }),
+      markBackedUp: () => set({ lastBackupAt: Date.now() }),
       addAccount: (name) => {
         const current = get();
         if (current.accounts.length >= 8) return current.activeAccountId ?? "";
@@ -433,6 +438,10 @@ export const useSettings = create<SettingsState>()(
           saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
           danbooruLogin: typeof p.danbooruLogin === "string" ? p.danbooruLogin.trim().slice(0, 120) : "",
           danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
+          // M5 备份提醒：可选新字段，缺省 null（从未备份）。persist 版本停在 11
+          // 不 bump——v11 老档 migrate 根本不会跑，zustand 默认浅合并让缺失字段
+          // 落回初始 null；这里兜 <11 老档升级路径，只透传合法数字。
+          lastBackupAt: typeof p.lastBackupAt === "number" && Number.isFinite(p.lastBackupAt) ? p.lastBackupAt : null,
         };
         if (version >= 2 && legacy.accounts.length) {
           return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
@@ -467,6 +476,7 @@ export const useSettings = create<SettingsState>()(
         appearance: s.appearance,
         uiStyle: s.uiStyle,
         onboarded: s.onboarded,
+        lastBackupAt: s.lastBackupAt,
       }),
     },
   ),

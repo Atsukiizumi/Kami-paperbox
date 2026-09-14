@@ -8,6 +8,7 @@ import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { applyBackupFile, backupNeedsPassphrase, downloadBackup } from "@/lib/storage/backup-client";
+import { useSettings } from "@/lib/store";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
@@ -17,12 +18,16 @@ export function BackupSection() {
   const [busy, setBusy] = useState(false);
   // 导出口令：留空导出明文 v1；填了出 v2 加密文件（设置与代理地址整段密文）
   const [exportPass, setExportPass] = useState("");
+  const markBackedUp = useSettings((s) => s.markBackedUp);
 
   async function exportBackup() {
     setBusy(true);
     try {
       const passphrase = exportPass.trim();
       const result = await downloadBackup(passphrase || undefined);
+      // 成功导出即记时间（存储分区据此超 30 天提醒）；只在本机设置 store，
+      // 不进同步段——「上次备份」是每台设备自己的事。
+      markBackedUp();
       toast.success(
         passphrase
           ? `已导出加密备份（${result.accounts} 个账号、${result.vault} 条纸匣记录）。口令丢了文件就读不回来了，请记牢。`

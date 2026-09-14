@@ -1,7 +1,8 @@
 /**
  * 设置「存储」页。
  *
- * 作用：选下载文件夹 / 应用内目录、路径模板预设，看占用与重扫。
+ * 作用：选下载文件夹 / 应用内目录、路径模板预设，看占用与重扫；超 30 天
+ *      未备份时以 .kami-slip 笺条提醒（M5）。
  * 用法：设置分类里打开；文件夹授权、占用统计都在此分区。
  */
 import { FolderOpen, FolderX } from "lucide-react";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/folder-access";
 import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
+import { isBackupOverdue } from "./backup-reminder";
 import { rescanFolderHashes } from "@/lib/storage/persist-files";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
@@ -31,6 +33,7 @@ import { Switch } from "../ui/switch";
 
 export function StorageSection() {
   const folderLabel = useSettings((s) => s.folderLabel);
+  const lastBackupAt = useSettings((s) => s.lastBackupAt);
   const vaultMirrorFolder = useSettings((s) => s.vaultMirrorFolder);
   const downloadToFolder = useSettings((s) => s.downloadToFolder);
   const pathPreset = useSettings((s) => s.pathPreset);
@@ -122,6 +125,10 @@ export function StorageSection() {
 
   const preview = formatDownloadPath(pathTemplate, SAMPLE_PATH_CONTEXT);
 
+  // 备份提醒（M5）：分区每次打开都重挂载，取挂载时刻判定即可，不做定时器。
+  // 从未备份（null）不算超期，只给一行小字；口径见 backup-reminder.ts。
+  const backupOverdue = isBackupOverdue(lastBackupAt, Date.now());
+
   return (
     <Card>
       <CardHeader>
@@ -132,6 +139,20 @@ export function StorageSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+
+      {backupOverdue ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {/* .kami-slip 是静态折角笺条（纯 transform 定妆，无动画），不涉 reduced-motion */}
+          <span className="kami-slip">距上次备份已超过 30 天</span>
+          {/* 分区走 hash 编排：href 改 hash → settings 页 hashchange 监听切分区 */}
+          <a href="#backup" className="text-xs text-muted underline underline-offset-4 hover:text-fg">
+            去导出一份
+          </a>
+        </div>
+      ) : null}
+      {lastBackupAt === null ? (
+        <p className="text-xs text-subtle">尚未备份过。换浏览器或清站点数据前，先到「备份」导出一份。</p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-bg p-3">
         <div className="min-w-0">
