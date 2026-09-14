@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
-暂无。
+### 变更
+
+- Docker 镜像与 CI 运行时从 Node 22 升到 **Node 24**（当前 Active LTS，开发机同版本）；GitHub Actions 升到以 Node 24 为运行时的大版本（pnpm/action-setup v6、setup-buildx-action v4、build-push-action v7），CI 的 Node 20 弃用告警清零。
+
+### 修复
+
+- Dockerfile 的 buildx 检查豁免此前一直没生效：`# check=skip` 是 parser 指令，必须位于文件最顶（此前前面有标题注释，整行被当普通注释忽略）。现在补 `# syntax=docker/dockerfile:1` 并置于首行——`VITE_AUTH_ENABLED`（公开布尔旗标，非密钥）的假阳性密钥注解真正消除；队列页一个未使用的 `cn` import 清除（lint 归零）。
 
 ## [0.9.0] — 2026-09-14
 

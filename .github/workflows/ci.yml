@@ -1,7 +1,8 @@
-# node 版本对齐 Dockerfile（node:22）；包管理统一 pnpm（TD-06）——
+# node 版本对齐 Dockerfile（node:24 = Active LTS）；包管理统一 pnpm（TD-06）——
 # pnpm/action-setup 按 package.json 的 packageManager 字段选版本，锁文件
 # 只有 pnpm-lock.yaml。build 不需要 DATABASE_URL —— migrate.mjs 无连接时
-# 自动跳过（PGLite 启动时自迁移）。
+# 自动跳过（PGLite 启动时自迁移）。action 版本均取「Node 24 运行时」
+# 起始的大版本（pnpm v6 / buildx v4 / build-push v7），消 Node 20 弃用注解。
 
 name: CI
 
@@ -19,10 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
@@ -37,8 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -51,10 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium

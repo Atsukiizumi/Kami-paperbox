@@ -9,7 +9,6 @@
 import { Link } from "@/lib/kami-link";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { ProxiedImg } from "@/components/proxied-img";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptySheet } from "@/components/empty-sheet";
