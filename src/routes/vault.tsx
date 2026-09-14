@@ -15,6 +15,7 @@ import { EmptySheet } from "@/components/empty-sheet";
 import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MonthPicker } from "@/components/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SITE_LIST } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
@@ -230,19 +231,7 @@ export function VaultPage() {
               </Select>
             ) : null}
             {monthOptions.length > 1 ? (
-              <Select value={month || "all"} onValueChange={(v) => setMonth(v === "all" ? "" : v)}>
-                <SelectTrigger className="h-9 min-w-[7.5rem] rounded-full bg-elevated px-3.5">
-                  <SelectValue placeholder="月份" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部时间</SelectItem>
-                  {monthOptions.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MonthPicker value={month} onChange={(m) => setMonth(m)} />
             ) : null}
             <span className="ml-auto text-xs tabular-nums text-subtle">
               {totals.count} 条 · {formatBytes(totals.bytes)}

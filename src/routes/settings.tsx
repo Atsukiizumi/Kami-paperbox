@@ -1,8 +1,9 @@
 "use client";
 
-import { ClipboardPaste, LogIn, Plus, Trash2 } from "lucide-react";
+import { ClipboardPaste, LogIn, Menu, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Drawer } from "vaul";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,32 +63,71 @@ function SettingsMenu({
   page: SettingsPageId;
   onPick: (id: SettingsPageId) => void;
 }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const current = SETTINGS_PAGES.find((item) => item.id === page);
+
   return (
-    <nav aria-label="设置分类" className="md:w-40 md:shrink-0">
-      <p className="mb-2 hidden text-[11px] tracking-wide text-subtle uppercase md:block">分类</p>
-      <ul className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
-        {SETTINGS_PAGES.map((item) => {
-          const active = item.id === page;
-          return (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => onPick(item.id)}
-                className={cn(
-                  "flex w-full min-w-max flex-col rounded-lg px-3 py-2 text-left transition-colors",
-                  active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/70 hover:text-fg",
-                )}
-              >
-                <span className="text-sm">{item.label}</span>
-                <span className={cn("hidden text-[11px] md:block", active ? "text-subtle" : "text-subtle/80")}>
-                  {item.hint}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+    <>
+      {/* 移动端：横向 chips 换成「分类」按钮 + 底部抽屉（纸感质感批 PR3）；
+          桌面端保持纵向分类列表。 */}
+      <div className="md:hidden">
+        <Button variant="secondary" size="sm" className="h-8 gap-1.5" onClick={() => setDrawerOpen(true)}>
+          <Menu className="size-3.5" />
+          {current ? `分类 · ${current.label}` : "分类"}
+        </Button>
+        <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <Drawer.Portal>
+            <Drawer.Overlay className="kami-veil-in fixed inset-0 z-50 bg-overlay" />
+            <Drawer.Content className="kami-drawer-content">
+              <div className="kami-drawer-grabber" aria-hidden />
+              <Drawer.Title className="font-display text-base text-fg">设置分类</Drawer.Title>
+              <div className="flex flex-col gap-0.5">
+                {SETTINGS_PAGES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="kami-drawer-item"
+                    data-active={item.id === page}
+                    onClick={() => {
+                      onPick(item.id);
+                      setDrawerOpen(false);
+                    }}
+                  >
+                    <span className="text-sm text-fg">{item.label}</span>
+                    <span className="text-[11px] text-subtle">{item.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </Drawer.Content>
+          </Drawer.Portal>
+        </Drawer.Root>
+      </div>
+      <nav aria-label="设置分类" className="hidden md:block md:w-40 md:shrink-0">
+        <p className="mb-2 text-[11px] tracking-wide text-subtle uppercase">分类</p>
+        <ul className="flex flex-col gap-1">
+          {SETTINGS_PAGES.map((item) => {
+            const active = item.id === page;
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(item.id)}
+                  className={cn(
+                    "flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors",
+                    active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/70 hover:text-fg",
+                  )}
+                >
+                  <span className="text-sm">{item.label}</span>
+                  <span className={cn("text-[11px]", active ? "text-subtle" : "text-subtle/80")}>
+                    {item.hint}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
   );
 }
 
@@ -838,6 +878,15 @@ export function SettingsPage() {
           <li>Pixiv 已登录的 PHPSESSID 形如 12345678_后面一串，没有下划线的是访客 Cookie，不能用。</li>
           <li>Cookie 只存在你的浏览器里，不会进数据库。</li>
         </ol>
+      </section>
+
+      <section className="space-y-2 text-sm text-muted">
+        <h2 className="text-sm font-medium text-fg">大图浏览（灯箱）</h2>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>点开作品大图进入灯箱：滚轮或双指捏合缩放（以光标 / 双指中点为锚），放大后按住拖动看细节，双击在原大与 2× 间切换。</li>
+          <li>键盘 ← / → 翻页，+ / − 缩放，0 复位，Esc 关闭。</li>
+          <li>多 P 作品在卡片上的大预览浮层里，滚轮是翻页；要缩放请点进灯箱——两处滚轮各司其职。</li>
+        </ul>
       </section>
       </div>
       ) : null}
