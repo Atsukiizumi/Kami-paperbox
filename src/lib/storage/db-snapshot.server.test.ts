@@ -146,3 +146,70 @@ test("restore reports rows that can never come back, instead of swallowing them"
   assert.equal(users[0]?.n, 1);
   await pg.close();
 });
+
+test("snapshot round-trips a jsonb column that is not named payload", async () => {
+  // SNAP-JSONB：旧实现硬编码 {"payload"}，恢复时非 payload 的 jsonb 列拿不到
+  // ::jsonb 转换。新列名必须经 information_schema 枚举后同样走 jsonb 通道。
+  const createTable = "create table kami_jsonb_rt (id text primary key, data jsonb not null)";
+  const pgA = await openMigrated();
+  const sqlA = toSql(pgA);
+  await pgA.exec(createTable);
+  await sqlA.query("insert into kami_jsonb_rt (id, data) values ($1,$2::jsonb)", [
+    "row-1",
+    JSON.stringify({ kind: "meta", items: [1, "二"], nested: { ok: true } }),
+  ]);
+  const snap = JSON.parse(JSON.stringify(await capture(sqlA))) as Snapshot;
+  await pgA.close();
+
+  // 清库重开（迁移后建回同一张表），恢复后值必须相等且是真 jsonb（可取键）。
+  const pgB = await openMigrated();
+  const sqlB = toSql(pgB);
+  await pgB.exec(createTable);
+  const failures = await restore(sqlB, snap);
+  assert.deepEqual(failures, [], "恢复不应有失败行");
+  const rows = await sqlB.query<{ id: string; data: { kind?: string; items?: unknown[] } }>(
+    "select id, data from kami_jsonb_rt where id = 'row-1'",
+  );
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]?.data.kind, "meta", "->>'kind' 可取说明插回的是 jsonb 而非文本");
+  assert.deepEqual(rows[0]?.data, { kind: "meta", items: [1, "二"], nested: { ok: true } });
+  await pgB.close();
+});
+
+test("jsonb 列枚举失败时回退 payload 白名单并告警", async () => {
+  const pg = await openMigrated();
+  const sql = toSql(pg);
+  // 包一层：information_schema.columns 查询必炸，模拟枚举失败。
+  const broken: Sql = {
+    query: async <T>(text: string, params?: unknown[]) => {
+      if (text.includes("information_schema.columns")) throw new Error("enum down");
+      return sql.query<T>(text, params);
+    },
+  } as Sql;
+  const warns: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...parts: unknown[]) => {
+    warns.push(parts.map(String).join(" "));
+  };
+  try {
+    const failures = await restore(
+      broken,
+      {
+        at: Date.now(),
+        tables: {
+          // user_sync_segments.payload 是 jsonb：回退集 {"payload"} 必须让它照旧带 ::jsonb 插回
+          user_sync_segments: [{ user_id: "u-fb", segment: "sites", payload: { pixiv: 1 }, exported_at: "100" }],
+        },
+      },
+    );
+    assert.deepEqual(failures, [], "回退路径下好行仍应恢复");
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.ok(warns.some((w) => w.includes("jsonb 列枚举失败")), "枚举失败必须按 [模块:操作] 口径告警");
+  const segs = await sql.query<{ payload: { pixiv?: number } }>(
+    "select payload from user_sync_segments where user_id = 'u-fb'",
+  );
+  assert.equal(segs[0]?.payload.pixiv, 1, "回退集必须把 payload 列按 jsonb 恢复");
+  await pg.close();
+});

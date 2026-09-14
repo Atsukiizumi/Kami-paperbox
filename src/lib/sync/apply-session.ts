@@ -10,6 +10,7 @@
  *        见 pixiv-auth.md §5），所以存储层不做任何跨站复制——复制只会让
  *        「一个框填了、另一个框跟着变」，用户分不清哪框是哪站。
  */
+import { toast } from "sonner";
 import {
   fanboxSessionValue,
   isFanboxLoggedInSession,
@@ -19,6 +20,9 @@ import {
   type LoginSite,
 } from "./browser-login.ts";
 import { useSettings } from "../store.ts";
+
+/** 登录状态推送失败的固定 toast id：失败重试时折叠成一条，不在防抖循环里刷屏。 */
+const SESSION_SYNC_TOAST_ID = "kami-session-sync";
 
 export type LoginSessionInput = {
   pixiv?: string;
@@ -37,8 +41,15 @@ export async function applyLoginSession(data: LoginSessionInput): Promise<{ ok: 
   if (data.pixiv) s.setPixivCookie(data.pixiv);
   if (data.fanbox) s.setFanboxCookie(data.fanbox);
   s.applyProfiles({ pixiv: data.pixivProfile, fanbox: data.fanboxProfile });
-  if (!data.pixivProfile && !data.fanboxProfile) await s.refreshIdentities().catch(() => undefined);
-  await s.syncSessions().catch(() => undefined);
+  if (!data.pixivProfile && !data.fanboxProfile) {
+    // 身份获取失败（非 2xx / 网络异常）已在 refreshIdentities 内部弹固定 id 提示，
+    // 这里只兜底防冒泡，不重复提示。
+    await s.refreshIdentities().catch(() => undefined);
+  }
+  // 曾 .catch(() => undefined)：服务端写会话失败时用户以为已登录成功，实际没保存
+  await s.syncSessions().catch(() => {
+    toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
+  });
   return { ok: true };
 }
 

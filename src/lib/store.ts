@@ -9,6 +9,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
+import { toast } from "sonner";
 import { clampQueueConcurrency } from "./queue-retry.ts";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types.ts";
@@ -70,6 +71,13 @@ export function onPersisted(store: { persist?: PersistApi }, fn: () => void): ()
 }
 
 type Tab = Source;
+
+/**
+ * 站点身份获取失败提示的固定 toast id：refreshIdentities 可能被切换账号 /
+ * 设置页 / 登录流程反复触发，固定 id 让 sonner 把重试折叠成一条，不刷屏。
+ * apply-session 的吞错尾部复用同一 id，两条路径提示互相覆盖不叠加。
+ */
+export const IDENTITY_REFRESH_TOAST_ID = "kami-identity-refresh";
 
 type SettingsState = {
   pixivCookie: string;
@@ -354,7 +362,11 @@ export const useSettings = create<SettingsState>()(
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ pixiv: pixivCookie, fanbox: fanboxCookie }),
           });
-          if (!res.ok) return;
+          if (!res.ok) {
+            // 曾静默 return：Cookie 失效 / 服务端故障时用户只看到头像不更新，无任何提示
+            toast.error("站点身份获取失败，请稍后重试", { id: IDENTITY_REFRESH_TOAST_ID });
+            return;
+          }
           const data = (await res.json()) as {
             pixiv?: SiteProfile | null;
             fanbox?: SiteProfile | null;
@@ -364,7 +376,8 @@ export const useSettings = create<SettingsState>()(
             fanbox: fanboxCookie ? (data.fanbox ?? null) : null,
           });
         } catch {
-          /* keep whatever profile we already have */
+          // 网络异常路径与非 2xx 同一固定 id：离线期反复重试折叠成一条，不刷屏
+          toast.error("站点身份获取失败，请稍后重试", { id: IDENTITY_REFRESH_TOAST_ID });
         }
       },
     }),

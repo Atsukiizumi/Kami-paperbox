@@ -19,6 +19,7 @@
     "test": "node --test \"scripts/**/*.test.mjs\" && node --experimental-strip-types --test \"src/lib/**/*.test.ts\" && node --import tsx --test \"src/**/*.test.tsx\"",
     "test:components": "node --import tsx --test \"src/**/*.test.tsx\"",
     "test:coverage": "c8 --all --include src --extension .ts --extension .tsx -r text-summary -r text node --import tsx --test \"src/lib/**/*.test.ts\" \"src/**/*.test.tsx\"",
+    "test:coverage:ci": "c8 --all --include src --extension .ts --extension .tsx -r json-summary -r text-summary node --import tsx --test \"scripts/**/*.test.mjs\" \"src/lib/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "lint": "eslint .",
     "format": "prettier --write .",
     "pack": "python3 scripts/pack.py",
