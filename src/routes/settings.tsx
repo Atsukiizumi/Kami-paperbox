@@ -879,6 +879,15 @@ export function SettingsPage() {
           <li>Cookie 只存在你的浏览器里，不会进数据库。</li>
         </ol>
       </section>
+
+      <section className="space-y-2 text-sm text-muted">
+        <h2 className="text-sm font-medium text-fg">大图浏览（灯箱）</h2>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>点开作品大图进入灯箱：滚轮或双指捏合缩放（以光标 / 双指中点为锚），放大后按住拖动看细节，双击在原大与 2× 间切换。</li>
+          <li>键盘 ← / → 翻页，+ / − 缩放，0 复位，Esc 关闭。</li>
+          <li>多 P 作品在卡片上的大预览浮层里，滚轮是翻页；要缩放请点进灯箱——两处滚轮各司其职。</li>
+        </ul>
+      </section>
       </div>
       ) : null}
         </div>

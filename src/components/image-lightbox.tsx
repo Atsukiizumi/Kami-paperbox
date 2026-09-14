@@ -36,6 +36,39 @@ export function ImageLightbox({
   const drag = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(
     null,
   );
+  // 双指捏合（纸感质感批 PR3b）：两指在屏即进入手势，基准距离/中点/变换，
+  // 移动时按比例缩放并跟随中点平移；单指回落到拖拽。
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{
+    baseScale: number;
+    baseOffset: { x: number; y: number };
+    baseDist: number;
+    baseMid: { x: number; y: number };
+  } | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const view = useRef({ scale, offset });
+  view.current = { scale, offset };
+
+  /** 以屏幕坐标 (sx,sy) 为锚点缩放到 next：光标/双指中点下的内容点保持不动。 */
+  function zoomAt(sx: number, sy: number, next: number) {
+    const clamped = Math.min(5, Math.max(1, next));
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setScale(clamped);
+      if (clamped === 1) setOffset({ x: 0, y: 0 });
+      return;
+    }
+    const cx = sx - (rect.left + rect.width / 2);
+    const cy = sy - (rect.top + rect.height / 2);
+    const { scale: s, offset: o } = view.current;
+    const k = clamped / s;
+    setOffset({
+      x: cx - k * (cx - o.x),
+      y: cy - k * (cy - o.y),
+    });
+    setScale(clamped);
+    if (clamped === 1) setOffset({ x: 0, y: 0 });
+  }
 
   useEffect(() => {
     if (open) {
@@ -51,6 +84,9 @@ export function ImageLightbox({
   useEffect(() => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
+    pointers.current.clear();
+    pinch.current = null;
+    drag.current = null;
   }, [index, open]);
 
   useEffect(() => {
@@ -87,9 +123,45 @@ export function ImageLightbox({
 
   function onPointerDown(e: React.PointerEvent) {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = {
+        baseScale: view.current.scale,
+        baseOffset: view.current.offset,
+        baseDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+        baseMid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      };
+      drag.current = null;
+      return;
+    }
     drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y, moved: false };
   }
   function onPointerMove(e: React.PointerEvent) {
+    if (pointers.current.has(e.pointerId)) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const base = pinch.current;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const next = Math.min(5, Math.max(1, base.baseScale * (dist / base.baseDist)));
+      const rect = stageRef.current?.getBoundingClientRect();
+      if (rect) {
+        const cx = mid.x - (rect.left + rect.width / 2);
+        const cy = mid.y - (rect.top + rect.height / 2);
+        const bx = base.baseMid.x - (rect.left + rect.width / 2);
+        const by = base.baseMid.y - (rect.top + rect.height / 2);
+        // 基准中点下的内容点在新变换后跟随当前中点（缩放 + 双指平移一体）。
+        const px = (bx - base.baseOffset.x) / base.baseScale;
+        const py = (by - base.baseOffset.y) / base.baseScale;
+        setOffset({ x: cx - next * px, y: cy - next * py });
+        setScale(next);
+        if (next === 1) setOffset({ x: 0, y: 0 });
+      }
+      return;
+    }
     const d = drag.current;
     if (!d) return;
     const dx = e.clientX - d.x;
@@ -100,6 +172,13 @@ export function ImageLightbox({
     }
   }
   function onPointerUp(e: React.PointerEvent) {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 1) {
+      const [rest] = [...pointers.current.values()];
+      drag.current = { x: rest.x, y: rest.y, ox: offset.x, oy: offset.y, moved: true };
+      return;
+    }
     const d = drag.current;
     drag.current = null;
     if (!d || d.moved) return;
@@ -204,21 +283,22 @@ export function ImageLightbox({
         ) : null}
 
         <div
+          ref={stageRef}
           className="flex size-full items-center justify-center overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
           onWheel={(e) => {
             e.preventDefault();
-            const next = e.deltaY > 0 ? scale * 0.9 : scale * 1.1;
-            setScale(Math.min(5, Math.max(1, next)));
+            zoomAt(e.clientX, e.clientY, e.deltaY > 0 ? view.current.scale * 0.9 : view.current.scale * 1.1);
           }}
-          onDoubleClick={() => {
+          onDoubleClick={(e) => {
             if (scale > 1) {
               setScale(1);
               setOffset({ x: 0, y: 0 });
-            } else setScale(2);
+            } else zoomAt(e.clientX, e.clientY, 2);
           }}
         >
           <div
