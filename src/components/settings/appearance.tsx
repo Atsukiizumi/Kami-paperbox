@@ -1,3 +1,10 @@
+/**
+ * 设置「外观」页 + 顶栏主题菜单。
+ *
+ * 作用：ThemeSection 是设置外观分区的主题选择卡片；ThemeMenu 是顶栏的主题下拉。
+ * 用法：设置页按分区渲染 ThemeSection；AppShell 挂 ThemeMenu。
+ * 为什么：切换用 View Transition 从点击点圆形揭示（动效批 B），两处共用一套过渡。
+ */
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-react";
 import {
   THEME_LIST,

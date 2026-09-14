@@ -1,3 +1,9 @@
+/**
+ * 设置「存储」页。
+ *
+ * 作用：选下载文件夹 / 应用内目录、路径模板预设，看占用与重扫。
+ * 用法：设置分类里打开；文件夹授权、占用统计都在此分区。
+ */
 import { FolderOpen, FolderX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -18,10 +24,10 @@ import { cn, formatBytes } from "@/lib/utils";
 import { rescanFolderHashes } from "@/lib/storage/persist-files";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Input } from "./ui/input";
-import { Switch } from "./ui/switch";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
+import { Switch } from "../ui/switch";
 
 export function StorageSection() {
   const folderLabel = useSettings((s) => s.folderLabel);

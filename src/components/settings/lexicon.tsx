@@ -6,9 +6,9 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Input } from "./ui/input";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
 import {
   TAG_LEXICON_FORMAT,
   mergeExportRows,

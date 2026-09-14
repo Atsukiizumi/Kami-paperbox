@@ -8,9 +8,9 @@ import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { applyBackupFile, backupNeedsPassphrase, downloadBackup } from "@/lib/storage/backup-client";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 
 export function BackupSection() {
   const fileRef = useRef<HTMLInputElement>(null);
