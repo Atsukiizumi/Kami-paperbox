@@ -13,7 +13,7 @@ import { useWatchBadge } from "@/lib/watch-badge";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
 import { warmPixivCsrf } from "@/lib/source";
-import { ThemeMenu } from "@/components/theme-picker";
+import { ThemeMenu } from "@/components/settings/appearance";
 import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
 import { PaperMark } from "@/components/paper-mark";
