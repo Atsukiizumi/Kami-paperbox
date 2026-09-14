@@ -227,8 +227,8 @@ export function parseCookieDump(raw: string): BrowserSession {
   if (headerFanbox && isFanboxLoggedInSession(headerFanbox)) fanbox = fanboxSessionValue(headerFanbox);
 
   if (!pixiv && isPixivLoggedInSession(text)) pixiv = pixivSessionValue(text);
-  if (!fanbox && isFanboxLoggedInSession(text)) fanbox = fanboxSessionValue(text);
-
+  // 裸值只认 Pixiv：会话格式两站同形，裸值双填会让「粘一个框、另一个框跟着变」
+  // （2026-09-14 拆框修复）。FANBOX 的裸值走 FANBOX 框的定向粘贴按站点解释。
   return { pixiv, fanbox };
 }
 

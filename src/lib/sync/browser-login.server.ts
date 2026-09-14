@@ -466,7 +466,10 @@ async function runJob(site: LoginSite): Promise<void> {
         pixivConfirmed = true;
       }
 
-      const readyForFanbox = site === "fanbox" ? Boolean(pixiv || fanbox) : pixivConfirmed;
+      // 两站独立（2026-09-14 拆框）：只有 FANBOX 登录才走 /auth/start 回转收割
+      // FANBOXSESSID；Pixiv 登录到此为止，FANBOX 访问由请求层 fanboxCookieHeader
+      // 的 pixiv 回退承担，不在登录结果里复制值。
+      const readyForFanbox = site === "fanbox" && Boolean(pixiv || fanbox);
       if (readyForFanbox && !fanboxDone && !openedFanboxAuth) {
         openedFanboxAuth = true;
         fanboxBounceAt = Date.now();
@@ -493,7 +496,7 @@ async function runJob(site: LoginSite): Promise<void> {
         }
       }
 
-      if (site === "pixiv" && pixivConfirmed && fanboxDone) break;
+      if (site === "pixiv" && pixivConfirmed) break;
       if (site === "fanbox" && fanbox && fanboxDone) break;
       await new Promise((r) => setTimeout(r, 700));
     }
@@ -504,7 +507,8 @@ async function runJob(site: LoginSite): Promise<void> {
     if (site === "fanbox" && !fanbox) {
       throw new Error("超时未检测到 FANBOX 登录。请从官方账号选择页登入，完成 /auth/start 回转后再等一下。");
     }
-    if (pixiv && !fanbox) fanbox = pixiv;
+    // 拆框：Pixiv 登录只交付 pixiv（含身份解析也只解析 pixiv），fanbox 一律不带出。
+    if (site === "pixiv") fanbox = "";
     if (!pixivProfile || (fanbox && !fanboxProfile)) {
       try {
         const profiles = await resolveIdentities({ pixiv, fanbox });

@@ -12,7 +12,8 @@ import { SessionRelayDialog } from "@/components/session-relay";
 import { AppAccountSignInForm } from "@/components/app-account-signin";
 import { accountLabel, displayName, siteProfile } from "@/lib/sync/accounts";
 import {
-  fanboxSessionFrom,
+  fanboxSessionValue,
+  isFanboxLoggedInSession,
   isPixivLoggedInSession,
   parseCookieDump,
   pixivUserIdFromCookie,
@@ -452,11 +453,12 @@ export function SettingsPage() {
   async function persist() {
     try {
       if (pixivCookie && !isPixivLoggedInSession(pixivCookie)) {
-        toast.error("当前 Pixiv Cookie 不是已登录会话。需要形如 12345678_令牌，没有下划线的是访客 Cookie。");
+        toast.error("Pixiv Cookie 不是已登录会话。需要形如 12345678_令牌，没有下划线的是访客 Cookie。");
         return;
       }
-      if (pixivCookie && !fanboxSessionFrom(fanboxCookie, pixivCookie)) {
-        setFanboxCookie(pixivCookie);
+      if (fanboxCookie && !isFanboxLoggedInSession(fanboxSessionValue(fanboxCookie))) {
+        toast.error("FANBOX Cookie 不是已登录会话。需要形如 12345678_令牌的 FANBOXSESSID。");
+        return;
       }
       await syncSessions();
       await refreshIdentities();
@@ -473,6 +475,16 @@ export function SettingsPage() {
       return;
     }
     toast.success("Cookie 已写入");
+  }
+
+  /** 定向粘贴：粘进哪个框就只写哪个站，另一站的 Cookie 会提示换框。 */
+  async function applyDumpFor(site: LoginSite, raw: string) {
+    const result = await applyCookieDump(raw, site);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(site === "pixiv" ? "Pixiv Cookie 已写入" : "FANBOX Cookie 已写入");
   }
 
   async function pasteDump() {
@@ -608,22 +620,27 @@ export function SettingsPage() {
                 onChange={(e) => renameAccount(active.id, e.target.value)}
               />
             </div>
-            <div className="flex items-start gap-3">
-              <SiteAvatar profile={siteProfile(active, "pixiv")} size="lg" />
-              <div className="min-w-0 flex-1">
-              <Label className="text-sm font-medium text-fg" htmlFor="pixiv-cookie">
-                Pixiv
-              </Label>
-              <p className="mt-0.5 text-sm text-fg">{displayName(active, "pixiv")}</p>
-              {active.pixivProfile?.id ? (
-                <p className="text-xs text-subtle">ID {active.pixivProfile.id}</p>
-              ) : pixivUserIdFromCookie(pixivCookie) ? (
-                <p className="text-xs text-subtle">已识别用户 ID {pixivUserIdFromCookie(pixivCookie)}</p>
-              ) : null}
-              <p className="text-xs text-subtle">{mask(pixivCookie)}</p>
+            <p className="text-xs leading-relaxed text-subtle">
+              两个站各自独立：填哪个、登录哪个，只影响那个站。只登 Pixiv 也能浏览 FANBOX 公开内容。
+            </p>
+            <section className="space-y-2 rounded-lg border border-fg/10 p-4">
+              <div className="flex items-start gap-3">
+                <SiteAvatar profile={siteProfile(active, "pixiv")} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <Label className="text-sm font-medium text-fg" htmlFor="pixiv-cookie">
+                    Pixiv
+                  </Label>
+                  <p className="mt-0.5 text-sm text-fg">{displayName(active, "pixiv")}</p>
+                  {active.pixivProfile?.id ? (
+                    <p className="text-xs text-subtle">ID {active.pixivProfile.id}</p>
+                  ) : pixivUserIdFromCookie(pixivCookie) ? (
+                    <p className="text-xs text-subtle">已识别用户 ID {pixivUserIdFromCookie(pixivCookie)}</p>
+                  ) : null}
+                  <p className="text-xs text-subtle">{mask(pixivCookie)}</p>
+                </div>
+              </div>
               <Input
                 id="pixiv-cookie"
-                className="mt-1"
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
@@ -633,66 +650,70 @@ export function SettingsPage() {
                 onPaste={(e) => {
                   const text = e.clipboardData.getData("text");
                   const parsed = parseCookieDump(text);
-                  if (parsed.pixiv || parsed.fanbox) {
+                  if (parsed.pixiv || isPixivLoggedInSession(text)) {
                     e.preventDefault();
-                    void applyDump(text);
+                    void applyDumpFor("pixiv", text);
+                  } else if (parsed.fanbox || isFanboxLoggedInSession(fanboxSessionValue(text))) {
+                    e.preventDefault();
+                    toast.error("这串是 FANBOX 的 Cookie——请粘到下面 FANBOX 框里。");
                   }
                 }}
               />
+              <Button variant="secondary" onClick={() => openRelay("pixiv")}>
+                <LogIn className="size-4" />
+                登录 Pixiv
+              </Button>
+            </section>
+            <section className="space-y-2 rounded-lg border border-fg/10 p-4">
+              <div className="flex items-start gap-3">
+                <SiteAvatar profile={siteProfile(active, "fanbox")} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <Label className="text-sm font-medium text-fg" htmlFor="fanbox-cookie">
+                    FANBOX
+                  </Label>
+                  <p className="mt-0.5 text-sm text-fg">{displayName(active, "fanbox")}</p>
+                  {active.fanboxProfile?.id ? (
+                    <p className="text-xs text-subtle">ID {active.fanboxProfile.id}</p>
+                  ) : null}
+                  <p className="text-xs text-subtle">{mask(fanboxCookie)}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <SiteAvatar profile={siteProfile(active, "fanbox")} size="lg" />
-              <div className="min-w-0 flex-1">
-              <Label className="text-sm font-medium text-fg" htmlFor="fanbox-cookie">
-                FANBOX
-              </Label>
-              <p className="mt-0.5 text-sm text-fg">{displayName(active, "fanbox")}</p>
-              {active.fanboxProfile?.id ? (
-                <p className="text-xs text-subtle">ID {active.fanboxProfile.id}</p>
-              ) : null}
-              <p className="text-xs text-subtle">{mask(fanboxCookie)}</p>
               <Input
                 id="fanbox-cookie"
-                className="mt-1"
                 type="password"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="从 fanbox.cc 复制 FANBOXSESSID"
+                placeholder="从 fanbox.cc Cookie 复制 FANBOXSESSID"
                 value={fanboxCookie}
                 onChange={(e) => setFanboxCookie(e.target.value.trim())}
                 onPaste={(e) => {
                   const text = e.clipboardData.getData("text");
                   const parsed = parseCookieDump(text);
-                  if (parsed.pixiv || parsed.fanbox) {
+                  if (parsed.fanbox || isFanboxLoggedInSession(fanboxSessionValue(text))) {
                     e.preventDefault();
-                    void applyDump(text);
+                    void applyDumpFor("fanbox", text);
+                  } else if (parsed.pixiv || isPixivLoggedInSession(text)) {
+                    e.preventDefault();
+                    toast.error("这串是 Pixiv 的 Cookie——请粘到上面 Pixiv 框里。");
                   }
                 }}
               />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => openRelay("pixiv")}>
-                <LogIn className="size-4" />
-                登录 Pixiv
-              </Button>
               <Button variant="secondary" onClick={() => openRelay("fanbox")}>
                 <LogIn className="size-4" />
                 登录 FANBOX
               </Button>
-              <Button variant="ghost" onClick={() => void pasteDump()}>
-                <ClipboardPaste className="size-4" />
-                从剪贴板粘贴
-              </Button>
-            </div>
+            </section>
             <p className="text-xs leading-relaxed text-subtle">
               「登录」会在这个页面里打开官方登录页。FANBOX 会先到 Pixiv 选账号，再回转
               <span className="text-fg"> /auth/start </span>
-              把会话带回来。也可以把 PHPSESSID、Cookie 导出 JSON 或 Netscape cookies.txt 粘进来。
+              把会话带回来。也可以把 PHPSESSID、FANBOXSESSID、Cookie 导出 JSON 或 Netscape cookies.txt 粘进对应的框。
             </p>
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => void persist()}>保存登录状态</Button>
+              <Button variant="ghost" onClick={() => void pasteDump()}>
+                <ClipboardPaste className="size-4" />
+                从剪贴板粘贴（整份）
+              </Button>
               <Button
                 variant="danger"
                 onClick={() => {
