@@ -4,9 +4,13 @@
  * 样本取自各站接口的真实形状（截短、无凭据）：Pixiv ajax 列表条目、
  * FANBOX post.info 正文块、booru posts.json 三种包裹形态。上游接口
  * 一变，这些用例会精确指出哪个字段断供。
+ *
+ * M1 双模式：tests/fixtures/upstream/ 下有真实快照（fetch-upstream-fixtures.mjs
+ * 产物）则优先取样，缺省回退内联样本——仓库 clone 即 hermetic，永远绿。
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { loadUpstreamFixture } from "../../../tests/fixtures/upstream/loader.ts";
 import { mapIllustList, mapPixivCard } from "./pixiv.ts";
 import { extractFanboxPages, mapFanboxPostCard, sizeFromFanboxUrl } from "./fanbox.ts";
 import { asBooruPosts } from "./booru-sites.ts";
@@ -138,11 +142,50 @@ test("extractFanboxPages：blocks+Map 结构、images 兜底、file 块", () => 
 // ── booru posts.json 包裹形态 ──────────────────────────────────────────────
 
 test("asBooruPosts：数组 / {posts} / 单条 / 错误形态", () => {
-  assert.equal(asBooruPosts([{ id: 1 }]).length, 1);
+  // 数组形态优先吃真实 post.json 快照（M1 双模式），缺省回退内联样本
+  const realList = fixtureRecordArray("yandere_post.json");
+  const arrayForm = realList ?? [{ id: 1 }];
+  assert.equal(asBooruPosts(arrayForm).length, arrayForm.length, "数组包裹：条数守恒");
   assert.equal(asBooruPosts({ posts: [{ id: 1 }, { id: 2 }] }).length, 2);
   assert.equal(asBooruPosts({ id: 9, tags: "x" }).length, 1, "单条 post.json");
   assert.throws(() => asBooruPosts({ success: false, message: "maintenance" }), /maintenance/);
   assert.deepEqual(asBooruPosts({ strange: true }), [], "不认识的形态给空");
+});
+
+// ── 真实响应快照（M1：fixture 在库时取样，缺省静默跳过） ─────────────────────
+
+/** 读数组包裹的 booru fixture；缺省/形态不符返回 null（回退内联样本）。 */
+function fixtureRecordArray(name: string): Record<string, unknown>[] | null {
+  const fx = loadUpstreamFixture(name);
+  if (!Array.isArray(fx) || fx.length === 0) return null;
+  return fx.every((v) => v !== null && typeof v === "object") ? (fx as Record<string, unknown>[]) : null;
+}
+
+test("快照：yande 日榜包裹吃得动（fixture 在库时）", () => {
+  const fx = fixtureRecordArray("yandere_popular_by_day.json");
+  if (!fx) return; // 无快照（抓取失败/未入库）→ 内联样本已覆盖，跳过
+  assert.ok(asBooruPosts(fx).length > 0);
+});
+
+test("快照：Pixiv 真实响应过映射层不空转（fixture 在库时）", () => {
+  // 搜索 / 相关推荐：mapIllustList 直接吃整份响应（body.illustManga.data / body.illusts）
+  for (const name of ["pixiv_ajax_search.json", "pixiv_ajax_recommend.json"]) {
+    const fx = loadUpstreamFixture(name);
+    if (!fx) continue;
+    const items = mapIllustList(fx, true, false);
+    assert.ok(items.length > 0, `${name} 应产出卡片——上游形状断供时最先在这里红`);
+    for (const card of items) {
+      assert.ok(card.id && card.thumb, `${name} 卡片缺 id/thumb`);
+    }
+  }
+  // 作品详情：body 是卡片形字段（id/title/userName/urls…），mapPixivCard 可吃
+  const detail = loadUpstreamFixture("pixiv_ajax_illust.json") as { body?: Record<string, unknown> } | null;
+  if (detail && detail.body) {
+    const card = mapPixivCard(detail.body);
+    assert.ok(card, "详情快照应产出卡片");
+    assert.equal(card.id, String(detail.body.id));
+    assert.ok(card.thumb.length > 0, "详情卡片应有缩略图");
+  }
 });
 
 // ── 日榜未公布窗口的 404 判定 ────────────────────────────────────────────────
