@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+暂无。
+
+## [0.10.0] — 2026-09-14
+
+对应 [PR #136](https://github.com/Atsukiizumi/Kami-paperbox/pull/136) ~ [PR #140](https://github.com/Atsukiizumi/Kami-paperbox/pull/140)。
+
 ### 新增
 
 - 纸感质感批（四）· 大图灯箱缩放升级：滚轮与双指捏合缩放现在以光标 / 双指中点为锚（不再飘移），双指平移与捏合一体，双击在原大与 2× 间切换；放大后拖动查看细节的跟手度同步提升。设置 → 说明 新增「大图浏览」操作指引。
