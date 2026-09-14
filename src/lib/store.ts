@@ -28,11 +28,14 @@ import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_THEME,
+  DEFAULT_UI_STYLE,
   SETTINGS_STORAGE_KEY,
   type Appearance,
   type ThemeId,
+  type UiStyle,
   parseAppearance,
   parseThemeId,
+  parseUiStyle,
 } from "./theme.ts";
 import {
   DEFAULT_PATH_PRESET,
@@ -96,6 +99,7 @@ type SettingsState = {
   activeAccountId: string | null;
   theme: ThemeId;
   appearance: Appearance;
+  uiStyle: UiStyle;
   onboarded: boolean;
   addSmartFolder: (name: string, query: VaultQuery) => void;
   removeSmartFolder: (id: string) => void;
@@ -123,6 +127,7 @@ type SettingsState = {
   toggleSavedTag: (source: Source, tag: string) => void;
   setTheme: (v: ThemeId) => void;
   setAppearance: (v: Appearance) => void;
+  setUiStyle: (v: UiStyle) => void;
   setOnboarded: (v: boolean) => void;
   addAccount: (name: string) => string;
   renameAccount: (id: string, name: string) => void;
@@ -176,6 +181,7 @@ export const useSettings = create<SettingsState>()(
       activeAccountId: null,
       theme: DEFAULT_THEME,
       appearance: DEFAULT_APPEARANCE,
+      uiStyle: DEFAULT_UI_STYLE,
       onboarded: false,
       setPixivCookie: (pixivCookie) => {
         set((s) => {
@@ -283,6 +289,7 @@ export const useSettings = create<SettingsState>()(
       },
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
+      setUiStyle: (uiStyle) => set({ uiStyle: parseUiStyle(uiStyle) }),
       setOnboarded: (onboarded) => set({ onboarded }),
       addAccount: (name) => {
         const current = get();
@@ -363,7 +370,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 10,
+      version: 11,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Record<string, unknown>;
         const legacy = migrateLegacySettings({
@@ -390,6 +397,7 @@ export const useSettings = create<SettingsState>()(
         const hideAi = p.hideAi === true;
         const theme = parseThemeId(p.theme);
         const appearance = parseAppearance(p.appearance);
+        const uiStyle = parseUiStyle(p.uiStyle);
         const pathPreset = parsePathPreset(p.pathPreset);
         const pathTemplate =
           typeof p.pathTemplate === "string" && p.pathTemplate.trim()
@@ -414,9 +422,9 @@ export const useSettings = create<SettingsState>()(
           danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
         };
         if (version >= 2 && legacy.accounts.length) {
-          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
+          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
         }
-        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, ...extra };
+        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
       },
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
@@ -444,6 +452,7 @@ export const useSettings = create<SettingsState>()(
         activeAccountId: s.activeAccountId,
         theme: s.theme,
         appearance: s.appearance,
+        uiStyle: s.uiStyle,
         onboarded: s.onboarded,
       }),
     },

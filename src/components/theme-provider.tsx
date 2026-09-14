@@ -14,6 +14,7 @@ function themeColorMeta(): HTMLMetaElement | null {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme = useSettings((s) => s.theme);
   const appearance = useSettings((s) => s.appearance);
+  const uiStyle = useSettings((s) => s.uiStyle);
   const [resolved, setResolved] = useState<ResolvedAppearance>("dark");
 
   useLayoutEffect(() => {
@@ -26,6 +27,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         themeColorMeta: themeColorMeta(),
       });
       setResolved(next.resolved);
+      // 界面风格（手绘记号层）：clean 移除属性，hand 挂上——styles.css 按属性切换。
+      if (state.uiStyle === "hand") document.documentElement.setAttribute("data-kami-style", "hand");
+      else document.documentElement.removeAttribute("data-kami-style");
     };
 
     const listenMedia = () => {
@@ -57,7 +61,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       unsub();
       stopMedia?.();
     };
-  }, [theme, appearance]);
+  }, [theme, appearance, uiStyle]);
 
   return (
     <ResolvedAppearanceContext.Provider value={resolved}>

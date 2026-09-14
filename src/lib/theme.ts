@@ -5,8 +5,13 @@ export const APPEARANCES = ["system", "light", "dark"] as const;
 export type Appearance = (typeof APPEARANCES)[number];
 export type ResolvedAppearance = "light" | "dark";
 
+/** 界面风格（纸感质感批 PR2）：clean=利落（默认），hand=手绘记号层。 */
+export const UI_STYLES = ["clean", "hand"] as const;
+export type UiStyle = (typeof UI_STYLES)[number];
+
 export const DEFAULT_THEME: ThemeId = "washi";
 export const DEFAULT_APPEARANCE: Appearance = "dark";
+export const DEFAULT_UI_STYLE: UiStyle = "clean";
 
 /** Must match `useSettings` persist `name`. */
 export const SETTINGS_STORAGE_KEY = "kami-settings";
@@ -200,6 +205,14 @@ export function parseAppearance(value: unknown): Appearance {
   return typeof value === "string" && isAppearance(value) ? value : DEFAULT_APPEARANCE;
 }
 
+export function isUiStyle(value: unknown): value is UiStyle {
+  return typeof value === "string" && (UI_STYLES as readonly string[]).includes(value);
+}
+
+export function parseUiStyle(value: unknown): UiStyle {
+  return isUiStyle(value) ? value : DEFAULT_UI_STYLE;
+}
+
 export function resolveAppearance(
   appearance: Appearance,
   systemDark: boolean,
@@ -265,7 +278,7 @@ export function applyDocumentTheme(
 
 export function buildThemeBootstrapScript(): string {
   const known = JSON.stringify(Object.fromEntries(THEME_IDS.map((id) => [id, 1])));
-  return `(function(){try{var known=${known};var theme="${DEFAULT_THEME}";var appearance="${DEFAULT_APPEARANCE}";var raw=localStorage.getItem("${SETTINGS_STORAGE_KEY}");if(raw){var parsed=JSON.parse(raw);var s=parsed.state||parsed;if(known[s.theme])theme=s.theme;if(s.appearance==="light"||s.appearance==="dark"||s.appearance==="system")appearance=s.appearance;}var dark=appearance==="dark"||(appearance!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var el=document.documentElement;el.setAttribute("data-theme",theme);el.setAttribute("data-appearance",dark?"dark":"light");el.style.colorScheme=dark?"dark":"light";}catch(e){var d=window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.setAttribute("data-theme","${DEFAULT_THEME}");document.documentElement.setAttribute("data-appearance",d?"dark":"light");document.documentElement.style.colorScheme=d?"dark":"light";}})();`;
+  return `(function(){try{var known=${known};var theme="${DEFAULT_THEME}";var appearance="${DEFAULT_APPEARANCE}";var raw=localStorage.getItem("${SETTINGS_STORAGE_KEY}");if(raw){var parsed=JSON.parse(raw);var s=parsed.state||parsed;if(known[s.theme])theme=s.theme;if(s.appearance==="light"||s.appearance==="dark"||s.appearance==="system")appearance=s.appearance;}var dark=appearance==="dark"||(appearance!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var el=document.documentElement;el.setAttribute("data-theme",theme);el.setAttribute("data-appearance",dark?"dark":"light");el.style.colorScheme=dark?"dark":"light";if(raw){try{var s2=(JSON.parse(raw).state)||{};if(s2.uiStyle==="hand")el.setAttribute("data-kami-style","hand");}catch(e){}}}catch(e){var d=window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.setAttribute("data-theme","${DEFAULT_THEME}");document.documentElement.setAttribute("data-appearance",d?"dark":"light");document.documentElement.style.colorScheme=d?"dark":"light";}})();`;
 }
 
 export const THEME_BOOTSTRAP_SCRIPT = buildThemeBootstrapScript();
