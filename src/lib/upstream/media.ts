@@ -1,8 +1,8 @@
 /**
  * 图片媒体代理：白名单解析 + 盘缓存 + 单飞去重 + 流式上限
- * （由 upstream.server.ts 拆出，TD-01）。SEC-08 注：isPrivateIp 的正则
- * 不覆盖 IPv6 映射 / 十进制字面量 / 解析到内网的域名——真正的防线是
- * MEDIA_HOSTS 白名单（放宽白名单前必须先把这里改成解析后判断）。
+ * （由 upstream.server.ts 拆出，TD-01）。SEC-08 前置修复：私网判断在
+ * media-host-guard.server.ts——IP 字面量（含 IPv6 映射 / 整数写法）同步判，
+ * 域名解析后逐 IP 判（带 TTL 缓存）；白名单用精确子域集，不再放行任意后缀。
  */
 import { closeOnAbort, isAbortError } from "../abort.ts";
 import { danbooruAuthHeader, DANBOORU_UA } from "../booru.ts";
@@ -12,32 +12,46 @@ import { sleep, withMediaGate } from "../media-gate.ts";
 import { getThrottle } from "../throttle.server.ts";
 import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../storage/media-cache.server.ts";
 import { UA } from "./http.ts";
+import {
+  assertHostResolvesPublicly,
+  isPrivateHostname,
+  isPrivateIpLiteral,
+  normalizeIpLiteral,
+} from "./media-host-guard.server.ts";
 
+/**
+ * 精确子域白名单（SEC-08：曾用 MEDIA_SUFFIXES 后缀匹配放行任意子域）。
+ * 集合来自仓库取证——mapping.test.ts 固定样本、各处测试 fixture 与运行时常量：
+ * - pximg：pixiv 媒体只出 i / s / pixiv 三台（fixtures 全量命中）
+ * - fanbox：投稿图 / 附件 / 封面全在 downloads；www / api / 名称.fanbox.cc 是
+ *   页面与 API 域，从来不是媒体域（fanbox.cc 是开放子域面，收紧即目的）
+ * - yande.re：正文图 files、静态 assets、旧预览走主域
+ * - konachan：主站与全年龄镜像都在主域出图（booru-sites.ts 的镜像兜底同域）
+ * - donmai：图在 cdn，主域直出也要留（ Referer/Authorization 逻辑引用 danbooru.donmai.us）
+ * - saucenao：结果缩略图在 img1（fixture 取证）；img2 / img3 是同站负载均衡
+ *   别名，一并放行。残余风险：若引擎将来启用 img4+，需在此扩集（走 docs/04
+ *   §4.10「新站点加白名单」同一条人工流程）——不做通配，避免回到任意子域放行
+ * - iqdb / ascii2d：缩略图与结果都在主域（reverse-search.ts absUrl 锚主域）
+ */
 const MEDIA_HOSTS = new Set([
   "i.pximg.net",
   "s.pximg.net",
   "pixiv.pximg.net",
   "downloads.fanbox.cc",
+  "yande.re",
   "files.yande.re",
   "assets.yande.re",
-  "yande.re",
   "konachan.com",
   "konachan.net",
-  "cdn.donmai.us",
   "danbooru.donmai.us",
-]);
-
-const MEDIA_SUFFIXES = [
-  "pximg.net",
-  "fanbox.cc",
-  "yande.re",
-  "konachan.com",
-  "konachan.net",
-  "donmai.us",
+  "cdn.donmai.us",
   "saucenao.com",
+  "img1.saucenao.com",
+  "img2.saucenao.com",
+  "img3.saucenao.com",
   "iqdb.org",
   "ascii2d.net",
-];
+]);
 
 const MAX_MEDIA_BYTES = 48 * 1024 * 1024;
 const MEDIA_CACHE = "public, max-age=604800, stale-while-revalidate=86400, immutable";
@@ -50,24 +64,6 @@ function mediaOutHeaders(contentType: string): HeadersInit {
   };
 }
 
-function isPrivateHostname(host: string): boolean {
-  const h = host.toLowerCase();
-  if (h === "localhost" || h.endsWith(".localhost")) return true;
-  if (h === "metadata.google.internal") return true;
-  if (h.endsWith(".internal") || h.endsWith(".local")) return true;
-  return false;
-}
-
-function isPrivateIp(host: string): boolean {
-  if (/^127\./.test(host) || host === "0.0.0.0") return true;
-  if (/^10\./.test(host)) return true;
-  if (/^192\.168\./.test(host)) return true;
-  if (/^169\.254\./.test(host)) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
-  if (host === "::1" || host.startsWith("fc") || host.startsWith("fd")) return true;
-  return false;
-}
-
 export function parseAllowedMediaUrl(raw: string): URL {
   let url: URL;
   try {
@@ -77,11 +73,13 @@ export function parseAllowedMediaUrl(raw: string): URL {
   }
   if (url.protocol !== "https:") throw new Error("只允许 https 资源");
   if (url.username || url.password) throw new Error("非法地址");
-  const host = url.hostname.toLowerCase();
-  if (isPrivateHostname(host) || isPrivateIp(host)) throw new Error("非法地址");
-  if (MEDIA_HOSTS.has(host)) return url;
-  if (MEDIA_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`))) return url;
-  throw new Error("不支持的图片来源");
+  // 整数写法（2130706433 / 0x7f.1 等）先折叠成点分 IPv4 再判私网；白名单域
+  // 都以字母结尾，归一对它们是恒等变换，不会误伤。url.hostname 对 IPv6
+  // 保留方括号（[::1]），判私网前必须剥掉。
+  const host = normalizeIpLiteral(url.hostname.toLowerCase().replace(/^\[(.+)\]$/, "$1"));
+  if (isPrivateHostname(host) || isPrivateIpLiteral(host)) throw new Error("非法地址");
+  if (!MEDIA_HOSTS.has(host)) throw new Error("不支持的图片来源");
+  return url;
 }
 
 function mediaFromDisk(url: URL): Response | null {
@@ -184,6 +182,11 @@ async function loadMediaResponse(
   const url = parseAllowedMediaUrl(rawUrl);
   const cached = mediaFromDisk(url);
   if (cached) return cached;
+  // SEC-08：白名单域还要「解析后判断」——解析出私网 IP（DNS rebinding 面）
+  // 就拒。fail-open 取舍与 5min TTL 缓存见 media-host-guard.server.ts。
+  if (!(await assertHostResolvesPublicly(url.hostname.toLowerCase()))) {
+    throw new Error("非法地址");
+  }
   const headers: Record<string, string> = {
     "User-Agent": UA,
     Accept: "image/avif,image/webp,image/gif,image/*,application/zip,application/octet-stream,*/*;q=0.8",
