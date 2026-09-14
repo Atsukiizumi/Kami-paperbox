@@ -6,7 +6,9 @@
 
 ## [Unreleased]
 
-暂无。
+### 文档
+
+- 修 README TypeScript 徽章 404（shields 静态徽章右侧文本里的 `-` 需写成 `--` 转义）；新增 GitHub Actions CI 状态徽章（通过绿 / 失败红）。
 
 ## [0.10.0] — 2026-09-14
 
