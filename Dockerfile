@@ -1,10 +1,13 @@
-# Kami 纸匣 — Next.js standalone
-
-# VITE_AUTH_ENABLED 是会进客户端 bundle 的公开构建旗标（非密钥）；跳过 buildx 的假阳性密钥检查。
+# syntax=docker/dockerfile:1
 # check=skip=SecretsUsedInArgOrEnv
+# ↑ parser 指令必须在文件最顶（前面有任何注释都会被当普通注释忽略——#131 的
+#   豁免因此失效过一轮）。VITE_AUTH_ENABLED 是会进客户端 bundle 的公开构建
+#   旗标（true/false，非密钥），跳过 buildx 的假阳性密钥检查。
+
+# Kami 纸匣 — Next.js standalone（node:24 = Active LTS，CI setup-node 同步）
 # docker compose up --build
 
-FROM node:22-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
@@ -22,7 +25,7 @@ ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 
 RUN apt-get update \
