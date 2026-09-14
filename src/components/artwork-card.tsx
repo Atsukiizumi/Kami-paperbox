@@ -4,45 +4,35 @@
  * 浏览卡片。
  *
  * 作用：封面 + 两行标题 + 作者/分辨率/标签；封面上可保存、入队，Pixiv 可点红心。
- * 用法：ArtworkGrid 包一层 MasonryBoard。无封面（FANBOX 文本投稿）改显示摘要。
+ * 用法：列表页从本文件引 ArtworkCard / ArtworkGrid / ArtworkGridSkeleton（后两者
+ *      实现在 artwork-grid.tsx，这里再导出保持原入口）。交互接线在
+ *      use-card-interactions.ts，操作托与题注各自成组件。
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/入队/红心叠在封面上，不占标题宽度。
  */
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "@/lib/kami-link";
-import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Check, ChevronLeft, ChevronRight, Download, Heart, ListOrdered, Lock, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import { CardMenu, type CardMenuPos } from "@/components/card-menu";
-import { HoverPreview, canHoverPreview } from "@/components/hover-preview";
-import { wheelDir, wrapPage } from "@/lib/page-flip";
+import { useRef, type CSSProperties, type MouseEvent } from "react";
+import { Link } from "@/lib/kami-link";
+import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { CardMenu } from "@/components/card-menu";
+import { HoverPreview } from "@/components/hover-preview";
 import { cardAspect, cardLayout } from "@/lib/card-aspect";
 import type { WorkCard } from "@/lib/types";
-import { enqueueWork } from "@/lib/queue-runner";
-import { flyPaperToQueue, rectFromEvent } from "@/lib/paper-fly";
-import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
-import { mutateSource } from "@/lib/source";
-import { patchCachedWork } from "@/lib/work-cache";
-import { prefetchWork } from "@/lib/work-detail";
 import { isBooru } from "@/lib/sites";
-import { canonicalTag, displayTag } from "@/lib/site-tags";
 import { isNsfwRating } from "@/lib/booru";
 import { isAiWork } from "@/lib/pixiv-feed";
 import { workKey } from "@/lib/storage/vault";
 import { useVaultIndex } from "@/lib/storage/vault-index";
+import { useQueue } from "@/lib/store";
 import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
-import { ProxiedImg, warmMedia } from "./proxied-img";
-import { upgradeThumbUrl } from "@/lib/thumb-url";
+import { ProxiedImg } from "./proxied-img";
 import { UgoiraCover } from "@/components/ugoira-player";
 import { pageThumbUrls } from "@/lib/page-thumbs";
-import { MasonryBoard } from "./masonry-board";
-import { EmptySheet } from "./empty-sheet";
-import { useTagCatalog } from "@/lib/tag-catalog";
+import { useCardInteractions } from "./use-card-interactions";
+import { CardActionTray } from "./card-action-tray";
+import { CardCaption } from "./card-caption";
 
-const SKELETON_ASPECT = 3 / 4;
-/** 悬停预览要等够久，才能先点到封面上的红心、纸匣和队列。 */
-const PREVIEW_HOVER_MS = 520;
+export { ArtworkGrid, ArtworkGridSkeleton } from "./artwork-grid";
 
 export function ArtworkCard({
   work,
@@ -66,142 +56,34 @@ export function ArtworkCard({
   const pages = pageThumbUrls(work.thumb, work.pageCount);
   const aspect = hasMedia ? cardAspect(work.width, work.height) : variant === "vault" ? 3 / 4 : 5 / 3;
   const layout = hasMedia ? cardLayout(work.width, work.height) : "wide";
-  const pixivCookie = useSettings((s) => s.pixivCookie);
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const setTab = useSettings((s) => s.setTab);
-  const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const inVault = useVaultIndex((s) => Boolean(s.keys[workKey(work.source, work.id)]));
   const inQueue = useQueue((s) =>
     s.items.some(
       (x) => x.key === workKey(work.source, work.id) && (x.status === "queued" || x.status === "running"),
     ),
   );
-  const liked = Boolean(work.liked || work.bookmarked);
   const resolution = formatResolution(work.width, work.height);
-  const [liking, setLiking] = useState(false);
-  const [heartPop, setHeartPop] = useState(false);
-  const [menu, setMenu] = useState<CardMenuPos | null>(null);
-  const [preview, setPreview] = useState<DOMRect | null>(null);
-  const [pageI, setPageI] = useState(0);
-  const hoverTimer = useRef(0);
-  const previewTimer = useRef(0);
   const mediaRef = useRef<HTMLDivElement>(null);
-  const cover = pages[Math.min(pageI, Math.max(0, pages.length - 1))] ?? work.thumb;
   const ugoira = work.source === "pixiv" && work.illustType === 2;
-
-  function armPrefetch() {
-    window.clearTimeout(hoverTimer.current);
-    if (work.thumb) warmMedia(upgradeThumbUrl(cover || work.thumb));
-    hoverTimer.current = window.setTimeout(() => {
-      prefetchWork(queryClient, work.source, work.id);
-    }, 160);
-  }
-
-  function showPreview() {
-    if (!hasMedia || work.restricted || menu || !canHoverPreview()) return;
-    window.clearTimeout(previewTimer.current);
-    previewTimer.current = window.setTimeout(() => {
-      const box = mediaRef.current?.getBoundingClientRect();
-      if (box) setPreview(box);
-    }, PREVIEW_HOVER_MS);
-  }
-
-  function hidePreview() {
-    window.clearTimeout(previewTimer.current);
-    setPreview(null);
-  }
-
-  function cancelPrefetch() {
-    window.clearTimeout(hoverTimer.current);
-    hidePreview();
-  }
-
-  async function saveCard(e?: MouseEvent) {
-    e?.preventDefault();
-    e?.stopPropagation();
-    hidePreview();
-    if (work.restricted) return;
-    enqueueWork(work, "vault");
-    flyPaperToQueue(e ? rectFromEvent(e.currentTarget) : mediaRef.current?.getBoundingClientRect());
-    toast.success("已加入队列：收入纸匣");
-  }
-
-  function queueCard(e?: MouseEvent) {
-    e?.preventDefault();
-    e?.stopPropagation();
-    hidePreview();
-    if (work.restricted) return;
-    enqueueWork(work, "download");
-    flyPaperToQueue(e ? rectFromEvent(e.currentTarget) : mediaRef.current?.getBoundingClientRect());
-    toast.success("已加入队列：下载");
-  }
-
-  async function likeCard(e?: MouseEvent) {
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (work.source !== "pixiv" || liking) return;
-    if (liked) {
-      toast.success("已经点过红心");
-      return;
-    }
-    if (!pixivCookie) {
-      toast.error("先在设置里添加 Pixiv 账号");
-      return;
-    }
-    setLiking(true);
-    setHeartPop(true);
-    patchCachedWork(queryClient, work.source, work.id, { liked: true, bookmarked: true });
-    try {
-      await mutateSource({
-        data: { op: "pixivLike", id: work.id, tags: work.tags, ...cookiesFromSettings() },
-      });
-    } catch (err) {
-      patchCachedWork(queryClient, work.source, work.id, { liked: false, bookmarked: false });
-      setHeartPop(false);
-      toast.error(err instanceof Error ? err.message : "红心失败");
-    } finally {
-      setLiking(false);
-    }
-  }
-
-  function searchTag(tag: string) {
-    const word = canonicalTag(work.source, tag) || tag.trim();
-    if (!word) return;
-    setTab(work.source);
-    setBrowseQuery(word, true);
-    void navigate({ to: "/" });
-  }
-
-  useEffect(() => {
-    if (!preview) return;
-    const hide = () => {
-      window.clearTimeout(previewTimer.current);
-      setPreview(null);
-    };
-    window.addEventListener("scroll", hide, true);
-    return () => window.removeEventListener("scroll", hide, true);
-  }, [preview]);
-
-  // 滚轮切页（多 P 预览）：浮层打开时，滚轮落在卡片媒体区（浮层本身
-  // pointer-events-none，事件穿透到卡片）即翻页；浮层关着时不挂监听，
-  // 网格滚动不受影响。React 的 onWheel 是 passive，必须原生挂载才能
-  // preventDefault 拦住页面滚动。
-  const lastFlipAt = useRef(0);
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!preview || pages.length <= 1 || !el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const now = Date.now();
-      const dir = wheelDir(e.deltaY, lastFlipAt.current, now);
-      if (dir === 0) return;
-      lastFlipAt.current = now;
-      setPageI((i) => wrapPage(i, dir, pages.length));
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [preview, pages.length]);
+  const {
+    cover,
+    liked,
+    pageI,
+    setPageI,
+    preview,
+    menu,
+    setMenu,
+    liking,
+    heartPop,
+    armPrefetch,
+    cancelPrefetch,
+    showPreview,
+    hidePreview,
+    saveCard,
+    queueCard,
+    likeCard,
+    searchTag,
+  } = useCardInteractions(work, pages, mediaRef);
 
   return (
     <article
@@ -381,98 +263,23 @@ export function ArtworkCard({
             ) : null}
           </div>
         </Link>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end p-2 opacity-100 transition-[opacity,transform] duration-200 ease-out md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100">
-          <div className="kami-action-tray">
-          {variant === "vault" ? (
-            <>
-              {onExport ? (
-                <CardIconButton label="导出" onClick={onExport} onHover={hidePreview}>
-                  <Download className="size-4" />
-                </CardIconButton>
-              ) : null}
-              {onDelete ? (
-                <CardIconButton label="从纸匣移除" onClick={onDelete} onHover={hidePreview}>
-                  <Trash2 className="size-4" />
-                </CardIconButton>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <CardIconButton
-                label={inVault ? "已在纸匣" : "收入纸匣"}
-                disabled={work.restricted}
-                active={inVault}
-                onClick={(e) => void saveCard(e)}
-                onHover={hidePreview}
-              >
-                {inVault ? (
-                  <Check className="size-4" />
-                ) : (
-                  <Archive className="size-4" />
-                )}
-              </CardIconButton>
-              <CardIconButton
-                label={inQueue ? "已在队列" : "加入队列"}
-                disabled={work.restricted}
-                active={inQueue}
-                onClick={(e) => queueCard(e)}
-                onHover={hidePreview}
-              >
-                <ListOrdered className="size-4" />
-              </CardIconButton>
-              {work.source === "pixiv" ? (
-                <CardIconButton
-                  label={liked ? "已红心" : "红心"}
-                  disabled={liking}
-                  active={liked}
-                  onClick={(e) => void likeCard(e)}
-                  onHover={hidePreview}
-                >
-                  <Heart className={cn("size-4", liked && "fill-current text-danger", heartPop && "kami-pop-heart")} />
-                </CardIconButton>
-              ) : null}
-            </>
-          )}
-          </div>
+        <CardActionTray
+          work={work}
+          variant={variant}
+          inVault={inVault}
+          inQueue={inQueue}
+          liked={liked}
+          liking={liking}
+          heartPop={heartPop}
+          onExport={onExport}
+          onDelete={onDelete}
+          saveCard={saveCard}
+          queueCard={queueCard}
+          likeCard={likeCard}
+          hidePreview={hidePreview}
+        />
         </div>
-        </div>
-        <div className="kami-card-caption flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <Link
-              to="/work/$source/$id"
-              params={{ source: work.source, id: work.id }}
-              className="block"
-            >
-              <h3
-                className="line-clamp-2 text-sm font-medium leading-snug tracking-tight text-fg"
-                title={work.title || "无题"}
-              >
-                {work.title || "无题"}
-              </h3>
-            </Link>
-            <p className="line-clamp-1 text-xs text-muted">
-              <CardAuthor work={work} onSearch={searchTag} />
-              {resolution ? <span className="text-subtle"> · {resolution}</span> : null}
-            </p>
-            <p className="flex min-w-0 items-center gap-x-1 overflow-hidden text-xs text-subtle">
-              {work.tags.length > 0
-                ? work.tags.slice(0, 3).map((tag, i) => (
-                    <span key={`${tag}-${i}`} className="flex min-w-0 items-center gap-x-1">
-                      {i > 0 ? <span className="shrink-0">·</span> : null}
-                      <button
-                        type="button"
-                        title={`搜索「${displayTag(work.source, tag)}」`}
-                        className="truncate transition-colors hover:text-fg hover:underline"
-                        onClick={() => searchTag(tag)}
-                      >
-                        {displayTag(work.source, tag)}
-                      </button>
-                    </span>
-                  ))
-                : "\u00a0"}
-            </p>
-          </div>
-        </div>
+        <CardCaption work={work} resolution={resolution} searchTag={searchTag} />
       </div>
       <CardMenu
         work={work}
@@ -494,144 +301,5 @@ export function ArtworkCard({
         />
       ) : null}
     </article>
-  );
-}
-
-function CardAuthor({
-  work,
-  onSearch,
-}: {
-  work: WorkCard;
-  onSearch: (tag: string) => void;
-}) {
-  const className = "transition-colors hover:text-fg hover:underline";
-  if (work.source === "pixiv" && work.authorId) {
-    return (
-      <Link to="/user/$id" params={{ id: work.authorId }} className={className}>
-        {work.author}
-      </Link>
-    );
-  }
-  if (work.source === "fanbox" && work.authorId) {
-    return (
-      <Link to="/creator/$id" params={{ id: work.authorId }} className={className}>
-        {work.author}
-      </Link>
-    );
-  }
-  if (isBooru(work.source) && work.author) {
-    return (
-      <button type="button" className={className} onClick={() => onSearch(work.author)}>
-        {work.author}
-      </button>
-    );
-  }
-  return <span>{work.author}</span>;
-}
-
-function CardIconButton({
-  label,
-  children,
-  onClick,
-  onHover,
-  disabled,
-  active,
-}: {
-  label: string;
-  children: ReactNode;
-  onClick: (e: MouseEvent<HTMLButtonElement>) => void;
-  onHover?: () => void;
-  disabled?: boolean;
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      className={cn(
-        "pointer-events-auto flex size-8 items-center justify-center rounded-full text-fg",
-        "transition-[transform,background-color,color] duration-150",
-        "hover:bg-elevated active:scale-[0.96] disabled:opacity-50",
-        active && "text-accent",
-      )}
-      onClick={onClick}
-      onMouseEnter={onHover}
-    >
-      {children}
-    </button>
-  );
-}
-
-export function ArtworkGrid({
-  items,
-  empty,
-  marksOf,
-  selection,
-}: {
-  items: WorkCard[];
-  empty?: string;
-  marksOf?: (work: WorkCard) => string[] | undefined;
-  /** 批量收藏（D）：传入即进入勾选形态，key 为 `${source}:${id}`。 */
-  selection?: { selected: Set<string>; onToggle: (key: string) => void };
-}) {
-  useEffect(() => {
-    useTagCatalog.getState().ingestMany(items);
-  }, [items]);
-  if (items.length === 0) {
-    return <EmptySheet title={empty ?? "没有符合条件的作品。"} hint="换个站点或标签再看。" />;
-  }
-  const boardKey = `${items[0]?.source ?? "x"}:${items[0]?.id ?? "empty"}`;
-  return (
-    <MasonryBoard key={boardKey}>
-      {items.map((work, i) => (
-        <ArtworkCard
-          key={`${work.source}-${work.id}`}
-          work={work}
-          index={i}
-          marks={marksOf?.(work)}
-          selection={
-            selection
-              ? {
-                  checked: selection.selected.has(`${work.source}:${work.id}`),
-                  onToggle: () => selection.onToggle(`${work.source}:${work.id}`),
-                }
-              : undefined
-          }
-        />
-      ))}
-    </MasonryBoard>
-  );
-}
-
-export function ArtworkGridSkeleton({ count = 10 }: { count?: number }) {
-  return (
-    <MasonryBoard>
-      {Array.from({ length: count }).map((_, i) => (
-        <article
-          key={i}
-          className="kami-enter"
-          data-aspect={String(SKELETON_ASPECT)}
-          style={
-            {
-              animationDelay: `${Math.min(i, 12) * 40}ms`,
-              ["--card-aspect"]: String(SKELETON_ASPECT),
-            } as CSSProperties
-          }
-        >
-          <div className="kami-card-shell overflow-hidden">
-            <div
-              className="kami-card-media kami-shimmer"
-              style={{ ["--shimmer-delay" as string]: `${(i % 6) * 0.12}s` }}
-            />
-            <div className="kami-card-caption flex h-[5.5rem] flex-col justify-center gap-2 px-3">
-              <span className="kami-shimmer h-3 w-4/5 rounded-md" />
-              <span className="kami-shimmer h-2.5 w-2/5 rounded-md" />
-            </div>
-          </div>
-        </article>
-      ))}
-    </MasonryBoard>
   );
 }
