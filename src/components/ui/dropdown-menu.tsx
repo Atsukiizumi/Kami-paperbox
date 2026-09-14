@@ -16,9 +16,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-fg shadow-[var(--shadow-float)]",
-          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          "kami-drop-in z-50 min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-fg shadow-[var(--shadow-paper-2)] data-[state=closed]:kami-veil-out",
           className,
         )}
         {...props}

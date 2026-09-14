@@ -47,8 +47,7 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-[var(--shadow-float)]",
-        "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+        "kami-drop-in z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-[var(--shadow-paper-2)] data-[state=closed]:kami-veil-out",
         position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1",
         className,
       )}

@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 纸感质感批（一）· 弹层与氛围基座：对话框 / 下拉菜单 / 选择器 / 悬停提示统一「纸片浮起」进场——同一条曲线、新增 220ms 浮层档时长，配三级纸影（暖墨投影 + 顶部一线纸边高光，明暗两套形态）；新增气泡弹层组件（Popover，带箭头，供卡片悬停预览等富内容用）。全局铺一层极淡的纸面噪点纹理；Chromium 滚动条改为与 Firefox 同款的暖灰卷轴造型。`prefers-reduced-motion` 下全部动画归零。
+
 ### 变更
 
 - Docker 镜像与 CI 运行时从 Node 22 升到 **Node 24**（当前 Active LTS，开发机同版本）；GitHub Actions 升到以 Node 24 为运行时的大版本（pnpm/action-setup v6、setup-buildx-action v4、build-push-action v7），CI 的 Node 20 弃用告警清零。

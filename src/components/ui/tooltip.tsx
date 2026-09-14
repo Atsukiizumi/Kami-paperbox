@@ -23,8 +23,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-w-xs rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-fg shadow-[var(--shadow-float)]",
-          "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+          "kami-drop-in z-50 max-w-xs rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-fg shadow-[var(--shadow-paper-1)] data-[state=closed]:kami-veil-out",
           className,
         )}
         {...props}
