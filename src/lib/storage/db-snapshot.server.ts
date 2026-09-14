@@ -11,8 +11,19 @@
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { getLogger } from "../log.server.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import { getSql, type Sql } from "./db.ts";
+
+const log = {
+  jsonb: getLogger("db-snapshot:jsonb"),
+  read: getLogger("db-snapshot:read"),
+  fkEdges: getLogger("db-snapshot:fk-edges"),
+  restore: getLogger("db-snapshot:restore"),
+  capture: getLogger("db-snapshot:capture"),
+  base: getLogger("db-snapshot"),
+  quarantine: getLogger("db-snapshot:quarantine"),
+};
 
 /**
  * 快照覆盖的表：public 下除 _migrations 外的全部基表，启动时动态枚举。
@@ -54,10 +65,7 @@ async function jsonbColumnsByTable(sql: Sql): Promise<{ map: Map<string, Set<str
     }
     return { map, ok: true };
   } catch (err) {
-    console.warn(
-      "[db-snapshot:jsonb] jsonb 列枚举失败，恢复时回退 payload 白名单：",
-      err instanceof Error ? err.message : err,
-    );
+    log.jsonb.warn("jsonb 列枚举失败，恢复时回退 payload 白名单：", err instanceof Error ? err.message : err);
     return { map: new Map(), ok: false };
   }
 }
@@ -86,7 +94,7 @@ export function readSnapshotFile(): Snapshot | null {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
     if (code !== "ENOENT") {
-      console.warn("[db-snapshot:read] 快照存在但读取失败（视为无快照）：", err instanceof Error ? err.message : err);
+      log.read.warn("快照存在但读取失败（视为无快照）：", err instanceof Error ? err.message : err);
     }
     return null;
   }
@@ -110,7 +118,7 @@ async function restoreOrder(sql: Sql, tables: string[]): Promise<string[]> {
         "where tc.constraint_type = 'FOREIGN KEY' and tc.table_schema = 'public'",
     );
   } catch (err) {
-    console.warn("[db-snapshot:fk-edges] FK 信息查询失败，按快照原序恢复：", err instanceof Error ? err.message : err);
+    log.fkEdges.warn("FK 信息查询失败，按快照原序恢复：", err instanceof Error ? err.message : err);
     return tables;
   }
   const inSnap = new Set(tables);
@@ -185,7 +193,7 @@ export async function restore(sql: Sql, snap: Snapshot): Promise<RestoreFailure[
     pending = [...pending, ...failed];
   }
   if (pending.length) {
-    console.warn(`[db-snapshot:restore] 首轮 ${pending.length} 行失败，重试一轮：`, pending.map((f) => f.table).join(" "));
+    log.restore.warn(`首轮 ${pending.length} 行失败，重试一轮：`, pending.map((f) => f.table).join(" "));
     pending = await runPass(pending);
   }
   return pending;
@@ -200,7 +208,7 @@ export async function capture(sql: Sql): Promise<Snapshot | null> {
     }
     return { at: Date.now(), tables };
   } catch (err) {
-    console.warn("[db-snapshot:capture] 导出失败（本周期跳过）：", err instanceof Error ? err.message : err);
+    log.capture.warn("导出失败（本周期跳过）：", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -218,7 +226,7 @@ async function dumpNow() {
     renameSync(`${path}.tmp`, path);
     globalRef.__kamiSnapshotLast__ = text;
   } catch (err) {
-    console.warn("[db-snapshot] 落盘失败（下个周期再试）：", err instanceof Error ? err.message : err);
+    log.base.warn("落盘失败（下个周期再试）：", err instanceof Error ? err.message : err);
   }
 }
 
@@ -244,10 +252,7 @@ function quarantineRestoreFailures(failures: RestoreFailure[]) {
     writeFileSync(`${path}.tmp`, text, "utf8");
     renameSync(`${path}.tmp`, path);
   } catch (err) {
-    console.warn(
-      "[db-snapshot:quarantine] 失败行隔离落盘失败（行将丢失）：",
-      err instanceof Error ? err.message : err,
-    );
+    log.quarantine.warn("失败行隔离落盘失败（行将丢失）：", err instanceof Error ? err.message : err);
   }
 }
 
@@ -263,13 +268,13 @@ export async function restoreSnapshotThenWatch() {
     if (failures.length) {
       const byTable = new Map<string, number>();
       for (const f of failures) byTable.set(f.table, (byTable.get(f.table) ?? 0) + 1);
-      console.warn(
-        `[db-snapshot:restore] ${failures.length} 行两轮恢复仍失败，已隔离到 .data/kami-db-snapshot.restore-failed.json：`,
+      log.restore.warn(
+        `${failures.length} 行两轮恢复仍失败，已隔离到 .data/kami-db-snapshot.restore-failed.json：`,
         [...byTable].map(([t, n]) => `${t}×${n}`).join(" "),
       );
       quarantineRestoreFailures(failures);
     }
-    console.log(`[db-snapshot] 已从快照恢复（${Object.entries(snap.tables).map(([t, r]) => `${t}:${r.length}`).join(" ")}）`);
+    log.base.info(`已从快照恢复（${Object.entries(snap.tables).map(([t, r]) => `${t}:${r.length}`).join(" ")}）`);
   }
   await dumpNow();
   if (!globalRef.__kamiSnapshotTimer__) {

@@ -8,7 +8,10 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getLogger } from "./log.server.ts";
 import { parseProxyUrl } from "./proxy-url.ts";
+
+const log = getLogger("kami");
 
 export type ProxySource = "saved" | "config" | "env" | "none";
 
@@ -145,9 +148,9 @@ export function saveProxyUrl(raw: string, root = resolveKamiRoot()): ProxyState 
     throw new Error(`代理没能写进磁盘：${errors.join("；")}`);
   }
   if (errors.length) {
-    console.warn(`[kami] 代理部分写入失败：${errors.join("；")}`);
+    log.warn(`代理部分写入失败：${errors.join("；")}`);
   } else {
-    console.info(`[kami] 代理已写入 ${configPath(root)}`);
+    log.info(`代理已写入 ${configPath(root)}`);
   }
   return { url: parsed.href, source: parsed.href ? "saved" : "none" };
 }

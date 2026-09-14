@@ -6,6 +6,8 @@
  * 为什么：curl 每请求一个新进程 + 新 TLS 握手，配代理实测 Pixiv 单请求 1~6 秒
  *        且越连越慢；连接池复用后回到几百毫秒。个别网络 undici 隧道建不起来，
  *        保留 curl 兜底（连续失败熔断 10 分钟，避免每次都付双份超时）。
+ *        每个出站尝试顺带记入上游健康环（upstream/health.server.ts，纯内存），
+ *        失败不改变原有降级/抛错路径。
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -14,6 +16,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
 import { getActiveProxy } from "./proxy.server.ts";
+import { getLogger } from "./log.server.ts";
+import { recordUpstreamHit } from "./upstream/health.server.ts";
+
+const log = {
+  read: getLogger("curl-fetch:read"),
+  outbound: getLogger("outbound"),
+};
 
 export type CurlFormField = {
   name: string;
@@ -114,7 +123,7 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
     try {
       body = readFileSync(bodyPath);
     } catch {
-      console.warn("[curl-fetch:read] curl 结果 body 文件缺失（按空响应处理）：", bodyPath);
+      log.read.warn("curl 结果 body 文件缺失（按空响应处理）：", bodyPath);
       body = Buffer.alloc(0);
     }
     try {
@@ -132,8 +141,51 @@ export async function curlFetch(
   url: string,
   headers: Record<string, string>,
 ): Promise<{ status: number; contentType: string; body: Buffer }> {
-  const res = await curlRequest(url, { headers });
-  return { status: res.status, contentType: res.contentType, body: res.body };
+  return recordOutbound(url, undefined, async () => {
+    const res = await curlRequest(url, { headers });
+    return { status: res.status, contentType: res.contentType, body: res.body };
+  });
+}
+
+// ── 上游健康记账（M2）────────────────────────────────────────────────────────
+// 只记账，不改行为：成功/失败都按原路径返回或抛出。host 取 URL origin；
+// 4xx/5xx 计失败（401 Cookie 失效、429 风控正是健康面板要暴露的信号）。
+// 调用方主动放弃（传入 signal 触发 AbortError）不算上游的错，不入环——
+// 我们自己挂的 45s 超时（AbortSignal.timeout）抛的是 TimeoutError，仍入环。
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isCallerAbort(signal: AbortSignal | null | undefined, err: unknown): boolean {
+  return Boolean(signal?.aborted) && err instanceof Error && err.name === "AbortError";
+}
+
+async function recordOutbound<T extends { status: number }>(
+  url: string,
+  signal: AbortSignal | null | undefined,
+  attempt: () => Promise<T>,
+): Promise<T> {
+  const host = originOf(url);
+  const startedAt = Date.now();
+  try {
+    const res = await attempt();
+    if (host) {
+      const ok = res.status >= 200 && res.status < 400;
+      recordUpstreamHit(host, ok, Date.now() - startedAt, ok ? undefined : { error: `HTTP ${res.status || 0}` });
+    }
+    return res;
+  } catch (err) {
+    if (host && !isCallerAbort(signal, err)) {
+      recordUpstreamHit(host, false, Date.now() - startedAt, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    throw err;
+  }
 }
 
 function headersOf(init?: RequestInit): Record<string, string> {
@@ -218,7 +270,7 @@ function noteProxyPoolResult(ok: boolean) {
   if (proxyPool.__kamiProxyFails__ >= PROXY_POOL_FAIL_LIMIT) {
     proxyPool.__kamiProxyCooldownUntil__ = Date.now() + PROXY_POOL_KEEPALIVE;
     proxyPool.__kamiProxyFails__ = 0;
-    console.warn("[outbound] 连接池连续失败，接下来 10 分钟走 curl");
+    log.outbound.warn("连接池连续失败，接下来 10 分钟走 curl");
   }
 }
 
@@ -235,6 +287,10 @@ async function proxyPoolFetch(url: string, init: RequestInit, proxy: string): Pr
 const OUTBOUND_TIMEOUT_MS = 45_000;
 
 export async function outboundFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return recordOutbound(url, init.signal, () => outboundFetchAttempt(url, init));
+}
+
+async function outboundFetchAttempt(url: string, init: RequestInit): Promise<Response> {
   const signal = init.signal ?? AbortSignal.timeout(OUTBOUND_TIMEOUT_MS);
   const resolved: RequestInit = { ...init, signal };
   if (signal.aborted) {
@@ -252,12 +308,7 @@ export async function outboundFetch(url: string, init: RequestInit = {}): Promis
     } catch (err) {
       if (signal.aborted) throw err;
       noteProxyPoolResult(false);
-      if (typeof console !== "undefined") {
-        console.warn(
-          "[outbound] 连接池请求失败，本次降级 curl：",
-          err instanceof Error ? err.message : err,
-        );
-      }
+      log.outbound.warn("连接池请求失败，本次降级 curl：", err instanceof Error ? err.message : err);
     }
   }
   const headers = headersOf(init);

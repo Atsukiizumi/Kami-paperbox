@@ -8,6 +8,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
+import { setModuleLogSinkForTest, type ModuleLogEvent } from "../log.server.ts";
 import { capture, restore, type Snapshot } from "./db-snapshot.server.ts";
 import type { Sql } from "./db.ts";
 
@@ -186,11 +187,10 @@ test("jsonb 列枚举失败时回退 payload 白名单并告警", async () => {
       return sql.query<T>(text, params);
     },
   } as Sql;
-  const warns: string[] = [];
-  const originalWarn = console.warn;
-  console.warn = (...parts: unknown[]) => {
-    warns.push(parts.map(String).join(" "));
-  };
+  // M2 起 server 告警走 log.server（pino），不再直写 console.warn——
+  // 用日志 sink 捕获，断言 [模块:操作] 口径（module 字段）仍在。
+  const warns: ModuleLogEvent[] = [];
+  setModuleLogSinkForTest((event) => warns.push(event));
   try {
     const failures = await restore(
       broken,
@@ -204,9 +204,14 @@ test("jsonb 列枚举失败时回退 payload 白名单并告警", async () => {
     );
     assert.deepEqual(failures, [], "回退路径下好行仍应恢复");
   } finally {
-    console.warn = originalWarn;
+    setModuleLogSinkForTest(null);
   }
-  assert.ok(warns.some((w) => w.includes("jsonb 列枚举失败")), "枚举失败必须按 [模块:操作] 口径告警");
+  assert.ok(
+    warns.some(
+      (w) => w.level === "warn" && w.module === "db-snapshot:jsonb" && w.message.includes("jsonb 列枚举失败"),
+    ),
+    "枚举失败必须按 [模块:操作] 口径告警",
+  );
   const segs = await sql.query<{ payload: { pixiv?: number } }>(
     "select payload from user_sync_segments where user_id = 'u-fb'",
   );

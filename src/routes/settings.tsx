@@ -28,6 +28,7 @@ import { ThemeSection } from "@/components/theme-picker";
 import { StorageSection } from "@/components/storage-settings";
 import { BackupSection } from "@/components/backup-settings";
 import { TagLexiconSection } from "@/components/tag-lexicon-settings";
+import { UpstreamHealthCard } from "@/components/upstream-health-card";
 import { useSettings } from "@/lib/store";
 import { applyCookieDump, applyLoginSession } from "@/lib/sync/apply-session";
 import { cn } from "@/lib/utils";
@@ -888,6 +889,8 @@ export function SettingsPage() {
           <li>多 P 作品在卡片上的大预览浮层里，滚轮是翻页；要缩放请点进灯箱——两处滚轮各司其职。</li>
         </ul>
       </section>
+
+      <UpstreamHealthCard />
       </div>
       ) : null}
         </div>

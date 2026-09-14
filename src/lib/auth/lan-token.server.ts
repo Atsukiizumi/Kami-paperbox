@@ -8,8 +8,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { networkInterfaces } from "node:os";
+import { getLogger } from "../log.server.ts";
 import { resolveKamiRoot } from "../proxy.server.ts";
 import { LAN_TOKEN_COOKIE, isValidLanTokenShape } from "../sync/lan-pairing.ts";
+
+const log = getLogger("kami");
 
 const LAN_TOKEN_BYTES = 24;
 
@@ -91,11 +94,11 @@ export function printLanPairingIntroOnce(): void {
   printed = true;
   const token = readLanToken();
   const port = process.env.PORT ?? "8080";
-  console.log(`[kami] 局域网访问令牌（新设备首次打开需配对）：${token}`);
+  log.info(`局域网访问令牌（新设备首次打开需配对）：${token}`);
   for (const host of lanHosts()) {
-    console.log(`[kami] 配对入口：http://${host}:${port}/#pair=${token}`);
+    log.info(`配对入口：http://${host}:${port}/#pair=${token}`);
   }
-  console.log("[kami] 令牌存于 .data/lan-token.json；如泄露，删除该文件并重启即可换新。");
+  log.info("令牌存于 .data/lan-token.json；如泄露，删除该文件并重启即可换新。");
 }
 
 function lanHosts(): string[] {
