@@ -82,12 +82,12 @@ export function DeskPage() {
           to="/browse"
           prefetch={false}
           className={cn(
-            "kami-card-folded relative block min-h-[17.5rem] rounded-xl bg-surface p-6 shadow-[var(--shadow-paper-1)] md:p-8",
+            "kami-card-folded relative block rounded-xl bg-surface p-6 shadow-[var(--shadow-paper-1)] md:min-h-[17.5rem] md:p-8",
             asideEmpty ? "lg:col-span-3" : "lg:col-span-2",
           )}
         >
           <p className="text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
-          <p className="mt-6 font-display text-4xl tracking-tight md:text-5xl">去浏览</p>
+          <p className="mt-6 font-display text-[2rem] tracking-tight md:text-5xl">去浏览</p>
           <p className="mt-3 text-sm text-muted">日榜、关注、推荐都在那边</p>
         </Link>
         <DeskNewspaper className={asideEmpty ? "lg:col-span-3" : "lg:col-span-3 lg:col-start-1 lg:row-start-2"} />

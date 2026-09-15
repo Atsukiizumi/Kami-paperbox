@@ -54,7 +54,7 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
 export function VaultPage() {
   // useSearchParams 会在静态生成时 CSR bailout；页级 Suspense 才能过 next build。
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<p className="text-sm text-muted">正在读取纸匣…</p>}>
       <VaultPageInner />
     </Suspense>
   );

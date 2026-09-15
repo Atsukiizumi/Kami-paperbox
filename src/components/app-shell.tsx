@@ -98,10 +98,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mountBrowse = isBrowse || ((overlay || isDesk) && keepBrowse);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";
-  const activeIndex = Math.max(
-    0,
-    NAV.findIndex((item) => navItemActive(pathname, item.to)),
-  );
+  const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
+  const activeIndex = Math.max(0, desktopRawIndex);
   const mobileRawIndex = MOBILE_NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndexMobile = Math.max(0, mobileRawIndex);
 
@@ -157,7 +155,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="relative flex flex-col gap-1 p-2">
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out"
+            className={cn(
+              "pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out",
+              desktopRawIndex < 0 && "opacity-0",
+            )}
             style={{ transform: `translateY(${activeIndex * 3}rem)` }}
           />
           {NAV.map((item) => {

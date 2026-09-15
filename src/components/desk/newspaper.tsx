@@ -77,7 +77,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
         <p className="text-sm text-muted">今日报纸</p>
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="aspect-[3/4] w-[4.5rem] shrink-0 rounded-lg bg-surface md:w-24" />
+            <div key={i} className="aspect-[3/4] min-w-[28%] flex-1 rounded-lg bg-surface md:min-w-0" />
           ))}
         </div>
       </section>
@@ -97,9 +97,9 @@ export function DeskNewspaper({ className }: { className?: string }) {
             key={`${card.source}:${card.id}`}
             to="/work/$source/$id"
             params={{ source: card.source, id: card.id }}
-            className="relative block w-[4.5rem] shrink-0 overflow-hidden rounded-lg md:w-24"
+            className="relative block aspect-[3/4] min-w-[28%] flex-1 overflow-hidden rounded-lg md:min-w-0"
           >
-            <ProxiedImg src={card.thumb} alt="" className="aspect-[3/4] w-full object-cover" />
+            <ProxiedImg src={card.thumb} alt="" className="h-full w-full object-cover" />
             <span className="absolute left-1 top-1 text-[10px] tabular-nums text-accent-fg">{index + 1}</span>
           </Link>
         ))}
