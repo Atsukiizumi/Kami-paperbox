@@ -8,7 +8,7 @@
 
 import { Link } from "@/lib/kami-link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { unreadItems } from "@/lib/desk-unread";
 import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -52,6 +52,15 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
 }
 
 export function VaultPage() {
+  // useSearchParams 会在静态生成时 CSR bailout；页级 Suspense 才能过 next build。
+  return (
+    <Suspense fallback={null}>
+      <VaultPageInner />
+    </Suspense>
+  );
+}
+
+function VaultPageInner() {
   const folderLabel = useSettings((s) => s.folderLabel);
   const smartFolders = useSettings((s) => s.smartFolders);
   const addSmartFolder = useSettings((s) => s.addSmartFolder);
