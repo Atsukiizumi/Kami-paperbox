@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.0-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.10.0"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.3-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.10.3"></a>
   <a href="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml"><img src="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
