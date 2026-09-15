@@ -181,7 +181,10 @@ export function setHostGuardInternalsForTests(
  * 可用性风险大于残余安全风险。成败结果一并缓存（5min TTL）：媒体请求热，
  * 不能每图一次 DNS。缓存的残余风险：域名在 TTL 窗口内从公网解析摆到私网
  * （rebinding 类攻击）最多有 5 分钟盲区——白名单域为图站自营域，常规解析
- * 不会摆到私网，盲区可接受。
+ * 不会摆到私网，盲区可接受。另注意 guard 通过 ≠ 连接安全：本函数与
+ * outboundFetch 各自解析 DNS，存在解析后、连接前的 TOCTOU 窗口；彻底闭合
+ * 需把解析结果钉进连接（自定义 undici dispatcher），白名单扩大到非自营域
+ * 时应一并做。
  */
 export async function assertHostResolvesPublicly(host: string): Promise<boolean> {
   const cached = resolutionCache.get(host);

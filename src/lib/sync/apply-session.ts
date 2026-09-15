@@ -19,10 +19,7 @@ import {
   pixivSessionValue,
   type LoginSite,
 } from "./browser-login.ts";
-import { useSettings } from "../store.ts";
-
-/** 登录状态推送失败的固定 toast id：失败重试时折叠成一条，不在防抖循环里刷屏。 */
-const SESSION_SYNC_TOAST_ID = "kami-session-sync";
+import { SESSION_SYNC_TOAST_ID, useSettings } from "../store.ts";
 
 export type LoginSessionInput = {
   pixiv?: string;

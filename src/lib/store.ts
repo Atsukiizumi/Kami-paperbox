@@ -79,6 +79,12 @@ type Tab = Source;
  */
 export const IDENTITY_REFRESH_TOAST_ID = "kami-identity-refresh";
 
+/**
+ * 登录状态写服务端失败的固定 toast id：登录流程（apply-session）与账号
+ * 切换/移除共用，防抖/连点折叠成一条。apply-session 从这里导入同一常量。
+ */
+export const SESSION_SYNC_TOAST_ID = "kami-session-sync";
+
 type SettingsState = {
   pixivCookie: string;
   fanboxCookie: string;
@@ -324,13 +330,18 @@ export const useSettings = create<SettingsState>()(
             s.activeAccountId === id ? (accounts[0]?.id ?? null) : s.activeAccountId;
           return withActiveCookies(accounts, activeAccountId);
         });
-        void get().syncSessions();
+        // 曾裸 void：移除账号时写会话失败无任何提示，用户以为已同步
+        void get().syncSessions().catch(() => {
+          toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
+        });
       },
       switchAccount: async (id) => {
         const s = get();
         if (!s.accounts.some((a) => a.id === id)) return;
         set(withActiveCookies(s.accounts, id));
-        await get().syncSessions();
+        await get().syncSessions().catch(() => {
+          toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
+        });
       },
       syncSessions: async () => {
         const { pixivCookie, fanboxCookie, danbooruLogin, danbooruApiKey } = get();

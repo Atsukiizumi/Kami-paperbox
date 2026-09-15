@@ -1,8 +1,8 @@
 {
   "_meta": {
-    "fetchedAt": "2026-09-14T18:27:57.389Z",
+    "fetchedAt": "2026-09-15T00:08:19.361Z",
     "url": "https://www.pixiv.net/ranking.php",
-    "sanitizerVersion": 1
+    "sanitizerVersion": 2
   },
   "data": {
     "contents": [
@@ -98,7 +98,8 @@
           "百合",
           "女の子",
           "白タイツ",
-          "百合3000users入り"
+          "百合3000users入り",
+          "オリジナル1000users入り"
         ],
         "url": "https://i.pximg.net/c/480x960/img-master/img/2026/09/13/00/37/35/149596619_p0_master1200.jpg",
         "illust_type": "0",
@@ -2238,16 +2239,16 @@
     "date_range_text": "2026年9月13日",
     "zoneConfig": {
       "header": {
-        "url": "https://pixon.ads-pixiv.net/show?zone_id=header&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=240edee2f538486&ab_test_digits_first=76&yuid=MEJpaQA&num=6aa83cae409"
+        "url": "https://pixon.ads-pixiv.net/show?zone_id=header&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=1d1a0c8591fc672&ab_test_digits_first=17&yuid=FZSFdSk&num=6aa88c73206"
       },
       "footer": {
-        "url": "https://pixon.ads-pixiv.net/show?zone_id=footer&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=240edee2f538486&ab_test_digits_first=76&yuid=MEJpaQA&num=6aa83cae656"
+        "url": "https://pixon.ads-pixiv.net/show?zone_id=footer&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=1d1a0c8591fc672&ab_test_digits_first=17&yuid=FZSFdSk&num=6aa88c7375"
       },
       "logo": {
-        "url": "https://pixon.ads-pixiv.net/show?zone_id=logo_side&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=240edee2f538486&ab_test_digits_first=76&yuid=MEJpaQA&num=6aa83cae294"
+        "url": "https://pixon.ads-pixiv.net/show?zone_id=logo_side&format=js&s=0&up=0&ng=g&l=zh&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=1d1a0c8591fc672&ab_test_digits_first=17&yuid=FZSFdSk&num=6aa88c73277"
       },
       "ad_logo": {
-        "url": "https://pixon.ads-pixiv.net/show?zone_id=t_logo_side&format=js&s=0&up=0&ng=g&l=zh&os=and&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=240edee2f538486&ab_test_digits_first=76&yuid=MEJpaQA&num=6aa83cae142"
+        "url": "https://pixon.ads-pixiv.net/show?zone_id=t_logo_side&format=js&s=0&up=0&ng=g&l=zh&os=and&uri=%2Franking.php&ref=www.pixiv.net%2Franking.php%3Fmode%3Ddaily%26content%3Dillust%26p%3D1%26format%3Djson&D=1d1a0c8591fc672&ab_test_digits_first=17&yuid=FZSFdSk&num=6aa88c73948"
       }
     }
   }

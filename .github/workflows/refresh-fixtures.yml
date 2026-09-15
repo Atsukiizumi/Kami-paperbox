@@ -27,7 +27,7 @@ jobs:
       - name: 凭据自检（命中即失败）
         if: always()
         run: |
-          if grep -rniE "sessid|token|csrf|secret|authorization|api[_-]?key" tests/fixtures/upstream/; then
+          if grep -rniE "sessid|token|csrf|secret|authorization|api[_-]?key|cookie" tests/fixtures/upstream/; then
             echo "凭据模式命中：fixtures 未过脱敏审查，禁止入库"
             exit 1
           fi
