@@ -97,3 +97,22 @@ test("whoami 200 时不弹提示，身份照常回填", async () => {
   }
   assert.deepEqual(stub.calls, [], "成功路径必须保持静默");
 });
+
+test("switchAccount 时会话写入失败弹固定 id 提示，不产生未处理拒绝", async () => {
+  const stub = stubToastErrors();
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("{}", { status: 500 })) as typeof fetch;
+  resetStore();
+  useSettings.getState().addAccount("甲");
+  useSettings.setState({ pixivCookie: PIXIV_SESSION });
+  const 乙 = useSettings.getState().addAccount("乙");
+  try {
+    await useSettings.getState().switchAccount(乙);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    resetStore();
+    stub.restore();
+  }
+  assert.equal(stub.calls.length, 1, "切换账号的会话写入失败必须提示");
+  assert.equal(stub.calls[0]?.options?.id, "kami-session-sync", "与登录流程共用固定 id");
+});
