@@ -60,6 +60,9 @@ test("isPrivateIpLiteral 覆盖私网 / 回环 / 链路本地 / IPv6 / IPv4-mapp
     "2001:db8::1",
     "::ffff:8.8.8.8",
     "::ffff:808:808", // ::ffff:8.8.8.8 的十六进制形态
+    // fake-ip 段（Clash 系代理 DNS 接管的默认映射段）不算私网——见 PRIVATE_RANGES 头注释
+    "198.18.0.74",
+    "198.19.255.1",
   ];
   for (const ip of publics) {
     assert.equal(isPrivateIpLiteral(ip), false, `${ip} 不应误判为私网`);
@@ -81,6 +84,13 @@ test("解析到私网（含 mapped）的域名判不通过，多 A 记录一票�
         ];
       }
       if (host === "mapped.example") return [{ address: "::ffff:10.0.0.1", family: 4 }];
+      // fake-ip：本机 DNS 被代理托管时所有域名都落 198.18/15，必须放行（#144 回归锁）
+      if (host === "fakeip.example") {
+        return [
+          { address: "198.18.0.74", family: 4 },
+          { address: "198.18.0.75", family: 4 },
+        ];
+      }
       return [{ address: "210.140.139.150", family: 4 }];
     },
     now: () => 0,
@@ -89,6 +99,7 @@ test("解析到私网（含 mapped）的域名判不通过，多 A 记录一票�
     assert.equal(await assertHostResolvesPublicly("rebind.example"), false);
     assert.equal(await assertHostResolvesPublicly("mixed.example"), false, "私网 IP 不能搭公共 A 记录的车");
     assert.equal(await assertHostResolvesPublicly("mapped.example"), false);
+    assert.equal(await assertHostResolvesPublicly("fakeip.example"), true, "fake-ip 映射（代理托管解析）必须放行");
     assert.equal(await assertHostResolvesPublicly("public.example"), true);
   } finally {
     setHostGuardInternalsForTests(null);

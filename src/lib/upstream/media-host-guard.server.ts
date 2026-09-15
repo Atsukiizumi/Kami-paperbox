@@ -18,9 +18,14 @@ import net from "node:net";
 
 /**
  * 私网 / 回环 / 链路本地 / 组播 / 保留段（IPv4 + IPv6）。比旧正则多出的段
- * （100.64/10、198.18/15、224/4、240/4、fe80::/10、ff00::/8）只会让原本就
- * 进不了白名单的 IP 字面量从「不支持的图片来源」改判成「非法地址」——
- * 拦截结论不变，只提前了判定点。
+ * （100.64/10、224/4、240/4、fe80::/10、ff00::/8）只会让原本就进不了白名单
+ * 的 IP 字面量从「不支持的图片来源」改判成「非法地址」——拦截结论不变，
+ * 只提前了判定点。
+ * **不含 198.18.0.0/15（RFC 2544 基准段）**：它是 Clash/mihomo 系代理
+ * fake-ip 模式的默认映射段——本机解析器被接管后，所有域名都落在这一段，
+ * 真实解析由代理侧完成。把它当私网拦会打挂代理环境下所有未缓存图片
+ * （#144 回归，实测本机 i.pximg.net 等四域全解析为 198.18.0.x）。
+ * 白名单已把域收敛到图站自营域，fake-ip 视为「代理托管解析」放行。
  */
 const PRIVATE_RANGES = new net.BlockList();
 for (const [addr, prefix, family] of [
@@ -31,7 +36,6 @@ for (const [addr, prefix, family] of [
   ["169.254.0.0", 16, "ipv4"],
   ["172.16.0.0", 12, "ipv4"],
   ["192.168.0.0", 16, "ipv4"],
-  ["198.18.0.0", 15, "ipv4"],
   ["224.0.0.0", 4, "ipv4"],
   ["240.0.0.0", 4, "ipv4"],
   ["::", 128, "ipv6"],
@@ -41,6 +45,15 @@ for (const [addr, prefix, family] of [
   ["ff00::", 8, "ipv6"],
 ] as const) {
   PRIVATE_RANGES.addSubnet(addr, prefix, family);
+}
+
+/** fake-ip 默认段（Clash 系代理 DNS 接管时所有域名的解析落点）。 */
+const FAKE_IP_RANGE = new net.BlockList();
+FAKE_IP_RANGE.addSubnet("198.18.0.0", 15, "ipv4");
+
+/** 解析结果落在 fake-ip 段 = 本机 DNS 被代理托管，真实连接目标由代理解定。 */
+export function isFakeIpResolution(address: string): boolean {
+  return net.isIPv4(address) && FAKE_IP_RANGE.check(address, "ipv4");
 }
 
 /** 域名形态的私网指示：本机、链路本地域、云 metadata 端点。 */
@@ -193,7 +206,8 @@ export async function assertHostResolvesPublicly(host: string): Promise<boolean>
   let verdict = true;
   try {
     const results = await resolveHost(host);
-    verdict = !results.some((r) => isPrivateAddress(r.address));
+    // fake-ip 段（代理托管解析）不算私网：本机答案不代表连接目标
+    verdict = !results.some((r) => isPrivateAddress(r.address) && !isFakeIpResolution(r.address));
   } catch {
     verdict = true; // fail-open，理由见函数头
   }

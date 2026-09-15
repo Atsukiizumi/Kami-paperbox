@@ -10,6 +10,7 @@ import { outboundFetch } from "../curl-fetch.server.ts";
 import { fanboxCookieHeader, pixivUserIdFromCookie } from "../sync/browser-login.ts";
 import { sleep, withMediaGate } from "../media-gate.ts";
 import { getThrottle } from "../throttle.server.ts";
+import { getActiveProxy } from "../proxy.server.ts";
 import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../storage/media-cache.server.ts";
 import { UA } from "./http.ts";
 import {
@@ -184,7 +185,9 @@ async function loadMediaResponse(
   if (cached) return cached;
   // SEC-08：白名单域还要「解析后判断」——解析出私网 IP（DNS rebinding 面）
   // 就拒。fail-open 取舍与 5min TTL 缓存见 media-host-guard.server.ts。
-  if (!(await assertHostResolvesPublicly(url.hostname.toLowerCase()))) {
+  // 出站配了代理时整道闸跳过：连接经代理由代理侧解析，本机 DNS 答案
+  // （含 fake-ip 映射、DNS 污染结果）不代表连接目标，判了只会误伤。
+  if (!getActiveProxy() && !(await assertHostResolvesPublicly(url.hostname.toLowerCase()))) {
     throw new Error("非法地址");
   }
   const headers: Record<string, string> = {
