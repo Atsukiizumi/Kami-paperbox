@@ -114,9 +114,14 @@ export function VaultStatsPage() {
             共 {totals.count} 条 · {formatBytes(totals.bytes)}
           </p>
         </div>
-        <Button asChild size="sm" variant="secondary">
-          <Link to="/vault">回纸匣</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/vault/report">年度报告</Link>
+          </Button>
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/vault">回纸匣</Link>
+          </Button>
+        </div>
       </header>
 
       {all === null ? (
