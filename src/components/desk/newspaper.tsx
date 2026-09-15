@@ -2,7 +2,7 @@
  * 案头今日报纸。
  *
  * 作用：现场拉当前站日榜前 4 张竖图；失败 / 空 / FANBOX 整栏不出现。
- * 用法：DeskPage 通栏挂 <DeskNewspaper />。
+ * 用法：DeskPage 通栏挂 <DeskNewspaper className={…} />。
  * 为什么：独立 queryKey desk-newspaper，不和保活浏览抢 home-pixiv / home-booru。
  */
 "use client";
@@ -20,7 +20,7 @@ import { pixivRankingDateParam, rememberRanking } from "@/lib/storage/ranking-ar
 import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
 import { credentialTag } from "@/lib/sync/cred-tag";
 
-export function DeskNewspaper() {
+export function DeskNewspaper({ className }: { className?: string }) {
   const tab = useSettings((s) => s.tab);
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
@@ -73,7 +73,7 @@ export function DeskNewspaper() {
 
   if (query.isPending) {
     return (
-      <section>
+      <section className={className}>
         <p className="text-sm text-muted">今日报纸</p>
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {Array.from({ length: 4 }, (_, i) => (
@@ -87,7 +87,7 @@ export function DeskNewspaper() {
   if (query.isError || items.length === 0) return null;
 
   return (
-    <section>
+    <section className={className}>
       <Link to="/rankings" className="text-sm text-muted hover:text-fg">
         今日报纸 · {siteLabel(tab)} 日榜
       </Link>

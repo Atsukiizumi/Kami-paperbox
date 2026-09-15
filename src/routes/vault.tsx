@@ -7,7 +7,10 @@
 "use client";
 
 import { Link } from "@/lib/kami-link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { unreadItems } from "@/lib/desk-unread";
+import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
@@ -66,7 +69,24 @@ export function VaultPage() {
   const [ready, setReady] = useState(false);
   /** 今日去年：命中笺条后把列表过滤到那批藏品（点 × 恢复），瞬态不进智能文件夹。 */
   const [recallOnly, setRecallOnly] = useState(false);
+  /** 未读纸叠：叠在 filterVaultItems / 今日去年之后，两芯片同时亮 = 交集；不进智能文件夹。 */
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const historyItems = useViewHistory((s) => s.items);
+
+  // 案头深链：?recall=1 / ?unread=1 只当芯片初值，读完立刻从地址栏拿掉，避免分享带瞬时过滤。
+  useEffect(() => {
+    const recall = searchParams.get("recall") === "1";
+    const unread = searchParams.get("unread") === "1";
+    if (!recall && !unread) return;
+    if (recall) setRecallOnly(true);
+    if (unread) setUnreadOnly(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("recall");
+    url.searchParams.delete("unread");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [searchParams]);
 
   async function refresh() {
     let local: VaultMeta[] = [];
@@ -109,6 +129,10 @@ export function VaultPage() {
     [recallGroups],
   );
   const flipPool = useMemo(() => all.filter(hasVaultCover), [all]);
+  const unreadKeys = useMemo(
+    () => new Set(unreadItems(all, historyItems).map((x) => x.key)),
+    [all, historyItems],
+  );
 
   const items = useMemo(
     () => {
@@ -119,10 +143,11 @@ export function VaultPage() {
         tags: tagsSel.length ? tagsSel : undefined,
         month: month || undefined,
       });
-      // 今日去年过滤叠在最上面：复用整页瀑布流渲染，零新展示面
-      return recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
+      // 今日去年 / 未读都叠在筛选之上：复用整页瀑布流；两芯片同时亮 = 交集
+      const next = recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
+      return unreadOnly && unreadKeys.size > 0 ? next.filter((item) => unreadKeys.has(item.key)) : next;
     },
-    [all, text, source, author, tagsSel, month, recallOnly, recallKeys],
+    [all, text, source, author, tagsSel, month, recallOnly, recallKeys, unreadOnly, unreadKeys],
   );
   const authors = useMemo(() => {
     const pool = source === "all" ? all : all.filter((item) => item.source === source);
@@ -144,7 +169,7 @@ export function VaultPage() {
   const visible = items.slice(0, visibleCount);
   useEffect(() => {
     setVisibleCount(60);
-  }, [text, source, author, tagsSel, month, recallOnly]);
+  }, [text, source, author, tagsSel, month, recallOnly, unreadOnly]);
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
@@ -293,6 +318,11 @@ export function VaultPage() {
             {recallTotal > 0 ? (
               <FilterChip active={recallOnly} onClick={() => setRecallOnly((v) => !v)}>
                 {recallOnly ? "今日去年 ×" : "今日去年"}
+              </FilterChip>
+            ) : null}
+            {unreadKeys.size > 0 ? (
+              <FilterChip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)}>
+                {unreadOnly ? "未读 ×" : "未读"}
               </FilterChip>
             ) : null}
             <span className="ml-auto text-xs tabular-nums text-subtle">
