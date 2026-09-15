@@ -25,7 +25,8 @@ import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
 import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
 import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "../view-history.ts";
 
-function snapshotSettings(): BackupSettings {
+/** 设置段采集白名单。导出仅供测试断言字段齐全（结构性列表漏采事故的回归锁）。 */
+export function snapshotSettings(): BackupSettings {
   const s = useSettings.getState();
   return parseBackupSettings({
     pixivCookie: s.pixivCookie,
@@ -45,6 +46,11 @@ function snapshotSettings(): BackupSettings {
     saucenaoApiKey: s.saucenaoApiKey,
     recents: s.recents,
     savedTags: s.savedTags,
+    authorAliases: s.authorAliases,
+    // 结构性列表：曾长期漏在这里——推不进同步段/备份文件，拉取侧还会用空默认值清掉本地
+    smartFolders: s.smartFolders,
+    watchArtists: s.watchArtists,
+    watchLimit: s.watchLimit,
     accounts: s.accounts,
     activeAccountId: s.activeAccountId,
     theme: s.theme,
@@ -110,7 +116,14 @@ export async function applySegment(
 ): Promise<void> {
   if (segment === "settings") {
     const seg = data as { settings?: unknown; proxyUrl?: unknown };
+    const raw = (seg.settings ?? {}) as Record<string, unknown>;
     const settings = parseBackupSettings(seg.settings ?? {});
+    // 升级窗口防清空：旧远端载荷不含 smartFolders/watchArtists 字段，parse 默认空数组
+    // 会把本地整份抹掉。字段缺失 + 本地非空 → 保留本地；字段显式为空（用户真清空）→ 照常应用。
+    const local = useSettings.getState();
+    const hasField = (k: string) => Object.prototype.hasOwnProperty.call(raw, k);
+    if (!hasField("smartFolders") && local.smartFolders.length > 0) settings.smartFolders = local.smartFolders;
+    if (!hasField("watchArtists") && local.watchArtists.length > 0) settings.watchArtists = local.watchArtists;
     useSettings.setState({ ...settings });
     await useSettings.getState().syncSessions();
     if (typeof seg.proxyUrl === "string" && seg.proxyUrl) {

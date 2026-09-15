@@ -1,12 +1,16 @@
 /**
  * 纸匣目录查询（纯函数，不碰 IndexedDB）。
  *
- * 作用：按关键字、站点、作者过滤已保存作品。
- * 用法：filterVaultItems(listVault() 的结果, { text, source, author })。
+ * 作用：按关键字、站点、作者过滤已保存作品；作者口径走 author-name.ts 的
+ *      分组键（同 authorId / 规范化同名归一），装饰名变体不再裂开。
+ * 用法：filterVaultItems(listVault() 的结果, { text, source, authorKey })。
  *      关键字按空白分词，每段都要命中（标题/作者/标签/id/相对路径）。
+ *      author 是旧口径（raw 名精确匹配，智能库向后兼容），authorKey 是
+ *      簇键（vaultAuthorOptions().key，画师下拉的选中态）。
  * 为什么单独拆文件：存储层（vault.ts）依赖浏览器 IDB，查询逻辑可以在 Node 测试里跑，
  *        也避免 UI 直接拼字符串。
  */
+import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-name.ts";
 import { isSource } from "../sites.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
@@ -14,6 +18,8 @@ export type VaultQuery = {
   text?: string;
   source?: Source | "all";
   author?: string;
+  /** 作者簇键（authorKey）：命中 = authorId 相符，或规范化名相符。 */
+  authorKey?: string;
   /** 任一命中（智能库）。 */
   tags?: string[];
   /** "YYYY-MM"，按 savedAt 本地时区（智能库）。 */
@@ -53,6 +59,7 @@ export function filterVaultItems(items: VaultMeta[], q: VaultQuery): VaultMeta[]
   return items.filter((item) => {
     if (q.source && q.source !== "all" && item.source !== q.source) return false;
     if (q.author && item.author !== q.author) return false;
+    if (q.authorKey && authorKey(item) !== q.authorKey) return false;
     if (q.tags?.length && !item.tags.some((t) => q.tags!.includes(t))) return false;
     if (q.month && monthOf(item.savedAt) !== q.month) return false;
     if (tokens.length === 0) return true;
@@ -61,16 +68,21 @@ export function filterVaultItems(items: VaultMeta[], q: VaultQuery): VaultMeta[]
   });
 }
 
-export function vaultAuthors(items: VaultMeta[]): string[] {
-  const seen = new Set<string>();
-  const names: string[] = [];
-  for (const item of items) {
-    const name = item.author.trim();
-    if (!name || seen.has(name)) continue;
-    seen.add(name);
-    names.push(name);
-  }
-  return names.sort((a, b) => a.localeCompare(b, "zh"));
+/**
+ * 画师下拉选项：簇键 + 规范展示名（别名优先）+ 合并计数。
+ * 选中态存 key（同一画师的装饰变体共用一个键，换名不换键）。
+ */
+export type AuthorOption = { key: string; name: string; count: number };
+
+export function vaultAuthorOptions(items: VaultMeta[], aliases?: Record<string, string>): AuthorOption[] {
+  return clusterAuthorVariants(items)
+    .map((c) => ({ key: c.key, name: applyAuthorAlias(c.displayName, aliases), count: c.totalCount }))
+    .sort((a, b) => a.name.localeCompare(b.name, "zh") || (a.key < b.key ? -1 : 1));
+}
+
+/** 作者簇的规范展示名列表（统计口径：同 authorId / 规范化同名只算一位）。 */
+export function vaultAuthors(items: VaultMeta[], aliases?: Record<string, string>): string[] {
+  return vaultAuthorOptions(items, aliases).map((o) => o.name);
 }
 
 export function vaultTotals(items: VaultMeta[]): { count: number; bytes: number } {
@@ -117,6 +129,7 @@ export function parseSmartFolders(raw: unknown): SmartFolder[] {
     if (typeof q.text === "string" && q.text.trim()) query.text = q.text.slice(0, 120);
     if (typeof q.source === "string" && q.source !== "all" && isSource(q.source)) query.source = q.source as Source;
     if (typeof q.author === "string" && q.author.trim()) query.author = q.author.slice(0, 80);
+    if (typeof q.authorKey === "string" && q.authorKey.trim()) query.authorKey = q.authorKey.slice(0, 120);
     if (Array.isArray(q.tags)) {
       const tags = q.tags.filter((t): t is string => typeof t === "string" && t.trim() !== "").slice(0, 20);
       if (tags.length) query.tags = tags;

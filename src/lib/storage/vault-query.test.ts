@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterVaultItems, parseSmartFolders, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "./vault-query.ts";
+import {
+  filterVaultItems,
+  parseSmartFolders,
+  vaultAuthorOptions,
+  vaultAuthors,
+  vaultMonths,
+  vaultTags,
+  vaultTotals,
+} from "./vault-query.ts";
+import { authorKey } from "../author-name.ts";
 import type { VaultMeta } from "../types.ts";
 
 function item(over: Partial<VaultMeta> & Pick<VaultMeta, "key" | "title" | "author">): VaultMeta {
@@ -38,6 +47,34 @@ test("vaultAuthors and totals", () => {
   ];
   assert.deepEqual(vaultAuthors(rows), ["_AGOTO", "zero"]);
   assert.deepEqual(vaultTotals(rows), { count: 3, bytes: 30 });
+});
+
+test("作者口径走簇键：装饰变体合并计数，authorKey 筛选命中同簇（画师整理）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "☆あいす★", authorId: "", bytes: 10 }),
+    item({ key: "b", title: "b", author: "あいす", authorId: "", bytes: 5 }), // 无 id：规范化归一
+    item({ key: "c", title: "c", author: "アイス", authorId: "11", bytes: 5 }), // 有 id：独立簇
+  ];
+  const options = vaultAuthorOptions(rows);
+  assert.deepEqual(
+    options.map((o) => [o.name, o.count]),
+    [["あいす", 2], ["アイス", 1]],
+  );
+  // 别名把「あいす」并到「アイス」：两个簇展示名合并（键仍分开，计数不串）
+  assert.deepEqual(
+    vaultAuthorOptions(rows, { あいす: "アイス" }).map((o) => o.name),
+    ["アイス", "アイス"],
+  );
+  // authorKey 筛选：选あいす簇 → 命中两条装饰变体；旧 author 精确匹配仍可用
+  const aisKey = authorKey(rows[0]!);
+  assert.equal(filterVaultItems(rows, { authorKey: aisKey }).length, 2);
+  assert.equal(filterVaultItems(rows, { author: "あいす" }).length, 1);
+  // 同 authorId 双名称归一成一条选项
+  const renamed = [
+    item({ key: "d", title: "d", author: "user", authorId: "7", savedAt: 100 }),
+    item({ key: "e", title: "e", author: "☆user★@pixiv", authorId: "7", savedAt: 200 }),
+  ];
+  assert.deepEqual(vaultAuthorOptions(renamed).map((o) => [o.name, o.count]), [["user", 2]]);
 });
 
 test("tags 任一命中；month 按 savedAt 本地年月；与既有谓词叠加（智能库）", () => {

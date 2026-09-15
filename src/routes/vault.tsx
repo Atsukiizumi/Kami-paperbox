@@ -19,12 +19,13 @@ import { MonthPicker } from "@/components/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SITE_LIST } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
+import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { formatBytes, cn } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
 import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/storage/vault";
 import { forgetVaultKey } from "@/lib/storage/vault-index";
-import { filterVaultItems, vaultAuthors, vaultMonths, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { filterVaultItems, vaultAuthorOptions, vaultMonths, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { listServerVault, vaultPageUrl } from "@/lib/storage/vault-sync";
 import type { Source, WorkCard } from "@/lib/types";
@@ -49,9 +50,11 @@ export function VaultPage() {
   const smartFolders = useSettings((s) => s.smartFolders);
   const addSmartFolder = useSettings((s) => s.addSmartFolder);
   const removeSmartFolder = useSettings((s) => s.removeSmartFolder);
+  const authorAliases = useSettings((s) => s.authorAliases);
   const [all, setAll] = useState<VaultMeta[]>([]);
   const [text, setText] = useState("");
   const [source, setSource] = useState<Source | "all">("all");
+  /** 选中态是作者簇键（authorKey），不再存 raw 名——同一画师的装饰变体共用一键。 */
   const [author, setAuthor] = useState("");
   const [tagsSel, setTagsSel] = useState<string[]>([]);
   const [month, setMonth] = useState("");
@@ -93,13 +96,27 @@ export function VaultPage() {
   }, []);
 
   const items = useMemo(
-    () => filterVaultItems(all, { text, source, author, tags: tagsSel.length ? tagsSel : undefined, month: month || undefined }),
+    () =>
+      filterVaultItems(all, {
+        text,
+        source,
+        authorKey: author || undefined,
+        tags: tagsSel.length ? tagsSel : undefined,
+        month: month || undefined,
+      }),
     [all, text, source, author, tagsSel, month],
   );
   const authors = useMemo(() => {
     const pool = source === "all" ? all : all.filter((item) => item.source === source);
-    return vaultAuthors(pool).filter((name) => name.trim() !== "");
-  }, [all, source]);
+    return vaultAuthorOptions(pool, authorAliases);
+  }, [all, source, authorAliases]);
+  /** 旧口径（智能库存的是 raw 名）→ 簇键：按 raw 名或规范名在当前纸匣里找一条。 */
+  function authorKeyForName(name: string | undefined): string {
+    const want = (name ?? "").trim();
+    if (!want) return "";
+    const hit = all.find((item) => item.author === want || normalizeAuthorName(item.author) === want);
+    return hit ? authorKey(hit) : "";
+  }
   const tagOptions = useMemo(() => vaultTags(all).slice(0, 24), [all]);
   const monthOptions = useMemo(() => vaultMonths(all), [all]);
   const filterActive = Boolean(text || (source !== "all" && source) || author || tagsSel.length || month);
@@ -113,7 +130,7 @@ export function VaultPage() {
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
-    if (author && !authors.includes(author)) setAuthor("");
+    if (author && !authors.some((o) => o.key === author)) setAuthor("");
   }, [author, authors]);
 
   async function exportWork(item: VaultMeta) {
@@ -147,7 +164,11 @@ export function VaultPage() {
       const res = await fetch("/api/vault/export", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ keys: truncated ? keys.slice(0, 400) : keys }),
+        body: JSON.stringify({
+          keys: truncated ? keys.slice(0, 400) : keys,
+          // 分夹名要套用户别名（同一画师不再各开一夹），随请求带给无状态的服务端
+          authorAliases: useSettings.getState().authorAliases,
+        }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -222,9 +243,9 @@ export function VaultPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部作者</SelectItem>
-                  {authors.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
+                  {authors.map((option) => (
+                    <SelectItem key={option.key} value={option.key}>
+                      {option.name} · {option.count}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -269,7 +290,8 @@ export function VaultPage() {
                   onClick={() => {
                     setText(folder.query.text ?? "");
                     setSource(folder.query.source ?? "all");
-                    setAuthor(folder.query.author ?? "");
+                    // 新文件夹存簇键（authorKey）；旧文件夹按展示名解析，解析不出再回退原名匹配
+                    setAuthor(folder.query.authorKey ?? authorKeyForName(folder.query.author ?? ""));
                     setTagsSel(folder.query.tags ?? []);
                     setMonth(folder.query.month ?? "");
                   }}
@@ -291,8 +313,19 @@ export function VaultPage() {
                 type="button"
                 className="text-xs text-muted underline-offset-2 hover:underline"
                 onClick={() => {
-                  const name = window.prompt("智能文件夹名字", `${tagsSel[0] ?? author ?? source}收藏`);
-                  if (name) addSmartFolder(name, { text, source, author, tags: tagsSel, month: month || undefined });
+                  // 智能库存人类可读的簇展示名（跨设备 / 改别名后仍能按名解析回簇键）
+                  const authorName = authors.find((o) => o.key === author)?.name ?? "";
+                  const name = window.prompt("智能文件夹名字", `${tagsSel[0] ?? authorName ?? source}收藏`);
+                  if (name)
+                    addSmartFolder(name, {
+                      text,
+                      source,
+                      author: authorName,
+                      // 簇键随存：别名改过之后按名解析会失败，键才是稳定锚点
+                      authorKey: author || undefined,
+                      tags: tagsSel,
+                      month: month || undefined,
+                    });
                 }}
               >
                 存为智能文件夹

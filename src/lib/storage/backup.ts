@@ -7,6 +7,7 @@
  *        这份文件只记目录和登录，不把像素 base64 进去。
  */
 import { cookiesOf, migrateLegacySettings, type Account } from "../sync/accounts.ts";
+import { parseAuthorAliases } from "../author-name.ts";
 import { asRecordOrNull as asRecord } from "../parse.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "../sync/browser-login.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
@@ -57,6 +58,8 @@ export type BackupSettings = {
   recents: string[];
   savedTags: Record<Source, string[]>;
   smartFolders: SmartFolder[];
+  /** 画师名别名（规范名 → 用户定名）：跨设备要同步的设置段字段。 */
+  authorAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
   accounts: Account[];
@@ -201,6 +204,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     recents: parseRecents(p.recents),
     savedTags: parseSavedTags(p.savedTags),
     smartFolders: parseSmartFolders(p.smartFolders),
+    authorAliases: parseAuthorAliases(p.authorAliases),
     watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
     watchLimit: clampWatchLimit(p.watchLimit),
     accounts: legacy.accounts,

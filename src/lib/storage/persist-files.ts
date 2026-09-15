@@ -6,6 +6,7 @@
  * 用法：只从队列 runner 调 archiveWork。
  */
 import { extFromNameOrType } from "../ugoira-meta.ts";
+import { applyAuthorAlias, normalizeAuthorName } from "../author-name.ts";
 import {
   flattenDownloadName,
   formatDownloadPath,
@@ -41,6 +42,9 @@ export function archivePathContext(
 ): PathContext {
   return {
     author: work.author,
+    // {author} 用预解析值：规范化 + 用户别名（download-path 不引 store，
+    // 别名在这里从设置段取，镜像路径与导出/统计同一套画师口径）
+    authorName: applyAuthorAlias(normalizeAuthorName(work.author), useSettings.getState().authorAliases),
     authorId: work.authorId ?? "",
     title: work.title,
     id: work.id,

@@ -186,3 +186,22 @@ test("profileSummary：活跃相位 / 周几由直方图峰值（而非首条）
   assert.equal(s.activePhase, "深夜");
   assert.equal(s.topWeekday, "周六");
 });
+
+test("profileSummary：心头好按 authorKey 簇计数，装饰变体不再分票（画师整理）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "☆あいす★", authorId: "", savedAt: at(2026, 8, 1, 10) }),
+    item({ key: "b", title: "b", author: "あいす", authorId: "", savedAt: at(2026, 8, 2, 10) }),
+    item({ key: "c", title: "c", author: "別人", authorId: "", savedAt: at(2026, 8, 3, 10) }),
+  ];
+  // 旧口径会把「☆あいす★」「あいす」记成两位各 1 票、并列时字典序取「あいす」；
+  // 簇口径归一成 2 票，心头好是归一后的「あいす」
+  assert.deepEqual(profileSummary(rows).favoriteAuthor, { name: "あいす", count: 2 });
+  // 用户别名改写展示名，计数不变
+  assert.deepEqual(profileSummary(rows, { あいす: "アイス" }).favoriteAuthor, { name: "アイス", count: 2 });
+  // 同 authorId 双名称也归一；展示名取簇内最新 raw 的规范化
+  const renamed = [
+    item({ key: "d", title: "d", author: "user", authorId: "7", savedAt: at(2026, 8, 1, 10) }),
+    item({ key: "e", title: "e", author: "☆user★@pixiv", authorId: "7", savedAt: at(2026, 8, 9, 10) }),
+  ];
+  assert.deepEqual(profileSummary(renamed).favoriteAuthor, { name: "user", count: 2 });
+});

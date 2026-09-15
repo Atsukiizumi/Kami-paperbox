@@ -67,6 +67,12 @@ export const PATH_TOKEN_HELP = [
 
 export type PathContext = {
   author: string;
+  /**
+   * 预解析的 {author} 值（规范化 + 用户别名后的规范画师名）。给了就优先用，
+   * 没给回退 author 原样——路径库不引 store，别名由调用方（persist-files）
+   * 从设置段取好传进来，避免把设置依赖埋进路径模板。
+   */
+  authorName?: string;
   authorId: string;
   title: string;
   id: string;
@@ -106,7 +112,7 @@ export function pathTokens(ctx: PathContext): Record<string, string> {
   const d = Number.isNaN(ctx.at.getTime()) ? new Date() : ctx.at;
   const ext = sanitizePathSegment(ctx.ext.replace(/^\./, ""));
   return {
-    author: sanitizePathSegment(ctx.author),
+    author: sanitizePathSegment(ctx.authorName?.trim() || ctx.author),
     authorId: sanitizePathSegment(ctx.authorId || "unknown"),
     title: sanitizePathSegment(ctx.title),
     id: sanitizePathSegment(ctx.id),

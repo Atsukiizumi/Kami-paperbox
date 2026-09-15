@@ -9,6 +9,7 @@
  *        字段，中文句子由页面拼；空库 / 缺字段时返回 null，页面隐藏对应半句，
  *        不在这里猜默认文案。钟点 / 周几都按浏览器本地时区（收藏是本地行为）。
  */
+import { applyAuthorAlias, clusterAuthorVariants } from "../author-name.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
 /** 24 桶按本地钟点：hours[h] = 收藏在 h 点的藏品数。 */
@@ -123,18 +124,21 @@ export type ProfileSummary = {
 };
 
 /** 画像小结语字段集：页面拼句子，null 字段对应半句直接隐藏。 */
-export function profileSummary(items: VaultMeta[]): ProfileSummary {
+export function profileSummary(items: VaultMeta[], aliases?: Record<string, string>): ProfileSummary {
   if (items.length === 0) {
     return { favoriteAuthor: null, topTag: null, spanDays: null, activePhase: null, topWeekday: null };
   }
 
-  const authorCounts = new Map<string, number>();
+  // 心头好按 authorKey 簇计数（同 authorId / 规范化同名归一，装饰变体不再分票）；
+  // 展示名取簇内最新 raw 经规范化，再套用户别名。
+  const authorCounts = new Map<string, { name: string; count: number }>();
+  for (const cluster of clusterAuthorVariants(items)) {
+    authorCounts.set(cluster.key, { name: applyAuthorAlias(cluster.displayName, aliases), count: cluster.totalCount });
+  }
   const tagCounts = new Map<string, number>();
   let first = Number.POSITIVE_INFINITY;
   let last = 0;
   for (const item of items) {
-    const name = item.author.trim();
-    if (name) authorCounts.set(name, (authorCounts.get(name) ?? 0) + 1);
     for (const raw of item.tags) {
       const tag = raw.trim();
       if (tag) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
@@ -150,7 +154,12 @@ export function profileSummary(items: VaultMeta[]): ProfileSummary {
     }
     return best;
   };
-  const topAuthor = topByCount(authorCounts);
+  let topAuthor: { name: string; count: number } | null = null;
+  for (const row of authorCounts.values()) {
+    if (!topAuthor || row.count > topAuthor.count || (row.count === topAuthor.count && row.name < topAuthor.name)) {
+      topAuthor = row;
+    }
+  }
   const topTagRow = topByCount(tagCounts);
   const peakHour = peakBucket(hourHistogram(items));
   const peakDay = peakBucket(weekdayHistogram(items));

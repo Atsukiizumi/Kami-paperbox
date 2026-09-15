@@ -30,6 +30,7 @@ import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
+import { AuthorTidyCard } from "./author-tidy";
 
 export function StorageSection() {
   const folderLabel = useSettings((s) => s.folderLabel);
@@ -130,6 +131,8 @@ export function StorageSection() {
   const backupOverdue = isBackupOverdue(lastBackupAt, Date.now());
 
   return (
+    // 存储分区两张卡：主卡（文件夹/规则）+ 画师名称整理（元数据层，不动文件）
+    <>
     <Card>
       <CardHeader>
         <CardTitle>存储</CardTitle>
@@ -280,5 +283,7 @@ export function StorageSection() {
       </p>
       </CardContent>
     </Card>
+    <AuthorTidyCard />
+    </>
   );
 }

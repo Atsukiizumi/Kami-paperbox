@@ -32,6 +32,8 @@ import {
   tagCloud,
   weekdayHistogram,
 } from "@/lib/storage/vault-profile";
+import { applyAuthorAlias, clusterAuthorVariants } from "@/lib/author-name";
+import { useSettings } from "@/lib/store";
 import { formatBytes } from "@/lib/utils";
 import type { VaultMeta } from "@/lib/types";
 
@@ -39,16 +41,20 @@ type StorageRow = { name: string; bytes: number; count: number };
 type StorageResponse = { ok: boolean; bySource?: StorageRow[]; byAuthor?: StorageRow[] };
 type DedupResponse = { ok: boolean; hashed?: number; total?: number; groups?: unknown[] };
 
-function topAuthors(items: VaultMeta[], n: number): { name: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    const name = item.author.trim() || "(未命名)";
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-    .slice(0, n)
-    .map(([name, count]) => ({ name, count }));
+/**
+ * 心仪画师 Top N：按 authorKey 簇计数（同 authorId / 规范化同名归一），
+ * 展示名 = 簇内最新 raw 经规范化再套用户别名；无名作者归「(未命名)」。
+ */
+function topAuthors(
+  items: VaultMeta[],
+  n: number,
+  aliases?: Record<string, string>,
+): { name: string; count: number }[] {
+  const rows = clusterAuthorVariants(items).map((c) => ({
+    name: applyAuthorAlias(c.displayName, aliases) || "(未命名)",
+    count: c.totalCount,
+  }));
+  return rows.sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : 1)).slice(0, n);
 }
 
 function monthlyTimeline(items: VaultMeta[]): { name: string; count: number }[] {
@@ -65,6 +71,7 @@ export function VaultStatsPage() {
   const [all, setAll] = useState<VaultMeta[] | null>(null);
   const [storage, setStorage] = useState<StorageResponse | null>(null);
   const [dedup, setDedup] = useState<DedupResponse | null>(null);
+  const authorAliases = useSettings((s) => s.authorAliases);
 
   useEffect(() => {
     void listVault().then(setAll).catch(() => setAll([]));
@@ -81,14 +88,14 @@ export function VaultStatsPage() {
   const items = all ?? [];
   // 派生全部吃 all（null 时按空数组算），依赖只有 all 一个，不清点完不闪画像。
   const totals = useMemo(() => vaultTotals(all ?? []), [all]);
-  const authorCount = useMemo(() => (all ? vaultAuthors(all).length : 0), [all]);
+  const authorCount = useMemo(() => (all ? vaultAuthors(all, authorAliases).length : 0), [all, authorAliases]);
   const tagCount = useMemo(() => (all ? vaultTags(all).length : 0), [all]);
   const hours = useMemo(() => hourHistogram(all ?? []), [all]);
   const weekdays = useMemo(() => weekdayHistogram(all ?? []), [all]);
-  const artists = useMemo(() => topAuthors(all ?? [], 10), [all]);
+  const artists = useMemo(() => topAuthors(all ?? [], 10, authorAliases), [all, authorAliases]);
   const chips = useMemo(() => tagCloud(all ?? [], { limit: 40 }), [all]);
   const sources = useMemo(() => sourceComposition(all ?? []), [all]);
-  const summary = useMemo(() => profileSummary(all ?? []), [all]);
+  const summary = useMemo(() => profileSummary(all ?? [], authorAliases), [all, authorAliases]);
   const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
 
   const storageRows = (storage?.bySource ?? []).slice(0, 8).map((r) => ({ name: r.name, bytes: r.bytes }));
