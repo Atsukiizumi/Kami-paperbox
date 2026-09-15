@@ -33,6 +33,7 @@ export function DeskPage() {
       </header>
       <Link
         to="/browse"
+        prefetch={false}
         className={cn(
           "kami-card-folded relative block min-h-[17.5rem] rounded-xl bg-surface p-6 shadow-[var(--shadow-paper-1)] md:p-8",
         )}

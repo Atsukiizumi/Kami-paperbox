@@ -166,6 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const link = (
               <Link
                 to={item.to}
+                prefetch={item.to === "/browse" ? false : undefined}
                 title={expanded ? undefined : item.label}
                 data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
@@ -241,6 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
+                prefetch={item.to === "/browse" ? false : undefined}
                 className={cn(
                   "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-200",
                   active ? "text-fg" : "text-muted",
