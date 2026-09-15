@@ -11,6 +11,7 @@ function sampleSettings() {
   return {
     pixivCookie: FAKE_SESSION,
     smartFolders: [{ id: "f1", name: "样例", query: { tags: ["1girl"] } }],
+    authorAliases: { あいす: "アイス", "☆古河渚★": "古河渚" },
     watchArtists: [],
     watchLimit: 100,
     fanboxCookie: FAKE_SESSION,
@@ -104,6 +105,7 @@ test("buildBackup round-trips settings, accounts, and vault records", () => {
   assert.equal(parsed.backup.settings.accounts[0]?.pixivCookie, FAKE_SESSION);
   assert.equal(parsed.backup.settings.activeAccountId, "acc-1");
   assert.equal(parsed.backup.settings.theme, "shusha");
+  assert.deepEqual(parsed.backup.settings.authorAliases, { あいす: "アイス", "☆古河渚★": "古河渚" });
   assert.equal(parsed.backup.vault[0]?.key, "pixiv:99");
   assert.equal(parsed.backup.vault[0]?.relativePath, "demo/99.jpg");
   assert.equal(parsed.backup.lexicon[0]?.zh, "单女");
@@ -227,4 +229,17 @@ test("watchArtists/watchLimit 随备份往返（追踪）", () => {
   const settings = (parsed.backup as { settings: { watchArtists: typeof artists; watchLimit: number } }).settings;
   assert.deepEqual(settings.watchArtists, artists);
   assert.equal(settings.watchLimit, 50);
+});
+
+test("authorAliases 随备份往返（画师名整理）；缺段补空、脏项裁剪", () => {
+  const aliases = { "user@pixiv": "user", アイス: "あいす" };
+  const backup = buildBackup({ settings: { ...sampleSettings(), authorAliases: aliases } });
+  assert.deepEqual(backup.settings.authorAliases, aliases);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.deepEqual(parsed.backup.settings.authorAliases, aliases);
+  // 老备份（无该段）→ 空 {},不连坐
+  assert.deepEqual(parseBackupSettings({}).authorAliases, {});
+  // 脏数据 → 坏项丢弃（值=键、空值），好项保留
+  assert.deepEqual(parseBackupSettings({ authorAliases: { a: "a", "": "x", ok: " 好 " } }).authorAliases, { ok: "好" });
 });

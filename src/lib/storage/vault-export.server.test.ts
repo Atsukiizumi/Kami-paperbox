@@ -39,6 +39,14 @@ test("entryName：按作者分文件夹 + 清洗 + 页码", () => {
   assert.equal(entryName({ author: "", title: "", source: "danbooru", id: "x-9" }, 2, "jpeg"), "unknown/x-9_danbooru_x-9_p2.jpeg");
 });
 
+test("entryName：作者段走规范化 + 别名（画师整理）", () => {
+  const meta = { title: "Sea Sky", source: "pixiv" as const, id: "1" };
+  // @handle / 装饰符剥掉：同一画师的装饰名变体不再各开一夹
+  assert.equal(entryName({ ...meta, author: "★AGOTO☆@pixiv" }, 0, "png"), "AGOTO/Sea_Sky_pixiv_1_p0.png");
+  // 用户别名优先于规范化结果
+  assert.equal(entryName({ ...meta, author: "AGOTO" }, 0, "png", { AGOTO: "AGOTO-A" }), "AGOTO-A/Sea_Sky_pixiv_1_p0.png");
+});
+
 test("listExportEntries：只出元数据不带字节；缺文件跳过分组", () => {
   const root = mkdtempSync(join(tmpdir(), "kami-vault-exp-"));
   const store = openVaultStore(root);

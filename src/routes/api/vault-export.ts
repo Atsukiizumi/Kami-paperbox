@@ -1,27 +1,37 @@
 /**
  * 纸匣导出 HTTP（个人面，E）。
  *
- * 作用：POST {keys} → 服务端流式 zip（fflate Zip + pull 式 ReadableStream），
- *      每次只从磁盘读一页推进压缩（评审 #130：不再预读整包进内存），
- *      按作者分文件夹；包尾写 _skipped.json 记录缺条目/缺文件。
- * 用法：浏览器 fetch POST → res.blob() → 下载。上限 400 keys。
+ * 作用：POST {keys, authorAliases?} → 服务端流式 zip（fflate Zip + pull 式
+ *      ReadableStream），每次只从磁盘读一页推进压缩（评审 #130：不再预读
+ *      整包进内存），按作者分文件夹（规范化 + 用户别名）；包尾写
+ *      _skipped.json 记录缺条目/缺文件。
+ * 用法：浏览器 fetch POST → res.blob() → 下载。上限 400 keys；别名表由
+ *      客户端从设置段随请求带上（≤200 条、键值各 ≤120，见 parseAuthorAliases），
+ *      服务端不回读数据库，保持无状态。
  * 为什么 zip 级别 0：原图已是压缩格式，压缩只烧 CPU 不省体积。
  */
 import { strToU8, Zip, ZipDeflate } from "fflate";
+import { z } from "zod";
+import { parseAuthorAliases } from "@/lib/author-name";
 import { getVaultStore } from "@/lib/storage/vault-store.server";
 import { EXPORT_MAX_KEYS, listExportEntries } from "@/lib/storage/vault-export.server";
 
+/** 可选别名段：形状不对整体忽略（错误语义不变，导出照旧按规范化分夹）。 */
+const authorAliasesSchema = z.record(z.string(), z.string()).optional();
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as { keys?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { keys?: unknown; authorAliases?: unknown };
     const keys = Array.isArray(body.keys)
       ? body.keys.filter((k): k is string => typeof k === "string").slice(0, EXPORT_MAX_KEYS)
       : [];
     if (keys.length === 0) {
       return Response.json({ ok: false, error: "没有可导出的条目" }, { status: 400 });
     }
+    const aliasesChecked = authorAliasesSchema.safeParse(body.authorAliases);
+    const authorAliases = aliasesChecked.success ? parseAuthorAliases(aliasesChecked.data) : {};
     const store = getVaultStore();
-    const { items, skipped } = listExportEntries(store, keys);
+    const { items, skipped } = listExportEntries(store, keys, { authorAliases });
     if (items.length === 0) {
       return Response.json({ ok: false, error: "所选条目都没有可打包的原图文件", skipped }, { status: 422 });
     }

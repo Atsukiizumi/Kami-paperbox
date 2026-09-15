@@ -11,6 +11,7 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { toast } from "sonner";
 import { clampQueueConcurrency } from "./queue-retry.ts";
+import { AUTHOR_ALIAS_ENTRY_LIMIT, AUTHOR_ALIAS_TEXT_LIMIT, parseAuthorAliases } from "./author-name.ts";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types.ts";
 import type { SearchEngine } from "./reverse-search.ts";
@@ -107,6 +108,8 @@ type SettingsState = {
   browseExact: boolean;
   savedTags: Record<Source, string[]>;
   smartFolders: SmartFolder[];
+  /** 画师名别名（规范名 → 用户定名）：导出分夹 / 统计 / 镜像路径 / 筛选共用；随设置段同步。 */
+  authorAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
   accounts: Account[];
@@ -119,6 +122,8 @@ type SettingsState = {
   lastBackupAt: number | null;
   addSmartFolder: (name: string, query: VaultQuery) => void;
   removeSmartFolder: (id: string) => void;
+  setAuthorAlias: (from: string, to: string) => void;
+  removeAuthorAlias: (from: string) => void;
   toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => "added" | "removed" | "full";
   setWatchSeen: (source: WatchArtist["source"], id: string, lastSeenId: string) => void;
   setWatchLimit: (n: number) => void;
@@ -192,6 +197,7 @@ export const useSettings = create<SettingsState>()(
       browseExact: false,
       savedTags: emptySavedTags(),
       smartFolders: [],
+      authorAliases: {},
       watchArtists: [],
       watchLimit: 100,
       accounts: [],
@@ -276,6 +282,22 @@ export const useSettings = create<SettingsState>()(
           return { smartFolders: [...s.smartFolders, folder].slice(0, 50) };
         }),
       removeSmartFolder: (id) => set((s) => ({ smartFolders: s.smartFolders.filter((f) => f.id !== id) })),
+      setAuthorAlias: (from, to) =>
+        set((s) => {
+          // 与 parseAuthorAliases 同一套裁剪口径：trim、≤120、值 ≠ 键、空值忽略、≤200 条
+          const key = from.trim().slice(0, AUTHOR_ALIAS_TEXT_LIMIT);
+          const val = to.trim().slice(0, AUTHOR_ALIAS_TEXT_LIMIT);
+          if (!key || !val || key === val) return s;
+          if (!(key in s.authorAliases) && Object.keys(s.authorAliases).length >= AUTHOR_ALIAS_ENTRY_LIMIT) return s;
+          return { authorAliases: { ...s.authorAliases, [key]: val } };
+        }),
+      removeAuthorAlias: (from) =>
+        set((s) => {
+          if (!(from in s.authorAliases)) return s;
+          const authorAliases = { ...s.authorAliases };
+          delete authorAliases[from];
+          return { authorAliases };
+        }),
       toggleWatchArtist: ({ source, id, name, avatar }) => {
         const current = get();
         const existing = current.watchArtists.find((w) => w.source === source && w.id === id);
@@ -441,6 +463,8 @@ export const useSettings = create<SettingsState>()(
           folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
           savedTags: parseSavedTags(p.savedTags),
           smartFolders: parseSmartFolders(p.smartFolders),
+          // 画师别名：可选新字段，缺省 {}（与 lastBackupAt 同一升级口径，persist 不 bump）
+          authorAliases: parseAuthorAliases(p.authorAliases),
           watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
           watchLimit: clampWatchLimit(p.watchLimit),
           onboarded:
@@ -479,6 +503,7 @@ export const useSettings = create<SettingsState>()(
         recents: s.recents,
         savedTags: s.savedTags,
         smartFolders: s.smartFolders,
+        authorAliases: s.authorAliases,
         watchArtists: s.watchArtists,
         watchLimit: s.watchLimit,
         accounts: s.accounts,

@@ -41,6 +41,17 @@ test("formatDownloadPath sanitizes illegal names", () => {
   assert.equal(formatDownloadPath("{author}/{title}.{ext}", nasty), "a_b_c/ok.jpg");
 });
 
+test("formatDownloadPath 的 {author} 优先用预解析 authorName（画师整理）", () => {
+  // 调用方（persist-files）传规范化 + 别名后的值；路径库自己不认设置段
+  const decorated = { ...ctx, author: "☆こいし★@pixiv", authorName: "こいし" };
+  assert.equal(formatDownloadPath(DEFAULT_PATH_TEMPLATE, decorated), "こいし/12345_p0_无题.jpg");
+  // 预解析值同样走非法字符清洗
+  const nasty = { ...ctx, authorName: "a/b:c" };
+  assert.equal(formatDownloadPath("{author}/{id}.{ext}", nasty), "a_b_c/12345.jpg");
+  // 不给 authorName 时回退原样（老行为不变）
+  assert.equal(formatDownloadPath("{author}/{id}.{ext}", { ...ctx, author: "☆こいし★" }), "☆こいし★/12345.jpg");
+});
+
 test("flattenDownloadName is used when the browser handles the file", () => {
   assert.equal(flattenDownloadName("こいし/12345_p0_无题.jpg"), "こいし_12345_p0_无题.jpg");
 });
