@@ -1,17 +1,37 @@
 "use client";
 
 /**
- * 纸匣统计页（智能库）。
+ * 纸匣统计页（重设计：hero → 用户画像 → 明细统计三层版式）。
  *
- * 作用：分布三图（来源/画师/标签）+ 按月收藏时间线 + 存储占用（服务端聚合）
- *      + 查重状态卡。分布/时间线在客户端算（meta 全量在浏览器），占用走 API。
+ * 作用：hero 数字带（count-up）→ 用户画像（收藏节奏 / 心仪画师 / 兴趣标签 /
+ *      来源构成 / 画像小结，聚合走 vault-profile.ts 纯函数）→ 明细统计
+ *      （按月时间线 / 存储占用 / 查重状态）。
  * 用法：/vault/stats，入口在纸匣页头部。
+ * 为什么：原先是六个同构 BarList 的 2 列平铺，信息密度低、像通用仪表盘，
+ *        违背「不是仪表盘」的定位。数据流不变：listVault() 一份全量 meta
+ *        喂画像与分布，服务端存储 / 查重两路各自降级、互不拖垮。
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/kami-link";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptySheet } from "@/components/empty-sheet";
+import { HeroStrip } from "@/components/stats/hero-strip";
+import { RhythmClock } from "@/components/stats/rhythm-clock";
+import { ArtistBoard, BarRow } from "@/components/stats/artist-board";
+import { TagCloud } from "@/components/stats/tag-cloud";
+import { SourceBar } from "@/components/stats/source-bar";
+import { SummarySlip } from "@/components/stats/summary-slip";
+import { Reveal } from "@/components/stats/reveal";
 import { listVault } from "@/lib/storage/vault";
-import { monthOf, vaultTotals } from "@/lib/storage/vault-query";
+import { monthOf, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import {
+  hourHistogram,
+  profileSummary,
+  sourceComposition,
+  tagCloud,
+  weekdayHistogram,
+} from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import type { VaultMeta } from "@/lib/types";
 
@@ -19,37 +39,30 @@ type StorageRow = { name: string; bytes: number; count: number };
 type StorageResponse = { ok: boolean; bySource?: StorageRow[]; byAuthor?: StorageRow[] };
 type DedupResponse = { ok: boolean; hashed?: number; total?: number; groups?: unknown[] };
 
-function topN(counts: Map<string, number>, n: number): { name: string; count: number }[] {
+function topAuthors(items: VaultMeta[], n: number): { name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const name = item.author.trim() || "(未命名)";
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .slice(0, n)
     .map(([name, count]) => ({ name, count }));
 }
 
-function BarList({ rows, unit }: { rows: { name: string; count: number }[]; unit: "条" | "GB" | "MB" }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  if (rows.length === 0) return <p className="text-sm text-muted">暂无数据</p>;
-  return (
-    <ul className="space-y-1.5">
-      {rows.map((row) => (
-        <li key={row.name} className="flex items-center gap-2 text-sm">
-          <span className="w-28 shrink-0 truncate" title={row.name}>
-            {row.name}
-          </span>
-          <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-fg/5">
-            <span className="block h-full rounded-full bg-accent/70" style={{ width: `${(row.count / max) * 100}%` }} />
-          </span>
-          <span className="w-16 shrink-0 text-right text-xs tabular-nums text-subtle">
-            {unit === "条" ? `${row.count} 条` : formatBytes(row.count)}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
+function monthlyTimeline(items: VaultMeta[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const m = monthOf(item.savedAt);
+    counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 12).map(([name, count]) => ({ name, count }));
 }
 
 export function VaultStatsPage() {
-  const [all, setAll] = useState<VaultMeta[]>([]);
+  // null = 还在清点（IDB 未返回），与「空匣」区分开，空态才不会闪。
+  const [all, setAll] = useState<VaultMeta[] | null>(null);
   const [storage, setStorage] = useState<StorageResponse | null>(null);
   const [dedup, setDedup] = useState<DedupResponse | null>(null);
 
@@ -65,41 +78,28 @@ export function VaultStatsPage() {
       .catch(() => setDedup(null));
   }, []);
 
-  const totals = vaultTotals(all);
-  const bySource = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of all) counts.set(item.source, (counts.get(item.source) ?? 0) + 1);
-    return topN(counts, 8);
-  }, [all]);
-  const byAuthor = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of all) {
-      const name = item.author.trim() || "(未命名)";
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-    return topN(counts, 10);
-  }, [all]);
-  const byTag = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of all) for (const tag of item.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    return topN(counts, 10);
-  }, [all]);
-  const timeline = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of all) {
-      const m = monthOf(item.savedAt);
-      counts.set(m, (counts.get(m) ?? 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 12).map(([name, count]) => ({ name, count }));
-  }, [all]);
+  const items = all ?? [];
+  // 派生全部吃 all（null 时按空数组算），依赖只有 all 一个，不清点完不闪画像。
+  const totals = useMemo(() => vaultTotals(all ?? []), [all]);
+  const authorCount = useMemo(() => (all ? vaultAuthors(all).length : 0), [all]);
+  const tagCount = useMemo(() => (all ? vaultTags(all).length : 0), [all]);
+  const hours = useMemo(() => hourHistogram(all ?? []), [all]);
+  const weekdays = useMemo(() => weekdayHistogram(all ?? []), [all]);
+  const artists = useMemo(() => topAuthors(all ?? [], 10), [all]);
+  const chips = useMemo(() => tagCloud(all ?? [], { limit: 40 }), [all]);
+  const sources = useMemo(() => sourceComposition(all ?? []), [all]);
+  const summary = useMemo(() => profileSummary(all ?? []), [all]);
+  const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
 
-  const storageRows = (storage?.bySource ?? []).slice(0, 8).map((r) => ({ name: r.name, count: r.bytes }));
+  const storageRows = (storage?.bySource ?? []).slice(0, 8).map((r) => ({ name: r.name, bytes: r.bytes }));
+  const storageMax = Math.max(1, ...storageRows.map((r) => r.bytes));
+  const timelineMax = Math.max(1, ...timeline.map((r) => r.count));
   const hashed = dedup?.hashed ?? 0;
-  const total = dedup?.total ?? all.length;
+  const total = dedup?.total ?? items.length;
   const groupCount = Array.isArray(dedup?.groups) ? dedup.groups.length : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header className="flex items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣统计</h1>
@@ -112,42 +112,116 @@ export function VaultStatsPage() {
         </Button>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">来源占比</h2>
-          <BarList rows={bySource} unit="条" />
-        </div>
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">画师 Top 10</h2>
-          <BarList rows={byAuthor} unit="条" />
-        </div>
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">标签 Top 10</h2>
-          <BarList rows={byTag} unit="条" />
-        </div>
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">收藏时间线（近 12 个月）</h2>
-          <BarList rows={timeline} unit="条" />
-        </div>
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">存储占用（按来源）</h2>
-          {storage?.ok ? (
-            <BarList rows={storageRows} unit="MB" />
-          ) : (
-            <p className="text-sm text-muted">服务端统计不可用（本机只读形态正常，重试或检查服务端）。</p>
-          )}
-        </div>
-        <div className="space-y-2 rounded-lg border border-fg/10 p-4">
-          <h2 className="text-sm font-medium">查重状态</h2>
-          <p className="text-sm text-muted">
-            哈希覆盖 {hashed}/{total}
-            {groupCount > 0 ? ` · 疑似重复 ${groupCount} 组待处理` : " · 没有待处理重复"}
-          </p>
-          <Button asChild size="sm" variant="secondary">
-            <Link to="/vault">去处理</Link>
-          </Button>
-        </div>
-      </section>
+      {all === null ? (
+        <p className="text-sm text-muted">正在清点纸匣…</p>
+      ) : all.length === 0 ? (
+        <EmptySheet
+          title="纸匣还是空的"
+          hint="先去浏览，把喜欢的作品收进纸匣；攒下几张，这里就会长出你的收藏画像。"
+          action={
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/">去浏览</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <Reveal>
+            <HeroStrip count={totals.count} authors={authorCount} tags={tagCount} bytes={totals.bytes} />
+          </Reveal>
+
+          <section className="space-y-4" aria-label="用户画像">
+            <h2 className="font-display text-xl tracking-tight text-fg">用户画像</h2>
+            <Reveal>
+              <RhythmClock hours={hours} weekdays={weekdays} />
+            </Reveal>
+            <Reveal className="grid gap-4 lg:grid-cols-5">
+              <ArtistBoard className="lg:col-span-3" rows={artists} />
+              <TagCloud className="lg:col-span-2" chips={chips} />
+            </Reveal>
+            <Reveal className="grid gap-4 lg:grid-cols-5">
+              <SourceBar className="lg:col-span-3" rows={sources} />
+              <SummarySlip className="lg:col-span-2" summary={summary} />
+            </Reveal>
+          </section>
+
+          <section className="space-y-4" aria-label="明细统计">
+            {/* 明细区不包 Reveal：滚动渐显只给画像区「落纸」的仪式感，长尾明细
+                在打印 / 截图 / IO 不触发的场景必须直接可见，不能赌观察器。 */}
+            <h2 className="font-display text-xl tracking-tight text-fg">明细统计</h2>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>按月收藏时间线（近 12 个月）</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {timeline.length === 0 ? (
+                    <p className="text-sm text-muted">暂无数据</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {timeline.map((row, i) => (
+                        <BarRow
+                          key={row.name}
+                          name={row.name}
+                          value={row.count}
+                          max={timelineMax}
+                          right={`${row.count} 张`}
+                          nameClass="w-16"
+                          highlight={i === 0}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>存储占用（按来源）</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {storage?.ok ? (
+                      storageRows.length === 0 ? (
+                        <p className="text-sm text-muted">暂无数据</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {storageRows.map((row) => (
+                            <BarRow
+                              key={row.name}
+                              name={row.name}
+                              value={row.bytes}
+                              max={storageMax}
+                              right={formatBytes(row.bytes)}
+                            />
+                          ))}
+                        </ul>
+                      )
+                    ) : (
+                      <CardDescription>服务端统计不可用（本机只读形态正常，重试或检查服务端）。</CardDescription>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>查重状态</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted">
+                      哈希覆盖 {hashed}/{total}
+                      {groupCount > 0 ? ` · 疑似重复 ${groupCount} 组待处理` : " · 没有待处理重复"}
+                    </p>
+                    <Button asChild size="sm" variant="secondary">
+                      <Link to="/vault">去处理</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
