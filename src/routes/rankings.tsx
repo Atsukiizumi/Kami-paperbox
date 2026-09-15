@@ -170,7 +170,7 @@ export function RankingsPage() {
       )}
 
       <p className="text-xs text-subtle">
-        <Link to="/" className="underline">
+        <Link to="/browse" className="underline">
           返回浏览
         </Link>
       </p>

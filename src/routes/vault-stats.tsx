@@ -132,7 +132,7 @@ export function VaultStatsPage() {
           hint="先去浏览，把喜欢的作品收进纸匣；攒下几张，这里就会长出你的收藏画像。"
           action={
             <Button asChild size="sm" variant="secondary">
-              <Link to="/">去浏览</Link>
+              <Link to="/browse">去浏览</Link>
             </Button>
           }
         />

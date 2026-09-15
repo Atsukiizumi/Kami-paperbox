@@ -2,7 +2,7 @@
  * 空白宣纸。
  *
  * 作用：浏览 / 纸匣 / 队列 / 历史 / 搜图共用同一张空态。
- * 用法：<EmptySheet title="还是空的" action={<Link to="/">去浏览</Link>} />
+ * 用法：<EmptySheet title="还是空的" action={<Link to="/browse">去浏览</Link>} />
  * 为什么：各页自己写一句 + Alert，空匣看起来不像同一件东西。
  */
 import type { ReactNode } from "react";

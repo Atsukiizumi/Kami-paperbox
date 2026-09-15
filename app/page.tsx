@@ -1,7 +1,7 @@
 "use client";
 
-import { Home } from "@/routes/index";
+import { DeskPage } from "@/routes/desk";
 
 export default function Page() {
-  return <Home />;
+  return <DeskPage />;
 }

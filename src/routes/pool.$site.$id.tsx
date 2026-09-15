@@ -93,7 +93,7 @@ export function PoolPage() {
       </header>
       <ArtworkGrid items={pool.items} empty="合集里没有可显示的图。" />
       <p className="text-center text-xs text-subtle">
-        <Link to="/" className="hover:text-fg">
+        <Link to="/browse" className="hover:text-fg">
           返回浏览
         </Link>
       </p>

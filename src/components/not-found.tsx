@@ -18,7 +18,7 @@ export function AppNotFound() {
       <h1 className="font-display text-2xl text-fg">没有这一页</h1>
       <p className="max-w-sm text-sm text-muted">地址不对，或者作品已经没了。</p>
       <Button asChild>
-        <Link to="/">返回浏览</Link>
+        <Link to="/browse">返回浏览</Link>
       </Button>
     </main>
   );

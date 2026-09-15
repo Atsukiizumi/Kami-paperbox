@@ -54,7 +54,7 @@ test("过期浏览缓存不炸 Missing queryFn，回浏览页自动补刷", asyn
 
   // 2) 回浏览页：旧列表先画，超时后自动补刷（补刷出卡片依赖 Pixiv 上游
   //    与凭据，CI 无 cookie 时可能拉不到——回归点是「不炸」，补刷只做软观察）
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/browse", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(7000);
   const skip = page.getByRole("button", { name: "跳过" });
   if (await skip.count()) await skip.click().catch(() => undefined);

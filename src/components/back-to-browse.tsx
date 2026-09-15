@@ -3,7 +3,7 @@
 /**
  * 详情页导航。
  *
- * 作用：上一页走浏览器历史；返回浏览回到首页网格。吸在顶栏下面，滚多深都能点。
+ * 作用：上一页走浏览器历史；返回浏览回到 /browse。吸在顶栏下面，滚多深都能点。
  * 用法：PageFrame 在 /work /user /creator 自动放，页面里不用再插。
  * 为什么：塞进标题 header 里，header 一滚完粘性就失效。
  */
@@ -24,7 +24,7 @@ export function BackToPrevious() {
           router.back();
           return;
         }
-        router.push("/");
+        router.push("/browse");
       }}
     >
       <ArrowLeft />
@@ -36,7 +36,7 @@ export function BackToPrevious() {
 export function BackToBrowse() {
   return (
     <Button variant="ghost" size="sm" asChild>
-      <Link to="/" resetScroll={false}>
+      <Link to="/browse" resetScroll={false}>
         <Compass />
         返回浏览
       </Link>

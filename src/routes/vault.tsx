@@ -389,7 +389,7 @@ export function VaultPage() {
           hint="去浏览把喜欢的图收进来。"
           action={
             <Button asChild>
-              <Link to="/">去浏览</Link>
+              <Link to="/browse">去浏览</Link>
             </Button>
           }
         />

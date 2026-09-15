@@ -90,7 +90,7 @@ export function VaultReportPage() {
           hint="先去收几张；攒上一年，年底这里会给你一页回忆。"
           action={
             <Button asChild size="sm" variant="secondary">
-              <Link to="/">去浏览</Link>
+              <Link to="/browse">去浏览</Link>
             </Button>
           }
         />

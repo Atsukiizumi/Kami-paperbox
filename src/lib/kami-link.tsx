@@ -18,6 +18,7 @@ export function fillPath(to: string, params?: Record<string, string>) {
 
 export const KNOWN_ROUTE_PATHS = [
   "/",
+  "/browse",
   "/rankings",
   "/history",
   "/search",
