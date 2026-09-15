@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FetchOk, WorkCard } from "./types.ts";
-import { newspaperItems } from "./desk-newspaper.ts";
+import { newspaperItems, rankingPageItems } from "./desk-newspaper.ts";
 
 function card(id: string): WorkCard {
   return {
@@ -29,4 +29,14 @@ test("pixivRanking / booruList 截到 4 张", () => {
     ["1", "2", "3", "4"],
   );
   assert.equal(newspaperItems({ op: "booruList", site: "yande", items: items.slice(0, 2), nextPage: null }).length, 2);
+});
+
+test("归档用整页，报纸仍截 4 张", () => {
+  const items = [card("1"), card("2"), card("3"), card("4"), card("5")];
+  const page: FetchOk = { op: "pixivRanking", date: "20260916", items, nextPage: null };
+  assert.equal(rankingPageItems(page).length, 5);
+  assert.equal(newspaperItems(page).length, 4);
+  assert.equal(rankingPageItems(page), items);
+  assert.deepEqual(rankingPageItems(undefined), []);
+  assert.deepEqual(rankingPageItems({ op: "pixivRelated", items: [card("1")] } as FetchOk), []);
 });

@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { parseBoardDate } from "@/lib/booru";
-import { newspaperItems } from "@/lib/desk-newspaper";
+import { newspaperItems, rankingPageItems } from "@/lib/desk-newspaper";
 import { Link } from "@/lib/kami-link";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { fetchSource } from "@/lib/source";
@@ -64,9 +64,9 @@ export function DeskNewspaper() {
   const items = newspaperItems(query.data);
 
   useEffect(() => {
-    const next = newspaperItems(query.data);
-    if (next.length === 0) return;
-    void rememberRanking({ site: tab, period: "daily", date: dateIso, items: next });
+    const page = rankingPageItems(query.data);
+    if (page.length === 0) return;
+    void rememberRanking({ site: tab, period: "daily", date: dateIso, items: page });
   }, [tab, dateIso, query.data]);
 
   if (tab === "fanbox") return null;
