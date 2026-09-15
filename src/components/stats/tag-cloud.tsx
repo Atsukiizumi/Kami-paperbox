@@ -20,12 +20,23 @@ const SCALE_CLASS: Record<TagChip["scale"], string> = {
   5: "text-xl font-medium text-fg",
 };
 
-export function TagCloud({ chips, className }: { chips: TagChip[]; className?: string }) {
+export function TagCloud({
+  chips,
+  className,
+  title = "兴趣标签",
+  description = "越大越墨 = 收得越勤；悬停可看张数。",
+}: {
+  chips: TagChip[];
+  className?: string;
+  /** 卡片标题（统计页默认「兴趣标签」，年度报告页传「兴趣坐标」）。 */
+  title?: string;
+  description?: string;
+}) {
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>兴趣标签</CardTitle>
-        <CardDescription>越大越墨 = 收得越勤；悬停可看张数。</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {chips.length === 0 ? (

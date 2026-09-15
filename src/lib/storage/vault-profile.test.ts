@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  filterByYear,
   hourHistogram,
   hourPhaseName,
+  onThisDay,
   peakBucket,
+  pickRandom,
   profileSummary,
+  reportNarrative,
   sourceComposition,
   tagCloud,
+  vaultYears,
   weekdayHistogram,
   weekdayName,
 } from "./vault-profile.ts";
@@ -204,4 +209,110 @@ test("profileSummary：心头好按 authorKey 簇计数，装饰变体不再分�
     item({ key: "e", title: "e", author: "☆user★@pixiv", authorId: "7", savedAt: at(2026, 8, 9, 10) }),
   ];
   assert.deepEqual(profileSummary(renamed).favoriteAuthor, { name: "user", count: 2 });
+});
+
+// ── 回顾三件套（今日去年 / 年度报告 / 随手翻一张）────────────────────
+
+test("onThisDay：月-日相同且年份早于今年才命中，按年份降序分组", () => {
+  const now = at(2026, 8, 14, 12); // 2026-09-14
+  const rows = [
+    item({ key: "last-year", title: "ly", author: "x", savedAt: at(2025, 8, 14, 10) }),
+    item({ key: "before-last", title: "bly", author: "x", savedAt: at(2024, 8, 14, 9) }),
+    item({ key: "before-last-2", title: "bly2", author: "x", savedAt: at(2024, 8, 14, 20) }),
+    item({ key: "today", title: "t", author: "x", savedAt: at(2026, 8, 14, 8) }), // 今年 → 排除
+    item({ key: "off-day", title: "o", author: "x", savedAt: at(2025, 8, 13, 8) }), // 月-日不同 → 排除
+    item({ key: "future", title: "f", author: "x", savedAt: at(2027, 8, 14, 8) }), // 未来脏数据 → 排除
+  ];
+  const groups = onThisDay(rows, now);
+  assert.deepEqual(groups.map((g) => g.year), [2025, 2024]);
+  assert.deepEqual(groups[0].items.map((i) => i.key), ["last-year"]);
+  assert.deepEqual(groups[1].items.map((i) => i.key), ["before-last", "before-last-2"]);
+  assert.deepEqual(onThisDay([], now), []);
+});
+
+test("onThisDay：闰日 2-29 只在闰年的今天命中；平年 2-28 不捡漏", () => {
+  const rows = [
+    item({ key: "leap-2024", title: "l", author: "x", savedAt: at(2024, 1, 29, 10) }),
+    item({ key: "feb-28", title: "f", author: "x", savedAt: at(2025, 1, 28, 10) }),
+  ];
+  // 平年 2-28：2-29 的条目不命中，2-28 的条目是同年（2025）不参与 → 空
+  assert.deepEqual(onThisDay(rows, at(2025, 1, 28, 12)), []);
+  // 闰年 2-29：2024 的闰日命中
+  const hit = onThisDay(rows, at(2028, 1, 29, 12));
+  assert.deepEqual(hit.map((g) => g.year), [2024]);
+  assert.deepEqual(hit[0].items.map((i) => i.key), ["leap-2024"]);
+});
+
+test("filterByYear / vaultYears：本地年份切片、覆盖年份降序、无命中空数组", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "x", savedAt: at(2025, 0, 5, 10) }),
+    item({ key: "b", title: "b", author: "x", savedAt: at(2026, 5, 1, 10) }),
+    item({ key: "c", title: "c", author: "x", savedAt: at(2026, 11, 30, 10) }),
+    item({ key: "d", title: "d", author: "x", savedAt: at(2024, 11, 31, 10) }),
+  ];
+  assert.deepEqual(vaultYears(rows), [2026, 2025, 2024]);
+  assert.deepEqual(filterByYear(rows, 2026).map((r) => r.key), ["b", "c"]);
+  assert.deepEqual(filterByYear(rows, 2020), []);
+  assert.deepEqual(vaultYears([]), []);
+});
+
+test("reportNarrative：之最 / 节奏 / 心头好占比 / 跨度全从切片推导；空切片返回 null", () => {
+  const rows: VaultMeta[] = [
+    item({ key: "a", title: "薄春", author: "青", savedAt: at(2025, 2, 2, 23), tags: ["spring"], bytes: 100, pageCount: 1 }),
+    item({ key: "b", title: "厚夏", author: "青", savedAt: at(2025, 2, 9, 23), tags: ["spring", "sea"], bytes: 900, pageCount: 6 }),
+    item({ key: "c", title: "中秋", author: "白", savedAt: at(2025, 8, 14, 23), tags: ["spring", "sea"], bytes: 300, pageCount: 2 }),
+  ];
+  const n = reportNarrative(filterByYear(rows, 2025), 2025)!;
+  assert.equal(n.total, 3);
+  assert.deepEqual(n.peakMonth, { label: "3 月", count: 2 }); // 3 月两张，并列取最早
+  assert.deepEqual(n.topAuthors[0], { name: "青", count: 2, pct: 67 }); // 簇口径 + 整数占比
+  assert.deepEqual(n.topTags.map((t) => t.tag), ["spring", "sea"]);
+  assert.equal(n.activePhase, "深夜"); // 三张都是 23 点
+  assert.equal(n.topWeekday, "周日"); // 2025-03-02 / 03-09 / 09-14 都是周日
+  assert.deepEqual(n.largestByBytes, { title: "厚夏", bytes: 900 });
+  assert.deepEqual(n.largestByPages, { title: "厚夏", pageCount: 6 });
+  assert.deepEqual(n.span, { days: 196, firstAt: at(2025, 2, 2, 23), lastAt: at(2025, 8, 14, 23) });
+  assert.ok(n.closing?.includes("spring")); // 有标签 → 标签句
+  assert.equal(reportNarrative([], 2025), null);
+});
+
+test("reportNarrative：单条年份的边界——页数之最不足两页为 null、跨度 0 天、无标签落到画师句", () => {
+  const rows = [item({ key: "only", title: "独", author: "夜", savedAt: at(2024, 4, 5, 8), tags: [], bytes: 50, pageCount: 1 })];
+  const n = reportNarrative(filterByYear(rows, 2024), 2024)!;
+  assert.equal(n.total, 1);
+  assert.deepEqual(n.peakMonth, { label: "5 月", count: 1 });
+  assert.deepEqual(n.topAuthors, [{ name: "夜", count: 1, pct: 100 }]);
+  assert.deepEqual(n.largestByBytes, { title: "独", bytes: 50 });
+  assert.equal(n.largestByPages, null); // 只有单页 → 宁缺不编
+  assert.equal(n.span.days, 0);
+  assert.deepEqual(n.topTags, []);
+  assert.ok(n.closing?.includes("夜")); // 无标签 → 画师句
+});
+
+test("reportNarrative：无名无标签无字节——心头好 / 标签 / 之最 / 结束语全空（宁缺不编）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: " ", savedAt: at(2025, 3, 1, 10), bytes: 0, pageCount: 1 }),
+    item({ key: "b", title: "b", author: "", savedAt: at(2025, 3, 2, 10), bytes: 0, pageCount: 1 }),
+  ];
+  const n = reportNarrative(filterByYear(rows, 2025), 2025)!;
+  assert.deepEqual(n.topAuthors, []);
+  assert.deepEqual(n.topTags, []);
+  assert.equal(n.largestByBytes, null); // 字节全 0
+  assert.equal(n.largestByPages, null);
+  assert.equal(n.closing, null); // 两样都读不出 → 不编结束语
+  assert.equal(n.span.days, 1);
+});
+
+test("pickRandom：rng 决定命中、翻不出封面的条目跳过、空池返回 null", () => {
+  const rows = [
+    item({ key: "cover-server", title: "a", author: "x", hasFile: true }),
+    item({ key: "cover-app", title: "b", author: "x", origin: "app" }),
+    item({ key: "cover-folder", title: "c", author: "x", origin: "folder", relativePath: "x/y.png" }),
+    item({ key: "coverless", title: "d", author: "x", origin: "folder" }), // 文件夹副本已不可读
+  ];
+  assert.equal(pickRandom(rows, () => 0)?.key, "cover-server");
+  assert.equal(pickRandom(rows, () => 0.5)?.key, "cover-app"); // floor(0.5 × 3) = 1
+  assert.equal(pickRandom(rows, () => 0.99)?.key, "cover-folder"); // floor(0.99 × 3) = 2
+  assert.equal(pickRandom([rows[3]], () => 0), null); // 池里只剩翻不出的
+  assert.equal(pickRandom([]), null);
 });

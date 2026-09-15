@@ -2,7 +2,9 @@
  * 纸匣用户画像聚合（纯函数，不碰 IndexedDB）。
  *
  * 作用：在 listVault() 拿到的 VaultMeta[] 上推导「这个纸匣主人的收藏习惯」——
- *      按小时 / 周几的收藏节奏、标签词云分档、来源构成、画像小结语字段。
+ *      按小时 / 周几的收藏节奏、标签词云分档、来源构成、画像小结语字段；
+ *      末尾另附回顾三件套（今日去年 onThisDay / 年度报告 reportNarrative /
+ *      随手翻一张 pickRandom），同样只吃数组吐结构。
  * 用法：const hours = hourHistogram(items); const summary = profileSummary(items)。
  *      只吃数组吐结构，零 IO，Node 单测直接跑（同 vault-query.ts 的拆法）。
  * 为什么：统计页要的不是「分布数字」而是「读法」。聚合与措辞分开——这里只给
@@ -171,4 +173,174 @@ export function profileSummary(items: VaultMeta[], aliases?: Record<string, stri
     activePhase: peakHour ? hourPhaseName(peakHour.index) : null,
     topWeekday: peakDay ? weekdayName(peakDay.index) : null,
   };
+}
+
+// ── 回顾三件套（今日去年 / 年度报告 / 随手翻一张）─────────────────────
+
+/** 本地时区「月-日」键。闰日按字面匹配：2-29 收的只在闰年的 2-29 命中。 */
+function monthDayKey(savedAt: number): string {
+  const d = new Date(savedAt);
+  return `${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+export type OnThisDayGroup = {
+  /** 命中年份（严格早于当前年）。 */
+  year: number;
+  /** 那一年的今天收的藏品（保持传入顺序）。 */
+  items: VaultMeta[];
+};
+
+/**
+ * 今日去年：savedAt 的月-日与今日相同、年份早于今年的藏品，按年份降序分组
+ * （去年的今天排最前）。空输入 / 无命中返回 []。页面拿 items 过滤列表，
+ * 拿分组拼「去年的今天 N 张」的笺条与续报。
+ */
+export function onThisDay(items: VaultMeta[], now: number): OnThisDayGroup[] {
+  const want = monthDayKey(now);
+  const thisYear = new Date(now).getFullYear();
+  const groups = new Map<number, VaultMeta[]>();
+  for (const item of items) {
+    const d = new Date(item.savedAt);
+    if (d.getFullYear() >= thisYear) continue;
+    if (monthDayKey(item.savedAt) !== want) continue;
+    const bucket = groups.get(d.getFullYear());
+    if (bucket) bucket.push(item);
+    else groups.set(d.getFullYear(), [item]);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([year, bucket]) => ({ year, items: bucket }));
+}
+
+/** 年份切片（本地时区）：年度报告的聚合输入——切片直接喂既有画像函数，不另写聚合。 */
+export function filterByYear(items: VaultMeta[], year: number): VaultMeta[] {
+  return items.filter((item) => new Date(item.savedAt).getFullYear() === year);
+}
+
+/** 藏品覆盖的年份（降序）；报告页年份选择器的选项来源。 */
+export function vaultYears(items: VaultMeta[]): number[] {
+  return [...new Set(items.map((item) => new Date(item.savedAt).getFullYear()))].sort((a, b) => b - a);
+}
+
+const MONTH_LABELS = [
+  "1 月",
+  "2 月",
+  "3 月",
+  "4 月",
+  "5 月",
+  "6 月",
+  "7 月",
+  "8 月",
+  "9 月",
+  "10 月",
+  "11 月",
+  "12 月",
+];
+
+export type ReportAuthorRow = { name: string; count: number; /** 占年切片总数的整数百分比。 */ pct: number };
+
+export type ReportNarrative = {
+  year: number;
+  total: number;
+  /** 最勤的一个月（并列取最早月份）。 */
+  peakMonth: { label: string; count: number } | null;
+  /** 心头好 Top 3：簇口径与统计页一致（同 authorId / 规范化同名归一）；无名作者不参与。 */
+  topAuthors: ReportAuthorRow[];
+  /** 兴趣坐标 Top 5 标签（tagCloud 复用，自带字号 / 墨深分档）。 */
+  topTags: TagChip[];
+  /** 收藏节奏：峰值相位（凌晨 / 清晨 / … / 深夜）。 */
+  activePhase: string | null;
+  /** 收藏节奏：最爱周几（周一 … 周日）。 */
+  topWeekday: string | null;
+  /** 之最：字节最大的一张（全部为 0 时 null；并列保留数组中先出现的一条）。 */
+  largestByBytes: { title: string; bytes: number } | null;
+  /** 之最：页数最多的一张（不足两页不算「多图」，null——宁缺不编）。 */
+  largestByPages: { title: string; pageCount: number } | null;
+  /** 年内收藏跨度（最早 → 最近，含首尾时刻供排版；切片非空时必有）。 */
+  span: { days: number; firstAt: number; lastAt: number };
+  /** 结束语：只从标签 / 画师数据确定性推导，两样都读不出返回 null（宁缺不编）。 */
+  closing: string | null;
+};
+
+/**
+ * 年度报告文案字段集：吃一个年份切片（filterByYear 的产物），吐六段版式要的
+ * 全部字段，页面只拼版不计算。切片为空返回 null（页面走空态）。聚合全部
+ * 复用本文件既有函数（直方图 / 峰值 / 词云 / 画师簇），不另写第二套口径。
+ */
+export function reportNarrative(
+  slice: VaultMeta[],
+  year: number,
+  aliases?: Record<string, string>,
+): ReportNarrative | null {
+  if (slice.length === 0) return null;
+
+  const monthCounts = new Array<number>(12).fill(0);
+  let first = Number.POSITIVE_INFINITY;
+  let last = 0;
+  let bigBytes: VaultMeta | null = null;
+  let bigPages: VaultMeta | null = null;
+  for (const item of slice) {
+    monthCounts[new Date(item.savedAt).getMonth()] += 1;
+    first = Math.min(first, item.savedAt);
+    last = Math.max(last, item.savedAt);
+    if (!bigBytes || item.bytes > bigBytes.bytes) bigBytes = item;
+    if (item.pageCount >= 2 && (!bigPages || item.pageCount > bigPages.pageCount)) bigPages = item;
+  }
+
+  const peakMonth = peakBucket(monthCounts);
+  const peakHour = peakBucket(hourHistogram(slice));
+  const peakDay = peakBucket(weekdayHistogram(slice));
+  const topAuthors = clusterAuthorVariants(slice)
+    .slice(0, 3)
+    .map((cluster) => ({
+      name: applyAuthorAlias(cluster.displayName, aliases),
+      count: cluster.totalCount,
+      pct: Math.round((cluster.totalCount / slice.length) * 100),
+    }));
+  const topTags = tagCloud(slice, { limit: 5 });
+
+  let closing: string | null = null;
+  if (topTags[0]) {
+    const rate = Math.min(100, Math.round((topTags[0].count / slice.length) * 100));
+    closing = `${year} 年，「${topTags[0].tag}」出现在你 ${rate}% 的收藏里。`;
+  } else if (topAuthors[0]) {
+    closing = `${year} 年，你在「${topAuthors[0].name}」那里收下了 ${topAuthors[0].count} 张。`;
+  }
+
+  return {
+    year,
+    total: slice.length,
+    peakMonth: peakMonth ? { label: MONTH_LABELS[peakMonth.index] ?? "", count: peakMonth.count } : null,
+    topAuthors,
+    topTags,
+    activePhase: peakHour ? hourPhaseName(peakHour.index) : null,
+    topWeekday: peakDay ? weekdayName(peakDay.index) : null,
+    largestByBytes: bigBytes && bigBytes.bytes > 0 ? { title: bigBytes.title, bytes: bigBytes.bytes } : null,
+    largestByPages: bigPages ? { title: bigPages.title, pageCount: bigPages.pageCount } : null,
+    span: { days: Math.round((last - first) / 86_400_000), firstAt: first, lastAt: last },
+    closing,
+  };
+}
+
+/**
+ * 封面是否「翻得出来」：与纸匣卡片取封面的链路一一对应——服务器存过第 0 页
+ * （hasFile）/ 用户文件夹有副本（relativePath，挂上目录就能预览）/ 应用内库
+ * 存过像素（origin 不是 folder）。三处都够不着的条目不进翻牌池。
+ */
+export function hasVaultCover(item: VaultMeta): boolean {
+  if (item.hasFile === true) return true;
+  if (item.relativePath) return true;
+  return item.origin !== "folder";
+}
+
+/**
+ * 随手翻一张：从有封面可翻的藏品里均匀随机挑一条。rng 可注入（测试定序）；
+ * 池空（空匣 / 全是翻不出封面的条目）返回 null。换牌时避免重复的兜底
+ * （连抽避开同一张）由调用方做，这里只保证一次抽取的均匀与确定性。
+ */
+export function pickRandom(items: VaultMeta[], rng: () => number = Math.random): VaultMeta | null {
+  const pool = items.filter(hasVaultCover);
+  if (pool.length === 0) return null;
+  const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+  return pool[index];
 }

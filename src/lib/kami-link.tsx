@@ -23,6 +23,8 @@ export const KNOWN_ROUTE_PATHS = [
   "/search",
   "/queue",
   "/vault",
+  "/vault/stats",
+  "/vault/report",
   "/settings",
   "/work/$source/$id",
   "/user/$id",

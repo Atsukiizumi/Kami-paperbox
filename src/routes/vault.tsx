@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SITE_LIST } from "@/lib/sites";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
+import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes, cn } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
@@ -27,7 +28,9 @@ import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/
 import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, vaultAuthorOptions, vaultMonths, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
-import { listServerVault, vaultPageUrl } from "@/lib/storage/vault-sync";
+import { VaultFlipDialog } from "@/components/vault-flip";
+import { useVaultCover } from "@/components/vault-cover";
+import { listServerVault } from "@/lib/storage/vault-sync";
 import type { Source, WorkCard } from "@/lib/types";
 
 function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {
@@ -61,6 +64,9 @@ export function VaultPage() {
   const [dedupOpen, setDedupOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
+  /** 今日去年：命中笺条后把列表过滤到那批藏品（点 × 恢复），瞬态不进智能文件夹。 */
+  const [recallOnly, setRecallOnly] = useState(false);
+  const [flipOpen, setFlipOpen] = useState(false);
 
   async function refresh() {
     let local: VaultMeta[] = [];
@@ -95,16 +101,28 @@ export function VaultPage() {
     void refresh();
   }, []);
 
+  // 今日去年：月-日相同、年份早于今年的藏品按年份降序分组（now 随 all 快照取一次）
+  const recallGroups = useMemo(() => onThisDay(all, Date.now()), [all]);
+  const recallTotal = recallGroups.reduce((n, group) => n + group.items.length, 0);
+  const recallKeys = useMemo(
+    () => new Set(recallGroups.flatMap((group) => group.items.map((item) => item.key))),
+    [recallGroups],
+  );
+  const flipPool = useMemo(() => all.filter(hasVaultCover), [all]);
+
   const items = useMemo(
-    () =>
-      filterVaultItems(all, {
+    () => {
+      const base = filterVaultItems(all, {
         text,
         source,
         authorKey: author || undefined,
         tags: tagsSel.length ? tagsSel : undefined,
         month: month || undefined,
-      }),
-    [all, text, source, author, tagsSel, month],
+      });
+      // 今日去年过滤叠在最上面：复用整页瀑布流渲染，零新展示面
+      return recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
+    },
+    [all, text, source, author, tagsSel, month, recallOnly, recallKeys],
   );
   const authors = useMemo(() => {
     const pool = source === "all" ? all : all.filter((item) => item.source === source);
@@ -126,7 +144,7 @@ export function VaultPage() {
   const visible = items.slice(0, visibleCount);
   useEffect(() => {
     setVisibleCount(60);
-  }, [text, source, author, tagsSel, month]);
+  }, [text, source, author, tagsSel, month, recallOnly]);
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
@@ -198,7 +216,7 @@ export function VaultPage() {
 
   return (
     <div className="space-y-5">
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
           <p className="mt-1 text-sm text-muted">
@@ -211,13 +229,31 @@ export function VaultPage() {
               {folderOnly} 条只有文件夹副本，应用内库没有像素。授权「存储」里的文件夹后才能预览封面；不是没保存。
             </p>
           ) : null}
+          {/* 今日去年笺条：命中才递上来，点击把列表过滤到那批藏品 */}
+          {recallTotal > 0 ? (
+            <button
+              type="button"
+              className="kami-slip mt-3 cursor-pointer"
+              onClick={() => setRecallOnly(true)}
+            >
+              {/* 命中可能不止去年（往年同月日都算），按最近一年措辞，不虚报年份 */}
+              {recallGroups[0]?.year === new Date().getFullYear() - 1
+                ? `去年的今天，你收了 ${recallTotal} 张`
+                : `${recallGroups[0]?.year} 年的今天，你收了 ${recallTotal} 张`}
+            </button>
+          ) : null}
         </div>
-        <Button size="sm" variant="secondary" onClick={() => void exportZip()} disabled={exporting || items.length === 0}>
-          {exporting ? "打包中…" : "导出 ZIP"}
-        </Button>
-        <Button asChild size="sm" variant="secondary">
-          <Link to="/vault/stats">统计</Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setFlipOpen(true)} disabled={flipPool.length === 0}>
+            随手翻一张
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => void exportZip()} disabled={exporting || items.length === 0}>
+            {exporting ? "打包中…" : "导出 ZIP"}
+          </Button>
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/vault/stats">统计</Link>
+          </Button>
+        </div>
       </header>
 
       {all.length > 0 ? (
@@ -253,6 +289,11 @@ export function VaultPage() {
             ) : null}
             {monthOptions.length > 1 ? (
               <MonthPicker value={month} onChange={(m) => setMonth(m)} />
+            ) : null}
+            {recallTotal > 0 ? (
+              <FilterChip active={recallOnly} onClick={() => setRecallOnly((v) => !v)}>
+                {recallOnly ? "今日去年 ×" : "今日去年"}
+              </FilterChip>
             ) : null}
             <span className="ml-auto text-xs tabular-nums text-subtle">
               {totals.count} 条 · {formatBytes(totals.bytes)}
@@ -379,6 +420,8 @@ export function VaultPage() {
           />
         </MasonryBoard>
       )}
+
+      <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
     </div>
   );
 }
@@ -417,41 +460,12 @@ function VaultCard({
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
 }) {
-  const serverThumb = item.hasFile ? vaultPageUrl(item.key) : "";
-  const [thumb, setThumb] = useState(serverThumb);
-  const [size, setSize] = useState<{ width?: number; height?: number }>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    let url = "";
-    void (async () => {
-      const folderBlob = await previewFromFolder(item);
-      const blob =
-        folderBlob ||
-        (await getVaultBlob(item.key, 0, { localOnly: item.hasFile === false }));
-      if (cancelled) return;
-      if (blob) {
-        url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-          if (!cancelled) setSize({ width: img.naturalWidth, height: img.naturalHeight });
-        };
-        img.src = url;
-        setThumb(url);
-        return;
-      }
-      setThumb(item.hasFile ? vaultPageUrl(item.key) : "");
-    })();
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖字段级快照：整 item 对象每渲染 identity 都变会死循环
-  }, [item.key, item.relativePath, item.hasFile]);
+  // 取封面链路抽成 useVaultCover：随机翻牌对话框复用同一条（vault-cover.ts）
+  const { thumb, width, height } = useVaultCover(item);
 
   return (
     <ArtworkCard
-      work={cardFromMeta(item, thumb, size.width, size.height)}
+      work={cardFromMeta(item, thumb, width, height)}
       index={index}
       variant="vault"
       marks={item.replaced ? ["原图已被替换"] : undefined}
