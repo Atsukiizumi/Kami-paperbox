@@ -83,7 +83,7 @@ export function DeskPage() {
           prefetch={false}
           className={cn(
             "kami-card-folded relative block min-h-[17.5rem] rounded-xl bg-surface p-6 shadow-[var(--shadow-paper-1)] md:p-8",
-            asideEmpty ? "lg:col-span-3" : "lg:col-span-2 lg:row-span-2",
+            asideEmpty ? "lg:col-span-3" : "lg:col-span-2",
           )}
         >
           <p className="text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
@@ -92,7 +92,7 @@ export function DeskPage() {
         </Link>
         <DeskNewspaper className={asideEmpty ? "lg:col-span-3" : "lg:col-span-3 lg:col-start-1 lg:row-start-2"} />
         {asideEmpty ? null : (
-          <aside className="flex flex-col gap-4 lg:col-start-3 lg:row-start-1 lg:row-span-2">
+          <aside className="flex flex-col gap-4 lg:col-start-3 lg:row-start-1">
             <DeskLetters />
             <DeskStack count={unreadCount} />
           </aside>
