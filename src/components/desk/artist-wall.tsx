@@ -122,6 +122,7 @@ export function DeskArtistWall() {
       ) : (
         <WallGrid batch={frames[0] ?? []} />
       )}
+      <p className="mt-2 text-sm text-muted">画师墙 · 关注的最新更新</p>
     </section>
   );
 }
