@@ -59,8 +59,10 @@ export function useCrossfade<T>({
   }, []);
 
   // 容器滚出视口 → 停表。环境没有 IntersectionObserver（jsdom 等）当作可见。
+  // 没帧不观察；frames 变化会重挂——报纸/墙的容器等数据到了才渲染。
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return;
+    if (frames.length === 0) return;
     const el = containerRef.current;
     if (!el) return;
     const io = new IntersectionObserver(([entry]) => {
@@ -68,7 +70,7 @@ export function useCrossfade<T>({
     });
     io.observe(el);
     return () => io.disconnect();
-  }, [containerRef]);
+  }, [containerRef, frames]);
 
   // 数据刷新导致帧变少时收拢下标，别停在越界位置。
   useEffect(() => {
