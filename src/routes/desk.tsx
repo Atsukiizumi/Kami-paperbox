@@ -18,7 +18,7 @@ import { Link } from "@/lib/kami-link";
 import { onThisDay } from "@/lib/storage/vault-profile";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
-import { useSettings } from "@/lib/store";
+import { useSettings, useSettingsHydrated } from "@/lib/store";
 import { useViewHistory } from "@/lib/view-history";
 
 function todayLabel(now = new Date()): { title: string; date: string } {
@@ -33,6 +33,8 @@ function todayLabel(now = new Date()): { title: string; date: string } {
 
 export function DeskPage() {
   const watchArtists = useSettings((s) => s.watchArtists);
+  const pixivCookie = useSettings((s) => s.pixivCookie);
+  const hydrated = useSettingsHydrated();
   const historyItems = useViewHistory((s) => s.items);
   const [vault, setVault] = useState<VaultMeta[]>([]);
   const [vaultReady, setVaultReady] = useState(false);
@@ -82,7 +84,9 @@ export function DeskPage() {
     return onThisDay(vault, Date.now()).reduce((n, group) => n + group.items.length, 0);
   }, [vaultReady, vault]);
 
-  const asideEmpty = watchArtists.length === 0 && unreadCount === 0;
+  // 右栏：信/纸叠之外，Pixiv 登录后画师墙也撑得起右栏（墙自带无数据隐身）。
+  const pixivLoggedIn = hydrated && pixivCookie.trim() !== "";
+  const asideEmpty = watchArtists.length === 0 && unreadCount === 0 && !pixivLoggedIn;
 
   return (
     <div className="mx-0 max-w-6xl space-y-4">
