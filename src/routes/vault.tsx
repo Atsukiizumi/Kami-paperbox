@@ -1,7 +1,9 @@
 /**
  * 纸匣页：用浏览同一套拼版看已保存作品。
  *
- * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除。
+ * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除；
+ *      「选择」进批量模式后点卡是勾选，工具条给批量加/删标签（改 tags 原文，
+ *      删除按展示名归一匹配、变体同删，见 vault-tag-alias.ts）。
  * 用法：侧栏入口。优先读用户文件夹原图。
  */
 "use client";
@@ -21,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { VaultFilter } from "@/components/vault-filter";
 import { BatchToolbar } from "@/components/batch-toolbar";
 import { useBatchSelection } from "@/components/use-batch-selection";
+import { VaultBatchActions, type BatchTagEntry } from "@/components/vault-batch-tags";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { applyTagAliases } from "@/lib/vault-tag-alias";
@@ -28,9 +31,9 @@ import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
-import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/storage/vault";
+import { deleteVaultWork, getVaultBlob, listVault, putVaultMeta, type VaultMeta } from "@/lib/storage/vault";
 import { forgetVaultKey } from "@/lib/storage/vault-index";
-import { filterVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { useVaultCover } from "@/components/vault-cover";
@@ -114,16 +117,8 @@ function VaultPageInner() {
       remote = null;
     }
     const remoteItems = remote?.items ?? [];
-    if (remoteItems.length > 0) {
-      const map = new Map(remoteItems.map((item) => [item.key, item]));
-      for (const item of local) {
-        const prev = map.get(item.key);
-        map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
-      }
-      setAll([...map.values()].sort((a, b) => b.savedAt - a.savedAt));
-    } else {
-      setAll(local);
-    }
+    // 按 key 合并、本地覆盖优先（mergeVaultItems）：本地 meta 编辑（批量标签等）不被远端刷掉
+    setAll(mergeVaultItems(local, remoteItems));
     setReady(true);
   }
 
@@ -252,6 +247,29 @@ function VaultPageInner() {
     forgetVaultKey(item.key);
     await refresh();
     toast.success("已从目录移除");
+  }
+
+  // 批量标签的选中集合：按 key 从全量目录取（改筛选不丢已选，动作也不漏隐藏中的）
+  const selectedItems = useMemo(() => all.filter((item) => sel.selected.has(item.key)), [all, sel.selected]);
+
+  // 批量加/删标签写回：只动 tags 数组、逐张 putVaultMeta 落本地 IDB；
+  // refresh 的合并按 key 本地覆盖优先（mergeVaultItems），编辑不会被远端刷掉（测试锁）
+  async function applyBatchTags(kind: "add" | "remove", tag: string, entries: BatchTagEntry[]) {
+    if (entries.length === 0) return;
+    try {
+      for (const { meta, tags } of entries) {
+        await putVaultMeta({ ...meta, tags });
+      }
+      await refresh();
+      toast.success(
+        kind === "add"
+          ? `已给 ${entries.length} 张加标签「${tag}」`
+          : `已从 ${entries.length} 张移除标签「${tag}」`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "批量标签没写完，稍后再试");
+      await refresh(); // 部分写入也要让页面回到真实状态
+    }
   }
 
   return (
@@ -433,8 +451,12 @@ function VaultPageInner() {
           onClear={sel.clear}
           onDone={sel.exit}
         >
-          {/* 只读选择：加/删标签动作区下一步接上 */}
-          {null}
+          <VaultBatchActions
+            selectedItems={selectedItems}
+            tagOptions={tagOptions}
+            tagAliases={tagAliases}
+            onApply={(kind, tag, entries) => void applyBatchTags(kind, tag, entries)}
+          />
         </BatchToolbar>
       ) : null}
 
