@@ -8,7 +8,7 @@
 
 import { Link } from "@/lib/kami-link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { unreadItems } from "@/lib/desk-unread";
 import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -339,27 +339,14 @@ function VaultPageInner() {
             </span>
           </div>
           {tagOptions.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {tagOptions.map((tag) => {
-                const active = tagsSel.includes(tag);
-                return (
-                  <FilterChip
-                    key={tag}
-                    active={active}
-                    onClick={() =>
-                      setTagsSel((prev) => (active ? prev.filter((t) => t !== tag) : [...prev, tag]))
-                    }
-                  >
-                    {tag}
-                  </FilterChip>
-                );
-              })}
-              {tagsSel.length > 0 ? (
-                <button type="button" className="text-xs text-muted underline-offset-2 hover:underline" onClick={() => setTagsSel([])}>
-                  清空标签
-                </button>
-              ) : null}
-            </div>
+            <VaultTagRow
+              tags={tagOptions}
+              selected={tagsSel}
+              onToggle={(tag) =>
+                setTagsSel((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+              }
+              onClear={() => setTagsSel([])}
+            />
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             {smartFolders.map((folder) => (
@@ -461,6 +448,70 @@ function VaultPageInner() {
       )}
 
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
+    </div>
+  );
+}
+
+function VaultTagRow({
+  tags,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  tags: string[];
+  selected: string[];
+  onToggle: (tag: string) => void;
+  onClear: () => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const ordered = useMemo(() => {
+    const sel = new Set(selected);
+    return [...tags.filter((t) => sel.has(t)), ...tags.filter((t) => !sel.has(t))];
+  }, [tags, selected]);
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => {
+      setOverflows(el.scrollHeight > 40);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ordered]);
+
+  return (
+    <div className="flex items-start gap-2">
+      <div
+        ref={wrapRef}
+        className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-2", !open && overflows && "max-h-9 overflow-hidden")}
+      >
+        {ordered.map((tag) => {
+          const active = selected.includes(tag);
+          return (
+            <FilterChip key={tag} active={active} onClick={() => onToggle(tag)}>
+              {tag}
+            </FilterChip>
+          );
+        })}
+      </div>
+      {selected.length > 0 ? (
+        <button type="button" className="h-9 shrink-0 text-xs text-muted underline-offset-2 hover:underline" onClick={onClear}>
+          清空
+        </button>
+      ) : null}
+      {overflows ? (
+        <button
+          type="button"
+          className="h-9 shrink-0 text-xs text-muted underline-offset-2 hover:underline"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "收起" : "展开"}
+        </button>
+      ) : null}
     </div>
   );
 }
