@@ -2,9 +2,9 @@
  * 案头未读纸叠。
  *
  * 作用：纸匣里 90 天窗内还没打开过的藏品，用真封面叠成入口——6 张扇形叠开，
- *      微微错位带点转角，保留「一摞纸」手感；比旧版三叠更满。
+ *      首尾贴卡片两边、横向均分（calc 定位随卡宽伸缩），微转角保留「一摞纸」手感。
  * 用法：DeskPage 右栏挂 <DeskStack count={n} items={unread} />；count 为 0 不画。
- * 为什么：空色块叠纸看起来像占位；封面才是匣里的纸。
+ * 为什么：空色块叠纸看起来像占位；封面才是匣里的纸。贴边均分才跟下面画师墙对得齐。
  */
 "use client";
 
@@ -16,14 +16,17 @@ import { vaultPageUrl } from "@/lib/storage/vault-sync";
 import type { VaultMeta } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** 六张的叠位：横向错开 + 微转角 + 上下起伏，z 递增，末张压轴。 */
+/**
+ * 六张的叠位：横向 (100% - 6rem) 五等分（末张右缘正好贴卡片内边），微转角 +
+ * 上下起伏，z 递增。首尾贴边、与卡片同宽——和画师墙网格左右对齐。
+ */
 const LEAF_PLACE = [
   "left-0 top-2 z-0 -rotate-2",
-  "left-9 top-0 z-10 rotate-1",
-  "left-[4.5rem] top-3 z-20 -rotate-1",
-  "left-[7.25rem] top-1 z-30 rotate-2",
-  "left-40 top-2 z-40 -rotate-1",
-  "left-[12.5rem] top-0 z-50 rotate-1",
+  "left-[calc((100%-6rem)*0.2)] top-0 z-10 rotate-1",
+  "left-[calc((100%-6rem)*0.4)] top-3 z-20 -rotate-1",
+  "left-[calc((100%-6rem)*0.6)] top-1 z-30 rotate-2",
+  "left-[calc((100%-6rem)*0.8)] top-2 z-40 -rotate-1",
+  "left-[calc(100%-6rem)] top-0 z-50 rotate-1",
 ] as const;
 
 function StackLeaf({ item, place }: { item: VaultMeta; place: string }) {
