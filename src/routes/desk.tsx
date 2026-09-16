@@ -1,13 +1,14 @@
 /**
  * 今日案头（主页稿纸）。
  *
- * 作用：打开应用落到这里；去浏览铺当前站封面进 /browse；通栏挂今日报纸；有则挂信、纸叠、去年今日笺。
+ * 作用：打开应用落到这里；去浏览铺当前站封面进 /browse；通栏挂今日报纸；有则挂信、纸叠、画师墙、去年今日笺。
  * 用法：app/page.tsx 渲染 DeskPage。
  * 为什么：浏览是工作面，案头是坐下的那张纸；信不在这里检查追踪。
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DeskArtistWall } from "@/components/desk/artist-wall";
 import { DeskBrowseSheet } from "@/components/desk/browse-sheet";
 import { DeskLetters } from "@/components/desk/letters";
 import { DeskNewspaper } from "@/components/desk/newspaper";
@@ -101,6 +102,7 @@ export function DeskPage() {
           <aside className="flex flex-col gap-4 lg:col-start-3 lg:row-start-1">
             <DeskLetters />
             <DeskStack count={unreadCount} items={unread} />
+            <DeskArtistWall />
           </aside>
         )}
       </div>
