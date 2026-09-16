@@ -12,6 +12,7 @@ import { create } from "zustand";
 import { toast } from "sonner";
 import { clampQueueConcurrency } from "./queue-retry.ts";
 import { AUTHOR_ALIAS_ENTRY_LIMIT, AUTHOR_ALIAS_TEXT_LIMIT, parseAuthorAliases } from "./author-name.ts";
+import { TAG_ALIAS_ENTRY_LIMIT, TAG_ALIAS_TEXT_LIMIT, parseTagAliases } from "./vault-tag-alias.ts";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types.ts";
 import type { SearchEngine } from "./reverse-search.ts";
@@ -110,6 +111,8 @@ type SettingsState = {
   smartFolders: SmartFolder[];
   /** 画师名别名（规范名 → 用户定名）：导出分夹 / 统计 / 镜像路径 / 筛选共用；随设置段同步。 */
   authorAliases: Record<string, string>;
+  /** 标签别名（变体原文 → 规范名）：聚合 / 筛选 / 搜索 / 展示统一过单跳映射；随设置段同步。 */
+  tagAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
   accounts: Account[];
@@ -124,6 +127,8 @@ type SettingsState = {
   removeSmartFolder: (id: string) => void;
   setAuthorAlias: (from: string, to: string) => void;
   removeAuthorAlias: (from: string) => void;
+  setTagAliasCluster: (variants: readonly string[], canonical: string) => void;
+  removeTagAlias: (variant: string) => void;
   toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => "added" | "removed" | "full";
   setWatchSeen: (source: WatchArtist["source"], id: string, lastSeenId: string) => void;
   setWatchLimit: (n: number) => void;
@@ -173,6 +178,74 @@ function withActiveCookies(
   };
 }
 
+/**
+ * 设置段 persist 迁移（v12 起提为具名导出供单测直跑）。返回值先展开旧档
+ * `p` 再用白名单解析结果覆盖：老档已有字段一个不丢，缺的新字段补默认。
+ */
+export function migrateSettings(persisted: unknown, version: number) {
+  const p = (persisted ?? {}) as Record<string, unknown>;
+  const legacy = migrateLegacySettings({
+    pixivCookie: typeof p.pixivCookie === "string" ? p.pixivCookie : "",
+    fanboxCookie: typeof p.fanboxCookie === "string" ? p.fanboxCookie : "",
+    accounts: Array.isArray(p.accounts) ? (p.accounts as Account[]) : undefined,
+    activeAccountId: typeof p.activeAccountId === "string" ? p.activeAccountId : null,
+  });
+  legacy.accounts = legacy.accounts.map((a) => {
+    const pixivCookie = sanitizePixivCookie(a.pixivCookie);
+    const fanboxCookie = fanboxSessionFrom(a.fanboxCookie, pixivCookie);
+    return {
+      ...a,
+      pixivCookie,
+      fanboxCookie,
+      pixivProfile: pixivCookie ? a.pixivProfile : null,
+      fanboxProfile: fanboxCookie ? a.fanboxProfile : null,
+    };
+  });
+  const cookies = cookiesOf(legacy.accounts, legacy.activeAccountId);
+  const searchEngine = isSearchEngine(String(p.searchEngine))
+    ? (p.searchEngine as SearchEngine)
+    : DEFAULT_SEARCH_ENGINE;
+  const hideAi = p.hideAi === true;
+  const theme = parseThemeId(p.theme);
+  const appearance = parseAppearance(p.appearance);
+  const uiStyle = parseUiStyle(p.uiStyle);
+  const pathPreset = parsePathPreset(p.pathPreset);
+  const pathTemplate =
+    typeof p.pathTemplate === "string" && p.pathTemplate.trim()
+      ? p.pathTemplate
+      : templateForPreset(pathPreset);
+  const extra = {
+    queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
+    vaultMirrorFolder: p.vaultMirrorFolder !== false,
+    downloadToFolder: p.downloadToFolder !== false,
+    pathPreset,
+    pathTemplate,
+    folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
+    savedTags: parseSavedTags(p.savedTags),
+    smartFolders: parseSmartFolders(p.smartFolders),
+    // 画师别名：v11 时代可选新字段（当时不 bump，靠浅合并落回 {}）
+    authorAliases: parseAuthorAliases(p.authorAliases),
+    // 标签别名（标签整理）：v12 起入档；<12 老档缺该字段时 parse 补空表，
+    // 已有条目经裁剪保留，不丢
+    tagAliases: parseTagAliases(p.tagAliases),
+    watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
+    watchLimit: clampWatchLimit(p.watchLimit),
+    onboarded:
+      p.onboarded === true ||
+      legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
+    saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
+    danbooruLogin: typeof p.danbooruLogin === "string" ? p.danbooruLogin.trim().slice(0, 120) : "",
+    danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
+    // M5 备份提醒：可选新字段，缺省 null（从未备份）。v11 时代靠浅合并不
+    // bump 落回 null；v12 bump 后 <12 老档 migrate 会跑，这里仍只透传合法数字。
+    lastBackupAt: typeof p.lastBackupAt === "number" && Number.isFinite(p.lastBackupAt) ? p.lastBackupAt : null,
+  };
+  if (version >= 2 && legacy.accounts.length) {
+    return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
+  }
+  return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
+}
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set, get) => ({
@@ -198,6 +271,7 @@ export const useSettings = create<SettingsState>()(
       savedTags: emptySavedTags(),
       smartFolders: [],
       authorAliases: {},
+      tagAliases: {},
       watchArtists: [],
       watchLimit: 100,
       accounts: [],
@@ -297,6 +371,30 @@ export const useSettings = create<SettingsState>()(
           const authorAliases = { ...s.authorAliases };
           delete authorAliases[from];
           return { authorAliases };
+        }),
+      setTagAliasCluster: (variants, canonical) =>
+        set((s) => {
+          // 与 parseTagAliases 同一套裁剪口径：trim、≤120、值 ≠ 键、≤500 条
+          const val = canonical.trim().slice(0, TAG_ALIAS_TEXT_LIMIT);
+          if (!val) return s;
+          const tagAliases = { ...s.tagAliases };
+          // 防链：规范名自身不能再是变体——先撤以 canonical 为键的旧条目，
+          // 否则 A→canonical 与 canonical→B 并存，删除链路语义会漂。
+          delete tagAliases[val];
+          for (const raw of variants) {
+            const key = raw.trim().slice(0, TAG_ALIAS_TEXT_LIMIT);
+            if (!key || key === val) continue;
+            if (!(key in tagAliases) && Object.keys(tagAliases).length >= TAG_ALIAS_ENTRY_LIMIT) continue;
+            tagAliases[key] = val;
+          }
+          return { tagAliases };
+        }),
+      removeTagAlias: (variant) =>
+        set((s) => {
+          if (!(variant in s.tagAliases)) return s;
+          const tagAliases = { ...s.tagAliases };
+          delete tagAliases[variant];
+          return { tagAliases };
         }),
       toggleWatchArtist: ({ source, id, name, avatar }) => {
         const current = get();
@@ -421,68 +519,9 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      version: 11,
-      migrate: (persisted, version) => {
-        const p = (persisted ?? {}) as Record<string, unknown>;
-        const legacy = migrateLegacySettings({
-          pixivCookie: typeof p.pixivCookie === "string" ? p.pixivCookie : "",
-          fanboxCookie: typeof p.fanboxCookie === "string" ? p.fanboxCookie : "",
-          accounts: Array.isArray(p.accounts) ? (p.accounts as Account[]) : undefined,
-          activeAccountId: typeof p.activeAccountId === "string" ? p.activeAccountId : null,
-        });
-        legacy.accounts = legacy.accounts.map((a) => {
-          const pixivCookie = sanitizePixivCookie(a.pixivCookie);
-          const fanboxCookie = fanboxSessionFrom(a.fanboxCookie, pixivCookie);
-          return {
-            ...a,
-            pixivCookie,
-            fanboxCookie,
-            pixivProfile: pixivCookie ? a.pixivProfile : null,
-            fanboxProfile: fanboxCookie ? a.fanboxProfile : null,
-          };
-        });
-        const cookies = cookiesOf(legacy.accounts, legacy.activeAccountId);
-        const searchEngine = isSearchEngine(String(p.searchEngine))
-          ? (p.searchEngine as SearchEngine)
-          : DEFAULT_SEARCH_ENGINE;
-        const hideAi = p.hideAi === true;
-        const theme = parseThemeId(p.theme);
-        const appearance = parseAppearance(p.appearance);
-        const uiStyle = parseUiStyle(p.uiStyle);
-        const pathPreset = parsePathPreset(p.pathPreset);
-        const pathTemplate =
-          typeof p.pathTemplate === "string" && p.pathTemplate.trim()
-            ? p.pathTemplate
-            : templateForPreset(pathPreset);
-        const extra = {
-          queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
-          vaultMirrorFolder: p.vaultMirrorFolder !== false,
-          downloadToFolder: p.downloadToFolder !== false,
-          pathPreset,
-          pathTemplate,
-          folderLabel: typeof p.folderLabel === "string" ? p.folderLabel : "",
-          savedTags: parseSavedTags(p.savedTags),
-          smartFolders: parseSmartFolders(p.smartFolders),
-          // 画师别名：可选新字段，缺省 {}（与 lastBackupAt 同一升级口径，persist 不 bump）
-          authorAliases: parseAuthorAliases(p.authorAliases),
-          watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
-          watchLimit: clampWatchLimit(p.watchLimit),
-          onboarded:
-            p.onboarded === true ||
-            legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
-          saucenaoApiKey: typeof p.saucenaoApiKey === "string" ? p.saucenaoApiKey.trim().slice(0, 80) : "",
-          danbooruLogin: typeof p.danbooruLogin === "string" ? p.danbooruLogin.trim().slice(0, 120) : "",
-          danbooruApiKey: typeof p.danbooruApiKey === "string" ? p.danbooruApiKey.trim().slice(0, 200) : "",
-          // M5 备份提醒：可选新字段，缺省 null（从未备份）。persist 版本停在 11
-          // 不 bump——v11 老档 migrate 根本不会跑，zustand 默认浅合并让缺失字段
-          // 落回初始 null；这里兜 <11 老档升级路径，只透传合法数字。
-          lastBackupAt: typeof p.lastBackupAt === "number" && Number.isFinite(p.lastBackupAt) ? p.lastBackupAt : null,
-        };
-        if (version >= 2 && legacy.accounts.length) {
-          return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
-        }
-        return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
-      },
+      // v12（标签整理）：新增 tagAliases 设置段；<12 老档缺字段补默认空表
+      version: 12,
+      migrate: migrateSettings,
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
         fanboxCookie: s.fanboxCookie,
@@ -504,6 +543,7 @@ export const useSettings = create<SettingsState>()(
         savedTags: s.savedTags,
         smartFolders: s.smartFolders,
         authorAliases: s.authorAliases,
+        tagAliases: s.tagAliases,
         watchArtists: s.watchArtists,
         watchLimit: s.watchLimit,
         accounts: s.accounts,
