@@ -1,0 +1,96 @@
+/**
+ * 案头轮播纯函数测试（node --test，零依赖）。
+ *
+ * 作用：锁顺序切块丢尾、洗牌确定性（rigged rand 手算期望 + LCG 稳定性）、
+ *      needsCarousel 边界、环形推进、墙的动态批量 clamp。
+ * 用法：node --experimental-strip-types --test src/lib/desk-carousel.test.ts
+ */
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { artistWallSize, buildFrames, needsCarousel, nextFrame } from "./desk-carousel.ts";
+
+/** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+}
+
+test("顺序模式按原顺序切块，尾块不足整块丢弃", () => {
+  const ten = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  assert.deepEqual(buildFrames(ten, 4), [
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
+  ]);
+  assert.deepEqual(buildFrames(ten, 4, undefined, "sequential"), [
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
+  ]);
+  // 8 张正好两块
+  assert.deepEqual(buildFrames(ten.slice(0, 8), 4).length, 2);
+  // size=1（铺纸）：一张一帧
+  assert.deepEqual(buildFrames(["a", "b", "c"], 1), [["a"], ["b"], ["c"]]);
+});
+
+test("顺序模式边界：空池 / 池短于 size / 非法 size 都给空", () => {
+  assert.deepEqual(buildFrames([], 4), []);
+  assert.deepEqual(buildFrames(["a"], 4), []);
+  assert.deepEqual(buildFrames(["a", "b"], 0), []);
+  assert.deepEqual(buildFrames(["a", "b"], -1), []);
+});
+
+test("洗牌模式：rigged rand 下结果与手算一致", () => {
+  const pool = ["a", "b", "c", "d", "e", "f"];
+  // Fisher–Yates 从尾往前：i=5 用 0.999→j=5 不换；i=4 用 0→j=0 换头；
+  // i=3 用 0.5→j=2；i=2 用 0.999→j=2 不换；i=1 用 0→j=0 换头。
+  const seq = [0.999, 0.0, 0.5, 0.999, 0.0];
+  let k = 0;
+  const rigged = () => seq[k++] ?? 0;
+  assert.deepEqual(buildFrames(pool, 2, rigged, "shuffle"), [
+    ["b", "e"],
+    ["d", "c"],
+    ["a", "f"],
+  ]);
+});
+
+test("洗牌模式：LCG 同 seed 稳定、不改原池、元素不丢不重", () => {
+  const pool = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const a = buildFrames(pool, 5, lcg(20260916), "shuffle");
+  const b = buildFrames(pool, 5, lcg(20260916), "shuffle");
+  assert.deepEqual(a, b);
+  // 原池保持升序未被洗牌污染
+  assert.deepEqual(pool, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  // 展平后是原池的一个排列
+  assert.deepEqual(a.flat().sort((x, y) => x - y), pool);
+  // 尾块不足整块同样丢弃：10 张 size=4 → 2 帧共 8 张
+  assert.equal(buildFrames(pool, 4, lcg(7), "shuffle").length, 2);
+});
+
+test("needsCarousel：至少两帧才轮播", () => {
+  assert.equal(needsCarousel(undefined), false);
+  assert.equal(needsCarousel(null), false);
+  assert.equal(needsCarousel([]), false);
+  assert.equal(needsCarousel([["a"]]), false);
+  assert.equal(needsCarousel([["a"], ["b"]]), true);
+});
+
+test("nextFrame 环形推进，len 异常兜底 0", () => {
+  assert.equal(nextFrame(0, 3), 1);
+  assert.equal(nextFrame(1, 3), 2);
+  assert.equal(nextFrame(2, 3), 0);
+  assert.equal(nextFrame(4, 1), 0);
+  assert.equal(nextFrame(0, 0), 0);
+});
+
+test("artistWallSize：clamp(floor(len/3), 9, 12)", () => {
+  assert.equal(artistWallSize(27), 9);
+  assert.equal(artistWallSize(30), 10);
+  assert.equal(artistWallSize(36), 12);
+  assert.equal(artistWallSize(40), 12);
+  // 池薄时压到下限 9（池 <9 张时 buildFrames 自然切不出帧，走静态）
+  assert.equal(artistWallSize(15), 9);
+  assert.equal(artistWallSize(26), 9);
+  assert.equal(artistWallSize(0), 9);
+});
