@@ -2,12 +2,12 @@
  * 案头轮播纯函数测试（node --test，零依赖）。
  *
  * 作用：锁顺序切块丢尾、洗牌确定性（rigged rand 手算期望 + LCG 稳定性）、
- *      needsCarousel 边界、环形推进、墙的动态批量 clamp。
+ *      needsCarousel 边界、环形推进、墙的动态批量 clamp、报纸 marquee 单程时长。
  * 用法：node --experimental-strip-types --test src/lib/desk-carousel.test.ts
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { artistWallSize, buildFrames, needsCarousel, nextFrame } from "./desk-carousel.ts";
+import { artistWallSize, buildFrames, marqueeDurationMs, needsCarousel, nextFrame } from "./desk-carousel.ts";
 
 /** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
 function lcg(seed: number): () => number {
@@ -109,4 +109,13 @@ test("artistWallSize：clamp(floor(len/3), 9, 12)", () => {
   assert.equal(artistWallSize(15), 9);
   assert.equal(artistWallSize(26), 9);
   assert.equal(artistWallSize(0), 9);
+});
+
+test("marqueeDurationMs：张数 × 4s，池空 / 异常给 0 不排动画", () => {
+  assert.equal(marqueeDurationMs(1), 4000);
+  assert.equal(marqueeDurationMs(8), 32000);
+  assert.equal(marqueeDurationMs(30), 120000);
+  assert.equal(marqueeDurationMs(0), 0);
+  assert.equal(marqueeDurationMs(-3), 0);
+  assert.equal(marqueeDurationMs(Number.NaN), 0);
 });

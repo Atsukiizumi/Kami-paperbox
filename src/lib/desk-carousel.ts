@@ -4,7 +4,8 @@
  * 作用：把一份池子切成轮播帧——铺纸 / 报纸按原顺序整块切（尾块不足整块丢弃，
  *      宁可少一帧也不凑数）；画师墙先洗牌再成批，每批都是随机抽样。
  * 用法：buildFrames(pool, size, rand, mode) 切帧；needsCarousel 判定够不够两帧；
- *      nextFrame 环形推进；artistWallSize 给墙算动态批量。
+ *      nextFrame 环形推进；artistWallSize 给墙算动态批量；marqueeDurationMs
+ *      给报纸 marquee 算单程时长。
  * 为什么：零 import、rand 可注入，node --test 里用确定性 LCG 断言洗牌与切块边界，
  *      不用把随机性放进组件测试。
  */
@@ -53,6 +54,15 @@ export function nextFrame(index: number, len: number): number {
  */
 export function artistWallSize(poolLen: number): number {
   return Math.min(12, Math.max(9, Math.floor(poolLen / 3)));
+}
+
+/**
+ * 报纸 marquee 的单程时长：匀速走完一份轨道（translateX 0→-50%）所需毫秒数
+ * = 张数 × 4s（每张约逗留 4 秒）。池空或异常给 0，调用方不排动画。
+ */
+export function marqueeDurationMs(count: number): number {
+  if (!Number.isFinite(count) || count < 1) return 0;
+  return count * 4000;
 }
 
 /** Fisher–Yates 洗牌副本；原池不动。 */

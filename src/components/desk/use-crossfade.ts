@@ -9,15 +9,16 @@
  * 用法：const { frame, previousFrame, frameIndex, containerRef } =
  *        useCrossfade({ frames, intervalMs, urlsOf })；containerRef 挂在最外层
  *       容器上（IntersectionObserver 用），frames 请 useMemo（身份稳定才不重置节奏）。
- * 为什么：暂停三条件（document.hidden / 容器滚出视口 / 帧数不足两帧）任一成立
- *      就停表省电；prefers-reduced-motion 直接锁首帧不起定时器；下一帧图片用
- *      warmMedia（ProxiedImg 同款代理 URL + 媒体车道）预载，切换不空载。
+ * 为什么：暂停条件（document.hidden / 容器滚出视口，use-viewport-active 共享；
+ *      加上帧数不足两帧）任一成立就停表省电；prefers-reduced-motion 直接锁首帧
+ *      不起定时器；下一帧图片用 warmMedia（ProxiedImg 同款代理 URL + 媒体车道）
+ *      预载，切换不空载。
  */
 
-import { useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import { useEffect, useState } from "react";
 import { warmMedia } from "@/components/proxied-img";
 import { needsCarousel, nextFrame } from "@/lib/desk-carousel";
+import { useViewportActive } from "@/components/desk/use-viewport-active";
 
 export function useCrossfade<T>({
   frames,
@@ -32,12 +33,10 @@ export function useCrossfade<T>({
   frame: T | undefined;
   previousFrame: T | undefined;
   frameIndex: number;
-  containerRef: RefObject<HTMLElement | null>;
+  containerRef: (node: HTMLElement | null) => void;
 } {
-  const containerRef = useRef<HTMLElement | null>(null);
+  const { ref: containerRef, active } = useViewportActive<HTMLElement>();
   const [frameIndex, setFrameIndex] = useState(0);
-  const [hidden, setHidden] = useState(false);
-  const [inView, setInView] = useState(true);
   const [reduced, setReduced] = useState(false);
 
   // 系统「减弱动态效果」：锁首帧、不起定时器；监听变化即时生效。
@@ -50,28 +49,6 @@ export function useCrossfade<T>({
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  // 页面不可见 → 停表。
-  useEffect(() => {
-    const onVisibility = () => setHidden(document.hidden);
-    setHidden(document.hidden);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
-
-  // 容器滚出视口 → 停表。环境没有 IntersectionObserver（jsdom 等）当作可见。
-  // 没帧不观察；frames 变化会重挂——报纸/墙的容器等数据到了才渲染。
-  useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    if (frames.length === 0) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([entry]) => {
-      setInView(Boolean(entry?.isIntersecting));
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [containerRef, frames]);
-
   // 数据刷新导致帧变少时收拢下标，别停在越界位置。
   useEffect(() => {
     setFrameIndex((i) => Math.min(i, Math.max(0, frames.length - 1)));
@@ -82,7 +59,7 @@ export function useCrossfade<T>({
     if (reduced) setFrameIndex(0);
   }, [reduced]);
 
-  const paused = !needsCarousel(frames) || hidden || !inView || reduced;
+  const paused = !needsCarousel(frames) || !active || reduced;
 
   // setTimeout 链：frameIndex 每推进一次重新起一拍；paused 翻转时清掉挂起的
   // 定时器，恢复后从恢复时刻重新起算整拍（不追赶暂停期间错过的帧）。
