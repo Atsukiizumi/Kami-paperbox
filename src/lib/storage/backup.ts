@@ -8,6 +8,7 @@
  */
 import { cookiesOf, migrateLegacySettings, type Account } from "../sync/accounts.ts";
 import { parseAuthorAliases } from "../author-name.ts";
+import { parseTagAliases } from "../vault-tag-alias.ts";
 import { asRecordOrNull as asRecord } from "../parse.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "../sync/browser-login.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
@@ -60,6 +61,8 @@ export type BackupSettings = {
   smartFolders: SmartFolder[];
   /** 画师名别名（规范名 → 用户定名）：跨设备要同步的设置段字段。 */
   authorAliases: Record<string, string>;
+  /** 标签别名（变体原文 → 规范名）：标签整理拍板的归一表，跨设备同步。 */
+  tagAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
   accounts: Account[];
@@ -205,6 +208,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     savedTags: parseSavedTags(p.savedTags),
     smartFolders: parseSmartFolders(p.smartFolders),
     authorAliases: parseAuthorAliases(p.authorAliases),
+    tagAliases: parseTagAliases(p.tagAliases),
     watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
     watchLimit: clampWatchLimit(p.watchLimit),
     accounts: legacy.accounts,

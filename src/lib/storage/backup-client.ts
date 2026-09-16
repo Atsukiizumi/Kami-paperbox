@@ -47,6 +47,8 @@ export function snapshotSettings(): BackupSettings {
     recents: s.recents,
     savedTags: s.savedTags,
     authorAliases: s.authorAliases,
+    // 标签别名（标签整理）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+    tagAliases: s.tagAliases,
     // 结构性列表：曾长期漏在这里——推不进同步段/备份文件，拉取侧还会用空默认值清掉本地
     smartFolders: s.smartFolders,
     watchArtists: s.watchArtists,
@@ -120,10 +122,12 @@ export async function applySegment(
     const settings = parseBackupSettings(seg.settings ?? {});
     // 升级窗口防清空：旧远端载荷不含 smartFolders/watchArtists 字段，parse 默认空数组
     // 会把本地整份抹掉。字段缺失 + 本地非空 → 保留本地；字段显式为空（用户真清空）→ 照常应用。
+    // tagAliases 同款守卫（标签整理；#151 白名单陷阱实证位）。
     const local = useSettings.getState();
     const hasField = (k: string) => Object.prototype.hasOwnProperty.call(raw, k);
     if (!hasField("smartFolders") && local.smartFolders.length > 0) settings.smartFolders = local.smartFolders;
     if (!hasField("watchArtists") && local.watchArtists.length > 0) settings.watchArtists = local.watchArtists;
+    if (!hasField("tagAliases") && Object.keys(local.tagAliases).length > 0) settings.tagAliases = local.tagAliases;
     useSettings.setState({ ...settings });
     await useSettings.getState().syncSessions();
     if (typeof seg.proxyUrl === "string" && seg.proxyUrl) {
