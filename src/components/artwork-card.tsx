@@ -50,7 +50,12 @@ export function ArtworkCard({
   onExport?: (e: MouseEvent) => void;
   onDelete?: (e: MouseEvent) => void;
   /** 批量收藏（D）：勾选 chip（壳左上角）；不传不渲染。 */
-  selection?: { checked: boolean; onToggle: () => void };
+  selection?: {
+    checked: boolean;
+    onToggle: () => void;
+    /** 点整卡即勾选、不进详情（纸匣选择模式）；浏览批量不开，点卡仍进详情。 */
+    toggleOnCardClick?: boolean;
+  };
 }) {
   const hasMedia = Boolean(work.thumb);
   const pages = pageThumbUrls(work.thumb, work.pageCount);
@@ -129,6 +134,14 @@ export function ArtworkCard({
           to="/work/$source/$id"
           params={{ source: work.source, id: work.id }}
           className="block"
+          onClick={
+            selection?.toggleOnCardClick
+              ? (e) => {
+                  e.preventDefault();
+                  selection.onToggle();
+                }
+              : undefined
+          }
         >
           <div
             ref={mediaRef}

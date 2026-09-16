@@ -63,4 +63,59 @@ describe("BatchToolbar（批量收藏）", () => {
     fireEvent.click(screen.getByRole("button", { name: "完成" }));
     assert.deepEqual(events, ["done"]);
   });
+
+  it("children 替换默认动作区（纸匣批量整理：没有入纸匣/下载）", () => {
+    render(
+      <BatchToolbar
+        selectedCount={2}
+        total={10}
+        onSelectAll={() => events.push("select-all")}
+        onClear={() => events.push("clear")}
+        onDone={() => events.push("done")}
+        label="批量整理"
+      >
+        <button onClick={() => events.push("tag")}>加标签</button>
+      </BatchToolbar>,
+    );
+    assert.equal(screen.queryByRole("button", { name: /入纸匣/ }), null);
+    assert.equal(screen.queryByRole("button", { name: /下载/ }), null);
+    assert.equal(screen.getByRole("toolbar").getAttribute("aria-label"), "批量整理");
+    fireEvent.click(screen.getByRole("button", { name: /加标签/ }));
+    assert.deepEqual(events, ["tag"]);
+  });
+
+  it("children={null} 是只读工具条：只有计数、全选/清除、完成", () => {
+    render(
+      <BatchToolbar
+        selectedCount={0}
+        total={5}
+        onSelectAll={() => events.push("select-all")}
+        onClear={() => events.push("clear")}
+        onDone={() => events.push("done")}
+      >
+        {null}
+      </BatchToolbar>,
+    );
+    assert.equal(screen.queryByRole("button", { name: /入纸匣/ }), null);
+    fireEvent.click(screen.getByRole("button", { name: /全选/ }));
+    assert.deepEqual(events, ["select-all"]);
+  });
+
+  it("max={null} 解除上限：超 BATCH_MAX 也不禁用、不出上限文案", () => {
+    render(
+      <BatchToolbar
+        selectedCount={300}
+        total={400}
+        max={null}
+        onSelectAll={() => events.push("select-all")}
+        onClear={() => events.push("clear")}
+        onDone={() => events.push("done")}
+      >
+        <button onClick={() => events.push("tag")}>加标签</button>
+      </BatchToolbar>,
+    );
+    assert.equal(screen.getByRole("toolbar").textContent?.includes("上限"), false);
+    const add = screen.getByRole("button", { name: /加标签/ }) as HTMLButtonElement;
+    assert.equal(add.disabled, false);
+  });
 });

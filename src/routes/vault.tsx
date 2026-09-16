@@ -19,6 +19,8 @@ import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VaultFilter } from "@/components/vault-filter";
+import { BatchToolbar } from "@/components/batch-toolbar";
+import { useBatchSelection } from "@/components/use-batch-selection";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { applyTagAliases } from "@/lib/vault-tag-alias";
@@ -80,6 +82,8 @@ function VaultPageInner() {
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
+  // 批量选择（只读勾选；写操作见 applyBatchTags）：选择与筛选/搜索互不干扰
+  const sel = useBatchSelection();
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
 
@@ -361,6 +365,9 @@ function VaultPageInner() {
                 存为智能文件夹
               </button>
             ) : null}
+            <Button size="sm" variant="secondary" onClick={sel.toggleActive} disabled={items.length === 0}>
+              {sel.active ? "退出选择" : "选择"}
+            </Button>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
@@ -392,6 +399,11 @@ function VaultPageInner() {
               item={item}
               index={i}
               tagAliases={tagAliases}
+              selection={
+                sel.active
+                  ? { checked: sel.selected.has(item.key), onToggle: () => sel.toggle(item.key) }
+                  : undefined
+              }
               onExport={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -411,6 +423,21 @@ function VaultPageInner() {
         </MasonryBoard>
       )}
 
+      {sel.active ? (
+        <BatchToolbar
+          label="批量整理"
+          selectedCount={sel.selected.size}
+          total={items.length}
+          max={null}
+          onSelectAll={() => sel.selectAll(items.map((item) => item.key))}
+          onClear={sel.clear}
+          onDone={sel.exit}
+        >
+          {/* 只读选择：加/删标签动作区下一步接上 */}
+          {null}
+        </BatchToolbar>
+      ) : null}
+
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
     </div>
   );
@@ -420,12 +447,14 @@ function VaultCard({
   item,
   index,
   tagAliases,
+  selection,
   onExport,
   onDelete,
 }: {
   item: VaultMeta;
   index: number;
   tagAliases: Record<string, string>;
+  selection?: { checked: boolean; onToggle: () => void };
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
 }) {
@@ -438,6 +467,8 @@ function VaultCard({
       index={index}
       variant="vault"
       marks={item.replaced ? ["原图已被替换"] : undefined}
+      // 选择模式下点整卡即勾选、不进详情；悬停导出/移除托保持原样
+      selection={selection ? { ...selection, toggleOnCardClick: true } : undefined}
       onExport={onExport}
       onDelete={onDelete}
     />
