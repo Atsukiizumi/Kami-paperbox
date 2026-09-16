@@ -8,7 +8,7 @@
 
 import { Link } from "@/lib/kami-link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { unreadItems } from "@/lib/desk-unread";
 import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -18,23 +18,22 @@ import { EmptySheet } from "@/components/empty-sheet";
 import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MonthPicker } from "@/components/date-picker";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SITE_LIST } from "@/lib/sites";
+import { VaultFilter } from "@/components/vault-filter";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
-import { formatBytes, cn } from "@/lib/utils";
+import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
 import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/storage/vault";
 import { forgetVaultKey } from "@/lib/storage/vault-index";
-import { filterVaultItems, vaultAuthorOptions, vaultMonths, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { filterVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { useVaultCover } from "@/components/vault-cover";
 import { listServerVault } from "@/lib/storage/vault-sync";
-import type { Source, WorkCard } from "@/lib/types";
+import { EMPTY_VAULT_FILTER, type VaultFilterState } from "@/lib/vault-filter";
+import type { WorkCard } from "@/lib/types";
 
 function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {
   return {
@@ -68,18 +67,14 @@ function VaultPageInner() {
   const authorAliases = useSettings((s) => s.authorAliases);
   const [all, setAll] = useState<VaultMeta[]>([]);
   const [text, setText] = useState("");
-  const [source, setSource] = useState<Source | "all">("all");
-  /** 选中态是作者簇键（authorKey），不再存 raw 名——同一画师的装饰变体共用一键。 */
-  const [author, setAuthor] = useState("");
-  const [tagsSel, setTagsSel] = useState<string[]>([]);
-  const [month, setMonth] = useState("");
+  /**
+   * 筛选纸一张纸管全部条件（站点/作者/标签/月份/未读/今日去年）；作者键是簇键（authorKey），
+   * 同一画师的装饰变体共用一键。未读 / 今日去年是瞬态芯片：叠在筛选之上，两芯片同亮 = 交集，不进智能文件夹。
+   */
+  const [filter, setFilter] = useState<VaultFilterState>(EMPTY_VAULT_FILTER);
   const [dedupOpen, setDedupOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
-  /** 今日去年：命中笺条后把列表过滤到那批藏品（点 × 恢复），瞬态不进智能文件夹。 */
-  const [recallOnly, setRecallOnly] = useState(false);
-  /** 未读纸叠：叠在 filterVaultItems / 今日去年之后，两芯片同时亮 = 交集；不进智能文件夹。 */
-  const [unreadOnly, setUnreadOnly] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
@@ -89,8 +84,7 @@ function VaultPageInner() {
     const recall = searchParams.get("recall") === "1";
     const unread = searchParams.get("unread") === "1";
     if (!recall && !unread) return;
-    if (recall) setRecallOnly(true);
-    if (unread) setUnreadOnly(true);
+    setFilter((f) => ({ ...f, recallOnly: recall || f.recallOnly, unreadOnly: unread || f.unreadOnly }));
     const url = new URL(window.location.href);
     url.searchParams.delete("recall");
     url.searchParams.delete("unread");
@@ -147,21 +141,21 @@ function VaultPageInner() {
     () => {
       const base = filterVaultItems(all, {
         text,
-        source,
-        authorKey: author || undefined,
-        tags: tagsSel.length ? tagsSel : undefined,
-        month: month || undefined,
+        source: filter.source,
+        authorKey: filter.authorKey || undefined,
+        tags: filter.tags.length ? filter.tags : undefined,
+        month: filter.month || undefined,
       });
       // 今日去年 / 未读都叠在筛选之上：复用整页瀑布流；两芯片同时亮 = 交集
-      const next = recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
-      return unreadOnly && unreadKeys.size > 0 ? next.filter((item) => unreadKeys.has(item.key)) : next;
+      const next = filter.recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
+      return filter.unreadOnly && unreadKeys.size > 0 ? next.filter((item) => unreadKeys.has(item.key)) : next;
     },
-    [all, text, source, author, tagsSel, month, recallOnly, recallKeys, unreadOnly, unreadKeys],
+    [all, text, filter, recallKeys, unreadKeys],
   );
   const authors = useMemo(() => {
-    const pool = source === "all" ? all : all.filter((item) => item.source === source);
+    const pool = filter.source === "all" ? all : all.filter((item) => item.source === filter.source);
     return vaultAuthorOptions(pool, authorAliases);
-  }, [all, source, authorAliases]);
+  }, [all, filter.source, authorAliases]);
   /** 旧口径（智能库存的是 raw 名）→ 簇键：按 raw 名或规范名在当前纸匣里找一条。 */
   function authorKeyForName(name: string | undefined): string {
     const want = (name ?? "").trim();
@@ -169,21 +163,23 @@ function VaultPageInner() {
     const hit = all.find((item) => item.author === want || normalizeAuthorName(item.author) === want);
     return hit ? authorKey(hit) : "";
   }
-  const tagOptions = useMemo(() => vaultTags(all).slice(0, 24), [all]);
-  const monthOptions = useMemo(() => vaultMonths(all), [all]);
-  const filterActive = Boolean(text || (source !== "all" && source) || author || tagsSel.length || month);
+  // 全量标签交给筛选纸：visibleVaultTags 负责 40 条上限、选中置顶与纸内搜索，页上不再摊 24 个。
+  const tagOptions = useMemo(() => vaultTags(all), [all]);
+  const filterActive = Boolean(text || filter.source !== "all" || filter.authorKey || filter.tags.length || filter.month);
   const totals = vaultTotals(items);
   // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
   const [visibleCount, setVisibleCount] = useState(60);
   const visible = items.slice(0, visibleCount);
   useEffect(() => {
     setVisibleCount(60);
-  }, [text, source, author, tagsSel, month, recallOnly, unreadOnly]);
+  }, [text, filter]);
   const folderOnly = all.filter((item) => item.relativePath && item.hasFile === false).length;
 
   useEffect(() => {
-    if (author && !authors.some((o) => o.key === author)) setAuthor("");
-  }, [author, authors]);
+    if (filter.authorKey && !authors.some((o) => o.key === filter.authorKey)) {
+      setFilter((f) => ({ ...f, authorKey: "" }));
+    }
+  }, [filter.authorKey, authors]);
 
   async function exportWork(item: VaultMeta) {
     const files: { blob: Blob; ext: string }[] = [];
@@ -268,7 +264,7 @@ function VaultPageInner() {
             <button
               type="button"
               className="kami-slip mt-3 cursor-pointer"
-              onClick={() => setRecallOnly(true)}
+              onClick={() => setFilter((f) => ({ ...f, recallOnly: true }))}
             >
               {/* 命中可能不止去年（往年同月日都算），按最近一年措辞，不虚报年份 */}
               {recallGroups[0]?.year === new Date().getFullYear() - 1
@@ -297,57 +293,15 @@ function VaultPageInner() {
             onChange={(e) => setText(e.target.value)}
             placeholder="搜索标题、作者、标签、作品 ID 或路径"
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterChip active={source === "all"} onClick={() => setSource("all")}>
-              全部
-            </FilterChip>
-            {SITE_LIST.map((site) => (
-              <FilterChip key={site.id} active={source === site.id} onClick={() => setSource(site.id)}>
-                {site.label}
-              </FilterChip>
-            ))}
-            {authors.length > 0 ? (
-              <Select value={author || "all"} onValueChange={(v) => setAuthor(v === "all" ? "" : v)}>
-                <SelectTrigger className="h-9 min-w-[9rem] rounded-full bg-elevated px-3.5">
-                  <SelectValue placeholder="作者" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部作者</SelectItem>
-                  {authors.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.name} · {option.count}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            {monthOptions.length > 1 ? (
-              <MonthPicker value={month} onChange={(m) => setMonth(m)} />
-            ) : null}
-            {recallTotal > 0 ? (
-              <FilterChip active={recallOnly} onClick={() => setRecallOnly((v) => !v)}>
-                {recallOnly ? "今日去年 ×" : "今日去年"}
-              </FilterChip>
-            ) : null}
-            {unreadKeys.size > 0 ? (
-              <FilterChip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)}>
-                {unreadOnly ? "未读 ×" : "未读"}
-              </FilterChip>
-            ) : null}
-            <span className="ml-auto text-xs tabular-nums text-subtle">
-              {totals.count} 条 · {formatBytes(totals.bytes)}
-            </span>
-          </div>
-          {tagOptions.length > 0 ? (
-            <VaultTagRow
-              tags={tagOptions}
-              selected={tagsSel}
-              onToggle={(tag) =>
-                setTagsSel((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
-              }
-              onClear={() => setTagsSel([])}
-            />
-          ) : null}
+          <VaultFilter
+            value={filter}
+            onChange={setFilter}
+            authors={authors}
+            tagOptions={tagOptions}
+            totals={totals}
+            showUnread={unreadKeys.size > 0}
+            showRecall={recallTotal > 0}
+          />
           <div className="flex flex-wrap items-center gap-2">
             {smartFolders.map((folder) => (
               <span key={folder.id} className="inline-flex items-center gap-1 rounded-full bg-accent/15 pl-3 pr-1 text-sm">
@@ -356,11 +310,14 @@ function VaultPageInner() {
                   className="h-9 text-accent-fg"
                   onClick={() => {
                     setText(folder.query.text ?? "");
-                    setSource(folder.query.source ?? "all");
                     // 新文件夹存簇键（authorKey）；旧文件夹按展示名解析，解析不出再回退原名匹配
-                    setAuthor(folder.query.authorKey ?? authorKeyForName(folder.query.author ?? ""));
-                    setTagsSel(folder.query.tags ?? []);
-                    setMonth(folder.query.month ?? "");
+                    setFilter((f) => ({
+                      ...f,
+                      source: folder.query.source ?? "all",
+                      authorKey: folder.query.authorKey ?? authorKeyForName(folder.query.author ?? ""),
+                      tags: folder.query.tags ?? [],
+                      month: folder.query.month ?? "",
+                    }));
                   }}
                 >
                   {folder.name}
@@ -381,17 +338,17 @@ function VaultPageInner() {
                 className="text-xs text-muted underline-offset-2 hover:underline"
                 onClick={() => {
                   // 智能库存人类可读的簇展示名（跨设备 / 改别名后仍能按名解析回簇键）
-                  const authorName = authors.find((o) => o.key === author)?.name ?? "";
-                  const name = window.prompt("智能文件夹名字", `${tagsSel[0] ?? authorName ?? source}收藏`);
+                  const authorName = authors.find((o) => o.key === filter.authorKey)?.name ?? "";
+                  const name = window.prompt("智能文件夹名字", `${filter.tags[0] ?? authorName ?? filter.source}收藏`);
                   if (name)
                     addSmartFolder(name, {
                       text,
-                      source,
+                      source: filter.source,
                       author: authorName,
                       // 簇键随存：别名改过之后按名解析会失败，键才是稳定锚点
-                      authorKey: author || undefined,
-                      tags: tagsSel,
-                      month: month || undefined,
+                      authorKey: filter.authorKey || undefined,
+                      tags: filter.tags,
+                      month: filter.month || undefined,
                     });
                 }}
               >
@@ -449,93 +406,6 @@ function VaultPageInner() {
 
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
     </div>
-  );
-}
-
-function VaultTagRow({
-  tags,
-  selected,
-  onToggle,
-  onClear,
-}: {
-  tags: string[];
-  selected: string[];
-  onToggle: (tag: string) => void;
-  onClear: () => void;
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const ordered = useMemo(() => {
-    const sel = new Set(selected);
-    return [...tags.filter((t) => sel.has(t)), ...tags.filter((t) => !sel.has(t))];
-  }, [tags, selected]);
-
-  useLayoutEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      setOverflows(el.scrollHeight > 40);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ordered]);
-
-  return (
-    <div className="flex items-start gap-2">
-      <div
-        ref={wrapRef}
-        className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-2", !open && overflows && "max-h-9 overflow-hidden")}
-      >
-        {ordered.map((tag) => {
-          const active = selected.includes(tag);
-          return (
-            <FilterChip key={tag} active={active} onClick={() => onToggle(tag)}>
-              {tag}
-            </FilterChip>
-          );
-        })}
-      </div>
-      {selected.length > 0 ? (
-        <button type="button" className="h-9 shrink-0 text-xs text-muted underline-offset-2 hover:underline" onClick={onClear}>
-          清空
-        </button>
-      ) : null}
-      {overflows ? (
-        <button
-          type="button"
-          className="h-9 shrink-0 text-xs text-muted underline-offset-2 hover:underline"
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? "收起" : "展开"}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "h-9 shrink-0 rounded-full px-3.5 text-sm",
-        active ? "bg-accent text-accent-fg" : "bg-elevated text-muted hover:text-fg",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
