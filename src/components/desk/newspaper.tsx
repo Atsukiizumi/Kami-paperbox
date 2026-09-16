@@ -169,7 +169,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
             <NewspaperRow
               group={groupOn(1).group}
               rankBase={groupOn(1).rankBase}
-              className={cn("absolute inset-y-0 left-0", layerClass(frameIndex % 2 === 1))}
+              className={cn("absolute inset-x-0 inset-y-0", layerClass(frameIndex % 2 === 1))}
             />
           </div>
         </div>
