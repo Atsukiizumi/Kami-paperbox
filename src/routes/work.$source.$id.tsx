@@ -286,7 +286,7 @@ export function WorkPage() {
     const word = canonicalTag(src, tag) || tag;
     setTab(src);
     setBrowseQuery(word, true);
-    void navigate({ to: "/" });
+    void navigate({ to: "/browse" });
   }
 
   function queueNow(kind: "download" | "vault") {

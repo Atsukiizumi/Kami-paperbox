@@ -1,3 +1,10 @@
+/**
+ * 浏览瀑布流（工作面）。
+ *
+ * 作用：日榜、关注、推荐、标签搜索；卡片点进作品。
+ * 用法：侧栏「浏览」；壳保活挂在 `/browse`。
+ * 为什么：浏览是工作面，案头是坐下的那张纸。
+ */
 "use client";
 
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";

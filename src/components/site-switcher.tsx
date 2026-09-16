@@ -3,7 +3,7 @@
 /**
  * 顶栏图源切换。
  *
- * 作用：在 Pixiv / FANBOX / 图站之间切换，并回到浏览页。
+ * 作用：在 Pixiv / FANBOX / 图站之间切换，并回到浏览工作面。
  * 用法：放在顶栏 logo 右侧。触发器只显示站点名，不显示用户资料。
  * 为什么：把用户头像和名字塞进触发器会把「Pixiv」挤成「P..」。账号归右侧 AccountSwitcher。
  */
@@ -44,7 +44,7 @@ export function SiteSwitcher({ className }: { className?: string }) {
   function choose(id: string) {
     setTab(id as Source);
     setBrowseQuery("");
-    if (pathname !== "/") void navigate({ to: "/" });
+    if (pathname !== "/" && pathname !== "/browse") void navigate({ to: "/browse" });
   }
 
   return (

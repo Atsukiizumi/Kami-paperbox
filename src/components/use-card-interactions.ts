@@ -133,7 +133,7 @@ export function useCardInteractions(
     if (!word) return;
     setTab(work.source);
     setBrowseQuery(word, true);
-    void navigate({ to: "/" });
+    void navigate({ to: "/browse" });
   }
 
   useEffect(() => {

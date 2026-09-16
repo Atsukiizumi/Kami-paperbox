@@ -18,7 +18,7 @@ test("访客能浏览公开内容，个人面仍需登录", async ({ page }) => 
   });
 
   // 匿名浏览：卡片应渲染（访客层放行 /api/source + /api/media）
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/browse", { waitUntil: "domcontentloaded" });
   await expect(page.locator("article").first()).toBeVisible({ timeout: 90_000 });
 
   // 榜单归档：访客只读

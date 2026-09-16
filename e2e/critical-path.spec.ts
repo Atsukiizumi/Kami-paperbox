@@ -41,6 +41,10 @@ test("浏览 yande → 点开详情 → 收入纸匣 → 队列完成 → 纸匣
   await registerIfNeeded(page);
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "今日" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: /去浏览/ })).toBeVisible();
+
+  await page.goto("/browse", { waitUntil: "domcontentloaded" });
   const card = page.locator("article").first();
   await expect(card).toBeVisible({ timeout: 90_000 }); // 首次访问含 dev 编译 + 上游拉取
 

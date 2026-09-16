@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Bell, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
+import { Archive, Bell, BookOpen, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { playEnter } from "@/lib/motion";
 import { mirrorQueueAcrossTabs, resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/storage/vault-index";
@@ -18,18 +18,19 @@ import { Onboarding } from "@/components/onboarding";
 import { DropToSearch } from "@/components/drop-to-search";
 import { PaperMark } from "@/components/paper-mark";
 import { DetailNav } from "@/components/back-to-browse";
-import { isDetailPath, isMainNavPath, isWorkPath } from "@/lib/route-shape";
+import { isBrowsePath, isDeskPath, isDetailPath, isMainNavPath, isWorkPath, navItemActive } from "@/lib/route-shape";
 import dynamic from "next/dynamic";
-// PER-13：首页是 778 行大组件，静态 import 会让所有路由都背它的 bundle——
+// PER-13：浏览是 778 行大组件，静态 import 会让所有路由都背它的 bundle——
 // 拆成按需 chunk。keep-alive 隐藏挂载的行为不变，只是首帧变成异步加载。
-const BrowsePage = dynamic(() => import("@/routes/index").then((m) => m.Home));
+const BrowsePage = dynamic(() => import("@/routes/browse").then((m) => m.Home));
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Hint } from "@/components/ui/tooltip";
 
 const NAV = [
-  { to: "/", label: "浏览", icon: Compass },
+  { to: "/", label: "案头", icon: BookOpen },
+  { to: "/browse", label: "浏览", icon: Compass },
   { to: "/watch", label: "追踪", icon: Bell },
   { to: "/rankings", label: "热榜", icon: Trophy },
   { to: "/history", label: "历史", icon: Clock },
@@ -40,22 +41,10 @@ const NAV = [
 ] as const;
 
 /** 移动端底部栏固定六格；队列与追踪只在桌面侧栏/顶栏出现，塞七项会挤爆网格。 */
-const MOBILE_NAV = NAV.filter((item) => item.to !== "/queue" && item.to !== "/watch");
+const MOBILE_NAV = NAV.filter((item) => item.to !== "/" && item.to !== "/queue" && item.to !== "/watch");
 
 function LogoMark({ className }: { className?: string }) {
   return <PaperMark className={className} />;
-}
-
-function isActive(pathname: string, to: (typeof NAV)[number]["to"]) {
-  if (to === "/") {
-    return (
-      pathname === "/" ||
-      pathname.startsWith("/work") ||
-      pathname.startsWith("/user") ||
-      pathname.startsWith("/creator")
-    );
-  }
-  return pathname === to || pathname.startsWith(`${to}/`);
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -88,35 +77,30 @@ export function AppShell({ children }: { children: ReactNode }) {
       offSettings();
     };
   }, []);
-  const isHome = pathname === "/";
+  const isBrowse = isBrowsePath(pathname);
+  const isDesk = isDeskPath(pathname);
   const overlay = isDetailPath(pathname);
-  const [keepBrowse, setKeepBrowse] = useState(isHome);
+  const [keepBrowse, setKeepBrowse] = useState(isBrowse);
   const browseScroll = useRef(0);
-  const wasHome = useRef(isHome);
+  const wasBrowse = useRef(isBrowse);
 
   useEffect(() => {
-    if (isHome) setKeepBrowse(true);
+    if (isBrowse) setKeepBrowse(true);
     if (isMainNavPath(pathname)) setKeepBrowse(false);
-  }, [isHome, pathname]);
+  }, [isBrowse, pathname]);
 
   useLayoutEffect(() => {
-    if (wasHome.current && !isHome) {
-      browseScroll.current = window.scrollY;
-    }
-    if (!wasHome.current && isHome) {
-      window.scrollTo(0, browseScroll.current);
-    }
-    wasHome.current = isHome;
-  }, [isHome]);
+    if (wasBrowse.current && !isBrowse) browseScroll.current = window.scrollY;
+    if (!wasBrowse.current && isBrowse) window.scrollTo(0, browseScroll.current);
+    wasBrowse.current = isBrowse;
+  }, [isBrowse]);
 
-  const mountBrowse = isHome || (overlay && keepBrowse);
+  const mountBrowse = isBrowse || ((overlay || isDesk) && keepBrowse);
   const paneWidth = expanded ? "md:w-56" : "md:w-16";
   const contentPad = expanded ? "md:pl-56" : "md:pl-16";
-  const activeIndex = Math.max(
-    0,
-    NAV.findIndex((item) => isActive(pathname, item.to)),
-  );
-  const mobileRawIndex = MOBILE_NAV.findIndex((item) => isActive(pathname, item.to));
+  const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
+  const activeIndex = Math.max(0, desktopRawIndex);
+  const mobileRawIndex = MOBILE_NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndexMobile = Math.max(0, mobileRawIndex);
 
   return (
@@ -171,15 +155,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="relative flex flex-col gap-1 p-2">
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out"
+            className={cn(
+              "pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out",
+              desktopRawIndex < 0 && "opacity-0",
+            )}
             style={{ transform: `translateY(${activeIndex * 3}rem)` }}
           />
           {NAV.map((item) => {
-            const active = isActive(pathname, item.to);
+            const active = navItemActive(pathname, item.to);
             const Icon = item.icon;
             const link = (
               <Link
                 to={item.to}
+                prefetch={item.to === "/browse" ? false : undefined}
                 title={expanded ? undefined : item.label}
                 data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
@@ -229,7 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main className={cn(contentPad, "transition-[padding] duration-300 ease-out")}>
-        <PageFrame pathname={pathname} isHome={isHome} mountBrowse={mountBrowse}>
+        <PageFrame pathname={pathname} isBrowse={isBrowse} mountBrowse={mountBrowse}>
           {children}
         </PageFrame>
       </main>
@@ -249,12 +237,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="h-0.5 w-8 rounded-full bg-accent" />
           </span>
           {MOBILE_NAV.map((item) => {
-            const active = isActive(pathname, item.to);
+            const active = navItemActive(pathname, item.to);
             const Icon = item.icon;
             return (
               <Link
                 key={item.to}
                 to={item.to}
+                prefetch={item.to === "/browse" ? false : undefined}
                 className={cn(
                   "relative flex h-14 flex-col items-center justify-center gap-0.5 text-xs transition-colors duration-200",
                   active ? "text-fg" : "text-muted",
@@ -273,12 +262,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function PageFrame({
   pathname,
-  isHome,
+  isBrowse,
   mountBrowse,
   children,
 }: {
   pathname: string;
-  isHome: boolean;
+  isBrowse: boolean;
   mountBrowse: boolean;
   children: ReactNode;
 }) {
@@ -293,12 +282,12 @@ function PageFrame({
   return (
     <div className="w-full px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
       {mountBrowse ? (
-        <div hidden={!isHome} aria-hidden={!isHome} className={isHome ? "pt-6 md:pt-8" : "hidden"}>
+        <div hidden={!isBrowse} aria-hidden={!isBrowse} className={isBrowse ? "pt-6 md:pt-8" : "hidden"}>
           <BrowsePage />
         </div>
       ) : null}
       {detail && !isWorkPath(pathname) ? <DetailNav /> : null}
-      {!isHome ? (
+      {!isBrowse ? (
         <div ref={ref} className={detail ? "pt-4 md:pt-5" : "pt-6 md:pt-8"}>
           {children}
         </div>
