@@ -41,6 +41,22 @@ test("顺序模式边界：空池 / 池短于 size / 非法 size 都给空", () 
   assert.deepEqual(buildFrames(["a", "b"], -1), []);
 });
 
+test("铺纸整批口径：size=8，24 张 3 批、20 张 2 批丢尾、15 张单批不轮播", () => {
+  const pool = (n: number) => Array.from({ length: n }, (_, i) => i);
+  const full = buildFrames(pool(24), 8);
+  assert.equal(full.length, 3);
+  assert.ok(full.every((batch) => batch.length === 8));
+  assert.deepEqual(full[2], [16, 17, 18, 19, 20, 21, 22, 23]);
+  // 20 张 → 2 批共 16 张，尾 4 张丢弃
+  const dropped = buildFrames(pool(20), 8);
+  assert.equal(dropped.length, 2);
+  assert.equal(dropped.reduce((n, batch) => n + batch.length, 0), 16);
+  // 15 张（<16 凑不齐两批）→ 单批，needsCarousel 判静态
+  const single = buildFrames(pool(15), 8);
+  assert.equal(single.length, 1);
+  assert.equal(needsCarousel(single), false);
+});
+
 test("洗牌模式：rigged rand 下结果与手算一致", () => {
   const pool = ["a", "b", "c", "d", "e", "f"];
   // Fisher–Yates 从尾往前：i=5 用 0.999→j=5 不换；i=4 用 0→j=0 换头；
