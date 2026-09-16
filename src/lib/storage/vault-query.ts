@@ -2,16 +2,19 @@
  * 纸匣目录查询（纯函数，不碰 IndexedDB）。
  *
  * 作用：按关键字、站点、作者过滤已保存作品；作者口径走 author-name.ts 的
- *      分组键（同 authorId / 规范化同名归一），装饰名变体不再裂开。
- * 用法：filterVaultItems(listVault() 的结果, { text, source, authorKey })。
+ *      分组键（同 authorId / 规范化同名归一），装饰名变体不再裂开；标签
+ *      口径走 vault-tag-alias.ts 的别名表（变体原文 → 规范名，标签整理）。
+ * 用法：filterVaultItems(listVault() 的结果, { text, source, authorKey, tagAliases })。
  *      关键字按空白分词，每段都要命中（标题/作者/标签/id/相对路径）。
  *      author 是旧口径（raw 名精确匹配，智能库向后兼容），authorKey 是
- *      簇键（vaultAuthorOptions().key，画师下拉的选中态）。
+ *      簇键（vaultAuthorOptions().key，画师下拉的选中态）。tagAliases 由
+ *      调用方从设置段带进来（不随智能库存档），标签筛选 / 搜索两侧归一。
  * 为什么单独拆文件：存储层（vault.ts）依赖浏览器 IDB，查询逻辑可以在 Node 测试里跑，
  *        也避免 UI 直接拼字符串。
  */
 import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-name.ts";
 import { isSource } from "../sites.ts";
+import { applyTagAlias, applyTagAliases } from "../vault-tag-alias.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
 export type VaultQuery = {
@@ -24,6 +27,8 @@ export type VaultQuery = {
   tags?: string[];
   /** "YYYY-MM"，按 savedAt 本地时区（智能库）。 */
   month?: string;
+  /** 标签别名表（消费时注入，不进智能库存档）：tags 筛选与文本搜索的标签段双侧归一。 */
+  tagAliases?: Record<string, string>;
 };
 
 /** 智能文件夹：命名的筛选条件组合，存设置段随账号同步。 */
@@ -38,7 +43,7 @@ export function monthOf(savedAt: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function haystackOf(item: VaultMeta): string {
+export function haystackOf(item: VaultMeta, tagAliases?: Record<string, string>): string {
   return [
     item.title,
     item.author,
@@ -47,7 +52,8 @@ export function haystackOf(item: VaultMeta): string {
     item.source,
     item.relativePath ?? "",
     item.folderLabel ?? "",
-    ...item.tags,
+    // 标签段过别名（去重减长度是顺带）：搜规范名「鸣潮」能命中只带「鳴潮」的藏品
+    ...applyTagAliases(item.tags, tagAliases),
   ]
     .join(" ")
     .toLowerCase();
@@ -56,14 +62,18 @@ export function haystackOf(item: VaultMeta): string {
 export function filterVaultItems(items: VaultMeta[], q: VaultQuery): VaultMeta[] {
   const text = q.text?.trim().toLowerCase();
   const tokens = text ? text.split(/\s+/).filter(Boolean) : [];
+  // 双侧归一：条目侧 tags 与筛选侧 tags 各过一次单跳映射再比较——存量条件存的是
+  // 变体原文（旧智能库）照常命中，新条件存规范名（tagOptions 已归一）也命中。
+  const alias = q.tagAliases;
+  const wantTags = q.tags?.length ? q.tags.map((t) => applyTagAlias(t, alias)) : [];
   return items.filter((item) => {
     if (q.source && q.source !== "all" && item.source !== q.source) return false;
     if (q.author && item.author !== q.author) return false;
     if (q.authorKey && authorKey(item) !== q.authorKey) return false;
-    if (q.tags?.length && !item.tags.some((t) => q.tags!.includes(t))) return false;
+    if (wantTags.length && !item.tags.some((t) => wantTags.includes(applyTagAlias(t, alias)))) return false;
     if (q.month && monthOf(item.savedAt) !== q.month) return false;
     if (tokens.length === 0) return true;
-    const hay = haystackOf(item);
+    const hay = haystackOf(item, alias);
     return tokens.every((t) => hay.includes(t));
   });
 }
@@ -92,12 +102,15 @@ export function vaultTotals(items: VaultMeta[]): { count: number; bytes: number 
   };
 }
 
-/** 全部出现过的标签（去重、按出现次数降序，同频按字典序稳定）。 */
-export function vaultTags(items: VaultMeta[]): string[] {
+/**
+ * 全部出现过的标签（去重、按出现次数降序，同频按字典序稳定）。
+ * 带别名表时计数前归一：变体并入规范名合并计数，筛标签纸同物只剩一笺。
+ */
+export function vaultTags(items: VaultMeta[], aliases?: Record<string, string>): string[] {
   const counts = new Map<string, number>();
   for (const item of items) {
     for (const tag of item.tags) {
-      const t = tag.trim();
+      const t = applyTagAlias(tag.trim(), aliases);
       if (!t) continue;
       counts.set(t, (counts.get(t) ?? 0) + 1);
     }

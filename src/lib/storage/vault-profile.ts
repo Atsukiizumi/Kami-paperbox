@@ -4,14 +4,17 @@
  * 作用：在 listVault() 拿到的 VaultMeta[] 上推导「这个纸匣主人的收藏习惯」——
  *      按小时 / 周几的收藏节奏、标签词云分档、来源构成、画像小结语字段；
  *      末尾另附回顾三件套（今日去年 onThisDay / 年度报告 reportNarrative /
- *      随手翻一张 pickRandom），同样只吃数组吐结构。
+ *      随手翻一张 pickRandom），同样只吃数组吐结构。标签聚合口径走
+ *      vault-tag-alias.ts 的别名表（词云与兴趣坐标合并变体计数）。
  * 用法：const hours = hourHistogram(items); const summary = profileSummary(items)。
  *      只吃数组吐结构，零 IO，Node 单测直接跑（同 vault-query.ts 的拆法）。
+ *      别名表由调用方从设置段带进 opts / 参数，缺省恒等（旧口径不变）。
  * 为什么：统计页要的不是「分布数字」而是「读法」。聚合与措辞分开——这里只给
  *        字段，中文句子由页面拼；空库 / 缺字段时返回 null，页面隐藏对应半句，
  *        不在这里猜默认文案。钟点 / 周几都按浏览器本地时区（收藏是本地行为）。
  */
 import { applyAuthorAlias, clusterAuthorVariants } from "../author-name.ts";
+import { applyTagAlias } from "../vault-tag-alias.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
 /** 24 桶按本地钟点：hours[h] = 收藏在 h 点的藏品数。 */
@@ -64,14 +67,18 @@ export type TagChip = { tag: string; count: number; scale: 1 | 2 | 3 | 4 | 5 };
  * 标签词云（lite）：按频次定字号 / 墨深档位。
  * 档位对最大频次做对数映射——count=max 定 5 档、count=1 定 1 档，
  * 中间按 log 比例取整，保证档位随频次单调不减（同档允许并列）。
+ * opts.tagAliases 计数前归一：同一事物的变体并成一个规范名合并计数。
  */
-export function tagCloud(items: VaultMeta[], opts?: { min?: number; limit?: number }): TagChip[] {
+export function tagCloud(
+  items: VaultMeta[],
+  opts?: { min?: number; limit?: number; tagAliases?: Record<string, string> },
+): TagChip[] {
   const min = opts?.min ?? 1;
   const limit = opts?.limit ?? 40;
   const counts = new Map<string, number>();
   for (const item of items) {
     for (const raw of item.tags) {
-      const tag = raw.trim();
+      const tag = applyTagAlias(raw.trim(), opts?.tagAliases);
       if (!tag) continue;
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
@@ -266,11 +273,13 @@ export type ReportNarrative = {
  * 年度报告文案字段集：吃一个年份切片（filterByYear 的产物），吐六段版式要的
  * 全部字段，页面只拼版不计算。切片为空返回 null（页面走空态）。聚合全部
  * 复用本文件既有函数（直方图 / 峰值 / 词云 / 画师簇），不另写第二套口径。
+ * aliases 是画师别名；tagAliases 透传给词云（兴趣坐标 Top 5 合并变体计数）。
  */
 export function reportNarrative(
   slice: VaultMeta[],
   year: number,
   aliases?: Record<string, string>,
+  tagAliases?: Record<string, string>,
 ): ReportNarrative | null {
   if (slice.length === 0) return null;
 
@@ -297,7 +306,7 @@ export function reportNarrative(
       count: cluster.totalCount,
       pct: Math.round((cluster.totalCount / slice.length) * 100),
     }));
-  const topTags = tagCloud(slice, { limit: 5 });
+  const topTags = tagCloud(slice, { limit: 5, tagAliases });
 
   let closing: string | null = null;
   if (topTags[0]) {
