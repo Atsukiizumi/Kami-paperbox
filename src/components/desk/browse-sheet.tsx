@@ -3,7 +3,7 @@
  *
  * 作用：当前站默认流封面铺纸面，标题压在下面；整张字区进 /browse，封面进作品。
  *      封面层是系统轮播：默认流前 3 批封面（批随断点：默认 4×2 八张、2xl 起
- *      6×2 十二张，池深恒 = 3 批即 24/36 张）每 8s 整批交叉淡换（双缓冲叠放、
+ *      6×3 十八张，池深恒 = 3 批即 24/54 张）每 8s 整批交叉淡换（双缓冲叠放、
  *      无手动控件）；凑不齐两批（<2×批）时回落到静态网格。
  * 用法：DeskPage 主格挂 <DeskBrowseSheet className={…} />。
  * 为什么：纯字大卡太空；推荐/最新不跟今日报纸的日榜抢同一排。
@@ -27,7 +27,7 @@ import { fanboxSessionFrom, isPixivLoggedInSession } from "@/lib/sync/browser-lo
 import { credentialTag } from "@/lib/sync/cred-tag";
 import { cn } from "@/lib/utils";
 
-/** 铺纸轮播节奏：8s 一拍整批换；批随断点（sheetBatch：8/12），池深恒 = 3 批（24/36）。 */
+/** 铺纸轮播节奏：8s 一拍整批换；批随断点（sheetBatch：8/18），池深恒 = 3 批（24/54）。 */
 const SHEET_INTERVAL_MS = 8000;
 
 /** 预载口径稳定在模块级，避免每批重挂预载 effect。 */

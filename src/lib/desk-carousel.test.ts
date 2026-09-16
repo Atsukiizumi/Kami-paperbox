@@ -124,16 +124,16 @@ test("artistWallSize 2xl：上限放宽到 16，池 36 时仍 12（4 列 × 3 �
   assert.equal(artistWallSize(36, false), 12);
 });
 
-test("sheetBatch：默认 8 格（4×2），2xl 12 格（6×2）；池深恒 3 批", () => {
+test("sheetBatch：默认 8 格（4×2），2xl 18 格（6×3）；池深恒 3 批", () => {
   assert.equal(sheetBatch(false), 8);
-  assert.equal(sheetBatch(true), 12);
-  // 池 = 3 批：24 / 36
+  assert.equal(sheetBatch(true), 18);
+  // 池 = 3 批：24 / 54
   assert.equal(sheetBatch(false) * 3, 24);
-  assert.equal(sheetBatch(true) * 3, 36);
-  // 2xl 下凑不满两批（<24）仍回落静态
-  const thin = buildFrames(Array.from({ length: 23 }, (_, i) => i), sheetBatch(true));
+  assert.equal(sheetBatch(true) * 3, 54);
+  // 2xl 下凑不满两批（<36）仍回落静态
+  const thin = buildFrames(Array.from({ length: 35 }, (_, i) => i), sheetBatch(true));
   assert.equal(needsCarousel(thin), false);
-  const full = buildFrames(Array.from({ length: 24 }, (_, i) => i), sheetBatch(true));
+  const full = buildFrames(Array.from({ length: 36 }, (_, i) => i), sheetBatch(true));
   assert.equal(needsCarousel(full), true);
 });
 

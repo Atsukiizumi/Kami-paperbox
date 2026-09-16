@@ -48,11 +48,12 @@ export function nextFrame(index: number, len: number): number {
 }
 
 /**
- * 铺纸的批大小：默认 4×2 = 8 格；2xl（≥1536px）起 6×2 = 12 格。
- * 池深恒 = 3 批，池随断点 24/36——大屏看到的是更多张数而不是更大的格子。
+ * 铺纸的批大小：默认 4×2 = 8 格；2xl（≥1536px）起 6×3 = 18 格。
+ * 池深恒 = 3 批，池随断点 24/54——大屏看到的是更多张数；三行把卡片下方
+ * 被右栏（纸叠+墙）撑出来的留白填满。
  */
-export function sheetBatch(is2xl: boolean): 8 | 12 {
-  return is2xl ? 12 : 8;
+export function sheetBatch(is2xl: boolean): 8 | 18 {
+  return is2xl ? 18 : 8;
 }
 
 /**
