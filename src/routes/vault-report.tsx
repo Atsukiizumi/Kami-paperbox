@@ -37,6 +37,8 @@ export function VaultReportPage() {
   const [all, setAll] = useState<VaultMeta[] | null>(null);
   const [yearPick, setYearPick] = useState<number | null>(null);
   const authorAliases = useSettings((s) => s.authorAliases);
+  // 标签别名（标签整理）：兴趣坐标 Top 5 按归一后口径合并变体计数
+  const tagAliases = useSettings((s) => s.tagAliases);
 
   useEffect(() => {
     void listVault().then(setAll).catch(() => setAll([]));
@@ -46,8 +48,8 @@ export function VaultReportPage() {
   const year = yearPick ?? years[0] ?? null;
   const narrative = useMemo(() => {
     if (year === null) return null;
-    return reportNarrative(filterByYear(all ?? [], year), year, authorAliases);
-  }, [all, year, authorAliases]);
+    return reportNarrative(filterByYear(all ?? [], year), year, authorAliases, tagAliases);
+  }, [all, year, authorAliases, tagAliases]);
   const heroN = useCountUp(narrative?.total ?? 0);
   const authorMax = Math.max(1, ...(narrative?.topAuthors.map((row) => row.count) ?? [0]));
 

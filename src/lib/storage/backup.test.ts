@@ -12,6 +12,7 @@ function sampleSettings() {
     pixivCookie: FAKE_SESSION,
     smartFolders: [{ id: "f1", name: "样例", query: { tags: ["1girl"] } }],
     authorAliases: { あいす: "アイス", "☆古河渚★": "古河渚" },
+    tagAliases: { 鳴潮: "鸣潮", Waves: "鸣潮" },
     watchArtists: [],
     watchLimit: 100,
     fanboxCookie: FAKE_SESSION,
@@ -242,4 +243,22 @@ test("authorAliases 随备份往返（画师名整理）；缺段补空、脏项
   assert.deepEqual(parseBackupSettings({}).authorAliases, {});
   // 脏数据 → 坏项丢弃（值=键、空值），好项保留
   assert.deepEqual(parseBackupSettings({ authorAliases: { a: "a", "": "x", ok: " 好 " } }).authorAliases, { ok: "好" });
+});
+
+test("tagAliases 随备份往返（标签整理）；缺段补空、脏项与成链裁剪", () => {
+  const aliases = { 鳴潮: "鸣潮", Waves: "鸣潮" };
+  const backup = buildBackup({ settings: { ...sampleSettings(), tagAliases: aliases } });
+  assert.deepEqual(backup.settings.tagAliases, aliases);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.deepEqual(parsed.backup.settings.tagAliases, aliases);
+  // 老备份（无该段）→ 空 {},不连坐
+  assert.deepEqual(parseBackupSettings({}).tagAliases, {});
+  // 脏数据 → 坏项丢弃（值=键、空值、非字符串值），好项保留
+  assert.deepEqual(parseBackupSettings({ tagAliases: { a: "a", "": "x", bad: null, ok: " 好 " } }).tagAliases, { ok: "好" });
+  // 成链条目丢弃：鳴潮→鸣潮 撞上键「鸣潮」
+  assert.deepEqual(
+    parseBackupSettings({ tagAliases: { 鳴潮: "鸣潮", 鸣潮: "WutheringWaves" } }).tagAliases,
+    { 鸣潮: "WutheringWaves" },
+  );
 });

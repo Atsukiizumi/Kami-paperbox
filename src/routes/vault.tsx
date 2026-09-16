@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { VaultFilter } from "@/components/vault-filter";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
+import { applyTagAliases } from "@/lib/vault-tag-alias";
 import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
@@ -35,7 +36,8 @@ import { listServerVault } from "@/lib/storage/vault-sync";
 import { EMPTY_VAULT_FILTER, type VaultFilterState } from "@/lib/vault-filter";
 import type { WorkCard } from "@/lib/types";
 
-function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: number): WorkCard {
+// 标签过别名层（trim + 单跳映射 + 去重）：同图双变体只显示一次规范名，落盘原文不动
+function cardFromMeta(item: VaultMeta, thumb: string, tagAliases: Record<string, string>, width?: number, height?: number): WorkCard {
   return {
     source: item.source,
     id: item.id,
@@ -44,7 +46,7 @@ function cardFromMeta(item: VaultMeta, thumb: string, width?: number, height?: n
     authorId: item.authorId,
     thumb,
     pageCount: item.pageCount,
-    tags: item.tags,
+    tags: applyTagAliases(item.tags, tagAliases),
     width,
     height,
   };
@@ -65,6 +67,8 @@ function VaultPageInner() {
   const addSmartFolder = useSettings((s) => s.addSmartFolder);
   const removeSmartFolder = useSettings((s) => s.removeSmartFolder);
   const authorAliases = useSettings((s) => s.authorAliases);
+  // 标签别名（变体原文 → 规范名）：筛选 / 搜索 / 卡片展示统一从这里过（标签整理）
+  const tagAliases = useSettings((s) => s.tagAliases);
   const [all, setAll] = useState<VaultMeta[]>([]);
   const [text, setText] = useState("");
   /**
@@ -145,12 +149,13 @@ function VaultPageInner() {
         authorKey: filter.authorKey || undefined,
         tags: filter.tags.length ? filter.tags : undefined,
         month: filter.month || undefined,
+        tagAliases,
       });
       // 今日去年 / 未读都叠在筛选之上：复用整页瀑布流；两芯片同时亮 = 交集
       const next = filter.recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
       return filter.unreadOnly && unreadKeys.size > 0 ? next.filter((item) => unreadKeys.has(item.key)) : next;
     },
-    [all, text, filter, recallKeys, unreadKeys],
+    [all, text, filter, tagAliases, recallKeys, unreadKeys],
   );
   const authors = useMemo(() => {
     const pool = filter.source === "all" ? all : all.filter((item) => item.source === filter.source);
@@ -164,7 +169,8 @@ function VaultPageInner() {
     return hit ? authorKey(hit) : "";
   }
   // 全量标签交给筛选纸：visibleVaultTags 负责 40 条上限、选中置顶与纸内搜索，页上不再摊 24 个。
-  const tagOptions = useMemo(() => vaultTags(all), [all]);
+  // 归一后变体并入规范名（计数合并压排序）：同一事物在纸里只剩一笺。
+  const tagOptions = useMemo(() => vaultTags(all, tagAliases), [all, tagAliases]);
   const filterActive = Boolean(text || filter.source !== "all" || filter.authorKey || filter.tags.length || filter.month);
   const totals = vaultTotals(items);
   // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
@@ -385,6 +391,7 @@ function VaultPageInner() {
               key={item.key}
               item={item}
               index={i}
+              tagAliases={tagAliases}
               onExport={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -412,11 +419,13 @@ function VaultPageInner() {
 function VaultCard({
   item,
   index,
+  tagAliases,
   onExport,
   onDelete,
 }: {
   item: VaultMeta;
   index: number;
+  tagAliases: Record<string, string>;
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
 }) {
@@ -425,7 +434,7 @@ function VaultCard({
 
   return (
     <ArtworkCard
-      work={cardFromMeta(item, thumb, width, height)}
+      work={cardFromMeta(item, thumb, tagAliases, width, height)}
       index={index}
       variant="vault"
       marks={item.replaced ? ["原图已被替换"] : undefined}

@@ -31,6 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { AuthorTidyCard } from "./author-tidy";
+import { TagTidyCard } from "./tag-tidy";
 
 export function StorageSection() {
   const folderLabel = useSettings((s) => s.folderLabel);
@@ -131,7 +132,7 @@ export function StorageSection() {
   const backupOverdue = isBackupOverdue(lastBackupAt, Date.now());
 
   return (
-    // 存储分区两张卡：主卡（文件夹/规则）+ 画师名称整理（元数据层，不动文件）
+    // 存储分区三张卡：主卡（文件夹/规则）+ 画师名称整理 + 标签整理（元数据层，不动文件）
     <>
     <Card>
       <CardHeader>
@@ -284,6 +285,7 @@ export function StorageSection() {
       </CardContent>
     </Card>
     <AuthorTidyCard />
+    <TagTidyCard />
     </>
   );
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   filterVaultItems,
+  haystackOf,
   parseSmartFolders,
   vaultAuthorOptions,
   vaultAuthors,
@@ -100,6 +101,52 @@ test("vaultTags 与 vaultMonths 派生选项列表", () => {
   ];
   assert.deepEqual(vaultTags(rows), ["sky", "night"]);
   assert.deepEqual(vaultMonths(rows), ["2026-09", "2026-08"]); // 新月在前
+});
+
+test("标签别名（标签整理）：vaultTags 归一聚合，变体并入规范名合并计数", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "z", tags: ["鳴潮"] }),
+    item({ key: "b", title: "b", author: "z", tags: ["WutheringWaves"] }),
+    item({ key: "c", title: "c", author: "z", tags: ["鸣潮", "鳴潮"] }), // 同图双变体，原文各计一次
+    item({ key: "d", title: "d", author: "z", tags: ["sky"] }),
+  ];
+  const aliases = { 鳴潮: "鸣潮", WutheringWaves: "鸣潮" };
+  // 五变体例收敛成一个「鸣潮」（4 次）压过 sky（1 次）；筛标签纸同物只剩一笺
+  assert.deepEqual(vaultTags(rows, aliases), ["鸣潮", "sky"]);
+  // 不带别名表 → 恒等映射，旧口径原样
+  assert.deepEqual(vaultTags(rows), ["鳴潮", "WutheringWaves", "sky", "鸣潮"]);
+});
+
+test("标签别名（标签整理）：filterVaultItems 双侧归一，存量变体条件与新规范名条件互相命中", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "z", tags: ["鳴潮"] }),
+    item({ key: "b", title: "b", author: "z", tags: ["WutheringWaves"] }),
+    item({ key: "c", title: "c", author: "z", tags: ["鸣潮"] }),
+    item({ key: "d", title: "d", author: "z", tags: ["sky"] }),
+  ];
+  const q = { tagAliases: { 鳴潮: "鸣潮", WutheringWaves: "鸣潮" } };
+  // 新条件存规范名（tagOptions 已归一）→ 命中带变体原文的条目
+  assert.deepEqual(filterVaultItems(rows, { tags: ["鸣潮"], ...q }).map((r) => r.key), ["a", "b", "c"]);
+  // 存量智能库存的是变体原文 → 双侧归一后同样命中规范名条目（无需迁移）
+  assert.equal(filterVaultItems(rows, { tags: ["鳴潮"], ...q }).length, 3);
+  assert.equal(filterVaultItems(rows, { tags: ["WutheringWaves"], ...q }).length, 3);
+  // 别名表只动映射到的变体；无关标签不受影响
+  assert.deepEqual(filterVaultItems(rows, { tags: ["sky"], ...q }).map((r) => r.key), ["d"]);
+  // 不带别名表 → 旧口径精确匹配
+  assert.equal(filterVaultItems(rows, { tags: ["鳴潮"] }).length, 1);
+});
+
+test("标签别名（标签整理）：haystackOf 标签段归一，搜规范名命中变体原文", () => {
+  const only = item({ key: "a", title: "无题", author: "z", tags: ["鳴潮"] });
+  const aliases = { 鳴潮: "鸣潮" };
+  // 藏品只带「鳴潮」原文：搜「鸣潮」命中（haystack 里标签段已过别名）
+  assert.ok(haystackOf(only, aliases).includes("鸣潮"));
+  assert.equal(filterVaultItems([only], { text: "鸣潮", tagAliases: aliases }).length, 1);
+  // 归一是单向的：搜变体原文不再命中（搜索进入规范名域，与展示口径一致）
+  assert.equal(filterVaultItems([only], { text: "鳴潮", tagAliases: aliases }).length, 0);
+  // 不带别名表 → 标签段保留原文（旧口径）
+  assert.ok(haystackOf(only).includes("鳴潮"));
+  assert.ok(!haystackOf(only).includes("鸣潮"));
 });
 
 test("parseSmartFolders 往返 + 脏数据丢弃", () => {

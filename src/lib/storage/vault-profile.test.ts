@@ -303,6 +303,43 @@ test("reportNarrative：无名无标签无字节——心头好 / 标签 / 之�
   assert.equal(n.span.days, 1);
 });
 
+test("tagCloud：标签别名归一聚合，变体并成规范名合并计数（标签整理）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "x", tags: ["鳴潮"] }),
+    item({ key: "b", title: "b", author: "x", tags: ["WutheringWaves", "sky"] }),
+    item({ key: "c", title: "c", author: "x", tags: ["鸣潮"] }),
+  ];
+  const tagAliases = { 鳴潮: "鸣潮", WutheringWaves: "鸣潮" };
+  // 合并后「鸣潮」3 次、sky 1 次：max=3 定 5 档、count=1 定 1 档
+  const chips = tagCloud(rows, { tagAliases });
+  assert.deepEqual(
+    chips.map((c) => [c.tag, c.count, c.scale]),
+    [
+      ["鸣潮", 3, 5],
+      ["sky", 1, 1],
+    ],
+  );
+  // 不带别名表 → 恒等映射，旧口径原样（同频字典序）
+  assert.deepEqual(tagCloud(rows).map((c) => c.tag), ["WutheringWaves", "sky", "鳴潮", "鸣潮"]);
+});
+
+test("reportNarrative：兴趣坐标 Top 5 过标签别名，结束语用归一后的规范名（标签整理）", () => {
+  const rows: VaultMeta[] = [
+    item({ key: "a", title: "a", author: "青", savedAt: at(2025, 2, 2, 23), tags: ["鳴潮"] }),
+    item({ key: "b", title: "b", author: "青", savedAt: at(2025, 2, 9, 23), tags: ["WutheringWaves", "海"] }),
+    item({ key: "c", title: "c", author: "白", savedAt: at(2025, 8, 14, 23), tags: ["鸣潮"] }),
+  ];
+  const n = reportNarrative(filterByYear(rows, 2025), 2025, undefined, { 鳴潮: "鸣潮", WutheringWaves: "鸣潮" })!;
+  assert.deepEqual(
+    n.topTags.map((t) => [t.tag, t.count]),
+    [
+      ["鸣潮", 3],
+      ["海", 1],
+    ],
+  );
+  assert.ok(n.closing?.includes("「鸣潮」")); // 结束语跟随归一口径
+});
+
 test("pickRandom：rng 决定命中、翻不出封面的条目跳过、空池返回 null", () => {
   const rows = [
     item({ key: "cover-server", title: "a", author: "x", hasFile: true }),
