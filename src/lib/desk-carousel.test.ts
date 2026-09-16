@@ -2,12 +2,13 @@
  * 案头轮播纯函数测试（node --test，零依赖）。
  *
  * 作用：锁顺序切块丢尾、洗牌确定性（rigged rand 手算期望 + LCG 稳定性）、
- *      needsCarousel 边界、环形推进、墙的动态批量 clamp、报纸 marquee 单程时长。
+ *      needsCarousel 边界、环形推进、墙的动态批量 clamp（含 2xl）、报纸 marquee
+ *      单程时长、断点→批大小映射（铺纸 8/12、池深恒 3 批）。
  * 用法：node --experimental-strip-types --test src/lib/desk-carousel.test.ts
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { artistWallSize, buildFrames, marqueeDurationMs, needsCarousel, nextFrame } from "./desk-carousel.ts";
+import { artistWallSize, buildFrames, marqueeDurationMs, needsCarousel, nextFrame, sheetBatch } from "./desk-carousel.ts";
 
 /** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
 function lcg(seed: number): () => number {
@@ -109,6 +110,31 @@ test("artistWallSize：clamp(floor(len/3), 9, 12)", () => {
   assert.equal(artistWallSize(15), 9);
   assert.equal(artistWallSize(26), 9);
   assert.equal(artistWallSize(0), 9);
+});
+
+test("artistWallSize 2xl：上限放宽到 16，池 36 时仍 12（4 列 × 3 行）", () => {
+  assert.equal(artistWallSize(36, true), 12);
+  assert.equal(artistWallSize(30, true), 10);
+  // 更厚的池（假设池 cap 放开到 48）吃到 16 上限
+  assert.equal(artistWallSize(48, true), 16);
+  assert.equal(artistWallSize(54, true), 16);
+  // 池薄同样压到下限 9；默认断点不受影响
+  assert.equal(artistWallSize(15, true), 9);
+  assert.equal(artistWallSize(0, true), 9);
+  assert.equal(artistWallSize(36, false), 12);
+});
+
+test("sheetBatch：默认 8 格（4×2），2xl 12 格（6×2）；池深恒 3 批", () => {
+  assert.equal(sheetBatch(false), 8);
+  assert.equal(sheetBatch(true), 12);
+  // 池 = 3 批：24 / 36
+  assert.equal(sheetBatch(false) * 3, 24);
+  assert.equal(sheetBatch(true) * 3, 36);
+  // 2xl 下凑不满两批（<24）仍回落静态
+  const thin = buildFrames(Array.from({ length: 23 }, (_, i) => i), sheetBatch(true));
+  assert.equal(needsCarousel(thin), false);
+  const full = buildFrames(Array.from({ length: 24 }, (_, i) => i), sheetBatch(true));
+  assert.equal(needsCarousel(full), true);
 });
 
 test("marqueeDurationMs：张数 × 4s，池空 / 异常给 0 不排动画", () => {

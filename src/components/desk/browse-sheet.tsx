@@ -2,9 +2,9 @@
  * 案头去浏览主纸。
  *
  * 作用：当前站默认流封面铺纸面，标题压在下面；整张字区进 /browse，封面进作品。
- *      封面层是系统轮播：默认流前 24 张封面按 8 张分 3 批，每 8s 整批交叉淡换
- *      （4×2 八格版式不变、双缓冲叠放、无手动控件）；凑不齐两批（<16 张）时
- *      回落到现状的静态八格。
+ *      封面层是系统轮播：默认流前 3 批封面（批随断点：默认 4×2 八张、2xl 起
+ *      6×2 十二张，池深恒 = 3 批即 24/36 张）每 8s 整批交叉淡换（双缓冲叠放、
+ *      无手动控件）；凑不齐两批（<2×批）时回落到静态网格。
  * 用法：DeskPage 主格挂 <DeskBrowseSheet className={…} />。
  * 为什么：纯字大卡太空；推荐/最新不跟今日报纸的日榜抢同一排。
  */
@@ -14,9 +14,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useCrossfade } from "@/components/desk/use-crossfade";
+import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
-import { buildFrames, needsCarousel } from "@/lib/desk-carousel";
-import { DESK_PREVIEW_LIMIT, previewItems } from "@/lib/desk-preview";
+import { buildFrames, needsCarousel, sheetBatch } from "@/lib/desk-carousel";
+import { previewItems } from "@/lib/desk-preview";
 import { Link } from "@/lib/kami-link";
 import { isBooru, siteLabel } from "@/lib/sites";
 import type { WorkCard } from "@/lib/types";
@@ -26,17 +27,15 @@ import { fanboxSessionFrom, isPixivLoggedInSession } from "@/lib/sync/browser-lo
 import { credentialTag } from "@/lib/sync/cred-tag";
 import { cn } from "@/lib/utils";
 
-/** 铺纸轮播节奏：展示 8 格 ×3 备池 = 前 24 张，8 张一批整批换，8s 一拍。 */
+/** 铺纸轮播节奏：8s 一拍整批换；批随断点（sheetBatch：8/12），池深恒 = 3 批（24/36）。 */
 const SHEET_INTERVAL_MS = 8000;
-const SHEET_POOL_LIMIT = 24;
-const SHEET_BATCH_SIZE = 8;
 
 /** 预载口径稳定在模块级，避免每批重挂预载 effect。 */
 const sheetFrameUrls = (frame: readonly WorkCard[]) => frame.map((card) => card.thumb);
 
 function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className?: string }) {
   return (
-    <div className={cn("grid grid-cols-4 gap-1 p-1.5", className)}>
+    <div className={cn("grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6", className)}>
       {cards.map((card) => (
         <Link
           key={`${card.source}:${card.id}`}
@@ -94,14 +93,20 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     },
   });
 
+  // 大屏适配：2xl（≥1536px）6 列 ×2 行批 12、池 36；默认 4 列批 8、池 24。
+  const is2xl = useMediaFlag("(min-width: 1536px)");
+  const batch = sheetBatch(is2xl);
+  const poolLimit = batch * 3;
+
   // query.data 引用稳定（react-query 缓存对象），frames 顺势稳定，节奏不被无关渲染重置。
-  // 静态分支仍取 8 张；轮播池对同一份数据多取到 24，不新增请求。
-  const items = useMemo(() => previewItems(query.data), [query.data]);
+  // 静态分支与加载骨架同取一批的张数；轮播池对同一份数据多取到 3 批，不新增请求。
+  const items = useMemo(() => previewItems(query.data, batch), [query.data, batch]);
   const pending = query.isPending && items.length === 0;
 
+  // 断点翻转会让 frames 重算（身份变化 → 轮播节奏重置一次）：断点切换本就是大事件，可接受。
   const carouselFrames = useMemo(
-    () => buildFrames(previewItems(query.data, SHEET_POOL_LIMIT), SHEET_BATCH_SIZE, Math.random, "sequential"),
-    [query.data],
+    () => buildFrames(previewItems(query.data, poolLimit), batch, Math.random, "sequential"),
+    [query.data, batch, poolLimit],
   );
   const { frame, previousFrame, frameIndex, containerRef } = useCrossfade({
     frames: carouselFrames,
@@ -126,8 +131,8 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       )}
     >
       {pending ? (
-        <div className="grid grid-cols-4 gap-1 p-1.5">
-          {Array.from({ length: DESK_PREVIEW_LIMIT }, (_, i) => (
+        <div className="grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6">
+          {Array.from({ length: batch }, (_, i) => (
             <div key={i} className="aspect-[3/4] rounded-md bg-elevated" />
           ))}
         </div>

@@ -89,7 +89,7 @@ export function DeskPage() {
   const asideEmpty = watchArtists.length === 0 && unreadCount === 0 && !pixivLoggedIn;
 
   return (
-    <div className="mx-0 max-w-6xl space-y-4">
+    <div className="mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
         <p className="text-sm text-muted">{date}</p>
