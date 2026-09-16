@@ -1,13 +1,14 @@
 /**
  * 今日案头（主页稿纸）。
  *
- * 作用：打开应用落到这里；去浏览铺当前站封面进 /browse；通栏挂今日报纸；有则挂信、纸叠、去年今日笺。
+ * 作用：打开应用落到这里；去浏览铺当前站封面进 /browse；通栏挂今日报纸；有则挂信、纸叠、画师墙、去年今日笺。
  * 用法：app/page.tsx 渲染 DeskPage。
  * 为什么：浏览是工作面，案头是坐下的那张纸；信不在这里检查追踪。
  */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DeskArtistWall } from "@/components/desk/artist-wall";
 import { DeskBrowseSheet } from "@/components/desk/browse-sheet";
 import { DeskLetters } from "@/components/desk/letters";
 import { DeskNewspaper } from "@/components/desk/newspaper";
@@ -17,7 +18,7 @@ import { Link } from "@/lib/kami-link";
 import { onThisDay } from "@/lib/storage/vault-profile";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
-import { useSettings } from "@/lib/store";
+import { useSettings, useSettingsHydrated } from "@/lib/store";
 import { useViewHistory } from "@/lib/view-history";
 
 function todayLabel(now = new Date()): { title: string; date: string } {
@@ -32,6 +33,8 @@ function todayLabel(now = new Date()): { title: string; date: string } {
 
 export function DeskPage() {
   const watchArtists = useSettings((s) => s.watchArtists);
+  const pixivCookie = useSettings((s) => s.pixivCookie);
+  const hydrated = useSettingsHydrated();
   const historyItems = useViewHistory((s) => s.items);
   const [vault, setVault] = useState<VaultMeta[]>([]);
   const [vaultReady, setVaultReady] = useState(false);
@@ -81,10 +84,12 @@ export function DeskPage() {
     return onThisDay(vault, Date.now()).reduce((n, group) => n + group.items.length, 0);
   }, [vaultReady, vault]);
 
-  const asideEmpty = watchArtists.length === 0 && unreadCount === 0;
+  // 右栏：信/纸叠之外，Pixiv 登录后画师墙也撑得起右栏（墙自带无数据隐身）。
+  const pixivLoggedIn = hydrated && pixivCookie.trim() !== "";
+  const asideEmpty = watchArtists.length === 0 && unreadCount === 0 && !pixivLoggedIn;
 
   return (
-    <div className="mx-0 max-w-6xl space-y-4">
+    <div className="mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
         <p className="text-sm text-muted">{date}</p>
@@ -101,6 +106,7 @@ export function DeskPage() {
           <aside className="flex flex-col gap-4 lg:col-start-3 lg:row-start-1">
             <DeskLetters />
             <DeskStack count={unreadCount} items={unread} />
+            <DeskArtistWall />
           </aside>
         )}
       </div>
