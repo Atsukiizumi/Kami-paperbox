@@ -72,6 +72,8 @@ export function VaultStatsPage() {
   const [storage, setStorage] = useState<StorageResponse | null>(null);
   const [dedup, setDedup] = useState<DedupResponse | null>(null);
   const authorAliases = useSettings((s) => s.authorAliases);
+  // 标签别名（标签整理）：标签数与词云按归一后口径统计，变体不再分票
+  const tagAliases = useSettings((s) => s.tagAliases);
 
   useEffect(() => {
     void listVault().then(setAll).catch(() => setAll([]));
@@ -89,11 +91,11 @@ export function VaultStatsPage() {
   // 派生全部吃 all（null 时按空数组算），依赖只有 all 一个，不清点完不闪画像。
   const totals = useMemo(() => vaultTotals(all ?? []), [all]);
   const authorCount = useMemo(() => (all ? vaultAuthors(all, authorAliases).length : 0), [all, authorAliases]);
-  const tagCount = useMemo(() => (all ? vaultTags(all).length : 0), [all]);
+  const tagCount = useMemo(() => (all ? vaultTags(all, tagAliases).length : 0), [all, tagAliases]);
   const hours = useMemo(() => hourHistogram(all ?? []), [all]);
   const weekdays = useMemo(() => weekdayHistogram(all ?? []), [all]);
   const artists = useMemo(() => topAuthors(all ?? [], 10, authorAliases), [all, authorAliases]);
-  const chips = useMemo(() => tagCloud(all ?? [], { limit: 40 }), [all]);
+  const chips = useMemo(() => tagCloud(all ?? [], { limit: 40, tagAliases }), [all, tagAliases]);
   const sources = useMemo(() => sourceComposition(all ?? []), [all]);
   const summary = useMemo(() => profileSummary(all ?? [], authorAliases), [all, authorAliases]);
   const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
