@@ -4,7 +4,9 @@
 
 之后每次改动都会开 Pull Request，合并进 `main` 后再把条目写到这里。
 
-## [Unreleased]
+## [0.10.8] — 2026-09-17
+
+对应 [PR #154](https://github.com/Atsukiizumi/Kami-paperbox/pull/154) ~ [PR #159](https://github.com/Atsukiizumi/Kami-paperbox/pull/159)：案头稿纸版式重设计、标签整理两件套（别名归一 + 批量加删）、案头轮播三件套与宽屏适配、备份守卫与 Turbopack 清零、查重分桶与计数口径。
 
 ### 变更
 
