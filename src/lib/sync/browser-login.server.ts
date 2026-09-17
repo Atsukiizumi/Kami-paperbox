@@ -139,17 +139,18 @@ function playwrightChromeBins(): string[] {
   const roots = [process.env.PLAYWRIGHT_BROWSERS_PATH, "/opt/pw-browsers", join(homedir(), ".cache/ms-playwright")];
   const found: string[] = [];
   for (const root of roots) {
-    if (!root || !existsSync(root)) continue;
+    // Chrome 探测路径运行时才定（env/homedir），静态分析无法定界——turbopackIgnore 防整仓被追踪。
+    if (!root || !existsSync(/*turbopackIgnore: true*/ root)) continue;
     let names: string[] = [];
     try {
-      names = readdirSync(root);
+      names = readdirSync(/*turbopackIgnore: true*/ root);
     } catch (err) {
       log.listProfiles.warn("目录不可读（跳过）：", err instanceof Error ? err.message : err);
       continue;
     }
     for (const name of names) {
       if (!name.toLowerCase().includes("chrom")) continue;
-      const dir = join(root, name);
+      const dir = join(/*turbopackIgnore: true*/ root, name);
       const shells = [
         join(dir, "chrome-headless-shell-linux64", "chrome-headless-shell"),
         join(dir, "chrome-linux64", "chrome"),
@@ -159,7 +160,7 @@ function playwrightChromeBins(): string[] {
         join(dir, "chrome-mac-x64", "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
       ];
       for (const bin of shells) {
-        if (existsSync(bin)) found.push(bin);
+        if (existsSync(/*turbopackIgnore: true*/ bin)) found.push(bin);
       }
     }
   }
