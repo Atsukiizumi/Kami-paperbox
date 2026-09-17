@@ -64,10 +64,11 @@ export function weekdayName(index: number): string {
 export type TagChip = { tag: string; count: number; scale: 1 | 2 | 3 | 4 | 5 };
 
 /**
- * 标签词云（lite）：按频次定字号 / 墨深档位。
- * 档位对最大频次做对数映射——count=max 定 5 档、count=1 定 1 档，
- * 中间按 log 比例取整，保证档位随频次单调不减（同档允许并列）。
- * opts.tagAliases 计数前归一：同一事物的变体并成一个规范名合并计数。
+ * 标签词云（lite）：按张数定字号 / 墨深档位。
+ * 档位对最大张数做对数映射——count=max 定 5 档、count=1 定 1 档，
+ * 中间按 log 比例取整，保证档位随张数单调不减（同档允许并列）。
+ * opts.tagAliases 计数前归一：同一事物的变体并成一个规范名；**按张去重**——
+ * 同一张图同时带「鳴潮+鸣潮」两个变体时只计一张（chip.count 就是真实张数）。
  */
 export function tagCloud(
   items: VaultMeta[],
@@ -77,9 +78,11 @@ export function tagCloud(
   const limit = opts?.limit ?? 40;
   const counts = new Map<string, number>();
   for (const item of items) {
+    const seen = new Set<string>();
     for (const raw of item.tags) {
       const tag = applyTagAlias(raw.trim(), opts?.tagAliases);
-      if (!tag) continue;
+      if (!tag || seen.has(tag)) continue;
+      seen.add(tag);
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
   }
@@ -148,9 +151,13 @@ export function profileSummary(items: VaultMeta[], aliases?: Record<string, stri
   let first = Number.POSITIVE_INFINITY;
   let last = 0;
   for (const item of items) {
+    // topTag 与词云同口径：别名归一 + 按张去重（同图双变体只计一张）。
+    const seenTags = new Set<string>();
     for (const raw of item.tags) {
-      const tag = raw.trim();
-      if (tag) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      const tag = applyTagAlias(raw.trim(), aliases);
+      if (!tag || seenTags.has(tag)) continue;
+      seenTags.add(tag);
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
     }
     first = Math.min(first, item.savedAt);
     last = Math.max(last, item.savedAt);
