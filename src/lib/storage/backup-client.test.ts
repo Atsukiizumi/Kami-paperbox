@@ -35,12 +35,14 @@ function withLocalLists<T>(fn: () => Promise<T>): Promise<T> {
     smartFolders: useSettings.getState().smartFolders,
     watchArtists: useSettings.getState().watchArtists,
     tagAliases: useSettings.getState().tagAliases,
+    authorAliases: useSettings.getState().authorAliases,
   };
   return fn().finally(() => {
     useSettings.setState({
       smartFolders: before.smartFolders,
       watchArtists: before.watchArtists,
       tagAliases: before.tagAliases,
+      authorAliases: before.authorAliases,
     });
   });
 }
@@ -111,6 +113,46 @@ test("拉取显式空标签别名（用户真清空）照常应用", async () =>
       useSettings.setState({ tagAliases: TAG_ALIASES_A });
       await applySegment("settings", { settings: { hideAi: true, tagAliases: {} } });
       assert.deepEqual(useSettings.getState().tagAliases, {}, "显式空表应清空本地");
+    });
+  } finally {
+    restore();
+  }
+});
+
+const AUTHOR_ALIASES_A = { "然天 ran_tian": "然天" };
+
+test("采集白名单带上画师别名（authorAliases 不漏采）", () => {
+  const before = useSettings.getState().authorAliases;
+  try {
+    useSettings.setState({ authorAliases: AUTHOR_ALIASES_A });
+    const snap = snapshotSettings();
+    assert.deepEqual(snap.authorAliases, AUTHOR_ALIASES_A, "authorAliases 必须进设置段");
+  } finally {
+    useSettings.setState({ authorAliases: before });
+  }
+});
+
+test("拉取旧载荷（无 authorAliases 键）不清空本地画师别名", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ authorAliases: AUTHOR_ALIASES_A });
+      // 旧版本推送的载荷：整个 settings 里没有 authorAliases 字段（#151 遗留坑，2026-09-17 修复）
+      await applySegment("settings", { settings: { hideAi: true } });
+      assert.deepEqual(useSettings.getState().authorAliases, AUTHOR_ALIASES_A, "字段缺失时应保留本地");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("拉取显式空画师别名（用户真清空）照常应用", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ authorAliases: AUTHOR_ALIASES_A });
+      await applySegment("settings", { settings: { hideAi: true, authorAliases: {} } });
+      assert.deepEqual(useSettings.getState().authorAliases, {}, "显式空表应清空本地");
     });
   } finally {
     restore();

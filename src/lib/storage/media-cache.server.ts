@@ -75,9 +75,10 @@ export function readCachedMedia(
   opts?: { now?: number; ttlMs?: number },
 ): { bytes: Uint8Array; type: string } | null {
   const { bin, meta } = cachePaths(url, root);
-  if (!existsSync(bin) || !existsSync(meta)) return null;
+  // 路径来自运行时 .data 目录，静态分析无法定界——turbopackIgnore 防整仓被追踪进部署产物。
+  if (!existsSync(/*turbopackIgnore: true*/ bin) || !existsSync(/*turbopackIgnore: true*/ meta)) return null;
   try {
-    const rec = JSON.parse(readFileSync(meta, "utf8")) as CacheMeta;
+    const rec = JSON.parse(readFileSync(/*turbopackIgnore: true*/ meta, "utf8")) as CacheMeta;
     const now = opts?.now ?? Date.now();
     const ttl = opts?.ttlMs ?? MEDIA_CACHE_TTL_MS;
     if (!rec || typeof rec.type !== "string" || typeof rec.at !== "number") return null;
@@ -90,7 +91,7 @@ export function readCachedMedia(
       }
       return null;
     }
-    return { bytes: new Uint8Array(readFileSync(bin)), type: rec.type || "application/octet-stream" };
+    return { bytes: new Uint8Array(readFileSync(/*turbopackIgnore: true*/ bin)), type: rec.type || "application/octet-stream" };
   } catch (err) {
     log.warn("缓存读失败（按未命中处理）：", err instanceof Error ? err.message : err);
     return null;
