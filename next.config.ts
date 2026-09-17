@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   env: {
     VITE_AUTH_ENABLED: process.env.VITE_AUTH_ENABLED ?? "",
-    VITE_STUN_URLS: process.env.VITE_STUN_URLS ?? "",
   },
 };
 
