@@ -78,8 +78,8 @@ Docker 部署时以上 `.data` 都在 `kami-data` 卷里。更细的落盘说明
 - [PGlite](https://github.com/electric-sql/pglite) —— 内嵌账号库
 - [undici](https://github.com/nodejs/undici) —— 上游持久连接池
 - [Playwright](https://github.com/microsoft/playwright) —— 浏览器验收脚本
-- [Grok](https://grok.com)
-- [ZCode](https://z.ai)
+- [Grok](https://grok.com) —— 设计项目原型
+- [ZCode](https://z.ai) —— 深度完善项目（GLM-5.3-flash / GLM-5.3）
 
 ## 许可证
 
