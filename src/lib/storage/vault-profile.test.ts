@@ -353,3 +353,19 @@ test("pickRandom：rng 决定命中、翻不出封面的条目跳过、空池返
   assert.equal(pickRandom([rows[3]], () => 0), null); // 池里只剩翻不出的
   assert.equal(pickRandom([]), null);
 });
+
+test("词云与小结 topTag：同图双变体按张去重、topTag 走别名归一", () => {
+  const aliases = { 鳴潮: "鸣潮", WutheringWaves: "鸣潮" };
+  const items = [
+    // 同一张图同时带 简体+繁体+英文 三个变体 → 鸣潮只计 1 张
+    item({ key: "a", title: "a", author: "x", tags: ["鸣潮", "鳴潮", "WutheringWaves"] }),
+    item({ key: "b", title: "b", author: "x", tags: ["鳴潮"] }),
+    item({ key: "c", title: "c", author: "x", tags: ["少女"] }),
+  ];
+  const chips = tagCloud(items, { tagAliases: aliases });
+  const wu = chips.find((c) => c.tag === "鸣潮");
+  assert.equal(wu?.count, 2, "双变体只按张去重计（a、b 两张）");
+  const summary = profileSummary(items, aliases);
+  assert.equal(summary.topTag?.tag, "鸣潮");
+  assert.equal(summary.topTag?.rate, 2 / 3, "出现率按张数口径");
+});

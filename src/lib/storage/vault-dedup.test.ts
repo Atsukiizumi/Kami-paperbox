@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clusterDupes, pairKeyOf } from "./vault-dedup.ts";
+import { hammingHex } from "./dhash.ts";
 import { dhashFromRgba } from "./dhash.ts";
 
 /** 翻转 hex 哈希的前 n 个 bit（二进制从最高位起）。 */
@@ -81,4 +82,61 @@ test("真实 dHash 输出可聚类（同图不同尺寸）", () => {
     10,
   );
   assert.equal(groups.length, 1);
+});
+
+test("鸽笼分桶与朴素全对结果等价（固定语料，桶路径生效）", () => {
+  // 16 段 hex（64 位）：阈值 10 < 16 → 走分桶；语料含近邻、远邻、重复哈希
+  const base = "0123456789abcdef";
+  const items = [
+    { key: "a:1", dhash: base },
+    { key: "a:2", dhash: flip(base, 3) },
+    { key: "a:3", dhash: flip(base, 9) },
+    { key: "b:1", dhash: "ffffffffffffffff" },
+    { key: "b:2", dhash: flip("ffffffffffffffff", 2) },
+    { key: "c:1", dhash: "fedcba9876543210" },
+    { key: "a:4", dhash: base },
+  ];
+  // 朴素参照：直接在测试里做全对并查集（与旧实现同构）
+  const naive = (() => {
+    const parent = new Map<string, string>();
+    const find = (x: string): string => {
+      let r = x;
+      while (parent.get(r) !== r) r = parent.get(r)!;
+      return r;
+    };
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const d = hammingHex(items[i]!.dhash, items[j]!.dhash);
+        if (d > 10) continue;
+        parent.set(items[i]!.key, parent.get(items[i]!.key) ?? items[i]!.key);
+        parent.set(items[j]!.key, parent.get(items[j]!.key) ?? items[j]!.key);
+        parent.set(find(items[i]!.key), find(items[j]!.key));
+      }
+    }
+    const groups = new Map<string, string[]>();
+    for (const it of items) {
+      if (!parent.has(it.key)) continue;
+      const r = find(it.key);
+      groups.set(r, [...(groups.get(r) ?? []), it.key]);
+    }
+    return [...groups.values()].filter((g) => g.length >= 2).map((g) => [...g].sort());
+  })();
+  const out = clusterDupes(items, 10).map((g) => [...g.keys].sort());
+  assert.equal(out.length, naive.length);
+  for (const g of naive) assert.ok(out.some((o) => JSON.stringify(o) === JSON.stringify(g)), `缺组 ${g}`);
+});
+
+test("阈值 ≥ 段位数（16）退回朴素路径仍正确", () => {
+  const base = "0123456789abcdef";
+  const far = "ffffffffffffffff"; // 与 base 距 32、与 flip(base,16) 距 24，阈值 17 下都不入组
+  const groups = clusterDupes(
+    [
+      { key: "a:1", dhash: base },
+      { key: "a:2", dhash: flip(base, 16) },
+      { key: "z:9", dhash: far },
+    ],
+    17,
+  );
+  assert.equal(groups.length, 1);
+  assert.deepEqual([...groups[0]!.keys].sort(), ["a:1", "a:2"]);
 });
