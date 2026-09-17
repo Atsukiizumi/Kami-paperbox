@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { artistWallSize, buildFrames, needsCarousel, nextFrame, sheetBatch, snakeNodeCount, snakeOpacity } from "./desk-carousel.ts";
+import { buildFrames, needsCarousel, nextFrame, sheetBatch, snakeNodeCount, snakeOpacity } from "./desk-carousel.ts";
 
 /** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
 function lcg(seed: number): () => number {
@@ -99,29 +99,6 @@ test("nextFrame 环形推进，len 异常兜底 0", () => {
   assert.equal(nextFrame(2, 3), 0);
   assert.equal(nextFrame(4, 1), 0);
   assert.equal(nextFrame(0, 0), 0);
-});
-
-test("artistWallSize：clamp(floor(len/3), 9, 12)", () => {
-  assert.equal(artistWallSize(27), 9);
-  assert.equal(artistWallSize(30), 10);
-  assert.equal(artistWallSize(36), 12);
-  assert.equal(artistWallSize(40), 12);
-  // 池薄时压到下限 9（池 <9 张时 buildFrames 自然切不出帧，走静态）
-  assert.equal(artistWallSize(15), 9);
-  assert.equal(artistWallSize(26), 9);
-  assert.equal(artistWallSize(0), 9);
-});
-
-test("artistWallSize 2xl：上限放宽到 16，池 36 时仍 12（4 列 × 3 行）", () => {
-  assert.equal(artistWallSize(36, true), 12);
-  assert.equal(artistWallSize(30, true), 10);
-  // 更厚的池（假设池 cap 放开到 48）吃到 16 上限
-  assert.equal(artistWallSize(48, true), 16);
-  assert.equal(artistWallSize(54, true), 16);
-  // 池薄同样压到下限 9；默认断点不受影响
-  assert.equal(artistWallSize(15, true), 9);
-  assert.equal(artistWallSize(0, true), 9);
-  assert.equal(artistWallSize(36, false), 12);
 });
 
 test("sheetBatch：默认 8 格（4×2），2xl 18 格（6×3）；池深恒 3 批", () => {

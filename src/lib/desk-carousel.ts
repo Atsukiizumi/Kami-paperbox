@@ -4,8 +4,8 @@
  * 作用：把一份池子切成轮播帧——铺纸 / 报纸按原顺序整块切（尾块不足整块丢弃，
  *      宁可少一帧也不凑数）；画师墙先洗牌再成批，每批都是随机抽样。
  * 用法：buildFrames(pool, size, rand, mode) 切帧；needsCarousel 判定够不够两帧；
- *      nextFrame 环形推进；sheetBatch / artistWallSize 给铺纸与墙算断点批量；
- *      marqueeDurationMs 给报纸 marquee 算单程时长。
+ *      nextFrame 环形推进；sheetBatch 给铺纸算断点批量；snakeNodeCount / snakeOpacity
+ *      给报纸蛇形流动算节点数与尾迹透明度。
  * 为什么：零 import、rand 可注入，node --test 里用确定性 LCG 断言洗牌与切块边界，
  *      不用把随机性放进组件测试。
  */
@@ -54,17 +54,6 @@ export function nextFrame(index: number, len: number): number {
  */
 export function sheetBatch(is2xl: boolean): 8 | 18 {
   return is2xl ? 18 : 8;
-}
-
-/**
- * 画师墙的动态批量：clamp(floor(len / 3), 9, 上限)。
- * 池按 3 倍备帧（9 张一批 → 27 张起换 3 批），少则压到 9 保网格整齐，
- * 多则封上限免得一面墙太密；默认上限 12（3 列 × 4 行），2xl（4 列）放宽到
- * 16——当前池 cap 36 时 floor(36/3)=12 恰好 4 列 × 3 行，上限 16 给更厚的池留余量。
- */
-export function artistWallSize(poolLen: number, is2xl = false): number {
-  const cap = is2xl ? 16 : 12;
-  return Math.min(cap, Math.max(9, Math.floor(poolLen / 3)));
 }
 
 /**

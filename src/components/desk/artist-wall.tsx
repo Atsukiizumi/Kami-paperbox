@@ -1,10 +1,10 @@
 /**
  * 案头画师墙。
  *
- * 作用：Pixiv 登录时，右栏用关注画师的**最新作品缩略图**砌一方格墙——默认 3 列
- *      （2xl 起 4 列），洗牌成批（动态批量，默认 9–12、2xl 上限 16）、每 8s 整墙
- *      交叉淡换；点格子进作品页。3–8 张不硬凑，静态展示现有几张；少于 3 张
- *      砌不成墙，整块隐身。
+ * 作用：Pixiv 登录时，右栏用关注画师的**最新作品缩略图**砌一面固定 3×3 方格墙
+ *      ——格数恒 9、缩略图随卡片宽度伸缩（grid 1fr 自适应），洗牌成批每 8s
+ *      整墙交叉淡换；点格子进作品页。3–8 张不硬凑，静态展示现有几张；少于
+ *      3 张砌不成墙，整块隐身。
  * 用法：DeskPage 右栏 DeskStack 之下挂 <DeskArtistWall />；未登录 / 流空 /
  *      不足 3 张时整块不出现，不留空位。
  * 为什么：右栏只有信和纸叠时下方留白；关注画师最新更新的图正好补一面会呼吸的墙。
@@ -17,9 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useCrossfade } from "@/components/desk/use-crossfade";
-import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
-import { artistWallSize, buildFrames, needsCarousel } from "@/lib/desk-carousel";
+import { buildFrames, needsCarousel } from "@/lib/desk-carousel";
 import { Link } from "@/lib/kami-link";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
@@ -37,7 +36,7 @@ const wallFrameUrls = (batch: readonly WorkCard[]) => batch.map((card) => card.t
 
 function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?: string }) {
   return (
-    <div className={cn("grid grid-cols-3 gap-1.5 2xl:grid-cols-4", className)}>
+    <div className={cn("grid grid-cols-3 gap-1.5", className)}>
       {batch.map((card) => (
         <Link
           key={`${card.source}:${card.id}`}
@@ -78,16 +77,12 @@ export function DeskArtistWall() {
     return query.data.items.filter((card) => Boolean(card.thumb)).slice(0, WALL_POOL_CAP);
   }, [query.data, pixivLoggedIn]);
 
-  // 2xl（≥1536px）4 列：动态批量上限放宽（池 cap 36 时仍 12 = 4 列 × 3 行）。
-  const is2xl = useMediaFlag("(min-width: 1536px)");
-
   const frames = useMemo(() => {
-    // 9 张以上按动态批量成帧轮播；3–8 张不硬凑，静态展示现有几张。
-    // 断点翻转会让 frames 重算（身份变化 → 轮播节奏重置一次）：大事件，可接受。
+    // 固定 3×3：格数恒 9，缩略图随卡片宽度伸缩（grid 1fr 自适应）；
+    // 3–8 张不硬凑，静态展示现有几张；少于 3 张砌不成墙。
     if (pool.length < 3) return [];
-    const size = pool.length >= 9 ? artistWallSize(pool.length, is2xl) : pool.length;
-    return buildFrames(pool, size, Math.random, "shuffle");
-  }, [pool, is2xl]);
+    return buildFrames(pool, pool.length >= 9 ? 9 : pool.length, Math.random, "shuffle");
+  }, [pool]);
 
   const { frame, previousFrame, frameIndex, containerRef } = useCrossfade({
     frames,
