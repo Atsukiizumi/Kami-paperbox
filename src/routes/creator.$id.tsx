@@ -19,6 +19,7 @@ import { rememberAuthor } from "@/lib/view-history";
 import { enqueueWorks } from "@/lib/queue-runner";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useVaultIndex } from "@/lib/storage/vault-index";
+import { useBatchSelection } from "@/components/use-batch-selection";
 import { toast } from "sonner";
 import { Layers } from "lucide-react";
 import type { FanboxCursor, WorkCard } from "@/lib/types";
@@ -28,9 +29,8 @@ export function CreatorPage() {
   const { id } = useParams<{ id: string }>();
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
   const safeMode = useSettings((s) => s.safeMode);
-  // 批量收藏（D）
-  const [batchMode, setBatchMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // 批量收藏（D）：选择开合与集合语义在 useBatchSelection（三页共用）
+  const sel = useBatchSelection();
   const [loadingMore, setLoadingMore] = useState(false);
   const vaultKeys = useVaultIndex((s) => s.keys);
   const queueItems = useQueue((s) => s.items);
@@ -97,14 +97,6 @@ export function CreatorPage() {
   function countLoaded(data: typeof query.data): number {
     return (data?.pages ?? []).reduce((sum, page) => sum + page.items.length, 0);
   }
-  function toggleSelected(key: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
   async function loadToCap() {
     if (loadingMore) return;
     setLoadingMore(true);
@@ -123,7 +115,7 @@ export function CreatorPage() {
     }
   }
   function enqueueSelected(kind: "vault" | "download") {
-    const cards = items.filter((c) => selected.has(workKeyOf(c)));
+    const cards = items.filter((c) => sel.selected.has(workKeyOf(c)));
     const { batchable, skippedVault, skippedQueue } = filterBatchable(cards, {
       inVaultKeys: new Set(Object.keys(vaultKeys)),
       inQueueKeys: new Set(queueKeys),
@@ -135,10 +127,9 @@ export function CreatorPage() {
     toast.success(
       `${kind === "vault" ? "已入队：纸匣" : "已入队：下载"} ${batchable.length} 张${skipped.length ? `（跳过 ${skipped.join("、")}）` : ""}`,
     );
-    setSelected(new Set());
-    setBatchMode(false);
+    sel.exit();
   }
-  const gridSelection = batchMode ? { selected, onToggle: toggleSelected } : undefined;
+  const gridSelection = sel.active ? { selected: sel.selected, onToggle: sel.toggle } : undefined;
 
   return (
     <div className="space-y-6">
@@ -159,17 +150,14 @@ export function CreatorPage() {
             <WatchToggle source="fanbox" id={profile?.id ?? id} name={profile?.name ?? id} avatar={profile?.avatar ?? ""} />
             <Button
               size="sm"
-              variant={batchMode ? "default" : "outline"}
+              variant={sel.active ? "default" : "outline"}
               className="mt-2"
-              onClick={() => {
-                setBatchMode((v) => !v);
-                setSelected(new Set());
-              }}
+              onClick={sel.toggleActive}
             >
               <Layers className="size-4" />
-              {batchMode ? "退出批量" : "批量收藏"}
+              {sel.active ? "退出批量" : "批量收藏"}
             </Button>
-            {batchMode ? (
+            {sel.active ? (
               <Button size="sm" variant="ghost" className="mt-2" onClick={() => void loadToCap()} disabled={loadingMore}>
                 {loadingMore ? "加载中…" : `加载至 ${BATCH_MAX} 张`}
               </Button>
@@ -182,17 +170,14 @@ export function CreatorPage() {
         disabled={!query.hasNextPage || query.isFetchingNextPage}
         onVisible={() => void query.fetchNextPage()}
       />
-      {batchMode ? (
+      {sel.active ? (
         <BatchToolbar
-          selectedCount={selected.size}
+          selectedCount={sel.selected.size}
           total={items.length}
-          onSelectAll={() => setSelected(new Set(items.map(workKeyOf)))}
-          onClear={() => setSelected(new Set())}
+          onSelectAll={() => sel.selectAll(items.map(workKeyOf))}
+          onClear={sel.clear}
           onEnqueue={enqueueSelected}
-          onDone={() => {
-            setBatchMode(false);
-            setSelected(new Set());
-          }}
+          onDone={sel.exit}
         />
       ) : null}
     </div>

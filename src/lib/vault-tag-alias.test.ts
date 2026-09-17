@@ -7,6 +7,8 @@ import {
   clusterTagVariants,
   normalizeTagKey,
   parseTagAliases,
+  tagsAfterAdd,
+  tagsAfterRemove,
   TAG_ALIAS_ENTRY_LIMIT,
   TAG_ALIAS_TEXT_LIMIT,
   type TagItemLike,
@@ -134,4 +136,33 @@ test("clusterNeedsAlias：别名套上后簇从待整理列表消失", () => {
   assert.equal(clusterNeedsAlias(cluster, { wutheringwaves: "WutheringWaves" }), false);
   // 只归一半：仍剩两个展示名 → 还要整理
   assert.equal(clusterNeedsAlias(cluster, { wutheringwaves: "别的" }), true);
+});
+
+test("tagsAfterRemove：按展示名（归一后）匹配，变体原文一起删、保序", () => {
+  const aliases = { 鸣潮: "鳴潮" };
+  // 删规范名「鳴潮」：条目上只有变体原文「鸣潮」也命中（M1 语义：变体一起删）
+  assert.deepEqual(tagsAfterRemove(["鸣潮", "猫"], "鳴潮", aliases), ["猫"]);
+  // 删变体名「鸣潮」：目标先归一成「鳴潮」，两个写法同删
+  assert.deepEqual(tagsAfterRemove(["鳴潮", "鸣潮", "猫"], "鸣潮", aliases), ["猫"]);
+  // 无命中原样返回 null（调用方跳过写回，不计影响张数）
+  assert.equal(tagsAfterRemove(["猫", "狗"], "鳴潮", aliases), null);
+  assert.equal(tagsAfterRemove(["猫"], "鳴潮"), null); // 无表精确匹配
+  assert.equal(tagsAfterRemove(["鳴潮"], "  ", aliases), null); // 空目标不动
+  // 删到剩空数组是合法结果；其余标签保序
+  assert.deepEqual(tagsAfterRemove(["猫", "鸣潮", "狗"], "鳴潮", aliases), ["猫", "狗"]);
+});
+
+test("tagsAfterAdd：变体输入写规范名原文（不展开变体），已有同展示名不动", () => {
+  const aliases = { 鸣潮: "鳴潮" };
+  // 输入变体「鸣潮」→ 写规范名「鳴潮」，追加在尾部
+  assert.deepEqual(tagsAfterAdd(["猫"], "鸣潮", aliases), ["猫", "鳴潮"]);
+  // 输入已是规范名 → 原样写入
+  assert.deepEqual(tagsAfterAdd(["猫"], "鳴潮", aliases), ["猫", "鳴潮"]);
+  // 已有变体（归一后同展示名）→ 返回 null，不重复写
+  assert.equal(tagsAfterAdd(["鸣潮"], "鳴潮", aliases), null);
+  assert.equal(tagsAfterAdd(["鳴潮"], "鸣潮", aliases), null);
+  // 空白输入不动
+  assert.equal(tagsAfterAdd(["猫"], "   ", aliases), null);
+  // 边空白的输入 trim 后写入
+  assert.deepEqual(tagsAfterAdd(["猫"], " 狗 ", aliases), ["猫", "狗"]);
 });

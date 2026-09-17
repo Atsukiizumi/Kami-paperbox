@@ -106,7 +106,7 @@ export function vaultTotals(items: VaultMeta[]): { count: number; bytes: number 
  * 全部出现过的标签（去重、按出现次数降序，同频按字典序稳定）。
  * 带别名表时计数前归一：变体并入规范名合并计数，筛标签纸同物只剩一笺。
  */
-export function vaultTags(items: VaultMeta[], aliases?: Record<string, string>): string[] {
+export function vaultTags(items: readonly VaultMeta[], aliases?: Record<string, string>): string[] {
   const counts = new Map<string, number>();
   for (const item of items) {
     for (const tag of item.tags) {
@@ -123,6 +123,24 @@ export function vaultTags(items: VaultMeta[], aliases?: Record<string, string>):
 /** 出现过的月份（去重、新的在前），供时间轴下拉。 */
 export function vaultMonths(items: VaultMeta[]): string[] {
   return [...new Set(items.map((item) => monthOf(item.savedAt)))].sort().reverse();
+}
+
+/**
+ * 本地 IDB 与服务端目录按 key 合并（纸匣页 refresh 的取数口径）。
+ *
+ * 远端为空原样返回本地（含拉取失败 undefined → 空数组的情形）；同 key 冲突
+ * **本地覆盖优先**——本地 meta 编辑（批量标签等）不会被远端刷掉，只把远端的
+ * hasFile（应用内像素哨兵）在本地缺失时补上。结果按 savedAt 倒序。
+ * 为什么抽成纯函数：合并口径是批量标签写回的数据安全前提，用测试锁住。
+ */
+export function mergeVaultItems(local: VaultMeta[], remoteItems: VaultMeta[]): VaultMeta[] {
+  if (remoteItems.length === 0) return local;
+  const map = new Map(remoteItems.map((item) => [item.key, item]));
+  for (const item of local) {
+    const prev = map.get(item.key);
+    map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
+  }
+  return [...map.values()].sort((a, b) => b.savedAt - a.savedAt);
 }
 
 const SMART_FOLDER_LIMIT = 50;

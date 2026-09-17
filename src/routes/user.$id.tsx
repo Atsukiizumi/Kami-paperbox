@@ -22,6 +22,7 @@ import { applyFollowPatch } from "@/lib/user-follow";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useQueue } from "@/lib/store";
 import { useVaultIndex } from "@/lib/storage/vault-index";
+import { useBatchSelection } from "@/components/use-batch-selection";
 import { BatchToolbar } from "@/components/batch-toolbar";
 
 export function UserPage() {
@@ -30,9 +31,8 @@ export function UserPage() {
   const safeMode = useSettings((s) => s.safeMode);
   const hideAi = useSettings((s) => s.hideAi);
   const queryClient = useQueryClient();
-  // 批量收藏（D）
-  const [batchMode, setBatchMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // 批量收藏（D）：选择开合与集合语义在 useBatchSelection（三页共用）
+  const sel = useBatchSelection();
   const [loadingMore, setLoadingMore] = useState(false);
   const vaultKeys = useVaultIndex((s) => s.keys);
   const queueItems = useQueue((s) => s.items);
@@ -108,14 +108,6 @@ export function UserPage() {
   function countLoaded(data: typeof query.data): number {
     return (data?.pages ?? []).reduce((sum, page) => sum + page.items.length, 0);
   }
-  function toggleSelected(key: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
   async function loadToCap() {
     if (loadingMore) return;
     setLoadingMore(true);
@@ -134,7 +126,7 @@ export function UserPage() {
     }
   }
   function enqueueSelected(kind: "vault" | "download") {
-    const cards = allCards.filter((c) => selected.has(workKeyOf(c)));
+    const cards = allCards.filter((c) => sel.selected.has(workKeyOf(c)));
     const { batchable, skippedVault, skippedQueue } = filterBatchable(cards, {
       inVaultKeys: new Set(Object.keys(vaultKeys)),
       inQueueKeys: new Set(queueKeys),
@@ -146,8 +138,7 @@ export function UserPage() {
     toast.success(
       `${kind === "vault" ? "已入队：纸匣" : "已入队：下载"} ${batchable.length} 张${skipped.length ? `（跳过 ${skipped.join("、")}）` : ""}`,
     );
-    setSelected(new Set());
-    setBatchMode(false);
+    sel.exit();
   }
 
   return (
@@ -189,17 +180,14 @@ export function UserPage() {
           <WatchToggle source="pixiv" id={profile.id} name={profile.name} avatar={profile.avatar} />
           <Button
             size="sm"
-            variant={batchMode ? "default" : "outline"}
+            variant={sel.active ? "default" : "outline"}
             className="mt-2"
-            onClick={() => {
-              setBatchMode((v) => !v);
-              setSelected(new Set());
-            }}
+            onClick={sel.toggleActive}
           >
             <Layers className="size-4" />
-            {batchMode ? "退出批量" : "批量收藏"}
+            {sel.active ? "退出批量" : "批量收藏"}
           </Button>
-          {batchMode ? (
+          {sel.active ? (
             <Button size="sm" variant="ghost" className="mt-2" onClick={() => void loadToCap()} disabled={loadingMore}>
               {loadingMore ? "加载中…" : `加载至 ${BATCH_MAX} 张`}
             </Button>
@@ -216,7 +204,7 @@ export function UserPage() {
               if (work.id === newestId) marks.unshift("最新");
               return marks;
             }}
-            selection={batchMode ? { selected, onToggle: toggleSelected } : undefined}
+            selection={sel.active ? { selected: sel.selected, onToggle: sel.toggle } : undefined}
           />
         </section>
       ) : null}
@@ -225,24 +213,21 @@ export function UserPage() {
         <ArtworkGrid
           items={items}
           marksOf={(work) => (work.id === newestId ? ["最新"] : undefined)}
-          selection={batchMode ? { selected, onToggle: toggleSelected } : undefined}
+          selection={sel.active ? { selected: sel.selected, onToggle: sel.toggle } : undefined}
         />
         <InfiniteSentinel
           disabled={!query.hasNextPage || query.isFetchingNextPage}
           onVisible={() => void query.fetchNextPage()}
         />
       </section>
-      {batchMode ? (
+      {sel.active ? (
         <BatchToolbar
-          selectedCount={selected.size}
+          selectedCount={sel.selected.size}
           total={allCards.length}
-          onSelectAll={() => setSelected(new Set(allCards.map(workKeyOf)))}
-          onClear={() => setSelected(new Set())}
+          onSelectAll={() => sel.selectAll(allCards.map(workKeyOf))}
+          onClear={sel.clear}
           onEnqueue={enqueueSelected}
-          onDone={() => {
-            setBatchMode(false);
-            setSelected(new Set());
-          }}
+          onDone={sel.exit}
         />
       ) : null}
     </div>

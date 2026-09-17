@@ -1,7 +1,9 @@
 /**
  * 纸匣页：用浏览同一套拼版看已保存作品。
  *
- * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除。
+ * 作用：按行补缝，封面保持原比例。交互仍是点进作品、悬停导出/移除；
+ *      「选择」进批量模式后点卡是勾选，工具条给批量加/删标签（改 tags 原文，
+ *      删除按展示名归一匹配、变体同删，见 vault-tag-alias.ts）。
  * 用法：侧栏入口。优先读用户文件夹原图。
  */
 "use client";
@@ -19,6 +21,9 @@ import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VaultFilter } from "@/components/vault-filter";
+import { BatchToolbar } from "@/components/batch-toolbar";
+import { useBatchSelection } from "@/components/use-batch-selection";
+import { VaultBatchActions, type BatchTagEntry } from "@/components/vault-batch-tags";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { applyTagAliases } from "@/lib/vault-tag-alias";
@@ -26,9 +31,9 @@ import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { useSettings } from "@/lib/store";
-import { deleteVaultWork, getVaultBlob, listVault, type VaultMeta } from "@/lib/storage/vault";
+import { deleteVaultWork, getVaultBlob, listVault, putVaultMeta, type VaultMeta } from "@/lib/storage/vault";
 import { forgetVaultKey } from "@/lib/storage/vault-index";
-import { filterVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { useVaultCover } from "@/components/vault-cover";
@@ -80,6 +85,8 @@ function VaultPageInner() {
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
+  // 批量选择（只读勾选；写操作见 applyBatchTags）：选择与筛选/搜索互不干扰
+  const sel = useBatchSelection();
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
 
@@ -110,16 +117,8 @@ function VaultPageInner() {
       remote = null;
     }
     const remoteItems = remote?.items ?? [];
-    if (remoteItems.length > 0) {
-      const map = new Map(remoteItems.map((item) => [item.key, item]));
-      for (const item of local) {
-        const prev = map.get(item.key);
-        map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
-      }
-      setAll([...map.values()].sort((a, b) => b.savedAt - a.savedAt));
-    } else {
-      setAll(local);
-    }
+    // 按 key 合并、本地覆盖优先（mergeVaultItems）：本地 meta 编辑（批量标签等）不被远端刷掉
+    setAll(mergeVaultItems(local, remoteItems));
     setReady(true);
   }
 
@@ -250,6 +249,29 @@ function VaultPageInner() {
     toast.success("已从目录移除");
   }
 
+  // 批量标签的选中集合：按 key 从全量目录取（改筛选不丢已选，动作也不漏隐藏中的）
+  const selectedItems = useMemo(() => all.filter((item) => sel.selected.has(item.key)), [all, sel.selected]);
+
+  // 批量加/删标签写回：只动 tags 数组、逐张 putVaultMeta 落本地 IDB；
+  // refresh 的合并按 key 本地覆盖优先（mergeVaultItems），编辑不会被远端刷掉（测试锁）
+  async function applyBatchTags(kind: "add" | "remove", tag: string, entries: BatchTagEntry[]) {
+    if (entries.length === 0) return;
+    try {
+      for (const { meta, tags } of entries) {
+        await putVaultMeta({ ...meta, tags });
+      }
+      await refresh();
+      toast.success(
+        kind === "add"
+          ? `已给 ${entries.length} 张加标签「${tag}」`
+          : `已从 ${entries.length} 张移除标签「${tag}」`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "批量标签没写完，稍后再试");
+      await refresh(); // 部分写入也要让页面回到真实状态
+    }
+  }
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -361,6 +383,9 @@ function VaultPageInner() {
                 存为智能文件夹
               </button>
             ) : null}
+            <Button size="sm" variant="secondary" onClick={sel.toggleActive} disabled={items.length === 0}>
+              {sel.active ? "退出选择" : "选择"}
+            </Button>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
@@ -392,6 +417,11 @@ function VaultPageInner() {
               item={item}
               index={i}
               tagAliases={tagAliases}
+              selection={
+                sel.active
+                  ? { checked: sel.selected.has(item.key), onToggle: () => sel.toggle(item.key) }
+                  : undefined
+              }
               onExport={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -411,6 +441,25 @@ function VaultPageInner() {
         </MasonryBoard>
       )}
 
+      {sel.active ? (
+        <BatchToolbar
+          label="批量整理"
+          selectedCount={sel.selected.size}
+          total={items.length}
+          max={null}
+          onSelectAll={() => sel.selectAll(items.map((item) => item.key))}
+          onClear={sel.clear}
+          onDone={sel.exit}
+        >
+          <VaultBatchActions
+            selectedItems={selectedItems}
+            tagOptions={tagOptions}
+            tagAliases={tagAliases}
+            onApply={(kind, tag, entries) => void applyBatchTags(kind, tag, entries)}
+          />
+        </BatchToolbar>
+      ) : null}
+
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
     </div>
   );
@@ -420,12 +469,14 @@ function VaultCard({
   item,
   index,
   tagAliases,
+  selection,
   onExport,
   onDelete,
 }: {
   item: VaultMeta;
   index: number;
   tagAliases: Record<string, string>;
+  selection?: { checked: boolean; onToggle: () => void };
   onExport: (e: MouseEvent) => void;
   onDelete: (e: MouseEvent) => void;
 }) {
@@ -438,6 +489,8 @@ function VaultCard({
       index={index}
       variant="vault"
       marks={item.replaced ? ["原图已被替换"] : undefined}
+      // 选择模式下点整卡即勾选、不进详情；悬停导出/移除托保持原样
+      selection={selection ? { ...selection, toggleOnCardClick: true } : undefined}
       onExport={onExport}
       onDelete={onDelete}
     />

@@ -11,7 +11,8 @@
  *      单跳查表，命中换规范名；applyTagAliases(tags, aliases) 再加 trim、
  *      去空、去重（保首次出现序）给卡片 / 统计用；parseTagAliases 是备份 /
  *      同步段入口的裁剪口径；clusterTagVariants + clusterNeedsAlias 供设置
- *      页整理卡列出待归一簇。
+ *      页整理卡列出待归一簇；tagsAfterAdd / tagsAfterRemove 是纸匣批量加删
+ *      标签的匹配语义（归一后相等才动原文，见函数组注释）。
  * 为什么零依赖且与 author-name 分表：与画师别名（规范名 → 用户定名）不同，
  *        标签没有可依赖的规范化函数（任意字符串），表方向是「变体原文 →
  *        规范名」且单跳映射——A→B 与 B→C 并存时 A 落到 B 而非 C，防链靠
@@ -141,4 +142,37 @@ export function clusterTagVariants(items: readonly TagItemLike[]): TagCluster[] 
 export function clusterNeedsAlias(cluster: TagCluster, aliases?: Record<string, string>): boolean {
   const resolved = new Set(cluster.variants.map((v) => applyTagAlias(v.name, aliases)));
   return resolved.size > 1;
+}
+
+/**
+ * 批量加/删标签的匹配语义（M2，唯一的显式改写落盘原文的操作）。
+ *
+ * 目标名与条目原文都过单跳别名（applyTagAlias）后比较：删「鳴潮」同删该作品上
+ * 「鸣潮」等变体原文（按展示名匹配）；加「鸣潮」（变体）写入的是规范名「鳴潮」
+ * 原文——不展开成变体。返回 null 表示这张无需改写（删无命中 / 加已有效），
+ * 调用方跳过写回，影响张数即返回非 null 的条数。
+ */
+
+/** 加标签后的 tags：目标过别名归一成规范名，追加在尾部；已有同展示名（含变体）返回 null。 */
+export function tagsAfterAdd(
+  tags: readonly string[],
+  target: string,
+  aliases?: Record<string, string>,
+): string[] | null {
+  const resolved = applyTagAlias(target.trim(), aliases);
+  if (!resolved) return null;
+  if (tags.some((t) => applyTagAlias(t.trim(), aliases) === resolved)) return null;
+  return [...tags, resolved];
+}
+
+/** 删标签后的 tags：所有归一后与目标相等的原文一起移除（变体同删），保序；无命中返回 null。 */
+export function tagsAfterRemove(
+  tags: readonly string[],
+  target: string,
+  aliases?: Record<string, string>,
+): string[] | null {
+  const resolved = applyTagAlias(target.trim(), aliases);
+  if (!resolved) return null;
+  const kept = tags.filter((t) => applyTagAlias(t.trim(), aliases) !== resolved);
+  return kept.length === tags.length ? null : kept;
 }

@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   filterVaultItems,
   haystackOf,
+  mergeVaultItems,
   parseSmartFolders,
   vaultAuthorOptions,
   vaultAuthors,
@@ -161,4 +162,37 @@ test("parseSmartFolders 往返 + 脏数据丢弃", () => {
   assert.deepEqual(parseSmartFolders([{ id: "a", name: "n", query: { month: "2026-13" } }]), [
     { id: "a", name: "n", query: {} },
   ]);
+});
+
+test("mergeVaultItems：本地覆盖优先——本地 tag 编辑不被远端刷掉（批量标签写回的前提）", () => {
+  // 远端还存着旧标签；本地刚被批量编辑过（tags 已改）
+  const remote = [
+    item({ key: "pixiv:1", title: "旧标题", author: "a", savedAt: 5, tags: ["旧标签"], hasFile: true }),
+    item({ key: "yande:9", title: "只在远端", author: "b", savedAt: 9, source: "yande" }),
+  ];
+  const local = [item({ key: "pixiv:1", title: "新标题", author: "a", savedAt: 5, tags: ["鳴潮", "猫"] })];
+  const merged = mergeVaultItems(local, remote);
+  // 本地整条覆盖：tags / title 都是本地的，远端不回灌
+  const hit = merged.find((m) => m.key === "pixiv:1");
+  assert.deepEqual(hit?.tags, ["鳴潮", "猫"]);
+  assert.equal(hit?.title, "新标题");
+  // 远端的 hasFile（应用内像素哨兵）在本地缺失时补上
+  assert.equal(hit?.hasFile, true);
+  // 只在远端的条目保留；结果按 savedAt 倒序
+  assert.deepEqual(merged.map((m) => m.key), ["yande:9", "pixiv:1"]);
+  // hasFile 是远端真相（应用内像素哨兵）：远端给了明确值就以远端为准，
+  // 只有远端没这字段时才用本地兜底——本地可编辑的是 meta 正文，不是这台哨兵
+  const merged2 = mergeVaultItems(
+    [item({ key: "k", title: "t", author: "a", hasFile: true })],
+    [item({ key: "k", title: "t", author: "a", hasFile: false })],
+  );
+  assert.equal(merged2[0]?.hasFile, false);
+  const merged3 = mergeVaultItems(
+    [item({ key: "k", title: "t", author: "a", hasFile: true })],
+    [item({ key: "k", title: "t", author: "a" })],
+  );
+  assert.equal(merged3[0]?.hasFile, true);
+  // 远端为空（拉取失败 / 没开同步）原样返回本地
+  const localOnly = [item({ key: "k", title: "t", author: "a" })];
+  assert.equal(mergeVaultItems(localOnly, []), localOnly);
 });
