@@ -1172,35 +1172,4 @@ html[data-kami-style="hand"] .kami-card-shell:hover {
 /* 单行轨道匀速左移：内容 = 日榜全量复制两份拼接，translateX 0→-50% 恰好走完
    一份轨道、落点即接缝，循环无缝（卡片等宽 + 尾随等距外边距保证半程对齐）。
    时长 = 张数 × 4s，由组件内联 animation-duration 给定。 */
-@keyframes kami-marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
 
-.kami-marquee {
-  overflow: hidden;
-}
-
-.kami-marquee-track {
-  animation: kami-marquee-scroll linear infinite;
-}
-
-/* 悬停礼让暂停；切后台 / 滚离视口由 useViewportActive 写 data-paused 暂停。 */
-.kami-marquee:hover .kami-marquee-track,
-.kami-marquee[data-paused="true"] .kami-marquee-track {
-  animation-play-state: paused;
-}
-
-/* 减弱动态效果：静止为单行静态列表，容器放开横向滚动供翻看。 */
-@media (prefers-reduced-motion: reduce) {
-  .kami-marquee {
-    overflow-x: auto;
-  }
-  .kami-marquee-track {
-    animation: none;
-  }
-}

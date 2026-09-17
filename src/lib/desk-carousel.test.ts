@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { artistWallSize, buildFrames, marqueeDurationMs, needsCarousel, nextFrame, sheetBatch } from "./desk-carousel.ts";
+import { artistWallSize, buildFrames, needsCarousel, nextFrame, sheetBatch, snakeNodeCount, snakeOpacity } from "./desk-carousel.ts";
 
 /** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
 function lcg(seed: number): () => number {
@@ -137,11 +137,20 @@ test("sheetBatch：默认 8 格（4×2），2xl 18 格（6×3）；池深恒 3 �
   assert.equal(needsCarousel(full), true);
 });
 
-test("marqueeDurationMs：张数 × 4s，池空 / 异常给 0 不排动画", () => {
-  assert.equal(marqueeDurationMs(1), 4000);
-  assert.equal(marqueeDurationMs(8), 32000);
-  assert.equal(marqueeDurationMs(30), 120000);
-  assert.equal(marqueeDurationMs(0), 0);
-  assert.equal(marqueeDurationMs(-3), 0);
-  assert.equal(marqueeDurationMs(Number.NaN), 0);
+
+test("snakeNodeCount：蛇长随图片量伸缩、封顶路径容量", () => {
+  assert.equal(snakeNodeCount(0, 1200, 106), 0, "没图没蛇");
+  assert.equal(snakeNodeCount(5, 1200, 106), 5, "图少蛇短（5 < 容量 11）");
+  assert.equal(snakeNodeCount(30, 1200, 106), 11, "图多封顶 floor(1200/106)=11");
+  assert.equal(snakeNodeCount(30, 0, 106), 0, "路径未测量给 0（静态分支）");
+  assert.equal(snakeNodeCount(30, 1200, 0), 0, "步距非法给 0");
+});
+
+test("snakeOpacity：蛇头不透明、尾部降到底线、单调递减", () => {
+  assert.equal(snakeOpacity(0, 8), 1, "蛇头恒 1");
+  assert.ok(Math.abs(snakeOpacity(7, 8) - 0.3) < 1e-9, "尾节点到下限 0.3");
+  const ops = Array.from({ length: 8 }, (_, i) => snakeOpacity(i, 8));
+  for (let i = 1; i < 8; i++) assert.ok(ops[i]! < ops[i - 1]!, `第 ${i} 节应比前一节更淡`);
+  assert.equal(snakeOpacity(0, 1), 1, "单节点恒 1");
+  assert.equal(snakeOpacity(99, 1), 1, "越界索引钳制不炸");
 });

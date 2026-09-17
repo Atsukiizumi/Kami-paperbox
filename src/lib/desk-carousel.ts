@@ -68,12 +68,23 @@ export function artistWallSize(poolLen: number, is2xl = false): number {
 }
 
 /**
- * 报纸 marquee 的单程时长：匀速走完一份轨道（translateX 0→-50%）所需毫秒数
- * = 张数 × 4s（每张约逗留 4 秒）。池空或异常给 0，调用方不排动画。
+ * 报纸蛇形流动的节点数：路径（容器宽 + 节点宽）内按步距均分，环上相邻间距
+ * 不小于步距——图片少蛇就短，图片多封顶到路径容量（换班走 slot 环 parade）。
+ * step 非正或路径非正给 0（调用方走静态分支）。
  */
-export function marqueeDurationMs(count: number): number {
-  if (!Number.isFinite(count) || count < 1) return 0;
-  return count * 4000;
+export function snakeNodeCount(itemCount: number, pathWidth: number, step: number): number {
+  if (itemCount <= 0 || pathWidth <= 0 || step <= 0) return 0;
+  return Math.min(itemCount, Math.floor(pathWidth / step));
+}
+
+/**
+ * 蛇形尾迹透明度：蛇头（index 0）不透明，沿身体逐级线性衰减到尾部的下限
+ * （默认 0.3——尾迹可辨但不抢头）。单节点恒 1。
+ */
+export function snakeOpacity(index: number, count: number, floor = 0.3): number {
+  if (count <= 1) return 1;
+  const t = Math.min(Math.max(index, 0), count - 1) / (count - 1);
+  return 1 - (1 - floor) * t;
 }
 
 /** Fisher–Yates 洗牌副本；原池不动。 */
