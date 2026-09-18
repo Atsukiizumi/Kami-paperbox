@@ -1,9 +1,10 @@
-import { ChevronLeft, ChevronRight, ExternalLink, X, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UgoiraFrame } from "@/lib/ugoira-meta";
 import { cn } from "@/lib/utils";
 import { UgoiraPlayer } from "./ugoira-player";
+import { warmMedia } from "./proxied-img";
 
 export type LightboxItem = {
   /** 主图：优先原图——灯箱就是用来看细节的（媒体代理带 Referer，原图可达）。 */
@@ -14,6 +15,38 @@ export type LightboxItem = {
   caption?: string;
   ugoira?: { zipUrl: string; frames: UgoiraFrame[] };
 };
+
+/**
+ * 灯箱主图：按 src 重挂（换页立即清掉旧位图，不再「停留在上一张」），
+ * 加载中转圈、失败给文案，onLoad 后淡入——下载过程可感知。
+ */
+function LightboxImage({ src, alt }: { src: string; alt: string }) {
+  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
+  return (
+    <div className="relative flex max-h-[92vh] max-w-[94vw] items-center justify-center">
+      {state !== "loaded" ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          {state === "loading" ? (
+            <Loader2 className="size-8 animate-spin text-muted" aria-label="加载中" />
+          ) : (
+            <p className="text-sm text-muted">图片加载失败</p>
+          )}
+        </div>
+      ) : null}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={() => setState("loaded")}
+        onError={() => setState("error")}
+        className={cn(
+          "max-h-[92vh] max-w-[94vw] object-contain transition-opacity duration-200",
+          state === "loaded" ? "opacity-100" : "opacity-0",
+        )}
+        draggable={false}
+      />
+    </div>
+  );
+}
 
 export function ImageLightbox({
   items,
@@ -76,8 +109,11 @@ export function ImageLightbox({
   useEffect(() => {
     if (open) {
       setShown(true);
-      const id = window.requestAnimationFrame(() => setVisible(true));
-      return () => window.cancelAnimationFrame(id);
+      // 进场可见性闸：只隔一拍翻转 opacity 触发过渡。不用 rAF——隐藏标签页里
+      // rAF 会被无限推迟，灯箱会冻结在 opacity-0（后台开图/恢复会话即踩）；
+      // setTimeout 在后台页也保证触发（被节流也就慢一拍）。
+      const id = window.setTimeout(() => setVisible(true), 30);
+      return () => window.clearTimeout(id);
     }
     setVisible(false);
     const t = window.setTimeout(() => setShown(false), 300);
@@ -97,6 +133,17 @@ export function ImageLightbox({
     const el = document.querySelector<HTMLElement>(`[data-strip="${index}"]`);
     el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
   }, [index, shown, items.length]);
+
+  // 相邻页预热：前后各两页走 warmMedia（媒体车道限流 + warmThumbs 去重 + 低优先级），
+  // 换页时图已在缓存——多 p 翻页即点即现。ugoira 的 zip 重，播放器自己管。
+  useEffect(() => {
+    if (!shown || items.length < 2) return;
+    const n = items.length;
+    for (const d of [1, -1, 2, -2]) {
+      const it = items[(index + d + n * 2) % n];
+      if (it && !it.ugoira) warmMedia(it.src);
+    }
+  }, [shown, index, items]);
 
   useEffect(() => {
     if (!shown) return;
@@ -321,12 +368,7 @@ export function ImageLightbox({
                 className="max-h-[80vh] max-w-[92vw]"
               />
             ) : (
-              <img
-                src={item.src}
-                alt={item.alt}
-                className="max-h-[92vh] max-w-[94vw] object-contain"
-                draggable={false}
-              />
+              <LightboxImage key={item.src} src={item.src} alt={item.alt} />
             )}
           </div>
         </div>
