@@ -10,7 +10,7 @@
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/入队/红心叠在封面上，不占标题宽度。
  */
-import { useRef, type CSSProperties, type MouseEvent } from "react";
+import { useRef, useEffect, type CSSProperties, type MouseEvent } from "react";
 import { Link } from "@/lib/kami-link";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { CardMenu } from "@/components/card-menu";
@@ -23,6 +23,8 @@ import { isAiWork } from "@/lib/pixiv-feed";
 import { workKey } from "@/lib/storage/vault";
 import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useQueue } from "@/lib/store";
+import { useViewHistory } from "@/lib/view-history";
+import { shouldVeil, useVeil } from "@/lib/veil";
 import { cn, formatResolution } from "@/lib/utils";
 import { Badge } from "./ui/badge";
 import { ProxiedImg } from "./proxied-img";
@@ -42,6 +44,7 @@ export function ArtworkCard({
   onExport,
   onDelete,
   selection,
+  kb,
 }: {
   work: WorkCard;
   index?: number;
@@ -56,6 +59,8 @@ export function ArtworkCard({
     /** 点整卡即勾选、不进详情（纸匣选择模式）；浏览批量不开，点卡仍进详情。 */
     toggleOnCardClick?: boolean;
   };
+  /** 键盘流（N）：focus=当前焦点卡（滚动+焦点环）；actionSeq 变化时执行 action。 */
+  kb?: { focus: boolean; actionSeq: number; action: "save" | "like" | "preview" | null };
 }) {
   const hasMedia = Boolean(work.thumb);
   const pages = pageThumbUrls(work.thumb, work.pageCount);
@@ -96,9 +101,36 @@ export function ArtworkCard({
     searchTag,
   } = useCardInteractions(work, pages, mediaRef);
 
+  // 「看过」小标（T）：浏览历史命中即显示（纸匣 variant 不显示，那边有自己的未读体系）
+  const viewed = useViewHistory((s) => s.items.some((x) => x.source === work.source && x.id === work.id));
+  // 访客遮盖（U）：R-18 / AI 封面整体模糊
+  const veil = useVeil((s) => s.veil);
+  const veiled = veil && shouldVeil(work);
+  const articleRef = useRef<HTMLElement>(null);
+
+  // 键盘流（N）：动作信号到达即执行（复用卡内动作，零重复逻辑）
+  const lastSeq = useRef(0);
+  useEffect(() => {
+    if (!kb || kb.actionSeq <= lastSeq.current) return;
+    lastSeq.current = kb.actionSeq;
+    if (kb.action === "save") void saveCard();
+    else if (kb.action === "like") void likeCard();
+    else if (kb.action === "preview") {
+      if (preview) hidePreview();
+      else showPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 动作信号驱动，work/动作函数 identity 不参与
+  }, [kb?.actionSeq]);
+  // 焦点卡滚入视口
+  useEffect(() => {
+    if (!kb?.focus) return;
+    articleRef.current?.scrollIntoView({ block: "nearest", behavior: "instant" as ScrollBehavior });
+  }, [kb?.focus]);
+
   return (
     <article
-      className="kami-enter group"
+      ref={articleRef}
+      className={cn("kami-enter group", kb?.focus && "rounded-xl outline-2 outline-offset-2 outline-accent")}
       data-layout={layout}
       data-aspect={String(aspect)}
       style={
@@ -151,7 +183,7 @@ export function ArtworkCard({
         >
           <div
             ref={mediaRef}
-            className="kami-card-media relative overflow-hidden bg-elevated"
+            className={cn("kami-card-media relative overflow-hidden bg-elevated", veiled && "blur-md select-none")}
             onMouseEnter={showPreview}
             onMouseLeave={hidePreview}
           >
@@ -298,7 +330,7 @@ export function ArtworkCard({
           hidePreview={hidePreview}
         />
         </div>
-        <CardCaption work={work} resolution={resolution} searchTag={searchTag} />
+        <CardCaption work={work} resolution={resolution} searchTag={searchTag} viewed={variant === "browse" ? viewed : undefined} />
       </div>
       <CardMenu
         work={work}

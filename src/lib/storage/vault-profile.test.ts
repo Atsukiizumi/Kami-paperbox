@@ -8,6 +8,7 @@ import {
   peakBucket,
   pickRandom,
   profileSummary,
+  tasteShift,
   reportNarrative,
   sourceComposition,
   tagCloud,
@@ -368,4 +369,37 @@ test("词云与小结 topTag：同图双变体按张去重、topTag 走别名归
   const summary = profileSummary(items, aliases);
   assert.equal(summary.topTag?.tag, "鸣潮");
   assert.equal(summary.topTag?.rate, 2 / 3, "出现率按张数口径");
+});
+
+// ── 口味变迁（R）────────────────────────────────────────────────────────────
+
+test("tasteShift：今年/去年分桶、别名归一、新进退场、去年空降级", () => {
+  const y = (n: number) => new Date(`${n}-06-01T00:00:00Z`).getTime();
+  const items = [
+    // 鸣潮：去年 2 + 今年 5（合计 ≥3，变化 3）；标签别名归一（鳴潮→鸣潮）
+    { key: "a", tags: ["鳴潮"], savedAt: y(2025) },
+    { key: "b", tags: ["鸣潮"], savedAt: y(2025) },
+    { key: "c", tags: ["鳴潮"], savedAt: y(2026) },
+    { key: "d", tags: ["鸣潮", "猫"], savedAt: y(2026) },
+    { key: "e", tags: ["Waves"], savedAt: y(2026) },
+    // 猫：今年 1（合计 1 < 3，过滤）
+    { key: "f", tags: ["退场"], savedAt: y(2025) },
+    { key: "g", tags: ["退场"], savedAt: y(2025) },
+    { key: "h", tags: ["退场"], savedAt: y(2025) }, // 去年 3 → 今年 0 = 退场
+  ].map((r) => ({ ...r, source: "pixiv", id: r.key, title: "t", author: "画师甲", authorId: "1", pageCount: 1, bytes: 1 }) as import("../types.ts").VaultMeta);
+  const now = new Date("2026-09-22T00:00:00Z");
+  const shift = tasteShift(items, { 鳴潮: "鸣潮", Waves: "鸣潮" }, now);
+  const tag = (n: string) => shift.tags.find((t) => t.name === n);
+  assert.deepEqual(tag("鸣潮"), { name: "鸣潮", thisYear: 3, lastYear: 2 });
+  assert.deepEqual(tag("退场"), { name: "退场", thisYear: 0, lastYear: 3 });
+  assert.equal(tag("猫"), undefined, "低于阈值过滤");
+  assert.equal(shift.authors.length, 1, "同一 authorId 归一为一簇");
+  assert.equal(shift.authors[0]?.thisYear, 3);
+  // 去年全空：只看今年
+  const onlyThis = tasteShift(
+    [items[2]!, items[3]!].map((r) => r),
+    undefined,
+    now,
+  );
+  assert.equal(onlyThis.tags.some((t) => t.lastYear > 0), false);
 });

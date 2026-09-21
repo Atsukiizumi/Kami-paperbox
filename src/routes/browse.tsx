@@ -12,8 +12,7 @@ import { Link, useNavigate } from "@/lib/kami-link";
 import { Clipboard, RefreshCw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
-import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
+import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { PaperMark } from "@/components/paper-mark";
 import { SavedTagBar } from "@/components/saved-tags";
@@ -354,6 +353,60 @@ export function Home() {
   const items = pooled.slice(pageStart, pageStart + BROWSE_PAGE_SIZE);
   const hasPrevPage = listPage > 1;
   const hasNextPage = pooled.length > pageStart + BROWSE_PAGE_SIZE || Boolean(activeQuery.hasNextPage);
+
+  // ── 键盘流（N）：J/K 焦点、S 收匣、L 红心、E 预览、Esc 收 ────────────────
+  // 仅桌面（pointer: fine）；输入框聚焦时让路。动作经 kb 信号转发给焦点卡，
+  // 复用卡内 saveCard/likeCard/预览，不另写一份动作逻辑。
+  const [kbFocus, setKbFocus] = useState<number | null>(null);
+  const [kbAction, setKbAction] = useState<{ seq: number; kind: "save" | "like" | "preview" } | null>(null);
+  const kbSeq = useRef(0);
+  const canKeyboard =
+    typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: fine)").matches;
+  useEffect(() => {
+    if (!canKeyboard) return;
+    function isTyping(t: EventTarget | null) {
+      const el = t as HTMLElement | null;
+      return Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable));
+    }
+    function fire(kind: "save" | "like" | "preview") {
+      kbSeq.current += 1;
+      setKbAction({ seq: kbSeq.current, kind });
+    }
+    function onKey(e: KeyboardEvent) {
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setKbFocus((i) => {
+          const next = i === null ? 0 : Math.min(i + 1, items.length - 1);
+          return next;
+        });
+      } else if (key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setKbFocus((i) => (i === null ? null : Math.max(0, i - 1)));
+      } else if (key === "s") {
+        if (kbFocus !== null) {
+          e.preventDefault();
+          fire("save");
+        }
+      } else if (key === "l") {
+        if (kbFocus !== null) {
+          e.preventDefault();
+          fire("like");
+        }
+      } else if (key === "e") {
+        if (kbFocus !== null) {
+          e.preventDefault();
+          fire("preview");
+        }
+      } else if (e.key === "Escape") {
+        fire("preview"); // 预览开着即收
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canKeyboard, items.length, kbFocus]);
+
   const loading =
     !settingsReady ||
     refreshing ||
@@ -743,6 +796,7 @@ export function Home() {
         <ArtworkGrid
           key={tab}
           items={items}
+          keyboard={{ focusIndex: kbFocus, action: kbAction }}
           empty={
             tab === "pixiv" && hideAi
               ? "已过滤 AI 作画。关闭右上角「过滤 AI」可显示。"

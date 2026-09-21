@@ -16,10 +16,13 @@ export function CardCaption({
   work,
   resolution,
   searchTag,
+  viewed,
 }: {
   work: WorkCard;
   resolution: string;
   searchTag: (tag: string) => void;
+  /** 浏览历史命中（T）：题注里打个静默小标，扫图不重复点开。 */
+  viewed?: boolean;
 }) {
   return (
     <div className="kami-card-caption flex h-[5.5rem] items-start gap-1 overflow-hidden px-3 py-2">
@@ -34,6 +37,7 @@ export function CardCaption({
             title={work.title || "无题"}
           >
             {work.title || "无题"}
+            {viewed ? <span className="ml-1 align-middle text-[10px] font-normal text-subtle">看过</span> : null}
           </h3>
         </Link>
         <p className="line-clamp-1 text-xs text-muted">

@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Bell, BookOpen, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
+import { Archive, Bell, BookOpen, Clock, Compass, EyeOff, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { canPickFolder, folderHealth, type FolderHealth } from "@/lib/folder-access";
 import { playEnter } from "@/lib/motion";
@@ -14,6 +14,7 @@ import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useWatchBadge } from "@/lib/watch-badge";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
+import { useVeil } from "@/lib/veil";
 import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/settings/appearance";
 import { Onboarding } from "@/components/onboarding";
@@ -80,7 +81,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
   const watchBadge = useWatchBadge((s) => s.newCount);
+  const veil = useVeil((s) => s.veil);
+  const veilOff = useVeil((s) => s.off);
   const [expanded, setExpanded] = useState(true);
+
+  // 访客遮盖（U）：Esc 一键撤离——演示场景最常用的收尾动作
+  useEffect(() => {
+    if (!veil) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") veilOff();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [veil, veilOff]);
 
   useEffect(() => mirrorQueueAcrossTabs(), []);
   useEffect(() => {
@@ -169,6 +182,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
               ) : null}
             </Link>
+          </Hint>
+          <Hint label={veil ? "关闭遮盖（Esc）" : "遮盖敏感封面"} side="bottom">
+            <button
+              type="button"
+              onClick={() => useVeil.getState().toggle()}
+              aria-label="遮盖敏感封面"
+              aria-pressed={veil}
+              className={cn(
+                "inline-flex size-9 items-center justify-center rounded-lg transition-colors",
+                veil ? "bg-accent/15 text-accent" : "text-muted hover:bg-elevated hover:text-fg",
+              )}
+            >
+              <EyeOff className="size-5" />
+            </button>
           </Hint>
           <ThemeMenu />
           <AccountSwitcher />
