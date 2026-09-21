@@ -158,3 +158,44 @@ test("拉取显式空画师别名（用户真清空）照常应用", async () =>
     restore();
   }
 });
+
+// ── 标签订阅（09-21-tag-watch-vault-filter）：结构性列表同款白名单/守卫 ──────
+
+const WATCH_TAGS_A = [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1, lastSeenId: "900" }];
+
+test("采集白名单带上标签订阅（watchTags 不漏采）", () => {
+  const before = useSettings.getState().watchTags;
+  try {
+    useSettings.setState({ watchTags: WATCH_TAGS_A });
+    const snap = snapshotSettings();
+    assert.deepEqual(snap.watchTags, WATCH_TAGS_A, "watchTags 必须进设置段");
+  } finally {
+    useSettings.setState({ watchTags: before });
+  }
+});
+
+test("拉取旧载荷（无 watchTags 键）不清空本地标签订阅", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ watchTags: WATCH_TAGS_A });
+      await applySegment("settings", { settings: { hideAi: true } });
+      assert.equal(useSettings.getState().watchTags.length, 1, "字段缺失时应保留本地");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("拉取显式空标签订阅（用户真清空）照常应用", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ watchTags: WATCH_TAGS_A });
+      await applySegment("settings", { settings: { hideAi: true, watchTags: [] } });
+      assert.equal(useSettings.getState().watchTags.length, 0, "显式空列表应清空本地");
+    });
+  } finally {
+    restore();
+  }
+});

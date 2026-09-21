@@ -38,7 +38,7 @@ import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { useVaultCover } from "@/components/vault-cover";
 import { listServerVault } from "@/lib/storage/vault-sync";
-import { EMPTY_VAULT_FILTER, type VaultFilterState } from "@/lib/vault-filter";
+import { EMPTY_VAULT_FILTER, vaultQueryFlag, type VaultFilterState } from "@/lib/vault-filter";
 import type { WorkCard } from "@/lib/types";
 
 // 标签过别名层（trim + 单跳映射 + 去重）：同图双变体只显示一次规范名，落盘原文不动
@@ -150,6 +150,8 @@ function VaultPageInner() {
         tags: filter.tags.length ? filter.tags : undefined,
         month: filter.month || undefined,
         tagAliases,
+        ai: vaultQueryFlag(filter.ai),
+        r18: vaultQueryFlag(filter.r18),
       });
       // 今日去年 / 未读都叠在筛选之上：复用整页瀑布流；两芯片同时亮 = 交集
       const next = filter.recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;

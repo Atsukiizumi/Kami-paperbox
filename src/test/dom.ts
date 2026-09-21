@@ -16,7 +16,7 @@ const g = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean
 if (typeof g.document === "undefined") {
   g.document = dom.window.document;
 }
-for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "NodeFilter", "TreeWalker", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "localStorage", "CustomEvent", "Event", "ResizeObserver", "matchMedia"] as const) {
+for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "NodeFilter", "TreeWalker", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "localStorage", "CustomEvent", "Event", "ResizeObserver", "MutationObserver", "matchMedia"] as const) {
   const existing = (g as Record<string, unknown>)[key];
   if (existing === undefined || key === "localStorage") {
     const fromDom = (dom.window as unknown as Record<string, unknown>)[key];

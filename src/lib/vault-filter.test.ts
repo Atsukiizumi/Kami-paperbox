@@ -18,7 +18,7 @@ test("无条件 → 无笺；N 用 slips.length", () => {
   assert.deepEqual(vaultFilterSlips(base, { authorName: "" }), []);
 });
 
-test("笺顺序：站点、作者、各标签、月份、未读、今日去年", () => {
+test("笺顺序：站点、作者、各标签、月份、未读、今日去年、AI、R-18", () => {
   const slips = vaultFilterSlips(
     {
       source: "pixiv",
@@ -27,6 +27,8 @@ test("笺顺序：站点、作者、各标签、月份、未读、今日去年",
       month: "2026-09",
       unreadOnly: true,
       recallOnly: true,
+      ai: true,
+      r18: true,
     },
     { authorName: "画师A" },
   );
@@ -40,6 +42,8 @@ test("笺顺序：站点、作者、各标签、月份、未读、今日去年",
       ["month", "2026-09"],
       ["unread", "未读"],
       ["recall", "今日去年"],
+      ["ai", "AI 作画"],
+      ["r18", "R-18"],
     ],
   );
 });
@@ -52,6 +56,8 @@ test("点笺清掉对应条件，其它不动", () => {
     month: "2026-01",
     unreadOnly: true,
     recallOnly: true,
+    ai: true,
+    r18: true,
   };
   assert.equal(applySlipClear(state, { kind: "source", key: "yande", label: "Yande" }).source, "all");
   assert.equal(applySlipClear(state, { kind: "author", key: "a", label: "n" }).authorKey, "");
@@ -59,9 +65,11 @@ test("点笺清掉对应条件，其它不动", () => {
   assert.equal(applySlipClear(state, { kind: "month", key: "2026-01", label: "2026-01" }).month, "");
   assert.equal(applySlipClear(state, { kind: "unread", key: "unread", label: "未读" }).unreadOnly, false);
   assert.equal(applySlipClear(state, { kind: "recall", key: "recall", label: "今日去年" }).recallOnly, false);
+  assert.equal(applySlipClear(state, { kind: "ai", key: "ai", label: "AI 作画" }).ai, false);
+  assert.equal(applySlipClear(state, { kind: "r18", key: "r18", label: "R-18" }).r18, false);
 });
 
-test("清空筛选复位六项", () => {
+test("清空筛选复位八项", () => {
   assert.deepEqual(
     clearVaultFilter({
       source: "pixiv",
@@ -70,6 +78,8 @@ test("清空筛选复位六项", () => {
       month: "2026-09",
       unreadOnly: true,
       recallOnly: true,
+      ai: true,
+      r18: true,
     }),
     EMPTY_VAULT_FILTER,
   );

@@ -17,7 +17,7 @@ import { clampQueueConcurrency } from "../queue-retry.ts";
 import { parseSearchEngine, type SearchEngine } from "../reverse-search.ts";
 import { parseSavedTags } from "../site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
-import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "../watch.ts";
+import { clampWatchLimit, parseWatchArtists, parseWatchTags, type WatchArtist, type WatchTag } from "../watch.ts";
 import { isSource, parseSafeModeBySite, parseSource } from "../sites.ts";
 import { parseAppearance, parseThemeId, parseUiStyle, type Appearance, type ThemeId, type UiStyle } from "../theme.ts";
 import type { TagCatalogEntry } from "../tag-catalog.ts";
@@ -66,6 +66,8 @@ export type BackupSettings = {
   tagAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
+  /** 标签订阅（v14 起随设置段同步）。 */
+  watchTags: WatchTag[];
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -214,6 +216,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     tagAliases: parseTagAliases(p.tagAliases),
     watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
     watchLimit: clampWatchLimit(p.watchLimit),
+    watchTags: parseWatchTags(p.watchTags),
     accounts: legacy.accounts,
     activeAccountId: legacy.activeAccountId,
     theme: parseThemeId(p.theme),
@@ -250,6 +253,9 @@ export function parseVaultRecord(raw: unknown): VaultMeta | null {
     replaced: rec.replaced === true ? true : undefined,
     origin,
     aiType: Math.max(0, Number(rec.aiType) || 0) || undefined,
+    // 客户端先行三字段（服务端列锁不回环）：备份文件是唯一跨设备载体
+    xRestrict: Math.max(0, Number(rec.xRestrict) || 0) || undefined,
+    rating: typeof rec.rating === "string" ? rec.rating.slice(0, 20) : undefined,
   };
 }
 
@@ -375,10 +381,34 @@ export async function parseBackupFile(
   return parseBackup(raw);
 }
 
-export function mergeVaultRecords(current: VaultMeta[], incoming: VaultMeta[]): VaultMeta[] {
-  const map = new Map<string, VaultMeta>();
+/**
+ * vault 同步段写回前的单条守卫（纯函数，供 applySegment 与单测共用）：
+ * 远端目录行不携带客户端先行三字段（服务端列锁），缺失时保留本地，
+ * 防止一次拉取把分级/AI 标记清空（mergeVaultRecords 是批量同型，那是
+ * 备份导入侧，这是同步段逐条写回侧）。
+ */
+export function preserveClientVaultFields(remote: VaultMeta, local?: VaultMeta): VaultMeta {
+  return {
+    ...remote,
+    aiType: remote.aiType ?? local?.aiType,
+    xRestrict: remote.xRestrict ?? local?.xRestrict,
+    rating: remote.rating ?? local?.rating,
+  };
+}
+
+export function mergeVaultRecords(current: VaultMeta[], incoming: VaultMeta[]): VaultMeta[] {  const map = new Map<string, VaultMeta>();
   for (const row of current) map.set(row.key, row);
-  for (const row of incoming) map.set(row.key, row);
+  // 客户端先行字段（aiType/xRestrict/rating）服务端行不携带：远端行覆盖时
+  // 缺字段保留本地，否则一次目录合并就把分级/AI 标记清空（hasFile 同款陷阱）
+  for (const row of incoming) {
+    const prev = map.get(row.key);
+    map.set(row.key, {
+      ...row,
+      aiType: row.aiType ?? prev?.aiType,
+      xRestrict: row.xRestrict ?? prev?.xRestrict,
+      rating: row.rating ?? prev?.rating,
+    });
+  }
   return [...map.values()].sort((a, b) => b.savedAt - a.savedAt);
 }
 

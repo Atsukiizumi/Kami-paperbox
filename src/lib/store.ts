@@ -28,7 +28,7 @@ import {
 import { fanboxSessionFrom, sanitizePixivCookie } from "./sync/browser-login.ts";
 import type { SiteProfile } from "./site-identity.ts";
 import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./storage/vault-query.ts";
-import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "./watch.ts";
+import { clampWatchLimit, parseWatchArtists, parseWatchTags, tagWatchKey, TAG_WATCH_LIMIT, type WatchArtist, type WatchTag } from "./watch.ts";
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_THEME,
@@ -117,6 +117,8 @@ type SettingsState = {
   tagAliases: Record<string, string>;
   watchArtists: WatchArtist[];
   watchLimit: number;
+  /** 标签订阅（pixiv + 三图站）：题材新作水位，随设置段同步；上限固定 30。 */
+  watchTags: WatchTag[];
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -133,6 +135,8 @@ type SettingsState = {
   removeTagAlias: (variant: string) => void;
   toggleWatchArtist: (a: { source: WatchArtist["source"]; id: string; name: string; avatar: string }) => "added" | "removed" | "full";
   setWatchSeen: (source: WatchArtist["source"], id: string, lastSeenId: string) => void;
+  toggleWatchTag: (source: WatchTag["source"], tag: string) => "added" | "removed" | "full";
+  setWatchTagSeen: (source: WatchTag["source"], tag: string, lastSeenId: string) => void;
   setWatchLimit: (n: number) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
@@ -235,6 +239,8 @@ export function migrateSettings(persisted: unknown, version: number) {
     tagAliases: parseTagAliases(p.tagAliases),
     watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
     watchLimit: clampWatchLimit(p.watchLimit),
+    // v14（标签订阅）：新增 watchTags 设置段；<14 老档缺字段补默认空表
+    watchTags: parseWatchTags(p.watchTags),
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -279,6 +285,7 @@ export const useSettings = create<SettingsState>()(
       tagAliases: {},
       watchArtists: [],
       watchLimit: 100,
+      watchTags: [],
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -424,6 +431,33 @@ export const useSettings = create<SettingsState>()(
             w.source === source && w.id === id ? { ...w, lastSeenId, lastCheckedAt: Date.now() } : w,
           ),
         })),
+      toggleWatchTag: (source, rawTag) => {
+        const tag = rawTag.trim().slice(0, 80);
+        const key = tagWatchKey(source, tag);
+        const current = get();
+        const existing = current.watchTags.find((w) => tagWatchKey(w.source, w.tag) === key);
+        if (existing) {
+          set({ watchTags: current.watchTags.filter((w) => tagWatchKey(w.source, w.tag) !== key) });
+          return "removed";
+        }
+        if (!tag || current.watchTags.length >= TAG_WATCH_LIMIT) return "full"; // 满员/空词不加入，调用方提示
+        set({
+          watchTags: [
+            ...current.watchTags,
+            { source, tag, addedAt: Date.now() },
+          ],
+        });
+        return "added";
+      },
+      setWatchTagSeen: (source, rawTag, lastSeenId) =>
+        set((s) => {
+          const key = tagWatchKey(source, rawTag);
+          return {
+            watchTags: s.watchTags.map((w) =>
+              tagWatchKey(w.source, w.tag) === key ? { ...w, lastSeenId, lastCheckedAt: Date.now() } : w,
+            ),
+          };
+        }),
       setWatchLimit: (n) => {
         const watchLimit = clampWatchLimit(n);
         set((s) => ({
@@ -525,8 +559,8 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      // v13（每站点 R-18）：safeMode → safeModeBySite；迁移把旧全局值广播到五站
-      version: 13,
+      // v14（标签订阅）：新增 watchTags 设置段；<14 老档缺字段补默认空表
+      version: 14,
       migrate: migrateSettings,
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
@@ -552,6 +586,7 @@ export const useSettings = create<SettingsState>()(
         tagAliases: s.tagAliases,
         watchArtists: s.watchArtists,
         watchLimit: s.watchLimit,
+        watchTags: s.watchTags,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
         theme: s.theme,

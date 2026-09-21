@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkWatchArtists, totalNew, type WatchCheckResult } from "./watch-check.ts";
-import type { WatchArtist } from "./watch.ts";
+import { checkWatchArtists, checkWatchTags, totalNew, type WatchCheckResult } from "./watch-check.ts";
+import type { WatchArtist, WatchTag } from "./watch.ts";
 import type { fetchSource } from "./source.ts";
 
 const artists: WatchArtist[] = [
@@ -86,4 +86,43 @@ test("并发 2：N 个画师最多同时 2 个在飞", async () => {
   }));
   await checkWatchArtists(many, () => ({}), { fetchImpl: rawImpl as unknown as FetchImpl, concurrency: 2 });
   assert.ok(peak <= 2, `peak=${peak}`);
+});
+
+// ── 标签订阅检查（09-21-tag-watch-vault-filter）──────────────────────────────
+
+test("逐标签检查：pixiv 走搜索最新序、booru 走 recent+tags、水位计数、失败隔离", async () => {
+  const tags: WatchTag[] = [
+    { source: "pixiv", tag: "鳴潮", addedAt: 1, lastSeenId: "100" },
+    { source: "yande", tag: "nagi", addedAt: 2, lastSeenId: "5" },
+    { source: "konachan", tag: "snow", addedAt: 3 }, // 无水位 → 0
+    { source: "danbooru", tag: "gone", addedAt: 4, lastSeenId: "1" }, // 上游失败 → 隔离
+  ];
+  const calls: string[] = [];
+  const impl = (async ({ data }: { data: { op: string; word?: string; tags?: string; site?: string } }) => {
+    calls.push(`${data.op}:${data.word ?? data.tags ?? data.site}`);
+    if (data.op === "pixivSearch" && data.word === "鳴潮") {
+      return { op: "pixivSearch", items: [{ id: "103", thumb: "a.jpg" }, { id: "101" }, { id: "100" }], nextPage: null };
+    }
+    if (data.op === "booruList" && data.site === "yande") {
+      return { op: "booruList", site: "yande", items: [{ id: "9" }, { id: "5" }], nextPage: null };
+    }
+    if (data.op === "booruList" && data.site === "konachan") {
+      return { op: "booruList", site: "konachan", items: [{ id: "3" }], nextPage: null };
+    }
+    throw new Error("上游失败");
+  }) as unknown as FetchImpl;
+  const results = await checkWatchTags(tags, () => ({}), { fetchImpl: impl });
+  assert.deepEqual(
+    results.map((r) => [r.tag, r.newCount, r.newestId, r.error === undefined]),
+    [
+      ["鳴潮", 2, "103", true],
+      ["nagi", 1, "9", true],
+      ["snow", 0, "3", true],
+      ["gone", 0, undefined, false],
+    ],
+  );
+  assert.equal(results[0]?.latestThumb, "a.jpg");
+  // pixiv 请求带 date_d 排序 + booru 用 recent 流
+  assert.ok(calls.includes("pixivSearch:鳴潮"));
+  assert.ok(calls.includes("booruList:nagi"));
 });

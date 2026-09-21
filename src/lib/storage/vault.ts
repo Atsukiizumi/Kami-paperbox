@@ -115,12 +115,15 @@ export async function saveVaultWork(
     pageCount: pages.length,
     savedAt: Date.now(),
     bytes,
-    aiType: work.aiType || undefined,
     sha256: opts?.sha256,
     relativePath: opts?.relativePath,
     folderLabel: opts?.folderLabel,
     origin: opts?.origin ?? (storeBlobs ? "app" : "folder"),
     replaced: opts?.replaced ?? false,
+    // 客户端先行三字段：纸匣 AI/R-18 筛选依据（服务端列锁不回环，合并守卫保本地）
+    aiType: work.aiType || undefined,
+    xRestrict: work.xRestrict || undefined,
+    rating: work.rating || undefined,
   };
   const db = await openDb();
   const tx = db.transaction(["meta", "blobs"], "readwrite");

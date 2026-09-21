@@ -18,6 +18,10 @@ export type VaultFilterState = {
   month: string;
   unreadOnly: boolean;
   recallOnly: boolean;
+  /** AI 作画笺（#163 后纸匣侧补齐浏览侧维度）：旧藏品按标签词表兜底判定。 */
+  ai: boolean;
+  /** R-18 笺：旧藏品无分级字段 = 未知，不出现在 R-18 结果。 */
+  r18: boolean;
 };
 
 export const EMPTY_VAULT_FILTER: VaultFilterState = {
@@ -27,10 +31,12 @@ export const EMPTY_VAULT_FILTER: VaultFilterState = {
   month: "",
   unreadOnly: false,
   recallOnly: false,
+  ai: false,
+  r18: false,
 };
 
 export type VaultFilterSlip = {
-  kind: "source" | "author" | "tag" | "month" | "unread" | "recall";
+  kind: "source" | "author" | "tag" | "month" | "unread" | "recall" | "ai" | "r18";
   key: string;
   label: string;
 };
@@ -58,6 +64,12 @@ export function vaultFilterSlips(
   if (state.recallOnly) {
     slips.push({ kind: "recall", key: "recall", label: "今日去年" });
   }
+  if (state.ai) {
+    slips.push({ kind: "ai", key: "ai", label: "AI 作画" });
+  }
+  if (state.r18) {
+    slips.push({ kind: "r18", key: "r18", label: "R-18" });
+  }
   return slips;
 }
 
@@ -75,11 +87,20 @@ export function applySlipClear(state: VaultFilterState, slip: VaultFilterSlip): 
       return { ...state, unreadOnly: false };
     case "recall":
       return { ...state, recallOnly: false };
+    case "ai":
+      return { ...state, ai: false };
+    case "r18":
+      return { ...state, r18: false };
   }
 }
 
 export function clearVaultFilter(_state: VaultFilterState): VaultFilterState {
   return { ...EMPTY_VAULT_FILTER };
+}
+
+/** UI 布尔态 → 查询三态：false = 不过滤（undefined），与 VaultQuery 对齐。 */
+export function vaultQueryFlag(on: boolean): boolean | undefined {
+  return on ? true : undefined;
 }
 
 export function visibleVaultTags(

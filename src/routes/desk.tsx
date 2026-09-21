@@ -16,6 +16,7 @@ import { DeskStack } from "@/components/desk/stack";
 import { unreadItems } from "@/lib/desk-unread";
 import { Link, useNavigate } from "@/lib/kami-link";
 import { onThisDay } from "@/lib/storage/vault-profile";
+import { mergeVaultItems } from "@/lib/storage/vault-query";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
 import { useSettings, useSettingsHydrated } from "@/lib/store";
@@ -66,12 +67,7 @@ export function DeskPage() {
       if (cancelled) return;
       const remoteItems = remote?.items ?? [];
       if (remoteItems.length > 0) {
-        const map = new Map(remoteItems.map((item) => [item.key, item]));
-        for (const item of local) {
-          const prev = map.get(item.key);
-          map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
-        }
-        setVault([...map.values()].sort((a, b) => b.savedAt - a.savedAt));
+        setVault(mergeVaultItems(local, remoteItems));
       } else {
         setVault(local);
       }
