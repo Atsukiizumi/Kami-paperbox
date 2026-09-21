@@ -44,7 +44,8 @@ export function SiteSwitcher({ className }: { className?: string }) {
   function choose(id: string) {
     setTab(id as Source);
     setBrowseQuery("");
-    if (pathname !== "/" && pathname !== "/browse") void navigate({ to: "/browse" });
+    // 案头是 Pixiv 专属：其余四站没有案头，切过去直接落到浏览工作面
+    if (id !== "pixiv" || (pathname !== "/" && pathname !== "/browse")) void navigate({ to: "/browse" });
   }
 
   return (

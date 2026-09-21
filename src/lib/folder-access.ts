@@ -101,6 +101,40 @@ export async function folderPermissionState(): Promise<"granted" | "prompt" | "d
   return "prompt";
 }
 
+/**
+ * 文件夹健康预检（启动提示用；只 query 不 request，绝不弹授权框）。
+ *
+ * "ok"          句柄在、权限 granted 且目录可读——下载 / 镜像照常落盘。
+ * "none"        没有句柄：设置随账号同步，文件夹授权不跟（换浏览器 / 清站点
+ *               数据 / 新设备），用户多半以为还在往原文件夹里存。
+ * "prompt"      权限被浏览器重置：前台点保存能补授权，后台队列会静默退回
+ *               应用内存储——值得提醒去设置重新选一次。
+ * "denied"      用户拒绝过授权。
+ * "unreadable"  句柄还在但目录读不出来：文件夹被删除 / 移动 / 盘不在了。
+ */
+export type FolderHealth = "ok" | "none" | "prompt" | "denied" | "unreadable";
+
+export async function folderHealth(): Promise<FolderHealth> {
+  const dir = await getFolderHandle();
+  if (!dir) return "none";
+  let q: PermissionState = "prompt";
+  try {
+    q = await dir.queryPermission({ mode: "readwrite" });
+  } catch {
+    return "denied";
+  }
+  if (q === "denied") return "denied";
+  if (q !== "granted") return "prompt";
+  try {
+    // granted 也可能指向已删除的目录（句柄惰性失效）：迭代一次探真实可读性
+    const iter = (dir as unknown as AsyncIterable<unknown>)[Symbol.asyncIterator]();
+    await iter.next();
+  } catch {
+    return "unreadable";
+  }
+  return "ok";
+}
+
 export async function ensureFolderPermission(
   handle?: FileSystemDirectoryHandle | null,
 ): Promise<FileSystemDirectoryHandle | null> {

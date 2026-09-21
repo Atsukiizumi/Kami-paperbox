@@ -2,10 +2,12 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, usePathname } from "@/lib/kami-link";
+import { Link, useNavigate, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
 import { Archive, Bell, BookOpen, Clock, Compass, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
+import { toast } from "sonner";
+import { canPickFolder, folderHealth, type FolderHealth } from "@/lib/folder-access";
 import { playEnter } from "@/lib/motion";
 import { mirrorQueueAcrossTabs, resumeQueue } from "@/lib/queue-runner";
 import { useVaultIndex } from "@/lib/storage/vault-index";
@@ -47,8 +49,35 @@ function LogoMark({ className }: { className?: string }) {
   return <PaperMark className={className} />;
 }
 
+/** 文件夹预检提示语：按病因给一句人话，去设置重新选即可恢复。 */
+const FOLDER_HEALTH_HINT: Record<Exclude<FolderHealth, "ok">, string> = {
+  none: "这台浏览器还没有授权过文件夹（设置随账号同步，文件夹授权不跟设备）",
+  prompt: "浏览器要求重新授权，后台下载会静默退回应用内存储",
+  denied: "文件夹授权被拒绝",
+  unreadable: "文件夹可能已被删除或移动",
+};
+
+/** 启动时预检下载文件夹（一次）：设置里选过且开着镜像/下载、但句柄读不出来
+ *  就提示去设置——否则收藏一直悄悄落回浏览器存储，用户要翻库才发现。 */
+async function warnFolderIfBroken(goSettings: () => void) {
+  try {
+    const s = useSettings.getState();
+    if (!canPickFolder() || !s.folderLabel || (!s.downloadToFolder && !s.vaultMirrorFolder)) return;
+    const health = await folderHealth();
+    if (health === "ok") return;
+    toast.message(`下载文件夹「${s.folderLabel}」访问不到`, {
+      id: "kami-folder-health",
+      description: `${FOLDER_HEALTH_HINT[health]}。收入纸匣和下载会退回应用内存储。`,
+      action: { label: "去设置", onClick: goSettings },
+    });
+  } catch {
+    /* 预检失败不打断启动 */
+  }
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const navigate = useNavigate();
   const queued = useQueue((s) => s.items.filter((i) => i.status !== "done").length);
   const watchBadge = useWatchBadge((s) => s.newCount);
   const [expanded, setExpanded] = useState(true);
@@ -63,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       void useVaultIndex.getState().refresh().catch(() => undefined);
       warmPixivCsrf(useSettings.getState().pixivCookie);
       resumeQueue();
+      void warnFolderIfBroken(() => navigate({ to: "/settings", hash: "storage" }));
     };
     const offQueue = onPersisted(useQueue, () => {
       queueReady = true;
@@ -76,6 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       offQueue();
       offSettings();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 启动只跑一次：navigate 来自 useRouter 恒稳定，进依赖会让 boot 在路由翻页时重订阅重跑
   }, []);
   const isBrowse = isBrowsePath(pathname);
   const isDesk = isDeskPath(pathname);

@@ -14,7 +14,7 @@ import { DeskLetters } from "@/components/desk/letters";
 import { DeskNewspaper } from "@/components/desk/newspaper";
 import { DeskStack } from "@/components/desk/stack";
 import { unreadItems } from "@/lib/desk-unread";
-import { Link } from "@/lib/kami-link";
+import { Link, useNavigate } from "@/lib/kami-link";
 import { onThisDay } from "@/lib/storage/vault-profile";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
@@ -34,11 +34,19 @@ function todayLabel(now = new Date()): { title: string; date: string } {
 export function DeskPage() {
   const watchArtists = useSettings((s) => s.watchArtists);
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const tab = useSettings((s) => s.tab);
   const hydrated = useSettingsHydrated();
+  const navigate = useNavigate();
   const historyItems = useViewHistory((s) => s.items);
   const [vault, setVault] = useState<VaultMeta[]>([]);
   const [vaultReady, setVaultReady] = useState(false);
   const { title, date } = todayLabel();
+
+  // 案头是 Pixiv 专属：FANBOX / 三图站没有案头，水合后直达浏览
+  // （水合前不知 tab，先按服务端形态画，避免闪空屏）
+  useEffect(() => {
+    if (hydrated && tab !== "pixiv") void navigate({ to: "/browse" });
+  }, [hydrated, tab, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +95,9 @@ export function DeskPage() {
   // 右栏：信/纸叠之外，Pixiv 登录后画师墙也撑得起右栏（墙自带无数据隐身）。
   const pixivLoggedIn = hydrated && pixivCookie.trim() !== "";
   const asideEmpty = watchArtists.length === 0 && unreadCount === 0 && !pixivLoggedIn;
+
+  // 已水合且非 Pixiv：案头不亮相，重定向期间画 null（不闪内容）
+  if (hydrated && tab !== "pixiv") return null;
 
   return (
     <div className="mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
