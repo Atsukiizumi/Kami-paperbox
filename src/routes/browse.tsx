@@ -12,7 +12,8 @@ import { Link, useNavigate } from "@/lib/kami-link";
 import { Clipboard, RefreshCw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
+import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
+import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { PaperMark } from "@/components/paper-mark";
 import { SavedTagBar } from "@/components/saved-tags";
@@ -399,9 +400,9 @@ export function Home() {
           e.preventDefault();
           fire("preview");
         }
-      } else if (e.key === "Escape") {
-        fire("preview"); // 预览开着即收
       }
+      // Esc 不在这里处理：全局 Esc 归 AppShell（遮盖撤离），预览用 E 收起——
+      // 两处 window 监听同键会互相踩（trellis-check P1-5），语义收敛为一个 owner。
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

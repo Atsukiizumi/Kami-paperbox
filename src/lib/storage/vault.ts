@@ -120,9 +120,11 @@ export async function saveVaultWork(
     folderLabel: opts?.folderLabel,
     origin: opts?.origin ?? (storeBlobs ? "app" : "folder"),
     replaced: opts?.replaced ?? false,
-    // 客户端先行三字段：纸匣 AI/R-18 筛选依据（服务端列锁不回环，合并守卫保本地）
-    aiType: work.aiType || undefined,
-    xRestrict: work.xRestrict || undefined,
+    // 客户端先行三字段：纸匣 AI/R-18 筛选依据（服务端列锁不回环，合并守卫保本地）。
+    // aiType/xRestrict 用 ??：显式 0（确认非 AI / 全年龄）必须保留——用 || 会把 0
+    // 归一成 undefined，新收的全年龄作品会被补全批处理误判为「待补」（P1 口径）。
+    aiType: work.aiType ?? undefined,
+    xRestrict: work.xRestrict ?? undefined,
     rating: work.rating || undefined,
   };
   const db = await openDb();

@@ -108,10 +108,18 @@ export function ArtworkCard({
   const veiled = veil && shouldVeil(work);
   const articleRef = useRef<HTMLElement>(null);
 
-  // 键盘流（N）：动作信号到达即执行（复用卡内动作，零重复逻辑）
-  const lastSeq = useRef(0);
+  // 键盘流（N）：动作信号只在【焦点卡】上执行——grid 广播信号、卡片自筛焦点，
+  // 否则一次 S/L 会作用到整页（批量误收藏 / 批量真红心，trellis-check P0）。
+  // 挂载时把当前 seq 记为基线：翻页重挂载不会重放上一页的旧动作。
+  const lastSeq = useRef<number | null>(null);
   useEffect(() => {
-    if (!kb || kb.actionSeq <= lastSeq.current) return;
+    if (!kb) return;
+    if (lastSeq.current === null) {
+      lastSeq.current = kb.actionSeq; // 挂载时刻基线；不重放挂载前已发生的动作
+      return;
+    }
+    if (!kb.focus || kb.action === null) return;
+    if (kb.actionSeq <= lastSeq.current) return;
     lastSeq.current = kb.actionSeq;
     if (kb.action === "save") void saveCard();
     else if (kb.action === "like") void likeCard();
@@ -120,7 +128,7 @@ export function ArtworkCard({
       else showPreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 动作信号驱动，work/动作函数 identity 不参与
-  }, [kb?.actionSeq]);
+  }, [kb?.actionSeq, kb?.focus]);
   // 焦点卡滚入视口
   useEffect(() => {
     if (!kb?.focus) return;
