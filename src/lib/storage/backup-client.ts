@@ -33,7 +33,7 @@ export function snapshotSettings(): BackupSettings {
     fanboxCookie: s.fanboxCookie,
     danbooruLogin: s.danbooruLogin,
     danbooruApiKey: s.danbooruApiKey,
-    safeMode: s.safeMode,
+    safeModeBySite: s.safeModeBySite,
     hideAi: s.hideAi,
     downloadOriginal: s.downloadOriginal,
     vaultMirrorFolder: s.vaultMirrorFolder,

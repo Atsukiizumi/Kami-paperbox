@@ -28,7 +28,8 @@ import { useEffect, useMemo, useState } from "react";
 export function CreatorPage() {
   const { id } = useParams<{ id: string }>();
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
-  const safeMode = useSettings((s) => s.safeMode);
+  // 创作者页是 FANBOX 专属：安全模式取 FANBOX 自己的开关
+  const safeMode = useSettings((s) => s.safeModeBySite.fanbox);
   // 批量收藏（D）：选择开合与集合语义在 useBatchSelection（三页共用）
   const sel = useBatchSelection();
   const [loadingMore, setLoadingMore] = useState(false);
@@ -48,7 +49,7 @@ export function CreatorPage() {
           op: "fanboxCreator",
           id,
           cursor: pageParam,
-          ...cookiesFromSettings(),
+          ...cookiesFromSettings("fanbox"),
         },
       });
       if (r.op !== "fanboxCreator") throw new Error("返回异常");

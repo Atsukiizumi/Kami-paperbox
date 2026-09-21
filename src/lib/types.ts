@@ -37,6 +37,8 @@ export type WorkCard = {
   date?: string;
   illustType?: number;
   aiType?: number;
+  /** 成人分级（pixiv 1=R-18 2=R-18G；fanbox hasAdultContent→1）。booru 走 rating。 */
+  xRestrict?: number;
   rating?: string;
   excerpt?: string;
   liked?: boolean;
@@ -231,6 +233,8 @@ export type VaultMeta = {
   sha256?: string;
   replaced?: boolean;
   origin?: "folder" | "app";
+  /** 入匣时的 Pixiv AI 标记（aiType=2 即 AI 生成）。仅本地 IDB + 备份文件携带；服务端同步回环与旧档靠 tags 词表兜底。 */
+  aiType?: number;
   /** 应用内 `.data/vault/files` 是否有第 0 页。没有时封面应读用户文件夹，不要打 /api/vault。 */
   hasFile?: boolean;
 };

@@ -28,7 +28,8 @@ import { BatchToolbar } from "@/components/batch-toolbar";
 export function UserPage() {
   const { id } = useParams<{ id: string }>();
   const pixivCookie = useSettings((s) => s.pixivCookie);
-  const safeMode = useSettings((s) => s.safeMode);
+  // 画师页是 Pixiv 专属：安全模式取 Pixiv 自己的开关
+  const safeMode = useSettings((s) => s.safeModeBySite.pixiv);
   const hideAi = useSettings((s) => s.hideAi);
   const queryClient = useQueryClient();
   // 批量收藏（D）：选择开合与集合语义在 useBatchSelection（三页共用）
@@ -52,7 +53,7 @@ export function UserPage() {
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const r = await fetchSource({
-        data: { op: "pixivUser", id, offset: pageParam, ...cookiesFromSettings() },
+        data: { op: "pixivUser", id, offset: pageParam, ...cookiesFromSettings("pixiv") },
       });
       if (r.op !== "pixivUser") throw new Error("返回异常");
       return r;
@@ -163,7 +164,7 @@ export function UserPage() {
               }
               const on = !profile.isFollowed;
               void mutateSource({
-                data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings() },
+                data: { op: "pixivFollow", userId: profile.id, on, ...cookiesFromSettings("pixiv") },
               })
                 .then(() => {
                   applyFollowPatch(queryClient, userQueryKey, on);

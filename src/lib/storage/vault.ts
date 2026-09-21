@@ -115,6 +115,7 @@ export async function saveVaultWork(
     pageCount: pages.length,
     savedAt: Date.now(),
     bytes,
+    aiType: work.aiType || undefined,
     sha256: opts?.sha256,
     relativePath: opts?.relativePath,
     folderLabel: opts?.folderLabel,

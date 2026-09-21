@@ -56,7 +56,8 @@ function NodeCard({ card, rank, style }: { card: WorkCard; rank: number; style?:
 
 export function DeskNewspaper({ className }: { className?: string }) {
   const tab = useSettings((s) => s.tab);
-  const safeMode = useSettings((s) => s.safeMode);
+  const safeModeBySite = useSettings((s) => s.safeModeBySite);
+  const safeMode = safeModeBySite[tab];
   const hideAi = useSettings((s) => s.hideAi);
   const cookie = useSettings((s) => s.pixivCookie);
   const hydrated = useSettingsHydrated();
@@ -67,7 +68,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
     enabled: hydrated && tab !== "fanbox",
     staleTime: BROWSE_STALE_MS,
     queryFn: async () => {
-      const creds = cookiesFromSettings();
+      const creds = cookiesFromSettings(tab);
       if (tab === "pixiv") {
         return fetchSource({
           data: {

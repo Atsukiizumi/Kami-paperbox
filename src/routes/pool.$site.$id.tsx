@@ -23,13 +23,13 @@ import { flyPaperToQueue } from "@/lib/paper-fly";
 export function PoolPage() {
   const { site, id } = useParams<{ site: string; id: string }>();
   const src = isBooru(site) ? site : "yande";
-  const safeMode = useSettings((s) => s.safeMode);
+  const safeMode = useSettings((s) => s.safeModeBySite[src]);
 
   const query = useQuery({
     queryKey: ["pool", src, id, safeMode],
     queryFn: async () => {
       const r = await fetchSource({
-        data: { op: "booruPool", site: src, id, ...cookiesFromSettings() },
+        data: { op: "booruPool", site: src, id, ...cookiesFromSettings(src) },
       });
       if (r.op !== "booruPool") throw new Error("返回异常");
       return r;

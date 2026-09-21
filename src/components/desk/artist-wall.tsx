@@ -67,7 +67,7 @@ export function DeskArtistWall() {
     enabled: hydrated && pixivLoggedIn,
     staleTime: BROWSE_STALE_MS,
     queryFn: () =>
-      fetchSource({ data: { op: "pixivFollowing", page: 1, ...cookiesFromSettings() } }),
+      fetchSource({ data: { op: "pixivFollowing", page: 1, ...cookiesFromSettings("pixiv") } }),
   });
 
   // 池 = 关注新作品流里有缩略图的图，上限 36；query.data 引用稳定，frames 顺势稳定。

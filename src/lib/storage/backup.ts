@@ -18,7 +18,7 @@ import { parseSearchEngine, type SearchEngine } from "../reverse-search.ts";
 import { parseSavedTags } from "../site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
 import { clampWatchLimit, parseWatchArtists, type WatchArtist } from "../watch.ts";
-import { isSource, parseSource } from "../sites.ts";
+import { isSource, parseSafeModeBySite, parseSource } from "../sites.ts";
 import { parseAppearance, parseThemeId, parseUiStyle, type Appearance, type ThemeId, type UiStyle } from "../theme.ts";
 import type { TagCatalogEntry } from "../tag-catalog.ts";
 import { parseTagLexicon, type TagLexiconRow } from "../tag-lexicon.ts";
@@ -44,7 +44,8 @@ export type BackupSettings = {
   fanboxCookie: string;
   danbooruLogin: string;
   danbooruApiKey: string;
-  safeMode: boolean;
+  /** 每站点安全模式（v13 起替代全局 safeMode；旧备份的 safeMode 广播到五站）。 */
+  safeModeBySite: Record<Source, boolean>;
   hideAi: boolean;
   downloadOriginal: boolean;
   queueConcurrency?: number;
@@ -190,7 +191,9 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
   return {
     pixivCookie: cookies.pixivCookie,
     fanboxCookie: cookies.fanboxCookie,
-    safeMode: p.safeMode !== false,
+    // v13：新备份带 safeModeBySite；旧备份只有全局 safeMode，广播到五站，
+    // 两者都缺回安全侧（与迁移同一套口径）
+    safeModeBySite: parseSafeModeBySite(p.safeModeBySite, p.safeMode !== false),
     hideAi: p.hideAi === true,
     downloadOriginal: p.downloadOriginal !== false,
     queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
@@ -246,6 +249,7 @@ export function parseVaultRecord(raw: unknown): VaultMeta | null {
     sha256: typeof rec.sha256 === "string" ? rec.sha256 : undefined,
     replaced: rec.replaced === true ? true : undefined,
     origin,
+    aiType: Math.max(0, Number(rec.aiType) || 0) || undefined,
   };
 }
 

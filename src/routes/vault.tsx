@@ -52,6 +52,7 @@ function cardFromMeta(item: VaultMeta, thumb: string, tagAliases: Record<string,
     thumb,
     pageCount: item.pageCount,
     tags: applyTagAliases(item.tags, tagAliases),
+    aiType: item.aiType,
     width,
     height,
   };

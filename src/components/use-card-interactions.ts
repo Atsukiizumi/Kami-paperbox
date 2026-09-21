@@ -117,7 +117,7 @@ export function useCardInteractions(
     patchCachedWork(queryClient, work.source, work.id, { liked: true, bookmarked: true });
     try {
       await mutateSource({
-        data: { op: "pixivLike", id: work.id, tags: work.tags, ...cookiesFromSettings() },
+        data: { op: "pixivLike", id: work.id, tags: work.tags, ...cookiesFromSettings("pixiv") },
       });
     } catch (err) {
       patchCachedWork(queryClient, work.source, work.id, { liked: false, bookmarked: false });

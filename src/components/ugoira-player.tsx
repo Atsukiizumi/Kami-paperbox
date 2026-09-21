@@ -22,7 +22,7 @@ export function useUgoiraMeta(id: string | undefined, enabled: boolean) {
     enabled: Boolean(id) && enabled,
     staleTime: 60 * 60_000,
     queryFn: async (): Promise<UgoiraMeta> => {
-      const r = await fetchSource({ data: { op: "pixivUgoira", id: id!, ...cookiesFromSettings() } });
+      const r = await fetchSource({ data: { op: "pixivUgoira", id: id!, ...cookiesFromSettings("pixiv") } });
       if (r.op !== "pixivUgoira") throw new Error("不是动图");
       return r.ugoira;
     },

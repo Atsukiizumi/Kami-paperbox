@@ -41,11 +41,16 @@ test("mapPixivCard：常规字段与 thumb 回退链", () => {
   assert.equal(card.authorId, "777");
   assert.equal(card.pageCount, 2);
   assert.equal(card.aiType, 1);
+  assert.equal(card.xRestrict, undefined, "全年龄作品不带 xRestrict");
   assert.deepEqual(card.tags, ["夕立", "艦これ"]);
 
   // 无顶层 url 时走 urls.thumb → small → regular
   const viaUrls = mapPixivCard({ ...pixivItem, url: undefined, urls: { small: "s.jpg" } });
   assert.equal(viaUrls?.thumb, "s.jpg");
+
+  // R-18 / R-18G 分级随卡片走（卡牌角标用）
+  assert.equal(mapPixivCard({ ...pixivItem, xRestrict: 1 })?.xRestrict, 1);
+  assert.equal(mapPixivCard({ ...pixivItem, xRestrict: 2 })?.xRestrict, 2);
 });
 
 test("mapPixivCard：isMasked 与 lo 布尔丢弃（数字 lo 不拦，源站是布尔）", () => {
@@ -105,6 +110,9 @@ test("mapFanboxPostCard：字段映射（成人过滤在调用方，见 mapFanbo
   assert.equal(card.width, 1200, "封面尺寸来自 /c/WxH/");
   // 卡片层不判断成人内容——列表（mapFanboxItems）按 safeMode 过滤
   assert.ok(mapFanboxPostCard({ id: "p2", hasAdultContent: true }));
+  // 成人帖标记 xRestrict=1 供卡牌 R-18 角标；普通帖不带
+  assert.equal(mapFanboxPostCard({ id: "p2", hasAdultContent: true })?.xRestrict, 1);
+  assert.equal(card.xRestrict, undefined, "未声明成人内容的帖子不带 xRestrict");
 });
 
 test("extractFanboxPages：blocks+Map 结构、images 兜底、file 块", () => {

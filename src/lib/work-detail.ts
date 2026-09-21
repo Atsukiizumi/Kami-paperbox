@@ -18,7 +18,7 @@ import type { Source } from "./types";
 export function workDetailQueryKey(src: Source, id: string) {
   const s = useSettings.getState();
   const fanboxCookie = fanboxSessionFrom(s.fanboxCookie, s.pixivCookie);
-  return ["work", src, id, s.safeMode, credentialTag(s.pixivCookie), credentialTag(fanboxCookie)] as const;
+  return ["work", src, id, s.safeModeBySite[src], credentialTag(s.pixivCookie), credentialTag(fanboxCookie)] as const;
 }
 
 /** 详情页与悬停预取共用的拉取（就是队列保存用的那份 loadWork）。 */

@@ -68,6 +68,12 @@ export function ArtworkCard({
     ),
   );
   const resolution = formatResolution(work.width, work.height);
+  // R-18 角标：pixiv 看 xRestrict（2 = R-18G）、fanbox 看 hasAdultContent→xRestrict、
+  // booru 沿用 rating 判定；三源统一钉在左下角
+  const showR18 =
+    (work.xRestrict ?? 0) > 0 ||
+    Boolean(work.rating && isBooru(work.source) && isNsfwRating(work.rating, work.source));
+  const r18Label = work.xRestrict === 2 ? "R-18G" : "R-18";
   const mediaRef = useRef<HTMLDivElement>(null);
   const ugoira = work.source === "pixiv" && work.illustType === 2;
   const {
@@ -268,11 +274,11 @@ export function ArtworkCard({
                 已收入
               </Badge>
             ) : null}
-            {work.feeRequired ? (
-              <Badge className="absolute bottom-2 left-2 bg-bg/80 text-fg">¥{work.feeRequired}</Badge>
-            ) : null}
-            {work.rating && isBooru(work.source) && isNsfwRating(work.rating, work.source) ? (
-              <Badge className="absolute bottom-2 left-2 bg-bg/80 text-fg">R-18</Badge>
+            {work.feeRequired || showR18 ? (
+              <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
+                {work.feeRequired ? <Badge className="bg-bg/80 text-fg">¥{work.feeRequired}</Badge> : null}
+                {showR18 ? <Badge className="bg-bg/80 text-fg">{r18Label}</Badge> : null}
+              </div>
             ) : null}
           </div>
         </Link>

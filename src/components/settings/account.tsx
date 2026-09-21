@@ -36,6 +36,7 @@ import {
   type LoginSite,
 } from "@/lib/sync/browser-login";
 import { pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/sync/account-sync";
+import { useHydrated } from "@/lib/use-hydrated";
 import { mask } from "./mask";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,7 @@ import { cn } from "@/lib/utils";
  */
 function AppAccountSection() {
   const { user, isPending } = useCurrentUserState();
+  const hydrated = useHydrated();
   const signedIn = Boolean(user && !user.isDevFallback);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -91,7 +93,9 @@ function AppAccountSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isPending ? (
+        {/* 水合首帧固定「正在读取」与 SSR 同帧：get-session 跑赢水合时
+            isPending 分支跨边界翻转会触发 hydration error（顶栏同款） */}
+        {!hydrated || isPending ? (
           <p className="text-sm text-muted">正在读取登录状态…</p>
         ) : signedIn ? (
           <>

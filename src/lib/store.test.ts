@@ -189,3 +189,53 @@ test("setTagAliasCluster 满员守卫：新键不进表、已有键照常改写"
     useSettings.setState({ tagAliases: before });
   }
 });
+
+test("persist v12→v13：safeMode 广播成 safeModeBySite，缺站点回安全侧", () => {
+  // v12 老档：只有全局 safeMode=false（R-18 全开）→ 五站全开
+  const legacy = migrateSettings({ safeMode: false }, 12) as Record<string, unknown>;
+  assert.deepEqual(legacy.safeModeBySite, {
+    pixiv: false,
+    fanbox: false,
+    yande: false,
+    konachan: false,
+    danbooru: false,
+  });
+  // v13 新档：记录部分站点 → 缺的站点回安全侧
+  const partial = migrateSettings({ safeModeBySite: { pixiv: false } }, 13) as Record<string, unknown>;
+  assert.deepEqual(partial.safeModeBySite, {
+    pixiv: false,
+    fanbox: true,
+    yande: true,
+    konachan: true,
+    danbooru: true,
+  });
+  // 脏值当缺省：回退到旧全局 safeMode（true → 安全侧）
+  const dirty = migrateSettings({ safeModeBySite: { pixiv: "no" }, safeMode: true }, 13) as Record<string, unknown>;
+  assert.equal((dirty.safeModeBySite as Record<string, boolean>).pixiv, true);
+  assert.deepEqual((migrateSettings(null, 0) as Record<string, unknown>).safeModeBySite, {
+    pixiv: true,
+    fanbox: true,
+    yande: true,
+    konachan: true,
+    danbooru: true,
+  });
+});
+
+test("setSafeModeFor 只动指定站点，其余站点不受牵连", () => {
+  const before = useSettings.getState().safeModeBySite;
+  try {
+    useSettings.setState({ safeModeBySite: { pixiv: true, fanbox: true, yande: true, konachan: true, danbooru: true } });
+    useSettings.getState().setSafeModeFor("pixiv", false);
+    assert.deepEqual(useSettings.getState().safeModeBySite, {
+      pixiv: false,
+      fanbox: true,
+      yande: true,
+      konachan: true,
+      danbooru: true,
+    });
+    useSettings.getState().setSafeModeFor("pixiv", true);
+    assert.equal(useSettings.getState().safeModeBySite.pixiv, true);
+  } finally {
+    useSettings.setState({ safeModeBySite: before });
+  }
+});

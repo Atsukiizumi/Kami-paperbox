@@ -43,7 +43,7 @@ import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "
 import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/storage/ranking-archive";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
-import type { FanboxCursor, FetchOk, WorkCard } from "@/lib/types";
+import type { FanboxCursor, FetchOk, Source, WorkCard } from "@/lib/types";
 import {
   DEFAULT_PIXIV_SEARCH,
   PIXIV_SEARCH_ORDERS,
@@ -63,9 +63,12 @@ export function Home() {
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const accounts = useSettings((s) => s.accounts);
   const activeAccountId = useSettings((s) => s.activeAccountId);
-  const setSafeMode = useSettings((s) => s.setSafeMode);
+  const setSafeModeFor = useSettings((s) => s.setSafeModeFor);
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
-  const safeMode = useSettings((s) => s.safeMode);
+  // 每站点 R-18：UI 层取当前站点的开关；react-query 键各用各站的值，
+  // 避免 tab 切换把 pixiv/fanbox 的缓存键搅在一起。
+  const safeModeBySite = useSettings((s) => s.safeModeBySite);
+  const safeMode = safeModeBySite[tab];
   const hideAi = useSettings((s) => s.hideAi);
   const settingsReady = useSettingsHydrated();
   const forceFresh = useRef(false);
@@ -131,17 +134,17 @@ export function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上：cookie 变化时一次性纠正 fanboxFeed
   }, [fanboxCookie]);
 
-  function sourceCreds() {
-    const creds = cookiesFromSettings();
+  function sourceCreds(source: Source) {
+    const creds = cookiesFromSettings(source);
     return forceFresh.current ? { ...creds, fresh: true } : creds;
   }
 
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, credentialTag(pixivCookie), boardDate],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeModeBySite.pixiv, hideAi, credentialTag(pixivCookie), boardDate],
     enabled: settingsReady && tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      const creds = sourceCreds();
+      const creds = sourceCreds("pixiv");
       if (searchWord) {
         return fetchSource({
           data: { op: "pixivSearch", word: searchWord, page: pageParam, filter: searchFilter, ...creds },
@@ -175,11 +178,11 @@ export function Home() {
   });
 
   const fanboxQuery = useInfiniteQuery({
-    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, credentialTag(fanboxCookie)],
+    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, credentialTag(fanboxCookie)],
     enabled: settingsReady && tab === "fanbox",
     initialPageParam: (searchWord ? 1 : undefined) as number | FanboxCursor | undefined,
     queryFn: async ({ pageParam }) => {
-      const creds = sourceCreds();
+      const creds = sourceCreds("fanbox");
       if (searchWord) {
         const pageNo = typeof pageParam === "number" ? pageParam : 1;
         return fetchSource({ data: { op: "fanboxTagged", tag: searchWord, page: pageNo, ...creds } });
@@ -203,7 +206,7 @@ export function Home() {
   });
 
   const booruQuery = useInfiniteQuery({
-    queryKey: ["home-booru", tab, booruFeed, searchWord, safeMode, boardDate],
+    queryKey: ["home-booru", tab, booruFeed, searchWord, safeModeBySite[tab], boardDate],
     enabled: settingsReady && isBooru(tab),
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -216,7 +219,7 @@ export function Home() {
           tags: searchWord || undefined,
           page: pageParam,
           date: !searchWord && isBooruPeriodFeed(booruFeed) ? boardDate : undefined,
-          ...sourceCreds(),
+          ...sourceCreds(tab),
         },
       });
     },
@@ -302,7 +305,7 @@ export function Home() {
 
   function choosePixivFeed(next: PixivFeed) {
     const nsfw = isPixivRankMode(next) && PIXIV_RANK_MODES.find((m) => m.id === next)?.nsfw;
-    if (nsfw && safeMode) setSafeMode(false);
+    if (nsfw && safeModeBySite.pixiv) setSafeModeFor("pixiv", false);
     const needsLogin = next === "recommend" || next === "following" || rankingNeedsLogin(next);
     if (needsLogin && !loggedIn) {
       toast.error(
@@ -401,10 +404,10 @@ export function Home() {
     setListPage(1);
     const key =
       tab === "pixiv"
-        ? (["home-pixiv", feed, searchWord, searchFilter, safeMode, hideAi, pixivCookie, boardDate] as const)
+        ? (["home-pixiv", feed, searchWord, searchFilter, safeModeBySite.pixiv, hideAi, pixivCookie, boardDate] as const)
         : tab === "fanbox"
-          ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeMode, fanboxCookie] as const)
-          : (["home-booru", tab, booruFeed, searchWord, safeMode, boardDate] as const);
+          ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, fanboxCookie] as const)
+          : (["home-booru", tab, booruFeed, searchWord, safeModeBySite[tab], boardDate] as const);
     queryClient.setQueryData(key, (old: InfiniteData<FetchOk> | undefined) => {
       if (!old?.pages?.length) return old;
       return { ...old, pages: old.pages.slice(0, 1), pageParams: old.pageParams.slice(0, 1) };
@@ -477,7 +480,7 @@ export function Home() {
         </div>
         <div className="flex flex-wrap items-center gap-4 pt-1">
           {tab === "pixiv" ? <AiFilterSwitch /> : null}
-          <R18Switch />
+          <R18Switch source={tab} />
         </div>
       </header>
 
@@ -518,7 +521,7 @@ export function Home() {
               filter={searchFilter}
               safeMode={safeMode}
               onApply={(next) => {
-                if (next.age === "r18" && safeMode) setSafeMode(false);
+                if (next.age === "r18" && safeModeBySite.pixiv) setSafeModeFor("pixiv", false);
                 setSearchFilter(next);
                 const word = canonicalTag(tab, query) || query.trim();
                 if (word) {

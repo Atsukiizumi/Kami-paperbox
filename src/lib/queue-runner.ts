@@ -32,7 +32,8 @@ let running = false;
 const runningKeys = new Set<string>();
 
 export async function loadWork(source: Source, id: string): Promise<WorkDetail> {
-  const creds = cookiesFromSettings();
+  // 详情拉取按作品自己的站点取安全模式（详情缓存键 work-detail.ts 同口径）
+  const creds = cookiesFromSettings(source);
   if (source === "pixiv") {
     const r = await fetchSource({ data: { op: "pixivIllust", id, ...creds } });
     if (r.op !== "pixivIllust") throw new Error("返回类型异常");

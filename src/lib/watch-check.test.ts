@@ -38,7 +38,7 @@ test("逐画师检查：水位计数、失败隔离、fanbox 通道", async () =
       items: [{ id: "p5" }, { id: "p4" }, { id: "p3" }], // 水位 p2 不在页内 → 保守 0
     },
   });
-  const results = (await checkWatchArtists(artists, {}, { fetchImpl: impl })) as WatchCheckResult[];
+  const results = (await checkWatchArtists(artists, () => ({}), { fetchImpl: impl })) as WatchCheckResult[];
   assert.deepEqual(
     results.map((r) => [r.id, r.newCount, r.newestId, r.error]),
     [
@@ -59,7 +59,7 @@ test("单画师失败不连坐；totalNew 忽略失败者", async () => {
       newestId: "105",
     },
   });
-  const results = (await checkWatchArtists(artists, {}, { fetchImpl: impl })) as WatchCheckResult[];
+  const results = (await checkWatchArtists(artists, () => ({}), { fetchImpl: impl })) as WatchCheckResult[];
   assert.equal(results[0]!.newCount, 0); // 无水位
   assert.match(results[1]!.error ?? "", /上游失败/);
   assert.match(results[2]!.error ?? "", /上游失败/);
@@ -84,6 +84,6 @@ test("并发 2：N 个画师最多同时 2 个在飞", async () => {
     addedAt: i,
     lastSeenId: "x",
   }));
-  await checkWatchArtists(many, {}, { fetchImpl: rawImpl as unknown as FetchImpl, concurrency: 2 });
+  await checkWatchArtists(many, () => ({}), { fetchImpl: rawImpl as unknown as FetchImpl, concurrency: 2 });
   assert.ok(peak <= 2, `peak=${peak}`);
 });
