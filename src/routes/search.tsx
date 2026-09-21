@@ -20,13 +20,14 @@ import {
   type SearchGroup,
 } from "@/lib/reverse-search";
 import { useSettings } from "@/lib/store";
+import { BOORU_SITES } from "@/lib/sites";
 import { cn } from "@/lib/utils";
 
 type ApiOk = { ok: true; groups: SearchGroup[] };
 type ApiErr = { ok: false; error: string };
 
 export function SearchPage() {
-  const safeMode = useSettings((s) => s.safeMode);
+  const safeModeBySite = useSettings((s) => s.safeModeBySite);
   const apiKey = useSettings((s) => s.saucenaoApiKey);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -62,7 +63,10 @@ export function SearchPage() {
       const prepared = await prepareSearchImage(target);
       const body = new FormData();
       body.set("file", prepared);
-      body.set("safe", safeMode ? "1" : "0");
+      // 搜图结果跨图站：三个图站都还开着安全模式才过滤成人结果，
+      // 任一图站开了 R-18 就按全年龄放行
+      const safe = BOORU_SITES.every((site) => safeModeBySite[site]);
+      body.set("safe", safe ? "1" : "0");
       if (apiKey) body.set("apiKey", apiKey);
       const res = await fetch("/api/reverse-search", { method: "POST", body });
       const data = (await res.json()) as ApiOk | ApiErr;

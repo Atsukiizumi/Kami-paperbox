@@ -3,20 +3,22 @@
 /**
  * 设置「浏览」页。
  *
- * 作用：R-18、过滤 AI 作画、保存原图、队列并发四个浏览侧开关。
+ * 作用：每站点 R-18、过滤 AI 作画（Pixiv）、保存原图、队列并发四个浏览侧开关。
  * 用法：设置分类「浏览」渲染 BrowseSection；直接订阅 settings store。
- * 为什么：这些开关只服务本分区，不与设置页其他部分共享，分区自取即可。
+ * 为什么：R-18 按站点各管各的——浏览页右上角开关读写当前站点这一份，这里总览五站；
+ *        过滤 AI 只有 Pixiv 有这个概念（aiType），所以挂在 Pixiv 名下。
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/lib/store";
+import { SITE_LIST } from "@/lib/sites";
 
 export function BrowseSection() {
-  const safeMode = useSettings((s) => s.safeMode);
+  const safeModeBySite = useSettings((s) => s.safeModeBySite);
   const hideAi = useSettings((s) => s.hideAi);
   const downloadOriginal = useSettings((s) => s.downloadOriginal);
-  const setSafeMode = useSettings((s) => s.setSafeMode);
+  const setSafeModeFor = useSettings((s) => s.setSafeModeFor);
   const setHideAi = useSettings((s) => s.setHideAi);
   const setDownloadOriginal = useSettings((s) => s.setDownloadOriginal);
   const queueConcurrency = useSettings((s) => s.queueConcurrency);
@@ -27,16 +29,30 @@ export function BrowseSection() {
         <CardTitle>浏览选项</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium">R-18 内容</p>
-            <p className="text-xs text-muted">默认关闭。打开后显示成人向作品。涉及未成年人的内容始终过滤。</p>
+            <p className="text-sm font-medium">R-18 内容（按站点）</p>
+            <p className="text-xs text-muted">
+              逐站点控制是否显示成人向作品；浏览页右上角的开关跟随当前站点。涉及未成年人的内容始终过滤。
+            </p>
           </div>
-          <Switch checked={!safeMode} onCheckedChange={(on) => setSafeMode(!on)} />
+          {SITE_LIST.map((site) => (
+            <div
+              key={site.id}
+              className="flex items-center justify-between gap-4 rounded-lg bg-elevated/60 px-3 py-2"
+            >
+              <p className="text-sm text-fg">{site.label}</p>
+              <Switch
+                checked={!safeModeBySite[site.id]}
+                onCheckedChange={(on) => setSafeModeFor(site.id, !on)}
+                aria-label={`${site.label} R-18`}
+              />
+            </div>
+          ))}
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium">过滤 AI 作画</p>
+            <p className="text-sm font-medium">过滤 AI 作画（Pixiv）</p>
             <p className="text-xs text-muted">打开后隐藏 Pixiv 标记为 AI 生成的作品。关闭时卡片会打 AI 标签。</p>
           </div>
           <Switch checked={hideAi} onCheckedChange={setHideAi} />

@@ -43,7 +43,8 @@ export function WorkPage() {
   const queryClient = useQueryClient();
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
-  const safeMode = useSettings((s) => s.safeMode);
+  // 相关作品跟着本页站点自己的 R-18 开关走
+  const safeMode = useSettings((s) => s.safeModeBySite[src]);
   const hideAi = useSettings((s) => s.hideAi);
   const setTab = useSettings((s) => s.setTab);
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
@@ -71,7 +72,7 @@ export function WorkPage() {
     queryFn: async () => {
       if (src === "pixiv") {
         const r = await fetchSource({
-          data: { op: "pixivRelated", id, ...cookiesFromSettings() },
+          data: { op: "pixivRelated", id, ...cookiesFromSettings("pixiv") },
         });
         if (r.op !== "pixivRelated") return [];
         return r.items.filter((item) => item.id !== id);
@@ -86,7 +87,7 @@ export function WorkPage() {
           feed: "recent",
           tags: tag,
           page: 1,
-          ...cookiesFromSettings(),
+          ...cookiesFromSettings(src),
         },
       });
       if (r.op !== "booruList") return [];
@@ -175,7 +176,7 @@ export function WorkPage() {
     try {
       if (src === "pixiv") {
         const r = await mutateSource({
-          data: { op: "pixivLike", id: detail.id, tags: detail.tags, ...cookiesFromSettings() },
+          data: { op: "pixivLike", id: detail.id, tags: detail.tags, ...cookiesFromSettings("pixiv") },
         });
         patchWork({
           liked: true,
@@ -183,7 +184,7 @@ export function WorkPage() {
           bookmarkId: r.bookmarkId ?? prevBookmarkId,
         });
       } else if (src === "fanbox") {
-        await mutateSource({ data: { op: "fanboxLike", id: detail.id, ...cookiesFromSettings() } });
+        await mutateSource({ data: { op: "fanboxLike", id: detail.id, ...cookiesFromSettings("fanbox") } });
       }
     } catch (err) {
       patchWork({ liked: false, bookmarked: prevBookmarked, bookmarkId: prevBookmarkId, likes: prevLikes });
@@ -208,7 +209,7 @@ export function WorkPage() {
           on,
           tags: on ? detail.tags : undefined,
           bookmarkId: detail.bookmarkId,
-          ...cookiesFromSettings(),
+          ...cookiesFromSettings("pixiv"),
         },
       });
       patchWork({
@@ -231,7 +232,7 @@ export function WorkPage() {
         }
         const on = !detail.followed;
         await mutateSource({
-          data: { op: "pixivFollow", userId: detail.authorId, on, ...cookiesFromSettings() },
+          data: { op: "pixivFollow", userId: detail.authorId, on, ...cookiesFromSettings("pixiv") },
         });
         patchWork({ followed: on });
         toast.success(on ? `已关注 ${detail.author}` : "已取消关注");
@@ -246,7 +247,7 @@ export function WorkPage() {
             op: "fanboxFollow",
             creatorId: detail.authorId,
             on,
-            ...cookiesFromSettings(),
+            ...cookiesFromSettings("fanbox"),
           },
         });
         patchWork({ followed: on });

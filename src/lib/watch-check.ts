@@ -30,13 +30,13 @@ function pickThumb(item: unknown): string {
 async function checkOne(
   artist: WatchArtist,
   fetchImpl: Fetch,
-  creds: Record<string, unknown>,
+  creds: (source: WatchArtist["source"]) => Record<string, unknown>,
 ): Promise<WatchCheckResult> {
   const base: WatchCheckResult = { source: artist.source, id: artist.id, newCount: 0 };
   try {
     if (artist.source === "pixiv") {
       const r = await fetchImpl({
-        data: { op: "pixivUser", id: artist.id, offset: 0, ...creds },
+        data: { op: "pixivUser", id: artist.id, offset: 0, ...creds("pixiv") },
       });
       if (r.op !== "pixivUser") throw new Error("返回异常");
       const items = (r.items ?? []) as { id: string }[];
@@ -48,7 +48,7 @@ async function checkOne(
       };
     }
     const r = await fetchImpl({
-      data: { op: "fanboxCreator", id: artist.id, ...creds },
+      data: { op: "fanboxCreator", id: artist.id, ...creds("fanbox") },
     });
     if (r.op !== "fanboxCreator") throw new Error("返回异常");
     const items = (r.items ?? []) as { id: string }[];
@@ -63,10 +63,10 @@ async function checkOne(
   }
 }
 
-/** 逐画师检查（并发 2）。返回顺序与输入一致。 */
+/** 逐画师检查（并发 2）。creds 按画师站点现取（每站点 R-18 各管各的）。返回顺序与输入一致。 */
 export async function checkWatchArtists(
   artists: WatchArtist[],
-  creds: Record<string, unknown>,
+  creds: (source: WatchArtist["source"]) => Record<string, unknown>,
   opts: { fetchImpl?: Fetch; concurrency?: number } = {},
 ): Promise<WatchCheckResult[]> {
   const fetchImpl = opts.fetchImpl ?? fetchSource;

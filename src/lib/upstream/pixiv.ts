@@ -59,6 +59,7 @@ export function mapPixivCard(item: Record<string, unknown>): WorkCard | null {
     date: asString(item.createDate || item.date) || undefined,
     illustType: asNumber(item.illustType ?? item.illust_type, 0),
     aiType: pixivAiType(item) || undefined,
+    xRestrict: asNumber(item.xRestrict, 0) || undefined,
     liked: social.liked || social.bookmarked || undefined,
     bookmarked: social.bookmarked || undefined,
   };

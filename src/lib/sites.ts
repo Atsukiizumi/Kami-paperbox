@@ -33,6 +33,22 @@ export function siteLabel(source: Source): string {
   return SITE_LIST.find((s) => s.id === source)?.label ?? source;
 }
 
+/**
+ * 每站点安全模式（true = 隐藏该站 R-18）。
+ *
+ * 记录缺站点 / 值非法时补 fallback：fallback 来自旧版全局 safeMode（迁移、
+ * 旧备份），两端一致——没有记录的一律回到安全侧。
+ */
+export function parseSafeModeBySite(raw: unknown, fallback = true): Record<Source, boolean> {
+  const rec = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const out = {} as Record<Source, boolean>;
+  for (const site of SITE_LIST) {
+    const v = rec[site.id];
+    out[site.id] = typeof v === "boolean" ? v : fallback;
+  }
+  return out;
+}
+
 export function workOriginUrl(source: Source, id: string, authorId = ""): string {
   switch (source) {
     case "pixiv":

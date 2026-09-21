@@ -52,7 +52,8 @@ function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className
 
 export function DeskBrowseSheet({ className }: { className?: string }) {
   const tab = useSettings((s) => s.tab);
-  const safeMode = useSettings((s) => s.safeMode);
+  const safeModeBySite = useSettings((s) => s.safeModeBySite);
+  const safeMode = safeModeBySite[tab];
   const hideAi = useSettings((s) => s.hideAi);
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
@@ -77,7 +78,7 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     enabled: hydrated,
     staleTime: BROWSE_STALE_MS,
     queryFn: async () => {
-      const creds = cookiesFromSettings();
+      const creds = cookiesFromSettings(tab);
       if (tab === "pixiv") {
         if (pixivLoggedIn) return fetchSource({ data: { op: "pixivRecommend", ...creds } });
         return fetchSource({ data: { op: "pixivRanking", mode: "daily", page: 1, ...creds } });

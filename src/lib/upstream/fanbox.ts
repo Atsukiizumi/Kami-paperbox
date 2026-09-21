@@ -90,6 +90,8 @@ export function mapFanboxPostCard(raw: Record<string, unknown>): WorkCard | null
     width: cover.width,
     height: cover.height,
     restricted: asBool(raw.isRestricted),
+    // FANBOX 没有分级数值：帖子带 hasAdultContent 即视同 R-18（服务端列表过滤同字段）
+    xRestrict: asBool(raw.hasAdultContent) ? 1 : undefined,
     feeRequired: asNumber(raw.feeRequired, 0),
     date: asString(raw.publishedDatetime) || undefined,
     excerpt: excerpt || undefined,

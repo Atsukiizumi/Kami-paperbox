@@ -55,7 +55,7 @@ export function SearchSuggest({
     staleTime: 30_000,
     queryFn: async () => {
       const r = await fetchSource({
-        data: { op: "tagSuggest", source, word: prefix, ...cookiesFromSettings() },
+        data: { op: "tagSuggest", source, word: prefix, ...cookiesFromSettings(source) },
       });
       return r.op === "tagSuggest" ? r.items : [];
     },

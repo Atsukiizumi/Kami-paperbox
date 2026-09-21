@@ -38,7 +38,7 @@ export function WatchPage() {
     if (watchArtists.length === 0 || checking) return;
     setChecking(true);
     try {
-      const list = await checkWatchArtists(watchArtists, cookiesFromSettings());
+      const list = await checkWatchArtists(watchArtists, (source) => cookiesFromSettings(source));
       const map: Record<string, WatchCheckResult> = {};
       for (const r of list) map[keyOf(r.source, r.id)] = r;
       setResults(map);
@@ -64,7 +64,7 @@ export function WatchPage() {
     const existing = new Set(watchArtists.map((w) => keyOf(w.source, w.id)));
     const merged: { source: "pixiv"; id: string; name: string; avatar: string }[] = [];
     for (let page = 1; page <= Math.ceil(watchLimit / 24) + 1; page += 1) {
-      const r = await fetchSource({ data: { op: "pixivMyFollowing", page, ...cookiesFromSettings() } });
+      const r = await fetchSource({ data: { op: "pixivMyFollowing", page, ...cookiesFromSettings("pixiv") } });
       if (r.op !== "pixivMyFollowing") break;
       for (const u of r.items) {
         if (existing.has(keyOf("pixiv", u.id)) || merged.some((m) => m.id === u.id)) continue;

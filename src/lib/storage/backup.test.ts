@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings } from "./backup.ts";
+import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import type { SmartFolder } from "./vault-query.ts";
 import type { WatchArtist } from "../watch.ts";
@@ -18,7 +18,7 @@ function sampleSettings() {
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
-    safeMode: false,
+    safeModeBySite: { pixiv: false, fanbox: false, yande: false, konachan: false, danbooru: false },
     hideAi: true,
     downloadOriginal: true,
     vaultMirrorFolder: true,
@@ -107,6 +107,13 @@ test("buildBackup round-trips settings, accounts, and vault records", () => {
   assert.equal(parsed.backup.settings.activeAccountId, "acc-1");
   assert.equal(parsed.backup.settings.theme, "shusha");
   assert.deepEqual(parsed.backup.settings.authorAliases, { あいす: "アイス", "☆古河渚★": "古河渚" });
+  assert.deepEqual(parsed.backup.settings.safeModeBySite, {
+    pixiv: false,
+    fanbox: false,
+    yande: false,
+    konachan: false,
+    danbooru: false,
+  });
   assert.equal(parsed.backup.vault[0]?.key, "pixiv:99");
   assert.equal(parsed.backup.vault[0]?.relativePath, "demo/99.jpg");
   assert.equal(parsed.backup.lexicon[0]?.zh, "单女");
@@ -261,4 +268,58 @@ test("tagAliases 随备份往返（标签整理）；缺段补空、脏项与成
     parseBackupSettings({ tagAliases: { 鳴潮: "鸣潮", 鸣潮: "WutheringWaves" } }).tagAliases,
     { 鸣潮: "WutheringWaves" },
   );
+});
+
+test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，缺/脏回安全侧", () => {
+  // v13 新档：逐站点值原样保留
+  const perSite = { pixiv: true, fanbox: false, yande: true, konachan: false, danbooru: true };
+  assert.deepEqual(parseBackupSettings({ safeModeBySite: perSite }).safeModeBySite, perSite);
+  // v13 前旧备份：只有全局 safeMode → 广播到五站
+  assert.deepEqual(parseBackupSettings({ safeMode: false }).safeModeBySite, {
+    pixiv: false,
+    fanbox: false,
+    yande: false,
+    konachan: false,
+    danbooru: false,
+  });
+  assert.deepEqual(parseBackupSettings({ safeMode: true }).safeModeBySite, {
+    pixiv: true,
+    fanbox: true,
+    yande: true,
+    konachan: true,
+    danbooru: true,
+  });
+  // 新记录缺站点：用旧全局值兜底，两端都缺回安全侧
+  assert.deepEqual(parseBackupSettings({ safeMode: false, safeModeBySite: { pixiv: true } }).safeModeBySite, {
+    pixiv: true,
+    fanbox: false,
+    yande: false,
+    konachan: false,
+    danbooru: false,
+  });
+  assert.deepEqual(parseBackupSettings({}).safeModeBySite, {
+    pixiv: true,
+    fanbox: true,
+    yande: true,
+    konachan: true,
+    danbooru: true,
+  });
+  // 脏值当缺省
+  assert.equal(parseBackupSettings({ safeModeBySite: { pixiv: "no" } }).safeModeBySite.pixiv, true);
+});
+
+test("vault 记录 aiType 随备份往返（卡牌 AI 标识），缺省不落字段", () => {
+  const backup = buildBackup({
+    settings: sampleSettings(),
+    vault: [{ ...sampleVault()[0]!, aiType: 2 }],
+  });
+  assert.equal(backup.vault[0]?.aiType, 2);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.equal(parsed.backup.vault[0]?.aiType, 2);
+  // 旧档没有 aiType：字段缺席，不补 0
+  const legacy = parseVaultRecords([sampleVault()[0]]);
+  assert.equal(legacy[0]?.aiType, undefined);
+  // 脏值丢弃
+  assert.equal(parseVaultRecords([{ ...sampleVault()[0]!, aiType: "x" }])[0]?.aiType, undefined);
 });

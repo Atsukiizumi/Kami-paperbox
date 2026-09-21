@@ -18,6 +18,7 @@ import type { QueueItem, Source } from "./types.ts";
 import type { SearchEngine } from "./reverse-search.ts";
 import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search.ts";
 import { saveSessions } from "./source.ts";
+import { parseSafeModeBySite } from "./sites.ts";
 import {
   type Account,
   cookiesOf,
@@ -92,7 +93,8 @@ type SettingsState = {
   fanboxCookie: string;
   danbooruLogin: string;
   danbooruApiKey: string;
-  safeMode: boolean;
+  /** 每站点安全模式（true = 隐藏该站 R-18）。浏览页右上角开关读写当前站点这一份。 */
+  safeModeBySite: Record<Source, boolean>;
   hideAi: boolean;
   downloadOriginal: boolean;
   queueConcurrency: number;
@@ -136,7 +138,7 @@ type SettingsState = {
   setFanboxCookie: (v: string) => void;
   setDanbooruLogin: (v: string) => void;
   setDanbooruApiKey: (v: string) => void;
-  setSafeMode: (v: boolean) => void;
+  setSafeModeFor: (source: Source, v: boolean) => void;
   setHideAi: (v: boolean) => void;
   setDownloadOriginal: (v: boolean) => void;
   setQueueConcurrency: (v: number) => void;
@@ -215,6 +217,9 @@ export function migrateSettings(persisted: unknown, version: number) {
       ? p.pathTemplate
       : templateForPreset(pathPreset);
   const extra = {
+    // v13（每站点 R-18）：全局 safeMode 升级为 safeModeBySite。老档 safeMode
+    // 广播到五站；新档已带 safeModeBySite 的缺站点同样回安全侧补默认。
+    safeModeBySite: parseSafeModeBySite(p.safeModeBySite, p.safeMode !== false),
     queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
     vaultMirrorFolder: p.vaultMirrorFolder !== false,
     downloadToFolder: p.downloadToFolder !== false,
@@ -253,7 +258,7 @@ export const useSettings = create<SettingsState>()(
       fanboxCookie: "",
       danbooruLogin: "",
       danbooruApiKey: "",
-      safeMode: true,
+      safeModeBySite: parseSafeModeBySite(undefined),
       hideAi: false,
       downloadOriginal: true,
       queueConcurrency: 1,
@@ -309,7 +314,8 @@ export const useSettings = create<SettingsState>()(
       },
       setDanbooruLogin: (danbooruLogin) => set({ danbooruLogin: danbooruLogin.trim().slice(0, 120) }),
       setDanbooruApiKey: (danbooruApiKey) => set({ danbooruApiKey: danbooruApiKey.trim().slice(0, 200) }),
-      setSafeMode: (safeMode) => set({ safeMode }),
+      setSafeModeFor: (source, v) =>
+        set((s) => ({ safeModeBySite: { ...s.safeModeBySite, [source]: v } })),
       setHideAi: (hideAi) => set({ hideAi }),
       setDownloadOriginal: (downloadOriginal) => set({ downloadOriginal }),
       setQueueConcurrency: (queueConcurrency) => set({ queueConcurrency }),
@@ -519,15 +525,15 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      // v12（标签整理）：新增 tagAliases 设置段；<12 老档缺字段补默认空表
-      version: 12,
+      // v13（每站点 R-18）：safeMode → safeModeBySite；迁移把旧全局值广播到五站
+      version: 13,
       migrate: migrateSettings,
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
         fanboxCookie: s.fanboxCookie,
         danbooruLogin: s.danbooruLogin,
         danbooruApiKey: s.danbooruApiKey,
-        safeMode: s.safeMode,
+        safeModeBySite: s.safeModeBySite,
         hideAi: s.hideAi,
         downloadOriginal: s.downloadOriginal,
         queueConcurrency: s.queueConcurrency,
@@ -569,7 +575,8 @@ export function useSettingsHydrated(): boolean {
   );
 }
 
-export function cookiesFromSettings(): {
+/** 组装 /api/source、/api/social 请求的凭据与过滤参数。safeMode 取该站点自己的开关。 */
+export function cookiesFromSettings(source: Source): {
   pixivCookie?: string;
   fanboxCookie?: string;
   danbooruLogin?: string;
@@ -585,7 +592,7 @@ export function cookiesFromSettings(): {
     fanboxCookie: fanbox || undefined,
     danbooruLogin: s.danbooruLogin || undefined,
     danbooruApiKey: s.danbooruApiKey || undefined,
-    safeMode: s.safeMode,
+    safeMode: s.safeModeBySite[source],
     hideAi: s.hideAi,
   };
 }
