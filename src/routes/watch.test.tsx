@@ -69,3 +69,18 @@ describe("追踪页标签订阅", () => {
     assert.equal(useSettings.getState().watchTags.length, 1, "同词不再入列");
   });
 });
+
+describe("今日更新聚合视图", () => {
+  beforeEach(() => {
+    cleanup();
+    useSettings.setState({ watchArtists: [], watchTags: [], watchLimit: 100 });
+  });
+
+  it("空态：无订阅提示先去订阅；切到视图不炸", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("radio", { name: "今日更新" }));
+    assert.ok(screen.getByText(/还没有追踪或订阅/));
+  });
+
+
+});
