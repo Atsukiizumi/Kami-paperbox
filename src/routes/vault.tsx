@@ -53,6 +53,9 @@ function cardFromMeta(item: VaultMeta, thumb: string, tagAliases: Record<string,
     pageCount: item.pageCount,
     tags: applyTagAliases(item.tags, tagAliases),
     aiType: item.aiType,
+    // 遮盖 / R-18 笺在纸匣面的判定依据（不映射则纸匣 R-18 永远不遮，trellis-check P1-3）
+    xRestrict: item.xRestrict,
+    rating: item.rating,
     width,
     height,
   };

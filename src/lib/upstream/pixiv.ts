@@ -397,6 +397,8 @@ export async function pixivIllust(
     bookmarks: asNumber(body.bookmarkCount) || undefined,
     likes: asNumber(body.likeCount) || undefined,
     aiType: asNumber(body.aiType, 0),
+    // 详情分级（补全档案 J 需要：详情没这字段会把「未知」固化成假的「全年龄」）
+    xRestrict: asNumber(body.xRestrict, 0),
     ...socialFromPixivIllust(body),
   };
   const first = work.pages[0];

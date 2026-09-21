@@ -254,6 +254,8 @@ export async function fanboxPost(
     height: pages[0]?.height || cover.height,
     restricted,
     feeRequired: asNumber(post.feeRequired, 0),
+    // 详情分级（补全档案 J 需要）：帖子带成人标记即 R-18，否则确认全年龄
+    xRestrict: asBool(post.hasAdultContent) ? 1 : 0,
     date: asString(post.publishedDatetime) || undefined,
     description: asString(post.excerpt || post.body).replace(/<[^>]+>/g, ""),
     excerpt: asString(post.excerpt) || undefined,

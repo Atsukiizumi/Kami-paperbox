@@ -25,6 +25,11 @@ for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "Nod
 }
 g.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom 不实现 scrollIntoView（键盘流焦点滚动用）；给空实现即可
+if (typeof g.HTMLElement !== "undefined" && !g.HTMLElement.prototype.scrollIntoView) {
+  g.HTMLElement.prototype.scrollIntoView = function scrollIntoView() {};
+}
+
 // jsdom 没有实现 matchMedia / ResizeObserver，Radix 系组件会探测它们
 if (typeof g.matchMedia !== "function") {
   (g as Record<string, unknown>).matchMedia = () => ({
@@ -43,5 +48,23 @@ if (typeof g.ResizeObserver === "undefined") {
     observe() {}
     unobserve() {}
     disconnect() {}
+  };
+}
+// ProxiedImg / 卡片懒加载用 IntersectionObserver；jsdom 没有，给全触发的桩
+if (typeof g.IntersectionObserver === "undefined") {
+  (g as Record<string, unknown>).IntersectionObserver = class {
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly thresholds: ReadonlyArray<number> = [];
+    observe(target: unknown) {
+      // 立即报「已进入视口」：懒加载图在测试里同步挂载
+      const cb = (this as unknown as { __cb?: (entries: unknown[]) => void }).__cb;
+      cb?.([{ target, isIntersecting: true, intersectionRatio: 1 }]);
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
   };
 }
