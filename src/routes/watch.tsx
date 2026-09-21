@@ -16,17 +16,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Bell, Hash, UserPlus } from "lucide-react";
+import { Bell, Hash, Sparkles, UserPlus } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ArtworkGrid } from "@/components/artwork-card";
 import { useSettings } from "@/lib/store";
 import { setWatchBadge, useWatchBadge } from "@/lib/watch-badge";
 import {
   checkWatchArtists,
   checkWatchTags,
   totalNew,
+  type FeedItem,
   type TagWatchCheckResult,
   type WatchCheckResult,
 } from "@/lib/watch-check";
+import type { WatchArtist } from "@/lib/watch";
 import {
   TAG_WATCH_LIMIT,
   TAG_WATCH_SOURCES,
@@ -35,6 +38,7 @@ import {
   WATCH_MIN_LIMIT,
   clampWatchLimit,
   tagWatchKey,
+  type WatchTag,
 } from "@/lib/watch";
 import { siteLabel } from "@/lib/sites";
 import { cookiesFromSettings } from "@/lib/store";
@@ -55,7 +59,8 @@ export function WatchPage() {
   const navigate = useNavigate();
   const badge = useWatchBadge((s) => s.newCount);
 
-  const [view, setView] = useState<"artists" | "tags">("artists");
+  const [view, setView] = useState<"artists" | "tags" | "feed">("artists");
+  const [checkedOnce, setCheckedOnce] = useState(false);
   const [results, setResults] = useState<Record<string, WatchCheckResult>>({});
   const [tagResults, setTagResults] = useState<Record<string, TagWatchCheckResult>>({});
   const [checking, setChecking] = useState(false);
@@ -86,6 +91,7 @@ export function WatchPage() {
       setTagResults(tagMap);
       const unread = totalNew(artistList) + tagList.reduce((sum, r) => sum + (r.error ? 0 : r.newCount), 0);
       setWatchBadge(unread);
+      setCheckedOnce(true);
       if (unread > 0) toast.success(`${unread} 张新作品`);
     } finally {
       setChecking(false);
@@ -192,7 +198,7 @@ export function WatchPage() {
         type="single"
         value={view}
         onValueChange={(v) => {
-          if (v) setView(v as "artists" | "tags");
+          if (v) setView(v as "artists" | "tags" | "feed");
         }}
       >
         <ToggleGroupItem value="artists">
@@ -202,6 +208,10 @@ export function WatchPage() {
         <ToggleGroupItem value="tags">
           <Hash className="size-4" />
           标签
+        </ToggleGroupItem>
+        <ToggleGroupItem value="feed">
+          <Sparkles className="size-4" />
+          今日更新
         </ToggleGroupItem>
       </ToggleGroup>
 
@@ -215,7 +225,7 @@ export function WatchPage() {
             <UserPlus className="size-4" />
             导入 Pixiv 关注
           </Button>
-        ) : (
+        ) : view === "tags" ? (
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={addSource}
@@ -247,7 +257,7 @@ export function WatchPage() {
               订阅
             </Button>
           </div>
-        )}
+        ) : null}
         <Button size="sm" variant="ghost" onClick={markAllSeen} disabled={unreadTotal === 0}>
           全部标为已读
         </Button>
@@ -282,7 +292,29 @@ export function WatchPage() {
         </Alert>
       ) : null}
 
-      {view === "artists" ? (
+      {view === "feed" ? (
+        <WatchFeed
+          artists={watchArtists}
+          tags={watchTags}
+          results={results}
+          tagResults={tagResults}
+          checking={checking}
+          checked={checkedOnce}
+          onSeenArtist={(source, id, newestId, count) => {
+            setWatchSeen(source, id, newestId);
+            setResults((prev) => ({ ...prev, [keyOf(source, id)]: { ...prev[keyOf(source, id)]!, newCount: 0 } }));
+            setWatchBadge(Math.max(0, badge - count));
+          }}
+          onSeenTag={(source, tag, newestId, count) => {
+            setWatchTagSeen(source, tag, newestId);
+            setTagResults((prev) => {
+              const key = tagWatchKey(source, tag);
+              return { ...prev, [key]: { ...prev[key]!, newCount: 0 } };
+            });
+            setWatchBadge(Math.max(0, badge - count));
+          }}
+        />
+      ) : view === "artists" ? (
         watchArtists.length === 0 ? (
           <Alert>
             <AlertTitle>还没有追踪的画师</AlertTitle>
@@ -421,6 +453,125 @@ export function WatchPage() {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ── 今日更新聚合视图（I）────────────────────────────────────────────────────
+
+type FeedGroup = {
+  key: string;
+  kind: "artist" | "tag";
+  source: string;
+  title: string;
+  href?: string;
+  onSeen?: () => void;
+  newCount: number;
+  items: FeedItem[];
+};
+
+function WatchFeed({
+  artists,
+  tags,
+  results,
+  tagResults,
+  checking,
+  checked,
+  onSeenArtist,
+  onSeenTag,
+}: {
+  artists: WatchArtist[];
+  tags: WatchTag[];
+  results: Record<string, WatchCheckResult>;
+  tagResults: Record<string, TagWatchCheckResult>;
+  checking: boolean;
+  checked: boolean;
+  onSeenArtist: (source: WatchArtist["source"], id: string, newestId: string, count: number) => void;
+  onSeenTag: (source: WatchTag["source"], tag: string, newestId: string, count: number) => void;
+}) {
+  const groups: FeedGroup[] = [];
+  for (const artist of artists) {
+    const r = results[`${artist.source}:${artist.id}`];
+    if (!r || r.error || !r.items?.length) continue;
+    groups.push({
+      key: `${artist.source}:${artist.id}`,
+      kind: "artist",
+      source: artist.source,
+      title: artist.name || artist.id,
+      href: artist.source === "pixiv" ? `/user/${artist.id}` : `/creator/${artist.id}`,
+      newCount: r.newCount,
+      items: r.items,
+      onSeen: r.newCount > 0 && r.newestId ? () => onSeenArtist(artist.source, artist.id, r.newestId!, r.newCount) : undefined,
+    });
+  }
+  for (const w of tags) {
+    const r = tagResults[tagWatchKey(w.source, w.tag)];
+    if (!r || r.error || !r.items?.length) continue;
+    groups.push({
+      key: tagWatchKey(w.source, w.tag),
+      kind: "tag",
+      source: w.source,
+      title: w.tag,
+      newCount: r.newCount,
+      items: r.items,
+      onSeen: r.newCount > 0 && r.newestId ? () => onSeenTag(w.source, w.tag, r.newestId!, r.newCount) : undefined,
+    });
+  }
+  // 新作多的组在前；没有新作的沉底（还能看最新一页）
+  groups.sort((a, b) => b.newCount - a.newCount);
+
+  if (checking && groups.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted">检查中…</p>;
+  }
+  if (artists.length === 0 && tags.length === 0) {
+    return (
+      <Alert>
+        <AlertTitle>还没有追踪或订阅</AlertTitle>
+        <AlertDescription>先在画师页点「追踪」、浏览页搜词点「订阅」，更新会汇到这里。</AlertDescription>
+      </Alert>
+    );
+  }
+  if (!checked) {
+    return (
+      <Alert>
+        <AlertTitle>还没检查过</AlertTitle>
+        <AlertDescription>点上面的「检查更新」拉一次最新页，更新就会铺在这里。</AlertDescription>
+      </Alert>
+    );
+  }
+  if (groups.length === 0) {
+    return (
+      <Alert>
+        <AlertTitle>暂没有可展示的更新</AlertTitle>
+        <AlertDescription>各条目还没有检查结果（或都失败了）——先点「检查更新」。</AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.key} className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="shrink-0 rounded-full bg-fg/5 px-2 text-[10px] text-muted">{group.source}</span>
+            {group.href ? (
+              <Link to={group.href} className="text-sm font-medium hover:underline">
+                {group.title}
+              </Link>
+            ) : (
+              <span className="text-sm font-medium">{group.title}</span>
+            )}
+            <span className="text-xs text-muted">
+              {group.newCount > 0 ? `${group.newCount} 张新作品` : "最新一页"}
+            </span>
+            {group.onSeen ? (
+              <Button size="sm" variant="ghost" className="ml-auto" onClick={group.onSeen}>
+                标为已读
+              </Button>
+            ) : null}
+          </div>
+          <ArtworkGrid items={group.items} />
+        </section>
+      ))}
     </div>
   );
 }

@@ -9,6 +9,43 @@
 import { fetchSource } from "./source.ts";
 import { DEFAULT_PIXIV_SEARCH } from "./pixiv-search.ts";
 import { diffNewCount, type WatchArtist, type WatchTag } from "./watch.ts";
+import type { WorkCard } from "./types.ts";
+
+/** 聚合流每组展示上限：检查只拉一页（pixiv 60 / booru 20 / fanbox 首页），截前 20 铺一屏。 */
+export const WATCH_FEED_ITEM_CAP = 20;
+
+/** 最新页作品透传（聚合视图用）：完整 WorkCard，直接喂 ArtworkGrid。 */
+export type FeedItem = WorkCard;
+
+function feedItems(raw: unknown, fallbackSource: WorkCard["source"]): FeedItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: FeedItem[] = [];
+  for (const row of raw) {
+    const rec = row as Record<string, unknown>;
+    if (!rec || typeof rec.id !== "string") continue;
+    out.push({
+      source: (typeof rec.source === "string" ? rec.source : fallbackSource) as WorkCard["source"],
+      id: rec.id,
+      title: typeof rec.title === "string" ? rec.title : "",
+      author: typeof rec.author === "string" ? rec.author : "",
+      authorId: typeof rec.authorId === "string" ? rec.authorId : "",
+      thumb: pickThumb(rec),
+      pageCount: Number(rec.pageCount) || 1,
+      tags: Array.isArray(rec.tags) ? rec.tags.filter((t): t is string => typeof t === "string").slice(0, 12) : [],
+      aiType: Number(rec.aiType) || undefined,
+      xRestrict: Number(rec.xRestrict) || undefined,
+      rating: typeof rec.rating === "string" ? rec.rating : undefined,
+      illustType: Number(rec.illustType) || undefined,
+    });
+    if (out.length >= WATCH_FEED_ITEM_CAP) break;
+  }
+  return out;
+}
+
+function latestDateOf(raw: unknown): string | undefined {
+  const first = Array.isArray(raw) ? (raw[0] as { date?: string } | undefined) : undefined;
+  return typeof first?.date === "string" ? first.date : undefined;
+}
 
 export type WatchCheckResult = {
   source: WatchArtist["source"];
@@ -18,6 +55,10 @@ export type WatchCheckResult = {
   newestId?: string;
   /** 最新一张作品缩略图。 */
   latestThumb?: string;
+  /** 最新页作品（聚合流视图消费，截 20）。 */
+  items?: FeedItem[];
+  /** 最新一条的发布时间。 */
+  latestDate?: string;
   error?: string;
 };
 
@@ -46,6 +87,8 @@ async function checkOne(
         newCount: diffNewCount(items, artist.lastSeenId),
         newestId: r.newestId ?? items[0]?.id,
         latestThumb: pickThumb(r.items?.[0]),
+        items: feedItems(r.items, "pixiv"),
+        latestDate: latestDateOf(r.items),
       };
     }
     const r = await fetchImpl({
@@ -58,6 +101,8 @@ async function checkOne(
       newCount: diffNewCount(items, artist.lastSeenId),
       newestId: items[0]?.id,
       latestThumb: pickThumb(r.items?.[0]),
+      items: feedItems(r.items, "fanbox"),
+      latestDate: latestDateOf(r.items),
     };
   } catch (err) {
     return { ...base, error: err instanceof Error ? err.message : "检查失败" };
@@ -98,6 +143,10 @@ export type TagWatchCheckResult = {
   newCount: number;
   newestId?: string;
   latestThumb?: string;
+  /** 最新页作品（聚合流视图消费，截 20）。 */
+  items?: FeedItem[];
+  /** 最新一条的发布时间。 */
+  latestDate?: string;
   error?: string;
 };
 
@@ -131,6 +180,8 @@ async function checkOneTag(
       newCount: diffNewCount(items, watch.lastSeenId),
       newestId: items[0]?.id,
       latestThumb: pickThumb(items[0]),
+      items: feedItems(r.items, watch.source),
+      latestDate: latestDateOf(r.items),
     };
   } catch (err) {
     return { ...base, error: err instanceof Error ? err.message : "检查失败" };

@@ -5,7 +5,7 @@
  *      未备份时以 .kami-slip 笺条提醒（M5）。
  * 用法：设置分类里打开；文件夹授权、占用统计都在此分区。
  */
-import { FolderOpen, FolderX } from "lucide-react";
+import { DatabaseZap, FolderOpen, FolderX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -24,6 +24,8 @@ import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { isBackupOverdue } from "./backup-reminder";
 import { rescanFolderHashes } from "@/lib/storage/persist-files";
+import { backfillTargets, runVaultBackfill } from "@/lib/storage/vault-backfill";
+import { listVault } from "@/lib/storage/vault";
 import { requestVaultPersistence, vaultStorageEstimate } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
 import { Button } from "../ui/button";
@@ -52,6 +54,8 @@ export function StorageSection() {
   const [persisted, setPersisted] = useState(false);
   const [usage, setUsage] = useState("");
   const [serverLine, setServerLine] = useState("");
+  const [backfillCount, setBackfillCount] = useState<number | null>(null);
+  const backfillCancel = useRef(false);
   const templateRef = useRef<HTMLInputElement>(null);
 
   async function refreshStatus() {
@@ -78,7 +82,38 @@ export function StorageSection() {
     setPickerOk(canPickFolder());
     void requestVaultPersistence().then((ok) => setPersisted(ok));
     void refreshStatus();
+    // 档案补全待补计数（三字段全缺 = unknown）；拉不到不阻塞分区
+    void listVault()
+      .then((items) => setBackfillCount(backfillTargets(items).length))
+      .catch(() => setBackfillCount(null));
   }, []);
+
+  async function runBackfill() {
+    if (busy) {
+      backfillCancel.current = true; // 再点 = 取消
+      return;
+    }
+    setBusy(true);
+    backfillCancel.current = false;
+    try {
+      const r = await runVaultBackfill({
+        onProgress: (p) => {
+          toast.message(`补全档案 ${p.done}/${p.total}（失败 ${p.failed}）`, { id: "kami-backfill" });
+          return backfillCancel.current ? false : undefined;
+        },
+      });
+      const items = await listVault();
+      setBackfillCount(backfillTargets(items).length);
+      if (r.remaining > 0) toast.info(`已取消：完成 ${r.ok} 条，剩 ${r.remaining} 条待补`, { id: "kami-backfill" });
+      else if (r.failed > 0) toast.warning(`补全完成：${r.ok} 条成功、${r.failed} 条失败（可重跑）`, { id: "kami-backfill" });
+      else if (r.ok > 0) toast.success(`补全完成：${r.ok} 条`, { id: "kami-backfill" });
+      else toast.info("没有待补的藏品", { id: "kami-backfill" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "补全失败", { id: "kami-backfill" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function chooseFolder() {
     setBusy(true);
@@ -209,6 +244,28 @@ export function StorageSection() {
             </Button>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-bg p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-fg">补全档案</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {backfillCount === null
+              ? "正在读取纸匣…"
+              : backfillCount > 0
+                ? `${backfillCount} 件藏品还缺 AI / R-18 标记，补全后筛选笺对它们生效。逐条拉详情、可随时取消。`
+                : "全部藏品都有 AI / R-18 标记，不用补。"}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={backfillCount === 0}
+          onClick={() => void runBackfill()}
+        >
+          <DatabaseZap className="size-4" />
+          {busy ? "取消补全" : "补全档案"}
+        </Button>
       </div>
 
       {folderLabel ? (

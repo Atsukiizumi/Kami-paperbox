@@ -126,3 +126,28 @@ test("逐标签检查：pixiv 走搜索最新序、booru 走 recent+tags、水�
   assert.ok(calls.includes("pixivSearch:鳴潮"));
   assert.ok(calls.includes("booruList:nagi"));
 });
+
+test("结果透传 items（截 20）与 latestDate（聚合流）", async () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({ id: String(100 - i), title: `t${i}`, thumb: `x${i}.jpg` }));
+  const impl = (async ({ data }: { data: { op: string; word?: string } }) => {
+    if (data.op === "pixivSearch") {
+      return { op: "pixivSearch", items: many.map((m) => ({ ...m, date: "2026-09-22T00:00:00Z" })), nextPage: null };
+    }
+    throw new Error("上游失败");
+  }) as unknown as FetchImpl;
+  const [r] = await checkWatchTags([{ source: "pixiv", tag: "x", addedAt: 1 }], () => ({}), { fetchImpl: impl });
+  assert.equal(r?.items?.length, 20, "截 20");
+  assert.equal(r?.items?.[0]?.source, "pixiv", "source 兜底为调用方站点");
+  assert.equal(r?.items?.[0]?.id, "100");
+  assert.equal(r?.latestDate, "2026-09-22T00:00:00Z");
+  // 坏行（无 id）跳过不炸
+  const bad = (async ({ data }: { data: { op: string; site?: string } }) => {
+    if (data.op === "booruList") {
+      return { op: "booruList", site: "yande", items: [{ junk: true }, { id: "7", rating: "e" }], nextPage: null };
+    }
+    throw new Error("上游失败");
+  }) as unknown as FetchImpl;
+  const [b] = await checkWatchTags([{ source: "yande", tag: "x", addedAt: 1 }], () => ({}), { fetchImpl: bad });
+  assert.equal(b?.items?.length, 1);
+  assert.equal(b?.items?.[0]?.rating, "e");
+});
