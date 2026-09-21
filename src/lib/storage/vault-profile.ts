@@ -13,7 +13,7 @@
  *        字段，中文句子由页面拼；空库 / 缺字段时返回 null，页面隐藏对应半句，
  *        不在这里猜默认文案。钟点 / 周几都按浏览器本地时区（收藏是本地行为）。
  */
-import { applyAuthorAlias, clusterAuthorVariants } from "../author-name.ts";
+import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-name.ts";
 import { applyTagAlias } from "../vault-tag-alias.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
@@ -359,4 +359,83 @@ export function pickRandom(items: VaultMeta[], rng: () => number = Math.random):
   if (pool.length === 0) return null;
   const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   return pool[index];
+}
+
+// ── 口味变迁（R，09-22-product-batch-2）──────────────────────────────────────
+
+export type TasteShiftEntry = {
+  name: string;
+  thisYear: number;
+  lastYear: number;
+};
+
+export type TasteShift = {
+  tags: TasteShiftEntry[];
+  authors: TasteShiftEntry[];
+};
+
+/**
+ * 今年 vs 去年的兴趣对比：标签与画师（authorKey 簇）的年度计数。
+ * 口径与画像/词云一致——标签过别名归一、按张去重；画师按簇计数。
+ * 只保留两侧合计 ≥ 阈值（3）的条目，按 |变化| 排序，各截前 N。
+ */
+export function tasteShift(
+  items: VaultMeta[],
+  aliases?: Record<string, string>,
+  now = new Date(),
+  opts: { minTotal?: number; limit?: number } = {},
+): TasteShift {
+  const minTotal = opts.minTotal ?? 3;
+  const limit = opts.limit ?? 8;
+  const thisYear = now.getFullYear();
+  const lastYear = thisYear - 1;
+
+  const tags = new Map<string, [number, number]>();
+  const authors = new Map<string, [number, number]>();
+  const authorNames = new Map<string, string>();
+  for (const item of items) {
+    const bucket = new Date(item.savedAt).getFullYear();
+    if (bucket !== thisYear && bucket !== lastYear) continue;
+    const slot = bucket === thisYear ? 0 : 1;
+    const seenTags = new Set<string>();
+    for (const raw of item.tags) {
+      const tag = applyTagAlias(raw.trim(), aliases);
+      if (!tag || seenTags.has(tag)) continue;
+      seenTags.add(tag);
+      const row = tags.get(tag) ?? [0, 0];
+      row[slot] += 1;
+      tags.set(tag, row);
+    }
+  }
+  // 画师按 authorKey 簇分桶（口径同画像：展示名取簇内最新 raw，别名再套）
+  const authorRows = new Map<string, { row: [number, number]; name: string; latestAt: number }>();
+  for (const item of items) {
+    const raw = item.author.trim();
+    if (!raw) continue;
+    const bucket = new Date(item.savedAt).getFullYear();
+    if (bucket !== thisYear && bucket !== lastYear) continue;
+    const key = authorKey(item);
+    const cur = authorRows.get(key) ?? { row: [0, 0], name: raw, latestAt: 0 };
+    if (bucket === thisYear) cur.row[0] += 1;
+    else cur.row[1] += 1;
+    if (item.savedAt >= cur.latestAt) {
+      cur.latestAt = item.savedAt;
+      cur.name = raw;
+    }
+    authorRows.set(key, cur);
+  }
+  for (const [key, cur] of authorRows) {
+    if (cur.row[0] + cur.row[1] === 0) continue;
+    authors.set(key, cur.row);
+    authorNames.set(key, applyAuthorAlias(cur.name, aliases));
+  }
+
+  const toEntries = (map: Map<string, [number, number]>, names?: Map<string, string>): TasteShiftEntry[] =>
+    [...map.entries()]
+      .map(([key, row]) => ({ name: names?.get(key) ?? key, thisYear: row[0], lastYear: row[1] }))
+      .filter((e) => e.thisYear + e.lastYear >= minTotal)
+      .sort((a, b) => Math.abs(b.thisYear - b.lastYear) - Math.abs(a.thisYear - a.lastYear) || b.thisYear - a.thisYear)
+      .slice(0, limit);
+
+  return { tags: toEntries(tags), authors: toEntries(authors, authorNames) };
 }

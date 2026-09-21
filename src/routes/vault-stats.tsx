@@ -28,6 +28,7 @@ import { monthOf, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vau
 import {
   hourHistogram,
   profileSummary,
+  tasteShift,
   sourceComposition,
   tagCloud,
   weekdayHistogram,
@@ -99,6 +100,10 @@ export function VaultStatsPage() {
   const sources = useMemo(() => sourceComposition(all ?? []), [all]);
   const summary = useMemo(() => profileSummary(all ?? [], authorAliases), [all, authorAliases]);
   const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
+  // 口味变迁（R）：今年 vs 去年的标签 / 画师年度对比（口径同画像，别名归一）
+  const shift = useMemo(() => tasteShift(all ?? [], tagAliases), [all, tagAliases]);
+  const shiftNow = new Date().getFullYear();
+  const shiftHasLast = shift.tags.some((t) => t.lastYear > 0) || shift.authors.some((a) => a.lastYear > 0);
 
   const storageRows = (storage?.bySource ?? []).slice(0, 8).map((r) => ({ name: r.name, bytes: r.bytes }));
   const storageMax = Math.max(1, ...storageRows.map((r) => r.bytes));
@@ -144,6 +149,22 @@ export function VaultStatsPage() {
             <HeroStrip count={totals.count} authors={authorCount} tags={tagCount} bytes={totals.bytes} />
           </Reveal>
 
+          {(shift.tags.length > 0 || shift.authors.length > 0) ? (
+          <section className="space-y-4" aria-label="口味变迁">
+            <h2 className="font-display text-xl tracking-tight text-fg">口味变迁</h2>
+            <Reveal>
+              <div className="rounded-xl bg-surface p-4">
+                <p className="text-xs text-muted">
+                  {shiftNow} 年 vs {shiftNow - 1} 年{shiftHasLast ? "" : "（去年还没有收藏，只看今年）"}
+                </p>
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <TasteShiftList title="标签" rows={shift.tags} />
+                  <TasteShiftList title="画师" rows={shift.authors} />
+                </div>
+              </div>
+            </Reveal>
+          </section>
+          ) : null}
           <section className="space-y-4" aria-label="用户画像">
             <h2 className="font-display text-xl tracking-tight text-fg">用户画像</h2>
             <Reveal>
@@ -236,6 +257,40 @@ export function VaultStatsPage() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+
+function TasteShiftList({ title, rows }: { title: string; rows: { name: string; thisYear: number; lastYear: number }[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="min-w-0">
+      <p className="text-xs text-subtle">{title}</p>
+      <ul className="mt-1.5 space-y-1.5">
+        {rows.map((row) => {
+          const delta = row.thisYear - row.lastYear;
+          const isNew = row.lastYear === 0 && row.thisYear > 0;
+          const gone = row.thisYear === 0 && row.lastYear > 0;
+          return (
+            <li key={row.name} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate">{row.name}</span>
+              <span className="shrink-0 tabular-nums text-xs text-muted">
+                {row.lastYear} → {row.thisYear}
+                {isNew ? (
+                  <span className="ml-1 text-accent">新进</span>
+                ) : gone ? (
+                  <span className="ml-1 text-subtle">退场</span>
+                ) : delta > 0 ? (
+                  <span className="ml-1 text-accent">+{delta}</span>
+                ) : delta < 0 ? (
+                  <span className="ml-1 text-muted">{delta}</span>
+                ) : null}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

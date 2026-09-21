@@ -23,7 +23,8 @@ import { flyPaperToQueue } from "@/lib/paper-fly";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/sync/browser-login";
-import { formatCount, formatResolution, mediaUrl } from "@/lib/utils";
+import { formatCount, formatResolution, mediaUrl, cn } from "@/lib/utils";
+import { shouldVeil, useVeil } from "@/lib/veil";
 import { workKey as vaultWorkKey } from "@/lib/storage/vault";
 import { useVaultIndex } from "@/lib/storage/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
@@ -51,6 +52,9 @@ export function WorkPage() {
   const savedTags = useSettings((s) => s.savedTags[src] ?? []);
   const toggleSavedTag = useSettings((s) => s.toggleSavedTag);
   const [preview, setPreview] = useState<number | null>(null);
+  // 访客遮盖（U）：R-18 / AI 作品大图模糊，逐张点击临时揭示；Esc 全局关（AppShell）
+  const veil = useVeil((s) => s.veil);
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const likingRef = useRef(false);
   const inVault = useVaultIndex((s) => Boolean(s.keys[vaultWorkKey(src, id)]));
   const inQueue = useQueue((s) =>
@@ -96,6 +100,7 @@ export function WorkPage() {
   });
 
   const work = query.data;
+  const workVeiled = Boolean(veil && work && shouldVeil(work));
 
   useEffect(() => {
     if (!query.isSuccess || !query.data) return;
@@ -383,12 +388,18 @@ export function WorkPage() {
 
       <div className="kami-work-stage -mx-4 md:-mx-10">
         {work.ugoira ? (
-          <figure className="overflow-hidden">
+          <figure className={cn("overflow-hidden", workVeiled && !revealed.has(0) && "blur-xl")}>
             <UgoiraPlayer
               zipUrl={work.ugoira.src}
               frames={work.ugoira.frames}
               alt={work.title}
-              onOpen={() => setPreview(0)}
+              onOpen={() => {
+                if (workVeiled && !revealed.has(0)) {
+                  setRevealed((prev) => new Set(prev).add(0));
+                  return;
+                }
+                setPreview(0);
+              }}
             />
           </figure>
         ) : (
@@ -412,7 +423,14 @@ export function WorkPage() {
               <button
                 type="button"
                 className="block w-full cursor-zoom-in"
-                onClick={() => setPreview(i)}
+                onClick={() => {
+                  // 遮盖中先揭示本张（临时查看），再点才进灯箱
+                  if (workVeiled && !revealed.has(i)) {
+                    setRevealed((prev) => new Set(prev).add(i));
+                    return;
+                  }
+                  setPreview(i);
+                }}
               >
                 <ProxiedImg
                   src={page.regular || page.original}
@@ -421,7 +439,7 @@ export function WorkPage() {
                   priority={i === 0}
                   sizes="100vw"
                   viewTransitionName={i === 0 ? `kami-${work.source}-${work.id}` : undefined}
-                  className="mx-auto max-h-[92vh]"
+                  className={cn("mx-auto max-h-[92vh]", workVeiled && !revealed.has(i) ? "blur-xl" : "")}
                 />
               </button>
               {formatResolution(page.width, page.height) || work.pages.length > 1 ? (

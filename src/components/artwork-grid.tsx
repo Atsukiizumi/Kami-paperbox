@@ -22,12 +22,18 @@ export function ArtworkGrid({
   empty,
   marksOf,
   selection,
+  keyboard,
 }: {
   items: WorkCard[];
   empty?: string;
   marksOf?: (work: WorkCard) => string[] | undefined;
   /** 批量收藏（D）：传入即进入勾选形态，key 为 `${source}:${id}`。 */
   selection?: { selected: Set<string>; onToggle: (key: string) => void };
+  /** 键盘流（N）：focusIndex 命中的卡获得焦点环，action 信号转发到该卡。 */
+  keyboard?: {
+    focusIndex: number | null;
+    action: { seq: number; kind: "save" | "like" | "preview" } | null;
+  };
 }) {
   useEffect(() => {
     useTagCatalog.getState().ingestMany(items);
@@ -44,6 +50,11 @@ export function ArtworkGrid({
           work={work}
           index={i}
           marks={marksOf?.(work)}
+          kb={
+            keyboard
+              ? { focus: keyboard.focusIndex === i, actionSeq: keyboard.action?.seq ?? 0, action: keyboard.action?.kind ?? null }
+              : undefined
+          }
           selection={
             selection
               ? {
