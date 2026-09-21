@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords } from "./backup.ts";
+import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords, preserveClientVaultFields } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import type { SmartFolder } from "./vault-query.ts";
 import type { WatchArtist } from "../watch.ts";
@@ -15,6 +15,7 @@ function sampleSettings() {
     tagAliases: { 鳴潮: "鸣潮", Waves: "鸣潮" },
     watchArtists: [],
     watchLimit: 100,
+    watchTags: [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1, lastSeenId: "900" }],
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
@@ -322,4 +323,56 @@ test("vault 记录 aiType 随备份往返（卡牌 AI 标识），缺省不落�
   assert.equal(legacy[0]?.aiType, undefined);
   // 脏值丢弃
   assert.equal(parseVaultRecords([{ ...sampleVault()[0]!, aiType: "x" }])[0]?.aiType, undefined);
+});
+
+test("watchTags 随备份往返（标签订阅）；缺段补空、脏项裁剪", () => {
+  const tags = [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1, lastSeenId: "900" }];
+  const backup = buildBackup({ settings: { ...sampleSettings(), watchTags: tags } });
+  assert.deepEqual(backup.settings.watchTags, tags);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.deepEqual(parsed.backup.settings.watchTags, tags);
+  // 老备份（无该段）→ 空 []，不连坐；脏项丢弃
+  assert.deepEqual(parseBackupSettings({}).watchTags, []);
+  assert.deepEqual(
+    parseBackupSettings({ watchTags: [{ source: "fanbox", tag: "x" }, { source: "yande", tag: " 好 " }] }).watchTags.map((t) => t.tag),
+    ["好"],
+  );
+});
+
+test("vault 记录 xRestrict/rating 随备份往返；mergeVaultRecords 远端缺字段保留本地", () => {
+  const withFlags = { ...sampleVault()[0]!, xRestrict: 2, rating: undefined };
+  const backup = buildBackup({ settings: sampleSettings(), vault: [withFlags] });
+  assert.equal(backup.vault[0]?.xRestrict, 2);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.equal(parsed.backup.vault[0]?.xRestrict, 2);
+  assert.equal(parseVaultRecords([{ ...sampleVault()[0]!, rating: "e" }])[0]?.rating, "e");
+  assert.equal(parseVaultRecords([{ ...sampleVault()[0]!, xRestrict: "x" }])[0]?.xRestrict, undefined, "脏值丢弃");
+  // 合并守卫：远端行（服务端不携带客户端先行字段）覆盖时保留本地分级/AI 标记
+  const local = [{ ...sampleVault()[0]!, aiType: 2, xRestrict: 1, rating: "e" }];
+  const incoming = [{ ...sampleVault()[0]!, title: "远端更新" }];
+  const merged = mergeVaultRecords(local, incoming);
+  assert.equal(merged[0]?.title, "远端更新", "远端目录字段照常覆盖");
+  assert.equal(merged[0]?.aiType, 2, "本地 AI 标记不清空");
+  assert.equal(merged[0]?.xRestrict, 1, "本地分级不清空");
+  assert.equal(merged[0]?.rating, "e", "本地 rating 不清空");
+});
+
+test("preserveClientVaultFields：vault 同步段写回守卫（applySegment 用），远端缺三字段保留本地", () => {
+  // 远端行：服务端列锁不带 aiType/xRestrict/rating
+  const remote = { ...sampleVault()[0]!, title: "远端目录" };
+  const local = { ...sampleVault()[0]!, aiType: 2, xRestrict: 1, rating: "e" };
+  const kept = preserveClientVaultFields(remote, local);
+  assert.equal(kept.title, "远端目录", "远端目录字段照常应用");
+  assert.equal(kept.aiType, 2, "本地 AI 标记保留");
+  assert.equal(kept.xRestrict, 1, "本地分级保留");
+  assert.equal(kept.rating, "e", "本地 rating 保留");
+  // 远端带了明确值（新备份文件导入）：以远端为准
+  const fresh = preserveClientVaultFields({ ...remote, xRestrict: 2 }, local);
+  assert.equal(fresh.xRestrict, 2, "远端显式值覆盖");
+  // 无本地行（新设备首拉）：字段缺席不补假值
+  const none = preserveClientVaultFields(remote, undefined);
+  assert.equal(none.aiType, undefined);
+  assert.equal(none.xRestrict, undefined);
 });

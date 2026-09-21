@@ -13,7 +13,9 @@
  *        也避免 UI 直接拼字符串。
  */
 import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-name.ts";
-import { isSource } from "../sites.ts";
+import { isBooru, isSource } from "../sites.ts";
+import { isNsfwRating } from "../booru.ts";
+import { isAiWork } from "../pixiv-feed.ts";
 import { applyTagAlias, applyTagAliases } from "../vault-tag-alias.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
@@ -29,6 +31,10 @@ export type VaultQuery = {
   month?: string;
   /** 标签别名表（消费时注入，不进智能库存档）：tags 筛选与文本搜索的标签段双侧归一。 */
   tagAliases?: Record<string, string>;
+  /** true = 只看 AI 作画，false = 排除；undefined = 不过滤（旧藏品按 tags 词表兜底判定）。 */
+  ai?: boolean;
+  /** true = 只看 R-18，false = 排除；undefined = 不过滤。旧藏品无分级字段 = 未知，两端都不匹配。 */
+  r18?: boolean;
 };
 
 /** 智能文件夹：命名的筛选条件组合，存设置段随账号同步。 */
@@ -72,10 +78,20 @@ export function filterVaultItems(items: VaultMeta[], q: VaultQuery): VaultMeta[]
     if (q.authorKey && authorKey(item) !== q.authorKey) return false;
     if (wantTags.length && !item.tags.some((t) => wantTags.includes(applyTagAlias(t, alias)))) return false;
     if (q.month && monthOf(item.savedAt) !== q.month) return false;
+    if (q.ai !== undefined && isAiWork({ aiType: item.aiType, tags: item.tags }) !== q.ai) return false;
+    if (q.r18 !== undefined && isVaultR18(item) !== q.r18) return false;
     if (tokens.length === 0) return true;
     const hay = haystackOf(item, alias);
     return tokens.every((t) => hay.includes(t));
   });
+}
+
+/** 藏品是否成人内容：pixiv/fanbox 看 xRestrict（入匣时存），booru 看 rating；
+ *  旧藏品两者皆缺 = 未知 → false（R-18 笺不出、排除笺保留，如实反映未知）。 */
+function isVaultR18(item: VaultMeta): boolean {
+  if ((item.xRestrict ?? 0) > 0) return true;
+  if (isBooru(item.source) && item.rating && isNsfwRating(item.rating, item.source)) return true;
+  return false;
 }
 
 /**
@@ -138,7 +154,14 @@ export function mergeVaultItems(local: VaultMeta[], remoteItems: VaultMeta[]): V
   const map = new Map(remoteItems.map((item) => [item.key, item]));
   for (const item of local) {
     const prev = map.get(item.key);
-    map.set(item.key, { ...item, hasFile: prev?.hasFile ?? item.hasFile });
+    map.set(item.key, {
+      ...item,
+      hasFile: prev?.hasFile ?? item.hasFile,
+      // 客户端先行三字段远端行不携带：缺时保留本地，否则一次合并清空分级/AI 标记
+      aiType: item.aiType ?? prev?.aiType,
+      xRestrict: item.xRestrict ?? prev?.xRestrict,
+      rating: item.rating ?? prev?.rating,
+    });
   }
   return [...map.values()].sort((a, b) => b.savedAt - a.savedAt);
 }

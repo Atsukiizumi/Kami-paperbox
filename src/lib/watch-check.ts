@@ -7,7 +7,8 @@
  *      反复打开追踪页不会打爆上游。
  */
 import { fetchSource } from "./source.ts";
-import { diffNewCount, type WatchArtist } from "./watch.ts";
+import { DEFAULT_PIXIV_SEARCH } from "./pixiv-search.ts";
+import { diffNewCount, type WatchArtist, type WatchTag } from "./watch.ts";
 
 export type WatchCheckResult = {
   source: WatchArtist["source"];
@@ -87,4 +88,72 @@ export async function checkWatchArtists(
 /** 全部新作数之和（红点角标）。 */
 export function totalNew(results: WatchCheckResult[]): number {
   return results.reduce((sum, r) => sum + (r.error ? 0 : r.newCount), 0);
+}
+
+// ── 标签订阅检查（09-21-tag-watch-vault-filter）──────────────────────────────
+
+export type TagWatchCheckResult = {
+  source: WatchTag["source"];
+  tag: string;
+  newCount: number;
+  newestId?: string;
+  latestThumb?: string;
+  error?: string;
+};
+
+async function checkOneTag(
+  watch: WatchTag,
+  fetchImpl: Fetch,
+  creds: (source: WatchTag["source"]) => Record<string, unknown>,
+): Promise<TagWatchCheckResult> {
+  const base: TagWatchCheckResult = { source: watch.source, tag: watch.tag, newCount: 0 };
+  try {
+    // pixiv 用搜索最新序（date_d 新→旧）；booru 用 recent + 标签过滤（同为新→旧）。
+    // 水位判定与画师同款 diffNewCount：无水位→0 不虚报、水位不在首页→0 保守。
+    const r =
+      watch.source === "pixiv"
+        ? await fetchImpl({
+            data: {
+              op: "pixivSearch",
+              word: watch.tag,
+              page: 1,
+              filter: { ...DEFAULT_PIXIV_SEARCH, order: "date_d" },
+              ...creds("pixiv"),
+            },
+          })
+        : await fetchImpl({
+            data: { op: "booruList", site: watch.source, feed: "recent", tags: watch.tag, page: 1, ...creds(watch.source) },
+          });
+    if (r.op !== "pixivSearch" && r.op !== "booruList") throw new Error("返回异常");
+    const items = (r.items ?? []) as { id: string; thumb?: string }[];
+    return {
+      ...base,
+      newCount: diffNewCount(items, watch.lastSeenId),
+      newestId: items[0]?.id,
+      latestThumb: pickThumb(items[0]),
+    };
+  } catch (err) {
+    return { ...base, error: err instanceof Error ? err.message : "检查失败" };
+  }
+}
+
+/** 逐标签检查（并发 2，单条失败不连坐）。creds 按站点现取——R-18 开关各站各管各的。 */
+export async function checkWatchTags(
+  tags: WatchTag[],
+  creds: (source: WatchTag["source"]) => Record<string, unknown>,
+  opts: { fetchImpl?: Fetch; concurrency?: number } = {},
+): Promise<TagWatchCheckResult[]> {
+  const fetchImpl = opts.fetchImpl ?? fetchSource;
+  const concurrency = opts.concurrency ?? 2;
+  const results: TagWatchCheckResult[] = new Array(tags.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < tags.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await checkOneTag(tags[index]!, fetchImpl, creds);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, tags.length) }, worker));
+  return results;
 }

@@ -239,3 +239,46 @@ test("setSafeModeFor 只动指定站点，其余站点不受牵连", () => {
     useSettings.setState({ safeModeBySite: before });
   }
 });
+
+test("persist v13→v14：watchTags 缺省补空表，脏项丢弃、同词去重、超限截取", () => {
+  // v13 老档：没有 watchTags 字段
+  const v13 = migrateSettings({ folderLabel: "Kami" }, 13) as Record<string, unknown>;
+  assert.deepEqual(v13.watchTags, [], "缺字段补默认空表，不得是 undefined");
+  assert.equal(v13.folderLabel, "Kami", "老档已有字段保留");
+  // v14 新档：经 parseWatchTags 裁剪（坏项丢、同站同词去重）
+  const v14 = migrateSettings(
+    {
+      watchTags: [
+        { source: "pixiv", tag: " 鳴潮 ", addedAt: 1 },
+        { source: "pixiv", tag: "鳴潮", addedAt: 2 },
+        { source: "fanbox", tag: "x", addedAt: 3 },
+      ],
+    },
+    14,
+  ) as Record<string, unknown>;
+  assert.deepEqual((v14.watchTags as { source: string; tag: string }[]).map((t) => t.tag), ["鳴潮"]);
+  // 空档兜底
+  assert.deepEqual((migrateSettings(null, 0) as Record<string, unknown>).watchTags, []);
+});
+
+test("toggleWatchTag：加/去重/满员；setWatchTagSeen 推进水位只动目标", () => {
+  const before = useSettings.getState().watchTags;
+  try {
+    useSettings.setState({ watchTags: [] });
+    assert.equal(useSettings.getState().toggleWatchTag("pixiv", " 鳴潮 "), "added");
+    assert.equal(useSettings.getState().toggleWatchTag("pixiv", "鳴潮"), "removed", "同词（trim+小写）再点即取消");
+    useSettings.getState().toggleWatchTag("yande", "Nagi");
+    assert.equal(useSettings.getState().toggleWatchTag("yande", "nagi"), "removed", "同词（大小写不敏感）再点即取消");
+    useSettings.getState().toggleWatchTag("yande", "Nagi"); // 重新加上
+    assert.equal(useSettings.getState().watchTags.length, 1);
+    useSettings.getState().setWatchTagSeen("yande", "Nagi", "42");
+    assert.equal(useSettings.getState().watchTags.find((t) => t.source === "yande")?.lastSeenId, "42");
+    // 满员守卫
+    const full = Array.from({ length: 30 }, (_, i) => ({ source: "pixiv" as const, tag: `t${i}`, addedAt: i }));
+    useSettings.setState({ watchTags: full });
+    assert.equal(useSettings.getState().toggleWatchTag("pixiv", "新词"), "full");
+    assert.equal(useSettings.getState().watchTags.length, 30, "满员不进列");
+  } finally {
+    useSettings.setState({ watchTags: before });
+  }
+});

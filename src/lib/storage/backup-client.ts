@@ -13,6 +13,7 @@ import {
   parseBackupSettings,
   parseCatalog,
   parseVaultRecords,
+  preserveClientVaultFields,
   type BackupFile,
   type BackupSettings,
 } from "./backup.ts";
@@ -20,7 +21,7 @@ import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from 
 import { useSettings } from "../store.ts";
 import { useTagCatalog } from "../tag-catalog.ts";
 import { parseTagLexicon, useTagLexicon } from "../tag-lexicon.ts";
-import { downloadBlob, listVault, putVaultMeta } from "./vault.ts";
+import { downloadBlob, getVaultMeta, listVault, putVaultMeta } from "./vault.ts";
 import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
 import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
 import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "../view-history.ts";
@@ -53,6 +54,8 @@ export function snapshotSettings(): BackupSettings {
     smartFolders: s.smartFolders,
     watchArtists: s.watchArtists,
     watchLimit: s.watchLimit,
+    // 标签订阅（v14）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+    watchTags: s.watchTags,
     accounts: s.accounts,
     activeAccountId: s.activeAccountId,
     theme: s.theme,
@@ -127,6 +130,8 @@ export async function applySegment(
     const hasField = (k: string) => Object.prototype.hasOwnProperty.call(raw, k);
     if (!hasField("smartFolders") && local.smartFolders.length > 0) settings.smartFolders = local.smartFolders;
     if (!hasField("watchArtists") && local.watchArtists.length > 0) settings.watchArtists = local.watchArtists;
+    // 标签订阅（v14）：旧远端载荷不含 watchTags，parse 默认空表会把本地整份抹掉
+    if (!hasField("watchTags") && local.watchTags.length > 0) settings.watchTags = local.watchTags;
     if (!hasField("tagAliases") && Object.keys(local.tagAliases).length > 0) settings.tagAliases = local.tagAliases;
     if (!hasField("authorAliases") && Object.keys(local.authorAliases).length > 0) settings.authorAliases = local.authorAliases;
     useSettings.setState({ ...settings });
@@ -146,7 +151,10 @@ export async function applySegment(
   }
   if (segment === "vault") {
     for (const item of parseVaultRecords(Array.isArray(data) ? data : [])) {
-      await putVaultMeta(item);
+      // 客户端先行字段（aiType/xRestrict/rating）服务端行不携带：写入前并本地，
+      // 否则远端目录段同步一次就把分级/AI 标记清空（mergeVaultRecords 同款守卫）
+      const local = await getVaultMeta(item.key);
+      await putVaultMeta(preserveClientVaultFields(item, local));
       rememberVaultKey(item.source, item.id);
       await pushVaultMetaToServer(item);
     }

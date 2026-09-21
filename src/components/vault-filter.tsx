@@ -221,29 +221,33 @@ export function VaultFilterBody({
         <MonthPicker value={value.month} onChange={(month) => onChange({ ...value, month })} />
       </section>
 
-      {showUnread || showRecall ? (
-        <section className="space-y-2">
-          <p className="text-xs text-subtle">在匣里</p>
-          <div className="flex flex-wrap items-center gap-2">
-            {showUnread ? (
-              <FilterChip
-                active={value.unreadOnly}
-                onClick={() => onChange({ ...value, unreadOnly: !value.unreadOnly })}
-              >
-                未读
-              </FilterChip>
-            ) : null}
-            {showRecall ? (
-              <FilterChip
-                active={value.recallOnly}
-                onClick={() => onChange({ ...value, recallOnly: !value.recallOnly })}
-              >
-                今日去年
-              </FilterChip>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+      <section className="space-y-2">
+        <p className="text-xs text-subtle">在匣里</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {showUnread ? (
+            <FilterChip
+              active={value.unreadOnly}
+              onClick={() => onChange({ ...value, unreadOnly: !value.unreadOnly })}
+            >
+              未读
+            </FilterChip>
+          ) : null}
+          {showRecall ? (
+            <FilterChip
+              active={value.recallOnly}
+              onClick={() => onChange({ ...value, recallOnly: !value.recallOnly })}
+            >
+              今日去年
+            </FilterChip>
+          ) : null}
+          <FilterChip active={value.ai} onClick={() => onChange({ ...value, ai: !value.ai })}>
+            AI 作画
+          </FilterChip>
+          <FilterChip active={value.r18} onClick={() => onChange({ ...value, r18: !value.r18 })}>
+            R-18
+          </FilterChip>
+        </div>
+      </section>
 
       <button
         type="button"

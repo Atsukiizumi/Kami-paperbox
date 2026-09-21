@@ -196,3 +196,44 @@ test("mergeVaultItems：本地覆盖优先——本地 tag 编辑不被远端刷
   const localOnly = [item({ key: "k", title: "t", author: "a" })];
   assert.equal(mergeVaultItems(localOnly, []), localOnly);
 });
+
+// ── AI / R-18 筛选 + 客户端先行字段合并守卫（09-21-tag-watch-vault-filter）────
+
+test("filterVaultItems ai 笺：aiType 命中、旧藏品按标签词表兜底、false 排除", () => {
+  const items = [
+    item({ key: "pixiv:1", title: "AI 字段", author: "a", aiType: 2 }),
+    item({ key: "pixiv:2", title: "AI 标签兜底", author: "a", tags: ["AI生成"] }),
+    item({ key: "pixiv:3", title: "人类画师", author: "a", tags: ["オリジナル"] }),
+  ];
+  const aiOnly = filterVaultItems(items, { ai: true });
+  assert.deepEqual(aiOnly.map((x) => x.key), ["pixiv:1", "pixiv:2"]);
+  const noAi = filterVaultItems(items, { ai: false });
+  assert.deepEqual(noAi.map((x) => x.key), ["pixiv:3"]);
+  assert.equal(filterVaultItems(items, {}).length, 3, "undefined 不过滤");
+});
+
+test("filterVaultItems r18 笺：xRestrict / booru rating 命中，旧藏品未知不出现在 R-18 侧", () => {
+  const items = [
+    item({ key: "pixiv:1", title: "pixiv R18", author: "a", xRestrict: 1 }),
+    item({ key: "pixiv:2", title: "pixiv R18G", author: "a", xRestrict: 2 }),
+    item({ key: "yande:3", title: "booru e", author: "a", source: "yande", rating: "e" }),
+    item({ key: "yande:4", title: "booru s", author: "a", source: "yande", rating: "s" }),
+    item({ key: "pixiv:5", title: "旧藏品（无字段）", author: "a" }),
+  ];
+  const r18 = filterVaultItems(items, { r18: true });
+  assert.deepEqual(r18.map((x) => x.key), ["pixiv:1", "pixiv:2", "yande:3"]);
+  const safe = filterVaultItems(items, { r18: false });
+  assert.deepEqual(safe.map((x) => x.key), ["yande:4", "pixiv:5"], "未知按非 R-18 保留在排除侧");
+});
+
+test("mergeVaultItems 客户端先行三字段：远端行缺字段保留本地", () => {
+  const remote = [item({ key: "pixiv:1", title: "远端", author: "a", hasFile: true })];
+  const local = [
+    item({ key: "pixiv:1", title: "本地", author: "a", aiType: 2, xRestrict: 1, rating: "e" }),
+  ];
+  const hit = mergeVaultItems(local, remote).find((m) => m.key === "pixiv:1")!;
+  assert.equal(hit.aiType, 2, "AI 标记不被远端行清空");
+  assert.equal(hit.xRestrict, 1, "分级不被远端行清空");
+  assert.equal(hit.rating, "e", "rating 不被远端行清空");
+  assert.equal(hit.hasFile, true, "哨兵语义保持：远端给明确值以远端为准");
+});

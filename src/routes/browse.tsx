@@ -21,6 +21,7 @@ import { SearchSuggest } from "@/components/search-suggest";
 import { PixivSearchFilter } from "@/components/pixiv-search-filter";
 import { AiFilterSwitch } from "@/components/ai-filter-switch";
 import { R18Switch } from "@/components/r18-switch";
+import { Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/date-picker";
@@ -42,6 +43,7 @@ import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/sync/browser-lo
 import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "@/lib/booru";
 import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/storage/ranking-archive";
 import { isBooru, siteLabel } from "@/lib/sites";
+import { isTagWatchSource } from "@/lib/watch";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import type { FanboxCursor, FetchOk, Source, WorkCard } from "@/lib/types";
 import {
@@ -93,6 +95,7 @@ export function Home() {
   const setBrowseQuery = useSettings((s) => s.setBrowseQuery);
   const savedTags = useSettings((s) => s.savedTags[tab] ?? []);
   const toggleSavedTag = useSettings((s) => s.toggleSavedTag);
+  const toggleWatchTag = useSettings((s) => s.toggleWatchTag);
 
   useEffect(() => {
     setSearchWord("");
@@ -535,6 +538,21 @@ export function Home() {
             <Clipboard className="size-4" />
             粘贴
           </Button>
+          {searchWord && isTagWatchSource(tab) ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const res = toggleWatchTag(tab, searchWord);
+                if (res === "added") toast.success(`已订阅 ${siteLabel(tab)}「${searchWord}」，去追踪页看更新`);
+                else if (res === "full") toast.error("订阅已满 30 个");
+                else toast.info(`已取消订阅「${searchWord}」`);
+              }}
+            >
+              <Hash className="size-4" />
+              订阅
+            </Button>
+          ) : null}
           <Button type="submit">打开</Button>
         </div>
       </form>
