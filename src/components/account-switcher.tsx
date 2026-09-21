@@ -20,6 +20,7 @@ import { authEnabled, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { fanboxSessionFrom, isPixivLoggedInSession } from "@/lib/sync/browser-login";
 import { useSettings } from "@/lib/store";
+import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 import {
@@ -39,6 +40,7 @@ export function AccountSwitcher() {
 /** 应用账号形态：登录状态 + 登录入口 + 本机绑定的图站账号切换。 */
 function AppAccountMenu() {
   const { user, isPending } = useCurrentUserState();
+  const hydrated = useHydrated();
   const signedIn = Boolean(user && !user.isDevFallback);
   const [signInOpen, setSignInOpen] = useState(false);
 
@@ -56,7 +58,11 @@ function AppAccountMenu() {
           <UserRound className="size-4" />
           <span className="hidden flex-col items-start leading-tight sm:flex">
             <span className="text-fg">登录</span>
-            <span className="text-[10px] text-subtle">{isPending ? "读取中…" : "应用账号"}</span>
+            {/* 水合首帧固定「读取中…」与 SSR 同帧：get-session 若跑赢水合，
+                isPending 分支文本会跨边界翻成「应用账号」触发 hydration error */}
+            <span className="text-[10px] text-subtle">
+              {!hydrated || isPending ? "读取中…" : "应用账号"}
+            </span>
           </span>
         </button>
         <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
