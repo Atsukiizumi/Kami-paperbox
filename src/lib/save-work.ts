@@ -8,11 +8,16 @@
 import { unzipUgoira } from "./ugoira-zip.ts";
 import { extFromNameOrType } from "./ugoira-meta.ts";
 import { mediaUrl } from "./utils.ts";
+import { createSemaphore } from "./semaphore.ts";
 import type { WorkDetail, WorkPage } from "./types.ts";
 
 // TD-29：单页抖动（网络断闪 / 5xx / 429）不再让整单失败——重试 2 次、递增等待。
 // 服务端媒体代理对 429/503 已有自己的重试，这里兜的是浏览器侧的网络层失败。
 const FETCH_BLOB_RETRIES = 2;
+
+// X1：多页并行下载的全局闸——同源在飞 ≤6（项并发 × 页并发的组合上限），
+// 模块级共享：上限是对源站的承诺，不是单个作品的私有预算。
+const PAGE_FETCH_GATE = createSemaphore(6);
 
 async function fetchBlob(url: string): Promise<Blob> {
   let lastErr: unknown = new Error("下载失败");
@@ -49,8 +54,8 @@ export async function collectWorkFiles(
     const zipBytes = new Uint8Array(await zipBlob.arrayBuffer());
     const frames = await unzipUgoira(zipBytes, work.ugoira.frames);
     try {
-      const { encodeUgoiraGif } = await import("./ugoira");
-      const gif = await encodeUgoiraGif(frames, {
+      const { encodeUgoiraGifViaWorker } = await import("./ugoira-encode");
+      const gif = await encodeUgoiraGifViaWorker(frames, {
         maxEdge: opts.original ? 1080 : 720,
         onProgress: opts.onProgress,
       });
@@ -82,17 +87,33 @@ export async function collectWorkFiles(
 
   const pages = work.pages.filter((p) => p.original || p.regular);
   if (pages.length === 0) throw new Error("没有可保存的文件");
-  const saved: { blob: Blob; page: WorkPage }[] = [];
-  for (let i = 0; i < pages.length; i += 1) {
-    const page = pages[i];
-    const url = opts.original ? page.original || page.regular : page.regular || page.original;
-    const blob = await fetchBlob(url);
-    const ext = extFromNameOrType(page.name, blob.type);
-    saved.push({
-      blob,
-      page: { ...page, name: page.name || `${work.id}_p${i}.${ext}` },
-    });
-    opts.onProgress?.(i + 1, pages.length);
-  }
+  // X1：页任务并行过闸（≤6 在飞），结果按索引回填保证文件顺序；单页终败
+  // 带页号定位（不跳页——残缺本子比失败更糟，队列层重试兜底）。
+  const saved: { blob: Blob; page: WorkPage }[] = new Array(pages.length);
+  let done = 0;
+  await Promise.all(
+    pages.map(async (page, i) => {
+      const release = await PAGE_FETCH_GATE.acquire();
+      try {
+        const url = opts.original ? page.original || page.regular : page.regular || page.original;
+        let blob: Blob;
+        try {
+          blob = await fetchBlob(url);
+        } catch (err) {
+          const why = err instanceof Error ? err.message : "下载失败";
+          throw new Error(`第 ${i + 1}/${pages.length} 页：${why}`);
+        }
+        const ext = extFromNameOrType(page.name, blob.type);
+        saved[i] = {
+          blob,
+          page: { ...page, name: page.name || `${work.id}_p${i}.${ext}` },
+        };
+        done += 1;
+        opts.onProgress?.(done, pages.length);
+      } finally {
+        release();
+      }
+    }),
+  );
   return saved;
 }
