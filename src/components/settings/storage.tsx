@@ -343,6 +343,49 @@ export function StorageSection() {
     </Card>
     <AuthorTidyCard />
     <TagTidyCard />
+    <AboutCard />
     </>
+  );
+}
+
+// ── 关于 / 版本（D1，09-22-batch3-download-deploy）───────────────────────────
+
+function AboutCard() {
+  const [info, setInfo] = useState<{ current: string; latest?: string; hasUpdate: boolean } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch("/api/version")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (alive && data?.ok) setInfo({ current: data.current, latest: data.latest, hasUpdate: data.hasUpdate });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>关于</CardTitle>
+        <CardDescription>
+          当前版本 {info?.current ?? "…"}
+          {info?.latest && !info.hasUpdate ? ` · 已是最新（${info.latest}）` : ""}
+        </CardDescription>
+      </CardHeader>
+      {info?.hasUpdate && info.latest ? (
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="kami-slip">有新版本 {info.latest}</span>
+            <span className="text-xs text-subtle">Docker 形态升级：</span>
+          </div>
+          <code className="block rounded-md bg-elevated px-2 py-1 text-xs text-fg">
+            docker compose pull && docker compose up -d
+          </code>
+        </CardContent>
+      ) : null}
+    </Card>
   );
 }

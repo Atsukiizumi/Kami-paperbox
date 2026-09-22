@@ -1,4 +1,16 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
+
+// 版本注入（D1）：优先 CI/镜像构建的 KAMI_VERSION env（docker-release 从 tag
+// 注入），本地回退 git describe，都没有（干净 source 包）就是 "dev"。
+function resolveKamiVersion(): string {
+  if (process.env.KAMI_VERSION) return process.env.KAMI_VERSION;
+  try {
+    return execSync("git describe --tags --always", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "dev";
+  }
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -11,6 +23,7 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   env: {
     VITE_AUTH_ENABLED: process.env.VITE_AUTH_ENABLED ?? "",
+    KAMI_VERSION: resolveKamiVersion(),
   },
 };
 

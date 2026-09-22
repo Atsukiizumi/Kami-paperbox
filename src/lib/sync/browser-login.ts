@@ -236,7 +236,7 @@ export function canShowLoginWindow(
   platform = process.platform,
   env: Record<string, string | undefined> = process.env,
 ): boolean {
-  if (env.GROK_AGENT || env.GROK_SESSION_ID || env.VERCEL || env.K_SERVICE) return false;
+  if (env.GROK_AGENT || env.GROK_SESSION_ID || env.K_SERVICE) return false;
   if (platform === "win32" || platform === "darwin") return true;
   return Boolean(
     (env.DISPLAY?.trim() || env.WAYLAND_DISPLAY?.trim()) &&
