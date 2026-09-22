@@ -1,9 +1,9 @@
 # GHCR 镜像自动构建（M5 / docs/06 §6.4#5）——docker compose 一键升级的镜像源。
 #
 # main push → latest + sha-<short>；v* tag → 原样 tag + latest。构建输入与
-# ci.yml 的 docker job 逐字对齐（context `.`、gha 缓存、不传 target 与
-# build-args——Dockerfile 的默认值即应用形态），只多 push: true；登录用
-# GITHUB_TOKEN + packages:write，零新密钥。
+# ci.yml 的 docker job 对齐（context `.`、gha 缓存、不传 target），只多
+# push: true 与 KAMI_VERSION build-arg（D1 版本注入，ci 不发版不需要）；
+# 登录用 GITHUB_TOKEN + packages:write，零新密钥。
 #
 # 注意：首次发布后 GHCR 包默认 PRIVATE——compose pull 之前，维护者要么在
 # GitHub → Packages → kami-paperbox 包设置里改成 public，要么本机
