@@ -41,6 +41,27 @@ test("dev 形态不提示升级；latest 与 current 相同不提示", async () 
   }
 });
 
+test("不可比/不旧的形态不误报：sha- 镜像与「latest 之后」的 describe", async () => {
+  // CI main 推送镜像（compose 默认 :latest 的来源）：与 tag 无序，永不提示
+  process.env.KAMI_VERSION = "sha-838abaef2a927";
+  try {
+    const shaBuild = await probeVersion(okTags);
+    assert.equal(shaBuild.hasUpdate, false, "sha- 形态不可比不提示");
+    resetVersionProbeCache();
+    // git describe 的「tag-N-g<sha>」= HEAD 在 latest tag 之后，不比 latest 旧
+    process.env.KAMI_VERSION = "v9.9.9-3-g838abae";
+    const afterTag = await probeVersion(okTags);
+    assert.equal(afterTag.hasUpdate, false, "describe 在 tag 之后不提示");
+    resetVersionProbeCache();
+    // 真·旧 tag 钉住的镜像照常提示
+    process.env.KAMI_VERSION = "v0.10.3";
+    const older = await probeVersion(okTags);
+    assert.equal(older.hasUpdate, true, "旧 tag 仍提示升级");
+  } finally {
+    delete process.env.KAMI_VERSION;
+  }
+});
+
 test("探测失败/非 2xx → latest 缺席静默降级；24h 缓存内二次调用不打上游", async () => {
   let calls = 0;
   const failing = (async () => {

@@ -21,7 +21,7 @@
 | 浏览器 | IndexedDB `meta` + `blobs` | 同一份元数据 + Blob | 清站点数据会丢缓存；Node 目录还在 |
 | 用户文件夹 | 设置里选的目录 | 按 `{author}/{date}/…` 规则镜像 | 只影响那份拷贝 |
 
-`pnpm dev` / `pnpm start` 就是这台 Node 服务器。Docker 把 `.data` 做成数据卷。Vercel 不能写磁盘，收入时自动只用 IndexedDB。
+`pnpm dev` / `pnpm start` 就是这台 Node 服务器。Docker 把 `.data` 做成数据卷。只读盘环境（如 serverless）不能写磁盘，收入时自动只用 IndexedDB。
 
 Next 服务端缓存（跟你从哪个 IP 打开无关，key 不是 `http://192.168.x.x`）：
 

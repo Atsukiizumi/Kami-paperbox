@@ -56,6 +56,7 @@ test("多页并行：在飞峰值 >1（真并行）且顺序稳定、进度达�
       "结果按索引回填，文件顺序不乱",
     );
     assert.ok(stub.state.peak > 1, `应有并行（峰值 ${stub.state.peak}）`);
+    assert.ok(stub.state.peak <= 6, `同源在飞上限 6（实测峰值 ${stub.state.peak}）`);
     assert.equal(progress.at(-1)?.[1], 8);
     assert.equal(progress.length, 8, "每页完成各回调一次");
   } finally {

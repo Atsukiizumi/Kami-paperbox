@@ -372,7 +372,10 @@ function AboutCard() {
         <CardTitle>关于</CardTitle>
         <CardDescription>
           当前版本 {info?.current ?? "…"}
-          {info?.latest && !info.hasUpdate ? ` · 已是最新（${info.latest}）` : ""}
+          {/* 「已是最新」只在可比较且不旧时说：dev / sha- 形态只报版本号本身 */}
+          {info?.latest && !info.hasUpdate && info.current !== "dev" && !info.current.startsWith("sha-")
+            ? ` · 已是最新（${info.latest}）`
+            : ""}
         </CardDescription>
       </CardHeader>
       {info?.hasUpdate && info.latest ? (

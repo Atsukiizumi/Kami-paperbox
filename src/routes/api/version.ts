@@ -43,8 +43,13 @@ export async function probeVersion(fetchImpl: typeof fetch = fetch) {
     cache = { latest: await probeLatestTag(fetchImpl), checkedAt: Date.now() };
   }
   const latest = cache.latest;
-  // dev/无版本形态不提示升级（没有可比对象）；latest 缺席（私有仓/断网）同样不提示
-  const hasUpdate = Boolean(latest && current !== "dev" && latest !== current);
+  // 升级提示只在「确定更旧」时报，不可比形态一律不提示（防误报）：
+  // - dev/无版本：没有可比对象；latest 缺席（私有仓/断网）同样不提示；
+  // - sha- 前缀：CI main 推送镜像（compose 默认 :latest 的来源），领先任何 tag，
+  //   与 tag 串无序可比较，提示了也只会永远亮着；
+  // - current 以 latest 开头：tag 精确命中，或 git describe 的「tag-N-g<sha>」
+  //   （HEAD 在 latest 之后）——两种都是不旧于 latest。
+  const hasUpdate = Boolean(latest && current !== "dev" && !current.startsWith("sha-") && !current.startsWith(latest));
   return { current, latest, hasUpdate, checkedAt: cache.checkedAt };
 }
 
