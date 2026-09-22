@@ -23,6 +23,7 @@ import { sleep } from "./utils.ts";
 import { extFromNameOrType } from "./ugoira-meta.ts";
 import { isBooru } from "./sites.ts";
 import { clampQueueConcurrency, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry } from "./queue-retry.ts";
+import { effectiveConcurrency, noteRateLimit, rateLimitError } from "./queue-throttle.ts";
 import type { QueueItem, QueueKind, Source, WorkDetail } from "./types.ts";
 
 const RUNNER_LOCK = "kami-queue-runner";
@@ -99,6 +100,8 @@ async function processOne(key: string) {
     useQueue.getState().patch(key, { status: "done", progress: 1, total: 1, attempts: undefined, nextRetryAt: undefined });
   } catch (err) {
     const message = err instanceof Error ? err.message : "保存失败";
+    // X4：限速类失败全局降档冷却（worker 下波取件时生效）
+    if (rateLimitError(message)) noteRateLimit();
     const attempts = (item.attempts ?? 0) + 1;
     if (attempts < MAX_QUEUE_ATTEMPTS && queueShouldRetry(message)) {
       // 指数退避：立即回到排队态但挂 nextRetryAt，worker 到点才取
@@ -134,7 +137,8 @@ async function pumpWave(): Promise<boolean> {
   let active = 0;
   return new Promise((resolve) => {
     const tryStart = () => {
-      const cap = clampQueueConcurrency(useSettings.getState().queueConcurrency);
+      // X4：冷却期内并发降 2 档（下限 1），到期自动恢复设置值
+      const cap = effectiveConcurrency(clampQueueConcurrency(useSettings.getState().queueConcurrency));
       while (active < cap) {
         const key = nextReadyKey();
         if (!key) break;

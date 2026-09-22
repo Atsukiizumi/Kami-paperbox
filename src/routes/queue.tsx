@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { EmptySheet } from "@/components/empty-sheet";
 import { runQueue } from "@/lib/queue-runner";
+import { classifyQueueError, QUEUE_ERROR_KIND_LABEL, retryableKeys, type QueueErrorKind } from "@/lib/queue-retry";
 import { useQueue } from "@/lib/store";
 import type { QueueItem } from "@/lib/types";
 
@@ -37,6 +38,23 @@ export function QueuePage() {
   const clearAll = useQueue((s) => s.clearAll);
   const patch = useQueue((s) => s.patch);
 
+  // X2：失败分类汇总 + 一键重试全部失败（用户态判死项不回炉）
+  const failed = items.filter((x) => x.status === "error");
+  const failedKinds = failed.reduce<Map<QueueErrorKind, number>>((map, x) => {
+    const kind = classifyQueueError(x.error ?? "");
+    map.set(kind, (map.get(kind) ?? 0) + 1);
+    return map;
+  }, new Map());
+  const retryKeys = retryableKeys(items);
+  const deadCount = failed.length - retryKeys.length;
+
+  function retryAllFailed() {
+    for (const key of retryKeys) {
+      patch(key, { status: "queued", error: undefined, progress: 0, attempts: 0, nextRetryAt: undefined });
+    }
+    void runQueue();
+  }
+
   return (
     <div className="space-y-5">
       <header className="flex items-end justify-between gap-3">
@@ -53,6 +71,25 @@ export function QueuePage() {
           </Button>
         </div>
       </header>
+      {failed.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-elevated/60 p-3">
+          <span className="text-sm text-muted">失败 {failed.length} 项：</span>
+          {[...failedKinds.entries()].map(([kind, n]) => (
+            <span key={kind} className="rounded-full bg-bg px-2.5 py-0.5 text-xs text-muted">
+              {QUEUE_ERROR_KIND_LABEL[kind]} ×{n}
+            </span>
+          ))}
+          {retryKeys.length > 0 ? (
+            <Button size="sm" variant="secondary" className="ml-auto" onClick={retryAllFailed}>
+              <RotateCcw className="size-4" />
+              重试全部失败（{retryKeys.length}）
+            </Button>
+          ) : null}
+          {deadCount > 0 ? (
+            <span className="text-xs text-subtle">{deadCount} 项不可自动重试（需登录 / 内容不可用）</span>
+          ) : null}
+        </div>
+      ) : null}
       {items.length === 0 ? (
         <EmptySheet title="队列是空的" hint="点「下载」或「收入纸匣」都会进这里，并显示进度。" />
       ) : (

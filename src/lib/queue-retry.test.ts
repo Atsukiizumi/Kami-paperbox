@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clampQueueConcurrency, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry } from "./queue-retry.ts";
+import { clampQueueConcurrency, classifyQueueError, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry, retryableKeys } from "./queue-retry.ts";
 
 test("backoff grows exponentially and caps at 30s", () => {
   assert.equal(queueBackoffMs(1), 4_000);
@@ -32,4 +32,32 @@ test("concurrency clamps to 1..4 integers", () => {
   assert.equal(clampQueueConcurrency(undefined), 1);
   assert.equal(clampQueueConcurrency("3"), 1);
   assert.ok(MAX_QUEUE_ATTEMPTS >= 2);
+});
+
+// ── X2：失败分类与批量重试 ───────────────────────────────────────────────────
+
+test("classifyQueueError 五类边界", () => {
+  assert.equal(classifyQueueError("第 3/40 页：下载失败（429）"), "rate-limit");
+  assert.equal(classifyQueueError("上游风控，稍后再试"), "rate-limit");
+  assert.equal(classifyQueueError("先在设置里添加 Pixiv 账号"), "other", "不含「需要登录」字样");
+  assert.equal(classifyQueueError("需要登录 Pixiv 才能查看"), "auth");
+  assert.equal(classifyQueueError("需要有效订阅才能保存这篇投稿"), "auth");
+  assert.equal(classifyQueueError("该投稿需要订阅"), "auth");
+  assert.equal(classifyQueueError("内容不可用"), "unavailable");
+  assert.equal(classifyQueueError("返回类型异常"), "unavailable");
+  assert.equal(classifyQueueError("下载失败（fetch failed）"), "network");
+  assert.equal(classifyQueueError("Pixiv 请求失败（502）"), "network");
+  assert.equal(classifyQueueError("别的什么"), "other");
+});
+
+test("retryableKeys：只回炉可重试的失败项", () => {
+  const items = [
+    { key: "a", status: "error", error: "第 2/5 页：下载失败（429）" },
+    { key: "b", status: "error", error: "需要登录 Pixiv" },
+    { key: "c", status: "error", error: "网络断了" },
+    { key: "d", status: "done" },
+    { key: "e", status: "queued" },
+    { key: "f", status: "error", error: undefined },
+  ];
+  assert.deepEqual(retryableKeys(items), ["a", "c"]);
 });
