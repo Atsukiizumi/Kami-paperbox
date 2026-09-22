@@ -75,3 +75,21 @@ test("单页终败：错误带页号（第 i/N 页），不吞其他页定位", 
     stub.restore();
   }
 });
+
+test("F3 僵尸页短路：首页终败后排队页不再打上游、进度不被污染", async () => {
+  const stub = stubFetch({ delayMs: 30, failOn: "o0" });
+  // stubFetch 的 failOn 是 URL 含即失败（立即 403）；其余页 30ms 成功
+  try {
+    const progress: number[] = [];
+    await assert.rejects(
+      collectWorkFiles(workOf(12), { original: true, onProgress: (d) => progress.push(d) }),
+      /第 1\/12 页/,
+    );
+    assert.ok(stub.state.calls <= 7, `排队页应被短路（实际打上游 ${stub.state.calls} 次）`);
+    assert.equal(stub.state.calls >= 6, true, "闸内已起飞的页照常完成");
+    // 首页 403 立即失败，竞态下成功页可能已完成 0~几页才看到 failed——进度只少不多
+    assert.ok(progress.length <= 6, `终败后不应继续推进度（实际 ${progress.length} 次）`);
+  } finally {
+    stub.restore();
+  }
+});

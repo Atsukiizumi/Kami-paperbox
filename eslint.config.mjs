@@ -15,6 +15,9 @@ export default tseslint.config(
       ".next/**",
       ".vercel/**",
       "node_modules/**",
+      // 动态工作流的运行时快照/脚本产物（编排生成的 .mjs，非手写源码）
+      ".zcode/workflow-runs/**",
+      ".zcode/workflow-drafts/**",
     ],
   },
   js.configs.recommended,

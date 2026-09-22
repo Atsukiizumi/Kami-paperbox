@@ -7,6 +7,30 @@
  */
 import { GIFEncoder, applyPalette, quantize } from "gifenc/dist/gifenc.esm.js";
 
+/**
+ * 双作用域画布（F1，第三波审查热修）：Worker 里没有 document（DOM 不进
+ * worker），动图合成必须走 OffscreenCanvas 才能真出主线程；主线程保持原
+ * canvas 路径。两个 ctx 的 drawImage/getImageData 成员同形，TS 以联合类型表达。
+ */
+export function createCanvas2D(
+  width: number,
+  height: number,
+): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D {
+  if (typeof document === "undefined") {
+    if (typeof OffscreenCanvas === "undefined") throw new Error("无可用画布（既无 document 也无 OffscreenCanvas）");
+    const off = new OffscreenCanvas(width, height);
+    const ctx = off.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("无法创建画布");
+    return ctx as OffscreenCanvasRenderingContext2D;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("无法创建画布");
+  return ctx;
+}
+
 export async function encodeUgoiraGif(
   frames: { delay: number; bytes: Uint8Array }[],
   opts: { maxEdge: number; onProgress?: (done: number, total: number) => void },
@@ -18,11 +42,7 @@ export async function encodeUgoiraGif(
   const height = Math.max(1, Math.round(probe.height * scale));
   probe.close();
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("无法创建画布");
+  const ctx = createCanvas2D(width, height);
 
   const gif = GIFEncoder();
   for (let i = 0; i < frames.length; i += 1) {

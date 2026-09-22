@@ -6,7 +6,9 @@
  */
 export const MAX_QUEUE_ATTEMPTS = 3;
 
-const NO_RETRY_PATTERN = /需要登录|需要有效订阅|需要订阅|不可用|被隐藏|返回类型异常|未知站点/;
+// F6：与 classifyQueueError 的 unavailable 口径对齐——「不存在」（已删除作品）
+// 是真实可达错误串，判死可重试集会把它白跑 3 次。
+const NO_RETRY_PATTERN = /需要登录|需要有效订阅|需要订阅|不可用|被隐藏|返回类型异常|未知站点|不存在/;
 
 export function queueShouldRetry(message: string): boolean {
   return !NO_RETRY_PATTERN.test(message);

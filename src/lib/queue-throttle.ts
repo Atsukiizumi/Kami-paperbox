@@ -29,3 +29,25 @@ export function effectiveConcurrency(setting: number, now = Date.now()): number 
 export function resetRateLimitCoolDown(): void {
   coolDownUntil = 0;
 }
+
+/** 当前冷却截止时间（只读 getter）。 */
+export function coolDownDeadline(now = Date.now()): number {
+  return coolDownUntil > now ? coolDownUntil : 0;
+}
+
+/**
+ * F4：条目重试等待。限速类错误对齐冷却截止（取 max(退避, 冷却剩余 + 1s)）——
+ * 否则 3 次重试预算（4s/8s/16s ≈ 28s 烧完）撑不到 90s 冷却结束，条目在
+ * 降档恢复前就批量判死，X4 退化为靠手动重试兜底。
+ */
+export function queueRetryDelayMs(
+  message: string,
+  attempts: number,
+  now = Date.now(),
+  backoffMs: (attempts: number) => number,
+): number {
+  const backoff = backoffMs(attempts);
+  if (!rateLimitError(message)) return backoff;
+  const remain = coolDownUntil - now;
+  return remain > 0 ? Math.max(backoff, remain + 1_000) : backoff;
+}

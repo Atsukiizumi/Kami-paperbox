@@ -91,16 +91,22 @@ export async function collectWorkFiles(
   // 带页号定位（不跳页——残缺本子比失败更糟，队列层重试兜底）。
   const saved: { blob: Blob; page: WorkPage }[] = new Array(pages.length);
   let done = 0;
+  // F3（第三波审查热修）：失败短路——任一页终败后，仍在排队的页取得闸位即取消，
+  // 不再打上游（旧串行版失败即停，并行版不短路就成了整本僵尸重下：百页作品坏 1 页
+  // = 每次尝试白下整本，还抢在飞闸位、污染重试进度显示）。
+  let failed = false;
   await Promise.all(
     pages.map(async (page, i) => {
       const release = await PAGE_FETCH_GATE.acquire();
       try {
+        if (failed) throw new Error(`第 ${i + 1}/${pages.length} 页：同作品其他页失败，本页已取消`);
         const url = opts.original ? page.original || page.regular : page.regular || page.original;
         let blob: Blob;
         try {
           blob = await fetchBlob(url);
         } catch (err) {
           const why = err instanceof Error ? err.message : "下载失败";
+          failed = true;
           throw new Error(`第 ${i + 1}/${pages.length} 页：${why}`);
         }
         const ext = extFromNameOrType(page.name, blob.type);
@@ -108,6 +114,7 @@ export async function collectWorkFiles(
           blob,
           page: { ...page, name: page.name || `${work.id}_p${i}.${ext}` },
         };
+        if (failed) return; // 并发竞态兜底：其他页刚失败，本页结果不推进度
         done += 1;
         opts.onProgress?.(done, pages.length);
       } finally {
