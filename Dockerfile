@@ -7,7 +7,7 @@
 # Kami 纸匣 — Next.js standalone（node:24 = Active LTS，CI setup-node 同步）
 # docker compose up --build
 
-FROM node:24-bookworm-slim AS build
+FROM node:24.21.0-bookworm-slim AS build
 WORKDIR /app
 
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
@@ -31,7 +31,7 @@ ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
-FROM node:24-bookworm-slim AS runner
+FROM node:24.21.0-bookworm-slim AS runner
 ARG KAMI_VERSION=dev
 ENV KAMI_VERSION=${KAMI_VERSION}
 WORKDIR /app
