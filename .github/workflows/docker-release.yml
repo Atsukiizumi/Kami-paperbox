@@ -48,6 +48,9 @@ jobs:
         with:
           context: .
           push: true
+          # D1：tag 构建注入版本（/api/version 的 current）；非 tag 构建用 sha
+          build-args: |
+            KAMI_VERSION=${{ github.ref_type == 'tag' && github.ref_name || format('sha-{0}', github.sha) }}
           tags: ${{ steps.image-tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

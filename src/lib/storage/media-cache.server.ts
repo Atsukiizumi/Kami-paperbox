@@ -112,7 +112,7 @@ export function writeCachedMedia(
     writeFileSync(bin, bytes);
     writeFileSync(meta, JSON.stringify({ type: type || "application/octet-stream", at: opts?.now ?? Date.now() }));
   } catch {
-    /* Vercel / 只读盘：忽略 */
+    /* 只读盘环境：忽略 */
   }
   noteCacheWrite("media", root);
 }

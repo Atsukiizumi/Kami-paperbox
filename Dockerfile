@@ -8,6 +8,9 @@
 # docker compose up --build
 
 FROM node:24-bookworm-slim AS build
+# D1：CI 从 git tag 注入版本；本地 build 回退 dev（next.config 再回退 git describe）
+ARG KAMI_VERSION=dev
+ENV KAMI_VERSION=${KAMI_VERSION}
 WORKDIR /app
 
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
@@ -26,6 +29,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
 FROM node:24-bookworm-slim AS runner
+ARG KAMI_VERSION=dev
+ENV KAMI_VERSION=${KAMI_VERSION}
 WORKDIR /app
 
 RUN apt-get update \
