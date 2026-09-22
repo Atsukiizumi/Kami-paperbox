@@ -23,7 +23,7 @@ import { sleep } from "./utils.ts";
 import { extFromNameOrType } from "./ugoira-meta.ts";
 import { isBooru } from "./sites.ts";
 import { clampQueueConcurrency, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry } from "./queue-retry.ts";
-import { effectiveConcurrency, noteRateLimit, rateLimitError } from "./queue-throttle.ts";
+import { effectiveConcurrency, noteRateLimit, queueRetryDelayMs, rateLimitError } from "./queue-throttle.ts";
 import type { QueueItem, QueueKind, Source, WorkDetail } from "./types.ts";
 
 const RUNNER_LOCK = "kami-queue-runner";
@@ -104,8 +104,9 @@ async function processOne(key: string) {
     if (rateLimitError(message)) noteRateLimit();
     const attempts = (item.attempts ?? 0) + 1;
     if (attempts < MAX_QUEUE_ATTEMPTS && queueShouldRetry(message)) {
-      // 指数退避：立即回到排队态但挂 nextRetryAt，worker 到点才取
-      const backoff = queueBackoffMs(attempts);
+      // 指数退避：立即回到排队态但挂 nextRetryAt，worker 到点才取。
+      // F4：限速类错误退避对齐冷却截止——别在 90s 降档期内烧完重试预算。
+      const backoff = queueRetryDelayMs(message, attempts, Date.now(), queueBackoffMs);
       useQueue.getState().patch(key, { status: "queued", attempts, error: message, nextRetryAt: Date.now() + backoff });
       setTimeout(() => void runQueue(), backoff + 100);
       toast.info(`「${item.title}」失败，${Math.round(backoff / 1000)}s 后自动重试（${attempts}/${MAX_QUEUE_ATTEMPTS - 1}）`);

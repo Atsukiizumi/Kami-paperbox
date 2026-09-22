@@ -61,3 +61,26 @@ test("retryableKeys：只回炉可重试的失败项", () => {
   ];
   assert.deepEqual(retryableKeys(items), ["a", "c"]);
 });
+
+test("F6 一致性：classify 每类错误与 queueShouldRetry 期望对齐（不存在判死）", () => {
+  const samples: [string, ReturnType<typeof classifyQueueError>, boolean][] = [
+    ["第 3/40 页：下载失败（429）", "rate-limit", true],
+    ["上游风控", "rate-limit", true],
+    ["需要登录 Pixiv 才能查看", "auth", false],
+    ["需要有效订阅才能保存这篇投稿", "auth", false],
+    ["内容不可用", "unavailable", false],
+    ["作品不存在", "unavailable", false], // F6：上游真实错误串，判死不再白跑 3 次
+    ["合集不存在", "unavailable", false],
+    ["该投稿已被隐藏", "unavailable", false],
+    ["返回类型异常", "unavailable", false],
+    ["未知站点", "unavailable", false],
+    ["下载失败（fetch failed）", "network", true],
+    ["Pixiv 请求失败（502）", "network", true],
+    ["下载失败（403）", "network", true], // 4xx 非 429 历史上可重试（服务端代理层语义），保持
+    ["别的什么", "other", true],
+  ];
+  for (const [message, kind, shouldRetry] of samples) {
+    assert.equal(classifyQueueError(message), kind, `classify(${message})`);
+    assert.equal(queueShouldRetry(message), shouldRetry, `shouldRetry(${message})`);
+  }
+});

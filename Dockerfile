@@ -8,9 +8,6 @@
 # docker compose up --build
 
 FROM node:24-bookworm-slim AS build
-# D1：CI 从 git tag 注入版本；本地 build 回退 dev（next.config 再回退 git describe）
-ARG KAMI_VERSION=dev
-ENV KAMI_VERSION=${KAMI_VERSION}
 WORKDIR /app
 
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
@@ -18,6 +15,12 @@ ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
+
+# D1：CI 从 git tag 注入版本；本地 build 回退 dev（next.config 再回退 git describe）。
+# F5（第三波审查热修）：放在 install 之后——ARG 进层缓存键，放 install 前会让
+# 依赖层随每次版本号变化全量 miss（VITE_AUTH_ENABLED 的 ARG 就是这个正确位置）。
+ARG KAMI_VERSION=dev
+ENV KAMI_VERSION=${KAMI_VERSION}
 
 COPY . .
 ENV NODE_ENV=production
