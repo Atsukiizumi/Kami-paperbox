@@ -22,7 +22,8 @@ import {
 } from "@/lib/folder-access";
 import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
-import { isBackupOverdue } from "./backup-reminder";
+import { effectiveLastBackupAt, isBackupOverdue } from "./backup-reminder";
+import { CloudBackupCard } from "./cloud-backup";
 import { rescanFolderHashes } from "@/lib/storage/persist-files";
 import { backfillTargets, runVaultBackfill } from "@/lib/storage/vault-backfill";
 import { listVault } from "@/lib/storage/vault";
@@ -55,6 +56,8 @@ export function StorageSection() {
   const [usage, setUsage] = useState("");
   const [serverLine, setServerLine] = useState("");
   const [backfillCount, setBackfillCount] = useState<number | null>(null);
+  // 云备份最近成功时刻：与手动导出取更近者，30 天提醒据此安静（合流口径见 backup-reminder.ts）
+  const [cloudOkAt, setCloudOkAt] = useState<number | null>(null);
   const backfillCancel = useRef(false);
   const templateRef = useRef<HTMLInputElement>(null);
 
@@ -163,8 +166,9 @@ export function StorageSection() {
   const preview = formatDownloadPath(pathTemplate, SAMPLE_PATH_CONTEXT);
 
   // 备份提醒（M5）：分区每次打开都重挂载，取挂载时刻判定即可，不做定时器。
-  // 从未备份（null）不算超期，只给一行小字；口径见 backup-reminder.ts。
-  const backupOverdue = isBackupOverdue(lastBackupAt, Date.now());
+  // 从未备份（null）不算超期，只给一行小字；云备份成功与手动导出合流取更近者。
+  const effectiveBackupAt = effectiveLastBackupAt(lastBackupAt, cloudOkAt);
+  const backupOverdue = isBackupOverdue(effectiveBackupAt, Date.now());
 
   return (
     // 存储分区三张卡：主卡（文件夹/规则）+ 画师名称整理 + 标签整理（元数据层，不动文件）
@@ -189,8 +193,8 @@ export function StorageSection() {
           </a>
         </div>
       ) : null}
-      {lastBackupAt === null ? (
-        <p className="text-xs text-subtle">尚未备份过。换浏览器或清站点数据前，先到「备份」导出一份。</p>
+      {effectiveBackupAt === null ? (
+        <p className="text-xs text-subtle">尚未备份过。换浏览器或清站点数据前，先到「备份」导出一份，或连上下面的云备份。</p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-bg p-3">
@@ -341,6 +345,7 @@ export function StorageSection() {
       </p>
       </CardContent>
     </Card>
+    <CloudBackupCard onStatus={setCloudOkAt} />
     <AuthorTidyCard />
     <TagTidyCard />
     <AboutCard />

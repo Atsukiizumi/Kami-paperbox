@@ -16,6 +16,7 @@ import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
 import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
 import type { VaultQuery } from "@/lib/storage/vault-query";
+import { ensureVaultBackupScheduler } from "@/lib/storage/cloud-backup/engine.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -81,6 +82,7 @@ export async function GET(request: Request) {
           }
           const health = vaultStoreHealth();
           if (!health.available) return json({ ok: false, available: false, items: [] });
+          ensureVaultBackupScheduler();
           const store = getVaultStore();
           const q = queryOf(url);
           const items = store.list(q);
@@ -105,6 +107,7 @@ export async function PUT(request: Request) {
             const meta = metaFromUnknown(body.meta ?? body);
             if (!meta) return json({ ok: false, error: "缺少作品信息" }, 400);
             const saved = getVaultStore().putMeta(meta);
+            if (!saved) return json({ ok: false, error: "这条在纸篓里，先放回去再改" }, 404);
             return json({ ok: true, item: saved });
           }
           const form = await request.formData();
@@ -163,7 +166,8 @@ export async function DELETE(request: Request) {
         const key = url.searchParams.get("key") ?? "";
         if (!parseVaultKey(key)) return json({ ok: false, error: "无效编号" }, 400);
         try {
-          const ok = getVaultStore().remove(key);
+          // 软删除进纸篓（文件与页行原样保留）；真删只走 /api/vault/trash 的 purge。
+          const ok = getVaultStore().softDelete(key);
           return json({ ok, deleted: ok });
         } catch (err) {
           return fail(err);
