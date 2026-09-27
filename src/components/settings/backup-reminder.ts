@@ -19,3 +19,17 @@ export function isBackupOverdue(lastBackupAt: number | null, now: number): boole
   if (lastBackupAt === null || !Number.isFinite(lastBackupAt)) return false;
   return now - lastBackupAt > BACKUP_OVERDUE_MS;
 }
+
+/**
+ * 手动导出与云备份取更近者：自动备份最近成功过，30 天提醒就不再打扰。
+ * 双方都 null（从未备过）返回 null——「没备过」不算超期，见上。
+ */
+export function effectiveLastBackupAt(
+  localAt: number | null,
+  cloudOkAt: number | null,
+): number | null {
+  const local = localAt !== null && Number.isFinite(localAt) ? localAt : null;
+  const cloud = cloudOkAt !== null && Number.isFinite(cloudOkAt) ? cloudOkAt : null;
+  if (local !== null && cloud !== null) return Math.max(local, cloud);
+  return local ?? cloud;
+}

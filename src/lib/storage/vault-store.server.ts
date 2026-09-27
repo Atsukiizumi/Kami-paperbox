@@ -152,6 +152,8 @@ export type VaultStore = {
   restore: (key: string) => boolean;
   trashList: () => TrashItem[];
   trashPurge: (keys?: string[]) => number;
+  /** 云备份扫描口：全部页行（含纸篓条目——软删的像素也要备份，还原后才能看）。 */
+  backupPages: () => { path: string; bytes: number }[];
   putHash: (key: string, dhash: string, w: number, h: number) => void;
   hashes: () => { key: string; dhash: string }[];
   dismissPair: (a: string, b: string) => void;
@@ -202,6 +204,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const selectPage = db.prepare("SELECT ext, mime, bytes, path FROM pages WHERE key = ? AND page = ?");
   const selectPageMeta = db.prepare("SELECT page, ext FROM pages WHERE key = ? ORDER BY page");
   const selectPages = db.prepare("SELECT path FROM pages WHERE key = ?");
+  const selectAllPages = db.prepare("SELECT path, bytes FROM pages");
   const selectPageKeys = db.prepare("SELECT DISTINCT key FROM pages");
   const selectHasPage = db.prepare("SELECT 1 AS ok FROM pages WHERE key = ? AND page = 0 LIMIT 1");
   // 查重（纸匣智能库）：哈希入库即算，忽略对持久化，存储聚合走 works.bytes
@@ -475,6 +478,12 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         if (store.remove(key)) purged += 1;
       }
       return purged;
+    },
+    backupPages() {
+      return (selectAllPages.all() as { path: string; bytes: number }[]).map((row) => ({
+        path: row.path,
+        bytes: Number(row.bytes) || 0,
+      }));
     },
     putHash(key, dhash, w, h) {
       upsertHash.run(key, dhash, w, h);

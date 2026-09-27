@@ -4,7 +4,7 @@
 import "../../test/dom.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { BACKUP_OVERDUE_DAYS, isBackupOverdue } from "./backup-reminder.ts";
+import { BACKUP_OVERDUE_DAYS, effectiveLastBackupAt, isBackupOverdue } from "./backup-reminder.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -29,5 +29,26 @@ describe("settings/storage backup-reminder（备份过期判定）", () => {
   });
   it("非法时间戳当从未备份处理，不超期", () => {
     assert.equal(isBackupOverdue(Number.NaN, 1_000_000_000), false);
+  });
+});
+
+// ── 云备份合流：effectiveLastBackupAt ──────────────────────────────────────
+
+describe("effectiveLastBackupAt", () => {
+  it("取手动与云备份里更近的那次", () => {
+    assert.equal(effectiveLastBackupAt(1_000, 2_000), 2_000);
+    assert.equal(effectiveLastBackupAt(3_000, 2_000), 3_000);
+  });
+
+  it("单边有值用单边；双方都空返回 null", () => {
+    assert.equal(effectiveLastBackupAt(null, 2_000), 2_000);
+    assert.equal(effectiveLastBackupAt(1_000, null), 1_000);
+    assert.equal(effectiveLastBackupAt(null, null), null);
+  });
+
+  it("非有限数字按 null 处理", () => {
+    assert.equal(effectiveLastBackupAt(Number.NaN as unknown as number, 5_000), 5_000);
+    assert.equal(effectiveLastBackupAt(1_000, Number.NaN as unknown as number), 1_000);
+    assert.equal(effectiveLastBackupAt(Number.NaN as unknown as number, Number.NaN as unknown as number), null);
   });
 });

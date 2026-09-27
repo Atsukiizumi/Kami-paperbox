@@ -16,6 +16,7 @@ import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
 import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
 import type { VaultQuery } from "@/lib/storage/vault-query";
+import { ensureVaultBackupScheduler } from "@/lib/storage/cloud-backup/engine.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -81,6 +82,7 @@ export async function GET(request: Request) {
           }
           const health = vaultStoreHealth();
           if (!health.available) return json({ ok: false, available: false, items: [] });
+          ensureVaultBackupScheduler();
           const store = getVaultStore();
           const q = queryOf(url);
           const items = store.list(q);
