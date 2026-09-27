@@ -171,3 +171,33 @@ test("s3 probe 403 给可读错误；putFile 走 PUT 对象 URL", async () => {
     restore();
   }
 });
+
+test("webdav putFile 自动补建父目录（严格服务器 409 防线），同目录不重复建", async () => {
+  const restore = installFetch();
+  try {
+    const mkcols: string[] = [];
+    responder = ({ method, url }) => {
+      if (method === "MKCOL") {
+        mkcols.push(url.pathname);
+        return { status: 201 };
+      }
+      return { status: 201 };
+    };
+    const target = createCloudTarget(WEBDAV);
+    await target.putFile("files/pixiv/801/0.jpg", new Uint8Array([1]));
+    assert.deepEqual(mkcols, [
+      "/dav/kami",
+      "/dav/kami/files",
+      "/dav/kami/files/pixiv",
+      "/dav/kami/files/pixiv/801",
+    ]);
+    // 同一父目录的第二个文件：不再发 MKCOL
+    await target.putFile("files/pixiv/801/1.jpg", new Uint8Array([2]));
+    assert.equal(mkcols.length, 4, `父目录只建一次，实际 ${mkcols.length}`);
+    // 已存在（405）不炸
+    responder = ({ method }) => (method === "MKCOL" ? { status: 405 } : { status: 201 });
+    await createCloudTarget(WEBDAV).putFile("catalog/a.sqlite", new Uint8Array([3]));
+  } finally {
+    restore();
+  }
+});

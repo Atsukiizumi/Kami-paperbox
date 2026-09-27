@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { openVaultStore } from "../vault-store.server.ts";
+import { openVaultStore, type VaultStore } from "../vault-store.server.ts";
 import { DEFAULT_CLOUD_CONFIG, type CloudTargetConfig } from "./types.ts";
-import { readBackupState, readCloudStored, writeCloudStored } from "./config.server.ts";
-import { runVaultBackup, restoreVaultFromCloud, vacuumVaultSnapshot, type BackupDeps } from "./engine.server.ts";
+import { readBackupState, readCloudStored, writeBackupState, writeCloudStored } from "./config.server.ts";
+import {
+  ensureVaultBackupScheduler,
+  isVaultBackupSchedulerActive,
+  maybeRunDueBackup,
+  reconcileBackupState,
+  restoreVaultFromCloud,
+  runVaultBackup,
+  stopVaultBackupScheduler,
+  type BackupDeps,
+} from "./engine.server.ts";
 
 /**
  * 引擎测试：内存桩云目标 + 临时根目录 + 临时 store（deps 注入，绝不摸真实库）。
@@ -16,14 +25,23 @@ import { runVaultBackup, restoreVaultFromCloud, vacuumVaultSnapshot, type Backup
 function memTarget() {
   const files = new Map<string, Uint8Array>();
   const deleted = new Set<string>();
+  const uploads: string[] = [];
+  let failNext = 0;
   return {
     files,
     deleted,
-    uploads: [] as string[],
+    uploads,
+    failNextPut(times: number) {
+      failNext = times;
+    },
     probe: async () => {},
     putFile: async (rel: string, bytes: Uint8Array) => {
+      if (failNext > 0) {
+        failNext -= 1;
+        throw new Error("模拟网络抖动");
+      }
+      uploads.push(rel);
       files.set(rel, bytes);
-      (files as Map<string, Uint8Array> & { uploads?: string[] }).uploads?.push(rel);
     },
     getFile: async (rel: string) => {
       const v = files.get(rel);
@@ -32,7 +50,10 @@ function memTarget() {
     },
     listDir: async (rel: string) => {
       const prefix = rel ? `${rel}/` : "";
-      return [...files.keys()].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length).split("/")[0]!).filter((n, i, a) => a.indexOf(n) === i);
+      return [...files.keys()]
+        .filter((k) => k.startsWith(prefix))
+        .map((k) => k.slice(prefix.length).split("/")[0]!)
+        .filter((n, i, a) => a.indexOf(n) === i);
     },
     deleteFile: async (rel: string) => {
       files.delete(rel);
@@ -49,14 +70,14 @@ const FAKE_CONFIG: CloudTargetConfig = {
   remoteDir: "kami",
 };
 
-function putWork(store: ReturnType<typeof openVaultStore>, id: string, body: number[]) {
+function putWork(store: VaultStore, id: string, body: number[]) {
   return store.put(
     { key: `pixiv:${id}`, source: "pixiv", id, title: `t${id}`, author: "a", authorId: "a1", tags: [], pageCount: 1, savedAt: 1_700_000_000_000 + Number(id), bytes: 0 },
     [{ bytes: new Uint8Array(body), ext: "jpg", mime: "image/jpeg" }],
   );
 }
 
-test("云备份引擎：跳过（未开启）→ 快照+像素上云 → 幂等重跑 → 删除成孤儿 → 轮转保留", async () => {
+test("云备份引擎：跳过（未开启）→ 快照+像素上云 → 幂等重跑 → 变更重传 → 删除成孤儿 → 轮转保留", async () => {
   const root = mkdtempSync(join(tmpdir(), "kami-cb-eng-"));
   const store = openVaultStore(root);
   const target = memTarget();
@@ -87,34 +108,38 @@ test("云备份引擎：跳过（未开启）→ 快照+像素上云 → 幂等�
     const manifest = JSON.parse(new TextDecoder().decode(target.files.get("manifest.json")!)) as { files: { path: string }[] };
     assert.equal(manifest.files.length, 2);
 
-    // 快照是合法 SQLite 且含 2 行 works
-    const snapBytes = target.files.get(snapshotRels[0]!)!;
-    const snapshotPath = join(root, ".data", "backups", "tmp-snapshot-check.sqlite");
-    vacuumVaultSnapshot(store.dir, snapshotPath);
-    const snapDb = new DatabaseSync(snapshotPath);
+    // 快照字节是合法 SQLite：把云端那份落盘重开，works 2 行
+    const snapPath = join(root, ".data", "backups", "snap-check.sqlite");
+    writeFileSync(snapPath, target.files.get(snapshotRels[0]!)!);
+    const snapDb = new DatabaseSync(snapPath);
     const worksCount = (snapDb.prepare("SELECT COUNT(*) AS n FROM works").get() as { n: number }).n;
     snapDb.close();
-    rmSync(snapshotPath, { force: true });
+    rmSync(snapPath, { force: true });
     assert.equal(worksCount, 2);
-    assert.equal(snapBytes.byteLength > 0, true);
 
-    // 幂等重跑：文件零重传（manifest diff 命中），只更新快照与 manifest
-    const fileUploadsBefore = [...target.files.entries()].filter(([k]) => k.startsWith("files/"));
+    // 幂等重跑：像素零重传（manifest diff 命中），只新快照与 manifest 上传
+    assert.equal(target.uploads.filter((u) => u.startsWith("files/")).length, 2);
     const second = await runVaultBackup("manual", deps);
     assert.equal(second.ok, true);
-    for (const [k, v] of fileUploadsBefore) {
-      assert.equal(target.files.get(k), v, `${k} 不该重传`);
-    }
+    assert.equal(target.uploads.filter((u) => u.startsWith("files/")).length, 2, "重跑不得重传已上云的像素");
+
+    // 变更检测：同 size 不同 mtime → 该文件重传
+    const pageAbs = join(root, ".data", "vault", "files", "pixiv", "801", "0.jpg");
+    const future = new Date(Date.now() + 5_000);
+    utimesSync(pageAbs, future, future);
+    const third = await runVaultBackup("manual", deps);
+    assert.equal(third.ok, true);
+    assert.equal(target.uploads.filter((u) => u === "files/pixiv/801/0.jpg").length, 2, "mtime 变了要重传这一份");
 
     // 本地真删一个：云端文件保留为孤儿，计数 1
     store.remove("pixiv:801");
-    const third = await runVaultBackup("manual", deps);
-    assert.equal(third.ok, true);
+    const fourth = await runVaultBackup("manual", deps);
+    assert.equal(fourth.ok, true);
     const state = readBackupState(root);
     assert.equal(state.orphans, 1, "本地删除云端保留为孤儿");
     assert.ok(target.files.has("files/pixiv/801/0.jpg"), "孤儿文件不得被删");
-    const manifest3 = JSON.parse(new TextDecoder().decode(target.files.get("manifest.json")!)) as { files: { path: string }[] };
-    assert.equal(manifest3.files.length, 1);
+    const manifest4 = JSON.parse(new TextDecoder().decode(target.files.get("manifest.json")!)) as { files: { path: string }[] };
+    assert.equal(manifest4.files.length, 1);
 
     // 轮转：keep=2 时 catalog 目录最多 2 份
     const stored2 = readCloudStored(root)!;
@@ -133,7 +158,82 @@ test("云备份引擎：跳过（未开启）→ 快照+像素上云 → 幂等�
   }
 });
 
-test("恢复：从云端拉回快照与文件（dryRun 只清点）", async () => {
+test("重试：单文件连挂两次第三次成功，整轮不失败", async () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-cb-retry-"));
+  const store = openVaultStore(root);
+  const target = memTarget();
+  try {
+    putWork(store, "805", [5, 5]);
+    writeCloudStored({ target: FAKE_CONFIG, config: { enabled: true, intervalHours: 24, keep: 14 } }, root);
+    target.failNextPut(2); // 第一次上传快照就会遇到两次抖动
+    const res = await runVaultBackup("manual", { target: target as never, root, store });
+    assert.equal(res.ok, true, `应重试成功：${res.error ?? ""}`);
+    assert.ok([...target.files.keys()].some((k) => k.startsWith("catalog/")));
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("到期补跑：maybeRunDueBackup 未连接/未开启/未到期都不跑，到期才跑", async () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-cb-due-"));
+  const store = openVaultStore(root);
+  const target = memTarget();
+  const deps: BackupDeps = { target: target as never, root, store };
+  try {
+    putWork(store, "806", [6]);
+
+    assert.equal((await maybeRunDueBackup(deps)).reason, "未连接");
+    writeCloudStored({ target: FAKE_CONFIG, config: { ...DEFAULT_CLOUD_CONFIG, enabled: false } }, root);
+    assert.equal((await maybeRunDueBackup(deps)).reason, "未开启");
+
+    // 连接 + 开启 + 从未成功（lastOkAt 空）→ 立即到期补跑
+    writeCloudStored({ target: FAKE_CONFIG, config: { ...DEFAULT_CLOUD_CONFIG, enabled: true } }, root);
+    const due = await maybeRunDueBackup(deps);
+    assert.equal(due.ran, true);
+
+    // 刚成功过（lastOkAt=now）→ 未到期
+    assert.equal((await maybeRunDueBackup(deps)).reason, "未到期");
+    assert.ok(target.uploads.filter((u) => u.startsWith("files/")).length >= 1);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("崩溃尸体对账：state 里残留 running:true 会被 reconcile 摘掉", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-cb-stale-"));
+  const store = openVaultStore(root);
+  try {
+    putWork(store, "807", [7]);
+    writeCloudStored({ target: FAKE_CONFIG, config: { enabled: true, intervalHours: 24, keep: 14 } }, root);
+    writeBackupState({ running: true, phase: "files", done: 3, total: 9, bytesDone: 300, lastOkAt: null, lastErrorAt: null, lastError: null, snapshots: [], orphans: 0 }, root);
+    const state = reconcileBackupState(root);
+    assert.equal(state.running, false, "内存没在跑，尸体要清");
+    assert.equal(state.phase, "idle");
+    assert.equal(readBackupState(root).running, false, "落盘持久");
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("自禁用：VERCEL 下调度器不启动", async () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-cb-vercel-"));
+  const store = openVaultStore(root);
+  try {
+    process.env.VERCEL = "1";
+    ensureVaultBackupScheduler(root);
+    assert.equal(isVaultBackupSchedulerActive(), false, "Serverless 不该挂定时器");
+  } finally {
+    delete process.env.VERCEL;
+    stopVaultBackupScheduler();
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("恢复：从云端拉回快照与文件（dryRun 只清点）；manifest 穿越路径整个拒绝", async () => {
   const root = mkdtempSync(join(tmpdir(), "kami-cb-res-"));
   const store = openVaultStore(root);
   const target = memTarget();
@@ -160,6 +260,18 @@ test("恢复：从云端拉回快照与文件（dryRun 只清点）", async () =
     const n = (db.prepare("SELECT COUNT(*) AS n FROM works").get() as { n: number }).n;
     db.close();
     assert.equal(n, 1);
+
+    // manifest 被污染（../ 爬路径）：恢复整个拒绝，一个字节都不落
+    target.files.set(
+      "manifest.json",
+      new TextEncoder().encode(JSON.stringify({ schemaVersion: 1, files: [{ path: "../evil.txt", size: 1, mtime: 1 }], updatedAt: 1 })),
+    );
+    await assert.rejects(
+      () => restoreVaultFromCloud(target as never, join(root, "restore-evil"), { dryRun: true }),
+      /非法路径/,
+    );
+    assert.equal(existsSync(join(root, "restore-evil")), false);
+    assert.equal(existsSync(join(root, "evil.txt")), false);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });
@@ -168,16 +280,17 @@ test("恢复：从云端拉回快照与文件（dryRun 只清点）", async () =
 
 test("state 损坏容错：坏 JSON 按空态处理", () => {
   const root = mkdtempSync(join(tmpdir(), "kami-cb-state-"));
+  const store = openVaultStore(root);
   try {
     mkdirSync(join(root, ".data", "backups"), { recursive: true });
     writeCloudStored(null, root);
     assert.equal(readCloudStored(root), null);
-    const dir = join(root, ".data", "backups");
-    writeFileSync(join(dir, "backup-state.json"), "{oops");
+    writeFileSync(join(root, ".data", "backups", "backup-state.json"), "{oops");
     const state = readBackupState(root);
     assert.equal(state.running, false);
     assert.equal(state.snapshots.length, 0);
   } finally {
+    store.close();
     rmSync(root, { recursive: true, force: true });
   }
 });

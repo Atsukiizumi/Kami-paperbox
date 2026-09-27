@@ -141,7 +141,7 @@ export function rowToMeta(row: WorkRow, hasFile = false): VaultMeta {
 export type VaultStore = {
   dir: string;
   put: (meta: VaultMeta, pages: VaultPageFile[]) => VaultMeta;
-  putMeta: (meta: VaultMeta) => VaultMeta;
+  putMeta: (meta: VaultMeta) => VaultMeta | undefined;
   list: (q?: VaultQuery) => VaultMeta[];
   get: (key: string) => VaultMeta | undefined;
   readPage: (key: string, page: number) => VaultPageRead | undefined;
@@ -384,7 +384,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         meta.relativePath ?? prev?.relativePath ?? null,
         meta.folderLabel ?? prev?.folderLabel ?? null,
       );
-      return store.get(key) as VaultMeta;
+      return store.get(key);
     },
     list(q) {
       const rows = selectWorks.all() as WorkRow[];

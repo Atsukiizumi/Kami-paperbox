@@ -10,7 +10,8 @@
  *      到期，连接/开关/间隔改动无需重排定时器）。
  * 为什么：调度模式抄 db-snapshot.server.ts（setInterval + globalRef 防热重载
  *      重挂 + unref）；增量按 path+size+mtime diff——藏品文件落盘即不可变，
- *      全量哈希每轮扫数十 GB 不可接受。
+ *      全量哈希每轮扫数十 GB 不可接受。manifest 每传 20 个文件增量写回云端，
+ *      中断重跑时已传过的文件不再重传（断点续传的实话版）。
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,6 +33,7 @@ const log = getLogger("vault-backup");
 const TICK_MS = 10 * 60 * 1000;
 const RETRIES = 3;
 const CONCURRENCY = 3;
+const MANIFEST_EVERY = 20;
 const MANIFEST = "manifest.json";
 const CATALOG_DIR = "catalog";
 
@@ -44,6 +46,7 @@ type Manifest = {
 const globalRef = globalThis as typeof globalThis & {
   __kamiVaultBackupTimer__?: ReturnType<typeof setInterval>;
   __kamiVaultBackupRunning__?: boolean;
+  __kamiVaultBackupUnsupported__?: string;
 };
 
 /** 单元测试注入点：替换云目标（内存桩）、根目录与纸匣 store（绝不摸真实库）。 */
@@ -55,6 +58,10 @@ export type BackupDeps = {
 
 export function isVaultBackupRunning(): boolean {
   return globalRef.__kamiVaultBackupRunning__ === true;
+}
+
+export function isVaultBackupSchedulerActive(): boolean {
+  return Boolean(globalRef.__kamiVaultBackupTimer__);
 }
 
 export function stopVaultBackupScheduler(): void {
@@ -77,36 +84,64 @@ function unsupportedNow(root: string): string | null {
   }
 }
 
-/** 惰性启动：幂等；未连接也照起（tick 里判），VERCEL/不可写则停用并记原因。 */
+/** 惰性启动：幂等；未连接也照起（tick 里判），VERCEL/不可写则停用（同因只记一次日志）。 */
 export function ensureVaultBackupScheduler(root?: string): void {
   if (globalRef.__kamiVaultBackupTimer__) return;
   const reason = unsupportedNow(root ?? resolveKamiRoot());
   if (reason) {
-    log.warn(reason);
+    if (globalRef.__kamiVaultBackupUnsupported__ !== reason) {
+      globalRef.__kamiVaultBackupUnsupported__ = reason;
+      log.warn(reason);
+    }
     return;
   }
-  globalRef.__kamiVaultBackupTimer__ = setInterval(() => void tick(), TICK_MS);
+  globalRef.__kamiVaultBackupUnsupported__ = undefined;
+  globalRef.__kamiVaultBackupTimer__ = setInterval(() => void maybeRunDueBackup(), TICK_MS);
   globalRef.__kamiVaultBackupTimer__.unref?.();
-  void tick();
+  void maybeRunDueBackup();
 }
 
-async function tick(): Promise<void> {
+/**
+ * 到期才跑一轮（tick 的身体，独立导出以便测试）。开机补偿也走这里：
+ * state.lastOkAt 老于间隔就先补跑一次。deps 透传给 runVaultBackup。
+ */
+export async function maybeRunDueBackup(deps: BackupDeps = {}): Promise<{ ran: boolean; reason: string }> {
   try {
-    const stored = readCloudStored();
-    if (!stored || !stored.config.enabled || isVaultBackupRunning()) return;
-    const state = readBackupState();
+    const stored = readCloudStored(deps.root);
+    if (!stored) return { ran: false, reason: "未连接" };
+    if (!stored.config.enabled) return { ran: false, reason: "未开启" };
+    if (isVaultBackupRunning()) return { ran: false, reason: "进行中" };
+    const state = reconcileBackupState(deps.root);
     const dueAt = (state.lastOkAt ?? 0) + stored.config.intervalHours * 3_600_000;
-    if (Date.now() < dueAt) return;
-    await runVaultBackup("auto");
+    if (Date.now() < dueAt) return { ran: false, reason: "未到期" };
+    const res = await runVaultBackup("auto", deps);
+    return { ran: res.ok, reason: res.ok ? "已跑" : res.error ?? "失败" };
   } catch (err) {
     log.warn("定时备份 tick 失败：", err instanceof Error ? err.message : err);
+    return { ran: false, reason: "tick 异常" };
   }
+}
+
+/**
+ * 进程崩溃/重启会在 state 文件里留下 running:true 的尸体——凡读 state 先对账：
+ * 内存里没有在跑就把 running 摘掉落盘，否则设置卡会永远显示假进度。
+ */
+export function reconcileBackupState(root?: string): CloudBackupState {
+  const state = readBackupState(root);
+  if (state.running && !isVaultBackupRunning()) {
+    state.running = false;
+    state.phase = "idle";
+    writeBackupState(state, root);
+  }
+  return state;
 }
 
 /** VACUUM INTO 出一致性副本：单条 SQL 读事务，不依赖 node:sqlite backup API 面貌。 */
 export function vacuumVaultSnapshot(vaultDir: string, dest: string): void {
   const db = new DatabaseSync(join(vaultDir, "vault.sqlite"));
   try {
+    // 引擎与纸匣写路径并发：等锁 5s，抢不到留给下一轮
+    db.exec("PRAGMA busy_timeout = 5000");
     db.prepare("VACUUM INTO ?").run(dest);
   } finally {
     db.close();
@@ -134,19 +169,52 @@ async function withRetry(fn: () => Promise<void>, what: string): Promise<void> {
   throw new Error(`${what} 连试 ${RETRIES} 次仍失败：${lastErr instanceof Error ? lastErr.message : lastErr}`);
 }
 
-async function uploadAll(target: CloudTargetClient, items: { rel: string; bytes: Uint8Array }[], state: CloudBackupState, root?: string): Promise<void> {
+/**
+ * 像素上传：文件在 worker 里惰性读（首轮可能数 GB，绝不整体进内存）；
+ * 盘上已缺（扫描后被删）按 miss 跳过不失败；每传完一个回调一次（manifest 增量写回用）。
+ */
+async function uploadAll(
+  target: CloudTargetClient,
+  items: { path: string; size: number; mtime: number }[],
+  state: CloudBackupState,
+  storeDir: string,
+  root: string | undefined,
+  onUploaded?: (entry: { path: string; size: number; mtime: number }) => Promise<void> | void,
+): Promise<number> {
   let cursor = 0;
+  let missed = 0;
   async function worker() {
     while (cursor < items.length) {
       const item = items[cursor]!;
       cursor += 1;
-      await withRetry(() => target.putFile(item.rel, item.bytes), `上传 ${item.rel}`);
+      let bytes: Buffer;
+      try {
+        bytes = readFileSync(join(storeDir, ...item.path.split("/")));
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+          missed += 1;
+          continue;
+        }
+        throw err;
+      }
+      await withRetry(() => target.putFile(item.path, new Uint8Array(bytes)), `上传 ${item.path}`);
       state.done += 1;
-      state.bytesDone += item.bytes.byteLength;
+      state.bytesDone += bytes.byteLength;
       if (state.done % 10 === 0 || state.done === state.total) writeBackupState(state, root);
+      await onUploaded?.(item);
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker()));
+  return missed;
+}
+
+/** manifest 路径段校验：云上的清单是外部输入，`..`/盘符/绝对路径一律拒绝（防恢复写穿 vault 目录）。 */
+function manifestEntryOk(path: string): boolean {
+  if (typeof path !== "string" || path.length === 0 || path.length > 400) return false;
+  for (const seg of path.split("/")) {
+    if (seg.length === 0 || seg === "." || seg === ".." || /^[A-Za-z]:$/.test(seg) || seg.includes("\\")) return false;
+  }
+  return true;
 }
 
 /**
@@ -165,12 +233,12 @@ export async function runVaultBackup(
 
   const target = deps.target ?? createCloudTarget(stored.target);
   const store = deps.store ?? getVaultStore();
-  const state: CloudBackupState = { ...readBackupState(root), running: true, done: 0, total: 0, bytesDone: 0, phase: "catalog" };
+  const state: CloudBackupState = { ...reconcileBackupState(root), running: true, done: 0, total: 0, bytesDone: 0, phase: "catalog" };
   globalRef.__kamiVaultBackupRunning__ = true;
   writeBackupState(state, root);
 
   try {
-    // ① 目录快照：tmp 落盘 → 上传 → 滚动删旧
+    // ① 目录快照：tmp 落盘 → 上传 → 滚动删旧（只认自己的 vault-meta-*.sqlite，不碰用户放的同目录杂物）
     const tmpDir = join(backupsDir(root), "tmp");
     mkdirSync(tmpDir, { recursive: true });
     const name = `vault-meta-${stamp()}.sqlite`;
@@ -179,7 +247,10 @@ export async function runVaultBackup(
     const bytes = readFileSync(tmpPath);
     rmSync(tmpPath, { force: true });
     await withRetry(() => target.putFile(`${CATALOG_DIR}/${name}`, new Uint8Array(bytes)), `上传 ${name}`);
-    const oldOnes = (await target.listDir(CATALOG_DIR)).filter((n) => n !== name).sort().reverse();
+    const oldOnes = (await target.listDir(CATALOG_DIR))
+      .filter((n) => n !== name && /^vault-meta-\d{8}-\d{9}\.sqlite$/.test(n))
+      .sort()
+      .reverse();
     for (const stale of oldOnes.slice(Math.max(0, stored.config.keep - 1))) {
       try {
         await target.deleteFile(`${CATALOG_DIR}/${stale}`);
@@ -191,7 +262,7 @@ export async function runVaultBackup(
     state.phase = "files";
     writeBackupState(state, root);
 
-    // ② 像素增量：catalog（pages 行）驱动，含纸篓条目；盘上已缺的计 miss 跳过
+    // ② 像素增量：catalog（pages 行）驱动，含纸篓条目；与云端 manifest diff，只传新增/变更
     type Entry = { path: string; size: number; mtime: number };
     const local: Entry[] = [];
     let missing = 0;
@@ -208,6 +279,7 @@ export async function runVaultBackup(
     try {
       remote = { ...(JSON.parse(new TextDecoder().decode(await target.getFile(MANIFEST))) as Manifest), schemaVersion: 1 };
       if (!Array.isArray(remote.files)) remote.files = [];
+      remote.files = remote.files.filter((f) => f && manifestEntryOk(f.path));
     } catch {
       /* 首次没有 manifest，从零传 */
     }
@@ -218,18 +290,32 @@ export async function runVaultBackup(
     });
     state.total = toUpload.length;
     writeBackupState(state, root);
-    await uploadAll(
-      target,
-      toUpload.map((f) => ({ rel: f.path, bytes: readFileSync(join(store.dir, ...f.path.split("/"))) })),
-      state,
-      root,
-    );
+
+    // 增量写回：每 MANIFEST_EVERY 个把已传条目并进云端 manifest——
+    // 中断重跑时 size+mtime 已命中的不再重传（断点续传）。写失败只降级为重传，不炸整轮。
+    const merged = new Map(remote.files.map((f) => [f.path, f]));
+    let sinceFlush = 0;
+    const flushManifest = async () => {
+      const next: Manifest = { schemaVersion: 1, files: [...merged.values()], updatedAt: Date.now() };
+      try {
+        await target.putFile(MANIFEST, new TextEncoder().encode(JSON.stringify(next)));
+      } catch {
+        /* 下批再写；最差情况是中断后多传一遍 */
+      }
+      sinceFlush = 0;
+    };
+    const missed = await uploadAll(target, toUpload, state, store.dir, root, async (entry) => {
+      merged.set(entry.path, entry);
+      sinceFlush += 1;
+      if (sinceFlush >= MANIFEST_EVERY) await flushManifest();
+    });
+    missing += missed;
 
     // ③ 孤儿：云端（上一轮 manifest）有、本地登记已没有。只计数，永不自动删。
     const localPaths = new Set(local.map((f) => f.path));
     const orphans = remote.files.filter((f) => !localPaths.has(f.path)).length;
 
-    // ④ 写回 manifest + 收尾
+    // ④ 收尾 manifest（以本轮本地全量为准）+ 状态落盘
     const next: Manifest = { schemaVersion: 1, files: local, updatedAt: Date.now() };
     state.phase = "manifest";
     writeBackupState(state, root);
@@ -263,6 +349,7 @@ export async function runVaultBackup(
 /**
  * 从云端恢复纸匣（脚本用，应用运行时不可调用——会覆盖 vault.sqlite）。
  * 先下 manifest，再拉 catalog 最新快照与全部 files/；dryRun 只清点不动盘。
+ * manifest 是外部输入：路径段不过关直接整个拒绝（防写穿 vault 目录）。
  */
 export async function restoreVaultFromCloud(
   target: CloudTargetClient,
@@ -272,7 +359,10 @@ export async function restoreVaultFromCloud(
   const manifestRaw = await target.getFile(MANIFEST);
   const manifest = JSON.parse(new TextDecoder().decode(manifestRaw)) as Manifest;
   if (!Array.isArray(manifest.files)) throw new Error("manifest 损坏");
-  const snapshots = (await target.listDir(CATALOG_DIR)).sort().reverse();
+  for (const f of manifest.files) {
+    if (!f || !manifestEntryOk(f.path)) throw new Error(`manifest 含非法路径，拒绝恢复：${String(f?.path).slice(0, 80)}`);
+  }
+  const snapshots = (await target.listDir(CATALOG_DIR)).filter((n) => /^vault-meta-\d{8}-\d{9}\.sqlite$/.test(n)).sort().reverse();
   const snapshot = snapshots[0] ?? null;
 
   if (!opts.dryRun) {

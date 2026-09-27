@@ -331,7 +331,12 @@ function VaultPageInner() {
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {trash ? (
-            <Button size="sm" variant="ghost" onClick={() => setTrashOpen(true)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              title={`纸篓 ${trash.items.length} 张 · 约 ${formatBytes(trash.bytes)}`}
+              onClick={() => setTrashOpen(true)}
+            >
               纸篓
               {trash.items.length > 0 ? (
                 <span className="ml-1.5 rounded-full bg-elevated px-1.5 py-px text-xs text-subtle">

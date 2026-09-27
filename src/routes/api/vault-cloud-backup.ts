@@ -12,13 +12,13 @@
  * 为什么：凭据只在服务端落盘与出场，GET 只回掩码；连接/断开/备份都是显式动作。
  */
 import {
-  readBackupState,
   readCloudStored,
   writeCloudStored,
 } from "@/lib/storage/cloud-backup/config.server";
 import {
   ensureVaultBackupScheduler,
   isVaultBackupRunning,
+  reconcileBackupState,
   runVaultBackup,
   stopVaultBackupScheduler,
 } from "@/lib/storage/cloud-backup/engine.server";
@@ -45,20 +45,25 @@ function statusPayload(rootlessError?: string) {
     connected: Boolean(stored),
     target: stored ? maskCloudTarget(stored.target) : null,
     config: stored?.config ?? null,
-    status: readBackupState(),
+    status: reconcileBackupState(),
     unsupported: process.env.VERCEL ? "此部署形态（Serverless）不支持云备份" : rootlessError ?? null,
   };
 }
 
 async function probeTarget(target: CloudTargetConfig): Promise<{ ok: true } | { ok: false; error: string }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
       createCloudTarget(target).probe(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("连接测试超时")), 20_000)),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("连接测试超时")), 20_000);
+      }),
     ]);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof CloudTargetError || err instanceof Error ? err.message : "连接失败" };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

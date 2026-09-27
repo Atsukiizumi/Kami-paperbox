@@ -40,7 +40,8 @@ function assertStatus(res: Response, what: string, allowed: Iterable<number>) {
 }
 
 function relSegments(cfg: CloudTargetConfig, rel: string): string[] {
-  const clean = rel.split("/").map((s) => s.trim()).filter(Boolean);
+  // 防爬路径（云上 manifest 若被污染，上传侧也不给 `..` 一点机会）
+  const clean = rel.split("/").map((s) => s.trim()).filter((s) => s.length > 0 && s !== "." && s !== ".." && !/^[A-Za-z]:$/.test(s));
   return [...cfg.remoteDir.split("/").filter(Boolean), ...clean];
 }
 
@@ -87,6 +88,34 @@ function createWebDav(cfg: Extract<CloudTargetConfig, { kind: "webdav" }>): Clou
     }
   }
 
+  // 已建过的父目录记在进程内，putFile 前按需补建 rel 的缺失父段——
+  // RFC 4918 严格服务器（坚果云/Nextcloud 等）对 PUT 进不存在的集合回 409，
+  // remoteDir 本身在 probe 时已建，这里从它的下一层接着建。
+  const ensuredParents = new Set<string>();
+  async function ensureParents(rel: string): Promise<void> {
+    const relDirs = rel.split("/").filter(Boolean).slice(0, -1);
+    if (relDirs.length === 0) return;
+    // 从 remoteDir 本体起逐段建（重启后引擎直接 putFile 不经过 probe，这里自洽）
+    let path: string[] = [];
+    for (const seg of [...cfg.remoteDir.split("/").filter(Boolean), ...relDirs]) {
+      path = [...path, seg];
+      const key = path.join("/");
+      if (ensuredParents.has(key)) continue;
+      try {
+        const res = await fetch(`${base}/${path.map(encodeURIComponent).join("/")}`, {
+          method: "MKCOL",
+          headers: { authorization: auth },
+          redirect: "manual",
+          signal: AbortSignal.timeout(45_000),
+        });
+        assertStatus(res, `建目录 ${seg}`, EXISTS);
+      } catch (err) {
+        if (!(err instanceof CloudTargetError && EXISTS.has(err.status))) throw err;
+      }
+      ensuredParents.add(key);
+    }
+  }
+
   return {
     async probe() {
       await ensureDir();
@@ -94,6 +123,7 @@ function createWebDav(cfg: Extract<CloudTargetConfig, { kind: "webdav" }>): Clou
       assertStatus(res, "连接测试", new Set([200, 207]));
     },
     async putFile(rel, bytes) {
+      await ensureParents(rel);
       const res = await request("PUT", rel, { body: bytes as unknown as BodyInit });
       assertStatus(res, `上传 ${rel}`, OK);
     },

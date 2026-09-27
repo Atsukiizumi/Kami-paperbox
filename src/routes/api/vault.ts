@@ -107,6 +107,7 @@ export async function PUT(request: Request) {
             const meta = metaFromUnknown(body.meta ?? body);
             if (!meta) return json({ ok: false, error: "缺少作品信息" }, 400);
             const saved = getVaultStore().putMeta(meta);
+            if (!saved) return json({ ok: false, error: "这条在纸篓里，先放回去再改" }, 404);
             return json({ ok: true, item: saved });
           }
           const form = await request.formData();

@@ -91,6 +91,7 @@ test("putMeta restores a catalog row without replacing files", () => {
       relativePath: "b/2.jpg",
       folderLabel: "Kami",
     });
+    assert.ok(metaOnly, "新目录行 putMeta 必有返回");
     assert.equal(metaOnly.id, "2");
     assert.equal(metaOnly.hasFile, false);
     assert.equal(store.list().length, 2);
@@ -107,6 +108,7 @@ test("putMeta restores a catalog row without replacing files", () => {
       bytes: 0,
       relativePath: "a/99.png",
     });
+    assert.ok(kept, "在匣行 putMeta 必有返回");
     assert.equal(kept.title, "renamed");
     assert.equal(kept.hasFile, true);
     const page = store.readPage("pixiv:99", 0);
