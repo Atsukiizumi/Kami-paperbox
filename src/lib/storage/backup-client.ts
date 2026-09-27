@@ -56,6 +56,8 @@ export function snapshotSettings(): BackupSettings {
     watchLimit: s.watchLimit,
     // 标签订阅（v14）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
     watchTags: s.watchTags,
+    // 手工合集（v15）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+    collections: s.collections,
     accounts: s.accounts,
     activeAccountId: s.activeAccountId,
     theme: s.theme,
@@ -132,6 +134,8 @@ export async function applySegment(
     if (!hasField("watchArtists") && local.watchArtists.length > 0) settings.watchArtists = local.watchArtists;
     // 标签订阅（v14）：旧远端载荷不含 watchTags，parse 默认空表会把本地整份抹掉
     if (!hasField("watchTags") && local.watchTags.length > 0) settings.watchTags = local.watchTags;
+    // 手工合集（v15）：旧远端载荷不含 collections，parse 默认空表会把本地整份抹掉
+    if (!hasField("collections") && local.collections.length > 0) settings.collections = local.collections;
     if (!hasField("tagAliases") && Object.keys(local.tagAliases).length > 0) settings.tagAliases = local.tagAliases;
     if (!hasField("authorAliases") && Object.keys(local.authorAliases).length > 0) settings.authorAliases = local.authorAliases;
     useSettings.setState({ ...settings });

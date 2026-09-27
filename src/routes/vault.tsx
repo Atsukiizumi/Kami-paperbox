@@ -10,23 +10,23 @@
 
 import { Link } from "@/lib/kami-link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { unreadItems } from "@/lib/desk-unread";
 import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { toast } from "sonner";
-import { ArtworkCard } from "@/components/artwork-card";
+import { AddToCollectionPanel, CollectionDetail, CollectionsBar, VaultCard } from "@/components/collections-bar";
 import { EmptySheet } from "@/components/empty-sheet";
 import { MasonryBoard } from "@/components/masonry-board";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { VaultFilter } from "@/components/vault-filter";
 import { BatchToolbar } from "@/components/batch-toolbar";
 import { useBatchSelection } from "@/components/use-batch-selection";
 import { VaultBatchActions, type BatchTagEntry } from "@/components/vault-batch-tags";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
-import { applyTagAliases } from "@/lib/vault-tag-alias";
 import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
@@ -36,31 +36,9 @@ import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
-import { useVaultCover } from "@/components/vault-cover";
 import { listServerVault, listServerTrash, type ServerTrashItem } from "@/lib/storage/vault-sync";
 import { VaultTrashDialog } from "@/components/vault-trash";
 import { EMPTY_VAULT_FILTER, vaultQueryFlag, type VaultFilterState } from "@/lib/vault-filter";
-import type { WorkCard } from "@/lib/types";
-
-// 标签过别名层（trim + 单跳映射 + 去重）：同图双变体只显示一次规范名，落盘原文不动
-function cardFromMeta(item: VaultMeta, thumb: string, tagAliases: Record<string, string>, width?: number, height?: number): WorkCard {
-  return {
-    source: item.source,
-    id: item.id,
-    title: item.title,
-    author: item.author,
-    authorId: item.authorId,
-    thumb,
-    pageCount: item.pageCount,
-    tags: applyTagAliases(item.tags, tagAliases),
-    aiType: item.aiType,
-    // 遮盖 / R-18 笺在纸匣面的判定依据（不映射则纸匣 R-18 永远不遮，trellis-check P1-3）
-    xRestrict: item.xRestrict,
-    rating: item.rating,
-    width,
-    height,
-  };
-}
 
 export function VaultPage() {
   // useSearchParams 会在静态生成时 CSR bailout；页级 Suspense 才能过 next build。
@@ -76,6 +54,7 @@ function VaultPageInner() {
   const smartFolders = useSettings((s) => s.smartFolders);
   const addSmartFolder = useSettings((s) => s.addSmartFolder);
   const removeSmartFolder = useSettings((s) => s.removeSmartFolder);
+  const collections = useSettings((s) => s.collections);
   const authorAliases = useSettings((s) => s.authorAliases);
   // 标签别名（变体原文 → 规范名）：筛选 / 搜索 / 卡片展示统一从这里过（标签整理）
   const tagAliases = useSettings((s) => s.tagAliases);
@@ -95,6 +74,11 @@ function VaultPageInner() {
   const [trash, setTrash] = useState<{ items: ServerTrashItem[]; bytes: number } | null>(null);
   // 批量选择（只读勾选；写操作见 applyBatchTags）：选择与筛选/搜索互不干扰
   const sel = useBatchSelection();
+  // 手工合集详情开关态：非 null 时正文区整体换成合集详情（与批量选择互斥，进入即退选）
+  const [openCollectionId, setOpenCollectionId] = useState<string | null>(null);
+  // 单卡「加入合集」弹层目标：null = 关；选择模式下不走单卡入口（工具条负责）
+  const [addTarget, setAddTarget] = useState<VaultMeta | null>(null);
+  const openCollection = openCollectionId ? collections.find((c) => c.id === openCollectionId) : undefined;
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
 
@@ -163,6 +147,9 @@ function VaultPageInner() {
     () => new Set(unreadItems(all, historyItems).map((x) => x.key)),
     [all, historyItems],
   );
+  // 合集软失效过滤与封面解析共用：vaultKeys = 当前纸匣里仍存在的 key 集
+  const vaultKeys = useMemo(() => new Set(all.map((item) => item.key)), [all]);
+  const metasByKey = useMemo(() => new Map(all.map((item) => [item.key, item])), [all]);
 
   const items = useMemo(
     () => {
@@ -300,6 +287,27 @@ function VaultPageInner() {
     }
   }
 
+  // 加入合集的执行侧：只动设置段（不写 IDB），拒因提示按 addToCollection 返回值出
+  function addKeysToCollection(collectionId: string, keys: string[]) {
+    const s = useSettings.getState();
+    const target = s.collections.find((c) => c.id === collectionId);
+    if (!target) return;
+    const added = s.addToCollection(collectionId, keys);
+    if (added === "full") toast.error(`「${target.name}」最多 500 项，这批没有加入`);
+    else if (added === 0) toast.info(`所选藏品都已在「${target.name}」里`);
+    else toast.success(`已把 ${added} 张加入「${target.name}」`);
+  }
+
+  function createCollectionWithKeys(name: string, keys: string[]) {
+    const created = useSettings.getState().createCollection(name, keys);
+    if (!created.ok) {
+      toast.error(created.reason === "full" ? "最多 50 个合集" : "合集名字不能为空");
+      return;
+    }
+    const target = useSettings.getState().collections.find((c) => c.id === created.id);
+    toast.success(`已创建合集「${target?.name ?? name}」，加入 ${keys.length} 张`);
+  }
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -353,6 +361,21 @@ function VaultPageInner() {
           </Button>
           <Button asChild size="sm" variant="secondary">
             <Link to="/vault/stats">统计</Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              // 与「存为智能文件夹」同一 window.prompt 交互，不另做命名弹层
+              const name = window.prompt("合集名字", "");
+              if (!name || !name.trim()) return;
+              const created = useSettings.getState().createCollection(name);
+              if (!created.ok) {
+                toast.error(created.reason === "full" ? "最多 50 个合集" : "合集名字不能为空");
+              }
+            }}
+          >
+            新建合集
           </Button>
         </div>
       </header>
@@ -433,6 +456,18 @@ function VaultPageInner() {
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
           </div>
+          {/* 合集笺行：智能文件夹笺的下一排；空合集零占位 */}
+          {collections.length > 0 ? (
+            <CollectionsBar
+              collections={collections}
+              vaultKeys={vaultKeys}
+              metas={metasByKey}
+              onOpen={(id) => {
+                sel.exit();
+                setOpenCollectionId(id);
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -440,6 +475,15 @@ function VaultPageInner() {
 
       {!ready ? (
         <p className="text-sm text-muted">正在读取纸匣…</p>
+      ) : openCollection ? (
+        // 合集详情：正文区整体切换，不与批量选择态叠加（进入详情时已 sel.exit()）
+        <CollectionDetail
+          collection={openCollection}
+          vaultKeys={vaultKeys}
+          metas={metasByKey}
+          tagAliases={tagAliases}
+          onBack={() => setOpenCollectionId(null)}
+        />
       ) : all.length === 0 ? (
         <EmptySheet
           title="还是空的"
@@ -475,6 +519,8 @@ function VaultPageInner() {
                 e.stopPropagation();
                 void removeWork(item);
               }}
+              // 选择模式下不传：勾选卡用工具条入口，语义不重复
+              onAddToCollection={sel.active ? undefined : () => setAddTarget(item)}
             />
           ))}
           <InfiniteSentinel
@@ -499,8 +545,46 @@ function VaultPageInner() {
             tagOptions={tagOptions}
             tagAliases={tagAliases}
             onApply={(kind, tag, entries) => void applyBatchTags(kind, tag, entries)}
+            collections={collections}
+            vaultKeys={vaultKeys}
+            onAddToCollection={(collectionId) =>
+              addKeysToCollection(
+                collectionId,
+                selectedItems.map((item) => item.key),
+              )
+            }
+            onCreateCollection={(name) =>
+              createCollectionWithKeys(
+                name,
+                selectedItems.map((item) => item.key),
+              )
+            }
           />
         </BatchToolbar>
+      ) : null}
+
+      {addTarget ? (
+        // 单卡「加入合集」弹层：与批量工具条共用 AddToCollectionPanel 内容
+        <Dialog open onOpenChange={(o) => { if (!o) setAddTarget(null); }}>
+          <DialogContent className="w-[min(92vw,20rem)]">
+            <DialogTitle>加入合集</DialogTitle>
+            <DialogDescription>把「{addTarget.title}」收进一个合集。</DialogDescription>
+            <div className="mt-3">
+              <AddToCollectionPanel
+                collections={collections}
+                vaultKeys={vaultKeys}
+                onPick={(collectionId) => {
+                  addKeysToCollection(collectionId, [addTarget.key]);
+                  setAddTarget(null);
+                }}
+                onCreate={(name) => {
+                  createCollectionWithKeys(name, [addTarget.key]);
+                  setAddTarget(null);
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
@@ -514,37 +598,5 @@ function VaultPageInner() {
         />
       ) : null}
     </div>
-  );
-}
-
-function VaultCard({
-  item,
-  index,
-  tagAliases,
-  selection,
-  onExport,
-  onDelete,
-}: {
-  item: VaultMeta;
-  index: number;
-  tagAliases: Record<string, string>;
-  selection?: { checked: boolean; onToggle: () => void };
-  onExport: (e: MouseEvent) => void;
-  onDelete: (e: MouseEvent) => void;
-}) {
-  // 取封面链路抽成 useVaultCover：随机翻牌对话框复用同一条（vault-cover.ts）
-  const { thumb, width, height } = useVaultCover(item);
-
-  return (
-    <ArtworkCard
-      work={cardFromMeta(item, thumb, tagAliases, width, height)}
-      index={index}
-      variant="vault"
-      marks={item.replaced ? ["原图已被替换"] : undefined}
-      // 选择模式下点整卡即勾选、不进详情；悬停导出/移除托保持原样
-      selection={selection ? { ...selection, toggleOnCardClick: true } : undefined}
-      onExport={onExport}
-      onDelete={onDelete}
-    />
   );
 }

@@ -43,6 +43,7 @@ export function ArtworkCard({
   marks,
   onExport,
   onDelete,
+  onAddToCollection,
   selection,
   kb,
 }: {
@@ -52,6 +53,8 @@ export function ArtworkCard({
   marks?: string[];
   onExport?: (e: MouseEvent) => void;
   onDelete?: (e: MouseEvent) => void;
+  /** 加入合集（仅纸匣 variant 由调用方传入）：透传 CardMenu，不传不渲染菜单项。 */
+  onAddToCollection?: () => void;
   /** 批量收藏（D）：勾选 chip（壳左上角）；不传不渲染。 */
   selection?: {
     checked: boolean;
@@ -348,6 +351,7 @@ export function ArtworkCard({
           setMenu(null);
           queueCard();
         }}
+        onAddToCollection={onAddToCollection}
       />
       {work.thumb ? (
         <HoverPreview

@@ -37,8 +37,8 @@ function aiFilterSwitch(page: Page) {
     .getByRole("switch");
 }
 
-function seedOnboarded(): string {
-  return `localStorage.setItem("kami-settings", JSON.stringify({ state: { onboarded: true, tab: "yande" }, version: 10 }));`;
+function seedOnboarded(version = 10): string {
+  return `localStorage.setItem("kami-settings", JSON.stringify({ state: { onboarded: true, tab: "yande" }, version: ${version} }));`;
 }
 
 test("A 改设置自动推送，B 同账号登录拉取一致", async ({ page, browser }) => {
@@ -95,6 +95,81 @@ test("A 改设置自动推送，B 同账号登录拉取一致", async ({ page, b
     return raw.state?.hideAi;
   });
   expect(hideAi).toBe(true);
+
+  await contextB.close();
+  expect(errors, `页面错误：${errors.join(" | ")}`).toEqual([]);
+});
+
+/** 读持久化设置段里的合集（collections v15 起随设置段同步）。 */
+function readCollections(page: Page) {
+  return page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("kami-settings") ?? "{}") as {
+      state?: { collections?: Array<Record<string, unknown>> };
+    };
+    return raw.state?.collections ?? null;
+  });
+}
+
+test("A 建合集自动推送，B 拉取一致（collections 随设置段同步）", async ({ page, browser }) => {
+  const errors: string[] = [];
+  const email = `kami-e2e-collections-${Date.now()}@example.com`;
+  const COLLECTION_NAME = "e2e 合集";
+
+  // ── Context A：注册 → 纸匣页「新建合集」（window.prompt 命名）→ 4s 防抖推送 ──
+  await page.addInitScript(seedOnboarded(15));
+  page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+
+  await page.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
+  await submitAppAccount(page, email, "注册");
+  await expect(page.getByText("已登录").first()).toBeVisible({ timeout: 30_000 });
+
+  await page.goto("/vault", { waitUntil: "domcontentloaded" });
+  const createBtn = page.getByRole("button", { name: "新建合集" });
+  await expect(createBtn).toBeVisible({ timeout: 30_000 });
+  // 新建合集走 window.prompt（与「存为智能文件夹」同一交互）：dialog 事件应答
+  const promptAnswered = page.waitForEvent("dialog").then((d) => d.accept(COLLECTION_NAME));
+  const pushDone = page.waitForResponse(
+    (r) => {
+      const body = r.request().postData() ?? "";
+      // 注册后 settings 段是 KEK 密文推送，载荷里不会有明文合集名——
+      // 这里只等段级 POST 200；内容一致性由两侧 readCollections 断言（下方）。
+      return (
+        r.url().includes("/api/account/sync") &&
+        r.request().method() === "POST" &&
+        body.includes('"segment":"settings"') &&
+        r.status() === 200
+      );
+    },
+    { timeout: 30_000 },
+  );
+  await createBtn.click();
+  await promptAnswered;
+  // 合集先落进本地设置段（同步推送的源头），再等 4s 防抖后的 settings 段 POST 200
+  await expect
+    .poll(() => readCollections(page), { timeout: 15_000 })
+    .toEqual([expect.objectContaining({ name: COLLECTION_NAME })]);
+  await pushDone;
+  const aCollections = await readCollections(page);
+  expect(aCollections).toEqual([expect.objectContaining({ name: COLLECTION_NAME })]);
+
+  // ── Context B：同账号登录 → 显式「从服务端恢复」→ collections 与 A 一致 ────
+  const contextB = await browser.newContext();
+  const pageB = await contextB.newPage();
+  pageB.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+  await pageB.addInitScript(seedOnboarded(15));
+
+  await pageB.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
+  await submitAppAccount(pageB, email, "登录");
+  await expect(pageB.getByText("已登录").first()).toBeVisible({ timeout: 30_000 });
+
+  // 登录瞬间的自动拉取可能与 KEK 派生竞态（同上一条 spec 的绕法）：
+  // 显式点「从服务端恢复」强制走同一条 pullAccountSync 通道
+  const restore = pageB.getByRole("button", { name: "从服务端恢复" });
+  await expect(restore).toBeVisible({ timeout: 15_000 });
+  await restore.click();
+
+  // 存储层复核：B 持久化的 settings 段带着 A 建的合集（形状逐字段一致）
+  await expect.poll(() => readCollections(pageB), { timeout: 30_000 }).toEqual(aCollections);
 
   await contextB.close();
   expect(errors, `页面错误：${errors.join(" | ")}`).toEqual([]);
