@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   filterByYear,
+  healthStats,
   hourHistogram,
   hourPhaseName,
   onThisDay,
@@ -369,6 +370,45 @@ test("词云与小结 topTag：同图双变体按张去重、topTag 走别名归
   const summary = profileSummary(items, aliases);
   assert.equal(summary.topTag?.tag, "鸣潮");
   assert.equal(summary.topTag?.rate, 2 / 3, "出现率按张数口径");
+});
+
+// ── 纸匣健康度 healthStats（C2，09-28-health-polish）─────────────────────────
+
+test("healthStats：空数组四数全 0", () => {
+  assert.deepEqual(healthStats([]), { noTags: 0, missingFlags: 0, replaced: 0, noCover: 0 });
+});
+
+test("healthStats：四类各一条命中 + 一条健康条目 → 各 1、其余 0", () => {
+  const rows: VaultMeta[] = [
+    item({ key: "a", title: "无标签", author: "x", tags: [], hasFile: true, aiType: 0, xRestrict: 0, rating: "" }),
+    item({ key: "b", title: "缺标记", author: "x", tags: ["猫"], hasFile: true }), // 三字段全 undefined
+    item({ key: "c", title: "被替换", author: "x", tags: ["猫"], hasFile: true, aiType: 0, replaced: true }),
+    item({ key: "d", title: "无封面", author: "x", tags: ["猫"], aiType: 0, origin: "folder" }), // 三处都够不着
+    item({ key: "e", title: "健康", author: "x", tags: ["猫"], hasFile: true, aiType: 0, xRestrict: 0, rating: "", replaced: false }),
+  ];
+  assert.deepEqual(healthStats(rows), { noTags: 1, missingFlags: 1, replaced: 1, noCover: 1 });
+});
+
+test("healthStats：显式 0/'' 是「确认没有」不算缺（needsBackfill 同口径的另一半，两侧各自锁）", () => {
+  const rows = [item({ key: "a", title: "a", author: "x", tags: ["猫"], hasFile: true, aiType: 0, xRestrict: 0, rating: "" })];
+  assert.equal(healthStats(rows).missingFlags, 0, "显式 0/'' ≠ unknown");
+});
+
+test("healthStats：origin 兜底算有封面；folder 且无副本无像素才无封面", () => {
+  const rows: VaultMeta[] = [
+    // origin "app"：无 relativePath、hasFile undefined，封面从应用内 IDB 取得到（渲染回退链）
+    item({ key: "a", title: "app 兜底", author: "x", origin: "app" }),
+    item({ key: "b", title: "folder 无副本", author: "x", origin: "folder" }), // 三处都够不着 → 计
+  ];
+  assert.equal(healthStats(rows).noCover, 1);
+});
+
+test("healthStats：replaced 只认字面 true，undefined / false 都不进 replaced 格", () => {
+  const rows: VaultMeta[] = [
+    item({ key: "a", title: "a", author: "x", hasFile: true }), // replaced undefined
+    item({ key: "b", title: "b", author: "x", hasFile: true, replaced: false }),
+  ];
+  assert.equal(healthStats(rows).replaced, 0);
 });
 
 // ── 口味变迁（R）────────────────────────────────────────────────────────────

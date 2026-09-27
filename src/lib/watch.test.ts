@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clampWatchLimit, diffNewCount, parseWatchArtists, parseWatchTags, tagWatchKey } from "./watch.ts";
+import { clampWatchLimit, diffNewCount, isTagSubscribed, parseWatchArtists, parseWatchTags, tagWatchKey } from "./watch.ts";
 
 const good = {
   source: "pixiv",
@@ -74,4 +74,12 @@ test("parseWatchTags：逐项校验、同站同词大小写归一去重、超限
 test("tagWatchKey：站点 + 小写词", () => {
   assert.equal(tagWatchKey("yande", " Nagi "), "yande:nagi");
   assert.notEqual(tagWatchKey("pixiv", "nagi"), tagWatchKey("yande", "nagi"));
+});
+
+test("isTagSubscribed（P2-e 订阅钮已订阅态）：同键命中、大小写与空白不裂、异站不算", () => {
+  const watchTags = [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1 }];
+  assert.equal(isTagSubscribed(watchTags, "pixiv", "鳴潮"), true);
+  assert.equal(isTagSubscribed(watchTags, "pixiv", " 鳴潮 "), true, "空白大小写不裂（tagWatchKey 归一）");
+  assert.equal(isTagSubscribed(watchTags, "yande", "鳴潮"), false, "异站同词不算");
+  assert.equal(isTagSubscribed([], "pixiv", "鳴潮"), false);
 });

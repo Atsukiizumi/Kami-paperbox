@@ -36,6 +36,8 @@ export type VaultQuery = {
   ai?: boolean;
   /** true = 只看 R-18，false = 排除；undefined = 不过滤。旧藏品无分级字段 = 未知，两端都不匹配。 */
   r18?: boolean;
+  /** true = 只看原图已被替换（types.ts 的 replaced）；undefined = 不过滤（与 ai/r18 同款三态，只消费 true）。 */
+  replaced?: boolean;
 };
 
 /** 智能文件夹：命名的筛选条件组合，存设置段随账号同步。 */
@@ -81,6 +83,7 @@ export function filterVaultItems(items: VaultMeta[], q: VaultQuery): VaultMeta[]
     if (q.month && monthOf(item.savedAt) !== q.month) return false;
     if (q.ai !== undefined && isAiWork({ aiType: item.aiType, tags: item.tags }) !== q.ai) return false;
     if (q.r18 !== undefined && isVaultR18(item) !== q.r18) return false;
+    if (q.replaced !== undefined && item.replaced !== true) return false;
     if (tokens.length === 0) return true;
     const hay = haystackOf(item, alias);
     return tokens.every((t) => hay.includes(t));

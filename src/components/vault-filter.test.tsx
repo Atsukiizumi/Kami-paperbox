@@ -34,10 +34,12 @@ function Harness({
   initial = EMPTY_VAULT_FILTER,
   tagOptions = ["猫", "原创"],
   booruTagKeys = new Set<string>(),
+  showReplaced = true,
 }: {
   initial?: VaultFilterState;
   tagOptions?: string[];
   booruTagKeys?: Set<string>;
+  showReplaced?: boolean;
 }) {
   const [value, setValue] = useState(initial);
   return (
@@ -51,6 +53,7 @@ function Harness({
         totals={{ count: 10, bytes: 1024 }}
         showUnread
         showRecall
+        showReplaced={showReplaced}
       />
     </main>
   );
@@ -93,6 +96,26 @@ describe("VaultFilter", () => {
     fireEvent.click(slip);
     assert.equal(screen.queryByRole("button", { name: "去掉筛选：Pixiv" }), null);
     assert.equal(screen.getByRole("button", { name: "筛选" }).getAttribute("aria-expanded"), "false");
+  });
+});
+
+describe("VaultFilter replaced 笺（C2 原图已被替换）", () => {
+  beforeEach(() => cleanup());
+
+  it("开纸点「原图已被替换」→ 页上出笺；点笺条件清除", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "筛选" }));
+    fireEvent.click(screen.getByRole("button", { name: "原图已被替换" }));
+    // 抽屉打开时 vaul 给主栏 aria-hidden，笺仍在关闭态那一行
+    assert.ok(screen.getByRole("button", { name: "去掉筛选：原图已被替换", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "去掉筛选：原图已被替换", hidden: true }));
+    assert.equal(screen.queryByRole("button", { name: "去掉筛选：原图已被替换", hidden: true }), null);
+  });
+
+  it("匣内无被替换条目（showReplaced=false）笺钮不渲染，空概念不占位", () => {
+    render(<Harness showReplaced={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "筛选" }));
+    assert.equal(screen.queryByRole("button", { name: "原图已被替换" }), null);
   });
 });
 

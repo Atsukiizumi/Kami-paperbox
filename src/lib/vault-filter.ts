@@ -22,6 +22,8 @@ export type VaultFilterState = {
   ai: boolean;
   /** R-18 笺：旧藏品无分级字段 = 未知，不出现在 R-18 结果。 */
   r18: boolean;
+  /** 原图已被替换笺（C2 健康卡跳转入口）：瞬态芯片同 unreadOnly / recallOnly，不进智能文件夹。 */
+  replacedOnly: boolean;
 };
 
 export const EMPTY_VAULT_FILTER: VaultFilterState = {
@@ -33,10 +35,11 @@ export const EMPTY_VAULT_FILTER: VaultFilterState = {
   recallOnly: false,
   ai: false,
   r18: false,
+  replacedOnly: false,
 };
 
 export type VaultFilterSlip = {
-  kind: "source" | "author" | "tag" | "month" | "unread" | "recall" | "ai" | "r18";
+  kind: "source" | "author" | "tag" | "month" | "unread" | "recall" | "ai" | "r18" | "replaced";
   key: string;
   label: string;
 };
@@ -70,6 +73,9 @@ export function vaultFilterSlips(
   if (state.r18) {
     slips.push({ kind: "r18", key: "r18", label: "R-18" });
   }
+  if (state.replacedOnly) {
+    slips.push({ kind: "replaced", key: "replaced", label: "原图已被替换" });
+  }
   return slips;
 }
 
@@ -91,6 +97,8 @@ export function applySlipClear(state: VaultFilterState, slip: VaultFilterSlip): 
       return { ...state, ai: false };
     case "r18":
       return { ...state, r18: false };
+    case "replaced":
+      return { ...state, replacedOnly: false };
   }
 }
 
