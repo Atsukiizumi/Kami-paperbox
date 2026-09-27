@@ -9,7 +9,7 @@
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import { Link } from "@/lib/kami-link";
-import { Download, ExternalLink, PanelTop } from "lucide-react";
+import { Download, ExternalLink, ListPlus, PanelTop } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
 import { workOriginUrl } from "@/lib/sites";
 
@@ -20,6 +20,7 @@ export function CardMenu({
   pos,
   onClose,
   onQueue,
+  onAddToCollection,
 }: {
   work: WorkCard;
   pos: CardMenuPos | null;
@@ -29,6 +30,8 @@ export function CardMenu({
   onSave?: () => void;
   onLike?: () => void;
   onQueue: () => void;
+  /** 加入合集（纸匣 variant 由调用方传入）：不传不渲染菜单项，浏览侧零影响。 */
+  onAddToCollection?: () => void;
 }) {
   useEffect(() => {
     if (!pos) return;
@@ -46,7 +49,8 @@ export function CardMenu({
   if (!pos || typeof document === "undefined") return null;
   const origin = workOriginUrl(work.source, work.id, work.authorId);
   const left = Math.min(pos.x + 8, window.innerWidth - 188);
-  const top = Math.min(pos.y + 8, window.innerHeight - 160);
+  // 菜单高度随项数变：第四项（加入合集）在时多留一行，避免贴底被裁
+  const top = Math.min(pos.y + 8, window.innerHeight - (onAddToCollection ? 196 : 160));
 
   return createPortal(
     <div
@@ -74,6 +78,20 @@ export function CardMenu({
         <ExternalLink className="size-3.5" />
         原站
       </a>
+      {onAddToCollection ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass}
+          onClick={() => {
+            onClose();
+            onAddToCollection();
+          }}
+        >
+          <ListPlus className="size-3.5" />
+          加入合集
+        </button>
+      ) : null}
     </div>,
     document.body,
   );

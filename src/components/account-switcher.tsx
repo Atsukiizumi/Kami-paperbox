@@ -44,7 +44,11 @@ function AppAccountMenu() {
   const signedIn = Boolean(user && !user.isDevFallback);
   const [signInOpen, setSignInOpen] = useState(false);
 
-  if (!signedIn) {
+  if (!(hydrated && signedIn)) {
+    // 水合首帧强制未登录形态（与 SSR 同帧）：登录后带着会话cookie直落任意页时，
+    // 客户端首帧已是登录态而服务端画的是未登录——分支翻转触发 hydration error，
+    // React 整树重建会把 AccountSyncBridge 的防抖计时器清掉（同步推送静默丢失）。
+    // 水合完成后再翻真实形态（与 #162 文案竞态同款探针，这里守的是按钮分支）。
     return (
       <>
         <button

@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applySegment, snapshotSettings } from "./backup-client.ts";
+import type { Collection } from "../collection.ts";
 import { useSettings } from "../store.ts";
 import type { SmartFolder } from "./vault-query.ts";
 
@@ -36,6 +37,7 @@ function withLocalLists<T>(fn: () => Promise<T>): Promise<T> {
     watchArtists: useSettings.getState().watchArtists,
     tagAliases: useSettings.getState().tagAliases,
     authorAliases: useSettings.getState().authorAliases,
+    collections: useSettings.getState().collections,
   };
   return fn().finally(() => {
     useSettings.setState({
@@ -43,6 +45,7 @@ function withLocalLists<T>(fn: () => Promise<T>): Promise<T> {
       watchArtists: before.watchArtists,
       tagAliases: before.tagAliases,
       authorAliases: before.authorAliases,
+      collections: before.collections,
     });
   });
 }
@@ -194,6 +197,48 @@ test("拉取显式空标签订阅（用户真清空）照常应用", async () =>
       useSettings.setState({ watchTags: WATCH_TAGS_A });
       await applySegment("settings", { settings: { hideAi: true, watchTags: [] } });
       assert.equal(useSettings.getState().watchTags.length, 0, "显式空列表应清空本地");
+    });
+  } finally {
+    restore();
+  }
+});
+
+// ── 手工合集（09-27-collections）：结构性列表同款白名单/守卫 ─────────────────
+
+const COLLECTION_A: Collection = { id: "c1", name: "風景", items: ["pixiv:1", "yande:2"], createdAt: 1, updatedAt: 2 };
+
+test("采集白名单带上手工合集（collections 不漏采）", () => {
+  const before = useSettings.getState().collections;
+  try {
+    useSettings.setState({ collections: [COLLECTION_A] });
+    const snap = snapshotSettings();
+    assert.deepEqual(snap.collections, [COLLECTION_A], "collections 必须进设置段");
+  } finally {
+    useSettings.setState({ collections: before });
+  }
+});
+
+test("拉取旧载荷（无 collections 键）不清空本地合集", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ collections: [COLLECTION_A] });
+      // 旧版本推送的载荷：整个 settings 里没有 collections 字段（#151 同款另一半事故）
+      await applySegment("settings", { settings: { hideAi: true } });
+      assert.deepEqual(useSettings.getState().collections, [COLLECTION_A], "字段缺失时应保留本地");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("拉取显式空合集（用户真清空）照常应用", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({ collections: [COLLECTION_A] });
+      await applySegment("settings", { settings: { hideAi: true, collections: [] } });
+      assert.equal(useSettings.getState().collections.length, 0, "显式空列表应清空本地");
     });
   } finally {
     restore();

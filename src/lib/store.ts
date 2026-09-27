@@ -28,6 +28,7 @@ import {
 import { fanboxSessionFrom, sanitizePixivCookie } from "./sync/browser-login.ts";
 import type { SiteProfile } from "./site-identity.ts";
 import { parseSmartFolders, type SmartFolder, type VaultQuery } from "./storage/vault-query.ts";
+import { COLLECTION_ITEMS_LIMIT, COLLECTION_LIMIT, moveCollectionItem, parseCollections, type Collection } from "./collection.ts";
 import { clampWatchLimit, parseWatchArtists, parseWatchTags, tagWatchKey, TAG_WATCH_LIMIT, type WatchArtist, type WatchTag } from "./watch.ts";
 import {
   DEFAULT_APPEARANCE,
@@ -119,6 +120,8 @@ type SettingsState = {
   watchLimit: number;
   /** 标签订阅（pixiv + 三图站）：题材新作水位，随设置段同步；上限固定 30。 */
   watchTags: WatchTag[];
+  /** 手工合集：随设置段同步；上限 50×500。 */
+  collections: Collection[];
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -138,6 +141,13 @@ type SettingsState = {
   toggleWatchTag: (source: WatchTag["source"], tag: string) => "added" | "removed" | "full";
   setWatchTagSeen: (source: WatchTag["source"], tag: string, lastSeenId: string) => void;
   setWatchLimit: (n: number) => void;
+  createCollection: (name: string, itemKeys?: readonly string[]) => { ok: true; id: string } | { ok: false; reason: "name" | "full" };
+  renameCollection: (id: string, name: string) => void;
+  setCollectionCover: (id: string, coverKey?: string) => void;
+  addToCollection: (id: string, keys: readonly string[]) => number | "full";
+  removeFromCollection: (id: string, key: string) => void;
+  reorderCollectionItem: (id: string, key: string, action: "up" | "down" | "top") => void;
+  removeCollection: (id: string) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
   setDanbooruLogin: (v: string) => void;
@@ -241,6 +251,8 @@ export function migrateSettings(persisted: unknown, version: number) {
     watchLimit: clampWatchLimit(p.watchLimit),
     // v14（标签订阅）：新增 watchTags 设置段；<14 老档缺字段补默认空表
     watchTags: parseWatchTags(p.watchTags),
+    // v15（手工合集）：新增 collections 设置段；<15 老档缺字段补默认空表
+    collections: parseCollections(p.collections),
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -286,6 +298,7 @@ export const useSettings = create<SettingsState>()(
       watchArtists: [],
       watchLimit: 100,
       watchTags: [],
+      collections: [],
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -465,6 +478,76 @@ export const useSettings = create<SettingsState>()(
           watchArtists: parseWatchArtists(s.watchArtists, watchLimit), // 降上限时截断
         }));
       },
+      createCollection: (name, itemKeys) => {
+        const trimmed = name.trim().slice(0, 40);
+        if (!trimmed) return { ok: false, reason: "name" }; // 空名不建，调用方提示
+        const current = get();
+        if (current.collections.length >= COLLECTION_LIMIT) return { ok: false, reason: "full" }; // 满额不建，调用方提示
+        const now = Date.now();
+        // 复用备份解析做白名单清洗，保证持久化形状与同步段一致（addSmartFolder 同款）
+        const [collection] = parseCollections([
+          { id: crypto.randomUUID(), name: trimmed, items: itemKeys ?? [], createdAt: now, updatedAt: now },
+        ]);
+        if (!collection) return { ok: false, reason: "name" };
+        set({ collections: [...current.collections, collection] });
+        return { ok: true, id: collection.id };
+      },
+      renameCollection: (id, name) =>
+        set((s) => ({
+          collections: s.collections.map((c) => {
+            if (c.id !== id) return c;
+            const trimmed = name.trim().slice(0, 40);
+            if (!trimmed || trimmed === c.name) return c; // 空名不改
+            return { ...c, name: trimmed, updatedAt: Date.now() };
+          }),
+        })),
+      setCollectionCover: (id, coverKey) =>
+        set((s) => ({
+          collections: s.collections.map((c) => {
+            if (c.id !== id) return c;
+            if (coverKey === undefined) {
+              if (c.coverKey === undefined) return c;
+              const { coverKey: _drop, ...rest } = c; // undefined = 清除显式封面
+              return { ...rest, updatedAt: Date.now() };
+            }
+            // 显式封面必须已是成员（PRD C4「从成员中选」），非成员 key 拒
+            if (!c.items.includes(coverKey) || c.coverKey === coverKey) return c;
+            return { ...c, coverKey, updatedAt: Date.now() };
+          }),
+        })),
+      addToCollection: (id, keys) => {
+        const target = get().collections.find((c) => c.id === id);
+        if (!target) return 0;
+        // 先按集合内已有 key 去重：重复加入是 no-op 不重复占位；容量按去重后的增量算
+        const fresh = [...new Set(keys)].filter((k) => k && !target.items.includes(k));
+        if (fresh.length === 0) return 0;
+        if (target.items.length + fresh.length > COLLECTION_ITEMS_LIMIT) return "full"; // 整批拒绝，调用方提示
+        set((s) => ({
+          collections: s.collections.map((c) =>
+            c.id === id ? { ...c, items: [...c.items, ...fresh], updatedAt: Date.now() } : c,
+          ),
+        }));
+        return fresh.length;
+      },
+      removeFromCollection: (id, key) =>
+        set((s) => ({
+          collections: s.collections.map((c) =>
+            // key 不在 items 里 no-op；失配 key 不主动清洗（软失效口径）
+            c.id === id && c.items.includes(key)
+              ? { ...c, items: c.items.filter((k) => k !== key), updatedAt: Date.now() }
+              : c,
+          ),
+        })),
+      reorderCollectionItem: (id, key, action) =>
+        set((s) => ({
+          collections: s.collections.map((c) => {
+            if (c.id !== id || !c.items.includes(key)) return c; // key 不在 items 里 no-op
+            // 重排语义锁在纯函数里，setter 只做应用 + 刷 updatedAt
+            return { ...c, items: moveCollectionItem(c.items, key, action), updatedAt: Date.now() };
+          }),
+        })),
+      // 只删清单不动藏品：绝不碰 IDB / 服务端目录（PRD C4）
+      removeCollection: (id) => set((s) => ({ collections: s.collections.filter((c) => c.id !== id) })),
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setUiStyle: (uiStyle) => set({ uiStyle: parseUiStyle(uiStyle) }),
@@ -559,8 +642,8 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: SETTINGS_STORAGE_KEY,
-      // v14（标签订阅）：新增 watchTags 设置段；<14 老档缺字段补默认空表
-      version: 14,
+      // v15（手工合集）：新增 collections 设置段；<15 老档缺字段补默认空表
+      version: 15,
       migrate: migrateSettings,
       partialize: (s) => ({
         pixivCookie: s.pixivCookie,
@@ -587,6 +670,7 @@ export const useSettings = create<SettingsState>()(
         watchArtists: s.watchArtists,
         watchLimit: s.watchLimit,
         watchTags: s.watchTags,
+        collections: s.collections,
         accounts: s.accounts,
         activeAccountId: s.activeAccountId,
         theme: s.theme,

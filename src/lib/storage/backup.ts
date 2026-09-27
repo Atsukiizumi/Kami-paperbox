@@ -17,6 +17,7 @@ import { clampQueueConcurrency } from "../queue-retry.ts";
 import { parseSearchEngine, type SearchEngine } from "../reverse-search.ts";
 import { parseSavedTags } from "../site-tags.ts";
 import { parseSmartFolders, type SmartFolder } from "./vault-query.ts";
+import { parseCollections, type Collection } from "../collection.ts";
 import { clampWatchLimit, parseWatchArtists, parseWatchTags, type WatchArtist, type WatchTag } from "../watch.ts";
 import { isSource, parseSafeModeBySite, parseSource } from "../sites.ts";
 import { parseAppearance, parseThemeId, parseUiStyle, type Appearance, type ThemeId, type UiStyle } from "../theme.ts";
@@ -68,6 +69,8 @@ export type BackupSettings = {
   watchLimit: number;
   /** 标签订阅（v14 起随设置段同步）。 */
   watchTags: WatchTag[];
+  /** 手工合集（v15 起随设置段同步）。 */
+  collections: Collection[];
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -217,6 +220,7 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     watchArtists: parseWatchArtists(p.watchArtists, clampWatchLimit(p.watchLimit)),
     watchLimit: clampWatchLimit(p.watchLimit),
     watchTags: parseWatchTags(p.watchTags),
+    collections: parseCollections(p.collections),
     accounts: legacy.accounts,
     activeAccountId: legacy.activeAccountId,
     theme: parseThemeId(p.theme),

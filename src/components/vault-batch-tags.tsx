@@ -14,11 +14,13 @@
  *        Node 测试锁语义），这里只管挑名字与预览张数；IO 与提示留在页面层。
  */
 import { useMemo, useState } from "react";
+import { AddToCollectionPanel } from "@/components/collections-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { vaultTags } from "@/lib/storage/vault-query";
 import { applyTagAlias, tagsAfterAdd, tagsAfterRemove } from "@/lib/vault-tag-alias";
+import type { Collection } from "@/lib/collection";
 import type { VaultMeta } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -152,6 +154,10 @@ export function VaultBatchActions({
   tagOptions,
   tagAliases,
   onApply,
+  collections,
+  vaultKeys,
+  onAddToCollection,
+  onCreateCollection,
 }: {
   /** 当前选中的藏品（按 key 从全量目录取，改筛选也不丢已选）。 */
   selectedItems: readonly VaultMeta[];
@@ -159,8 +165,13 @@ export function VaultBatchActions({
   tagOptions: readonly string[];
   tagAliases: Record<string, string>;
   onApply: (kind: "add" | "remove", tag: string, entries: BatchTagEntry[]) => void | Promise<void>;
+  /** 合集加入挂点（纸匣批量）：四件套齐才渲染「加入合集」按钮，浏览侧不传零影响。 */
+  collections?: readonly Collection[];
+  vaultKeys?: ReadonlySet<string>;
+  onAddToCollection?: (collectionId: string) => void;
+  onCreateCollection?: (name: string) => void;
 }) {
-  const [open, setOpen] = useState<"add" | "remove" | null>(null);
+  const [open, setOpen] = useState<"add" | "remove" | "collection" | null>(null);
   const disabled = selectedItems.length === 0;
   const panelProps = { items: selectedItems, tagAliases, onApply, onClose: () => setOpen(null) };
   return (
@@ -185,6 +196,29 @@ export function VaultBatchActions({
           <RemoveTagPanel {...panelProps} />
         </PopoverContent>
       </Popover>
+      {collections && vaultKeys && onAddToCollection && onCreateCollection ? (
+        <Popover open={open === "collection"} onOpenChange={(o) => setOpen(o ? "collection" : null)}>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="secondary" disabled={disabled}>
+              加入合集
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" className="w-72">
+            <AddToCollectionPanel
+              collections={collections}
+              vaultKeys={vaultKeys}
+              onPick={(collectionId) => {
+                onAddToCollection(collectionId);
+                setOpen(null);
+              }}
+              onCreate={(name) => {
+                onCreateCollection(name);
+                setOpen(null);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      ) : null}
     </>
   );
 }

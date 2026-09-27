@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords, preserveClientVaultFields } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
+import type { Collection } from "../collection.ts";
 import type { SmartFolder } from "./vault-query.ts";
 import type { WatchArtist } from "../watch.ts";
 
@@ -16,6 +17,7 @@ function sampleSettings() {
     watchArtists: [],
     watchLimit: 100,
     watchTags: [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1, lastSeenId: "900" }],
+    collections: [],
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
@@ -338,6 +340,36 @@ test("watchTags 随备份往返（标签订阅）；缺段补空、脏项裁剪"
     parseBackupSettings({ watchTags: [{ source: "fanbox", tag: "x" }, { source: "yande", tag: " 好 " }] }).watchTags.map((t) => t.tag),
     ["好"],
   );
+});
+
+test("collections 随备份往返（手工合集）；缺段补空、脏项裁剪、双上限截取", () => {
+  const cols: Collection[] = [
+    { id: "c1", name: "風景", coverKey: "pixiv:2", items: ["pixiv:2", "yande:1"], createdAt: 1, updatedAt: 2 },
+    { id: "c2", name: "角色", items: [], createdAt: 3, updatedAt: 4 },
+  ];
+  const backup = buildBackup({ settings: { ...sampleSettings(), collections: cols } });
+  assert.deepEqual(backup.settings.collections, cols);
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  assert.deepEqual(parsed.backup.settings.collections, cols);
+  // 老备份（无该段）→ 空 []，不连坐
+  assert.deepEqual(parseBackupSettings({}).collections, []);
+  // 脏数据：坏项丢（非对象/"junk"）、缺 name 丢、items 去重保序，好项保留
+  const dirty = parseBackupSettings({
+    collections: [{ id: "d1", name: " 好 ", items: ["a", "a", "b"] }, "junk", { name: "没 id" }],
+  });
+  assert.deepEqual(
+    dirty.collections.map((c) => ({ id: c.id, name: c.name, items: c.items })),
+    [{ id: "d1", name: "好", items: ["a", "b"] }],
+  );
+  // 双上限：51 个合集只进前 50；单合集 501 项裁到 500
+  const many = parseBackupSettings({ collections: Array.from({ length: 51 }, (_, i) => ({ id: `c${i}`, name: `n${i}` })) });
+  assert.equal(many.collections.length, 50);
+  const big = parseBackupSettings({
+    collections: [{ id: "big", name: "big", items: Array.from({ length: 501 }, (_, i) => `k${i}`) }],
+  });
+  assert.equal(big.collections[0]?.items.length, 500);
+  assert.equal(big.collections[0]?.items[0], "k0");
 });
 
 test("vault 记录 xRestrict/rating 随备份往返；mergeVaultRecords 远端缺字段保留本地", () => {
