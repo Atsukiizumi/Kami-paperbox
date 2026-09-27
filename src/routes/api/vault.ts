@@ -163,7 +163,8 @@ export async function DELETE(request: Request) {
         const key = url.searchParams.get("key") ?? "";
         if (!parseVaultKey(key)) return json({ ok: false, error: "无效编号" }, 400);
         try {
-          const ok = getVaultStore().remove(key);
+          // 软删除进纸篓（文件与页行原样保留）；真删只走 /api/vault/trash 的 purge。
+          const ok = getVaultStore().softDelete(key);
           return json({ ok, deleted: ok });
         } catch (err) {
           return fail(err);

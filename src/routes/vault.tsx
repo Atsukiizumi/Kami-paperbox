@@ -10,7 +10,7 @@
 
 import { Link } from "@/lib/kami-link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { unreadItems } from "@/lib/desk-unread";
 import { useViewHistory } from "@/lib/view-history";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -37,7 +37,8 @@ import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vault
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { useVaultCover } from "@/components/vault-cover";
-import { listServerVault } from "@/lib/storage/vault-sync";
+import { listServerVault, listServerTrash, type ServerTrashItem } from "@/lib/storage/vault-sync";
+import { VaultTrashDialog } from "@/components/vault-trash";
 import { EMPTY_VAULT_FILTER, vaultQueryFlag, type VaultFilterState } from "@/lib/vault-filter";
 import type { WorkCard } from "@/lib/types";
 
@@ -89,6 +90,9 @@ function VaultPageInner() {
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
+  // 纸篓（软删除回收站）：null = 服务端不可达（纸篓是纯服务端能力，入口隐身）
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trash, setTrash] = useState<{ items: ServerTrashItem[]; bytes: number } | null>(null);
   // 批量选择（只读勾选；写操作见 applyBatchTags）：选择与筛选/搜索互不干扰
   const sel = useBatchSelection();
   const searchParams = useSearchParams();
@@ -130,6 +134,22 @@ function VaultPageInner() {
     // TD-16：请求令牌防竞态——快速操作（删除/导出后刷新）时，旧响应不得覆盖新状态
     void refresh();
   }, []);
+
+  // 纸篓计数：进页拉一次；删除/还原/清空后经 refreshTrash 回填。失败（无服务端）保持 null 隐身。
+  const refreshTrash = useCallback(async () => {
+    const list = await listServerTrash();
+    setTrash(list ? { items: list.items, bytes: list.bytes } : null);
+  }, []);
+
+  useEffect(() => {
+    void refreshTrash();
+  }, [refreshTrash]);
+
+  /** 纸篓动作后的统一回填：纸篓计数 + 纸匣列表（还原要回到匣内）。 */
+  function onTrashChanged() {
+    void refreshTrash();
+    void refresh();
+  }
 
   // 今日去年：月-日相同、年份早于今年的藏品按年份降序分组（now 随 all 快照取一次）
   const recallGroups = useMemo(() => onThisDay(all, Date.now()), [all]);
@@ -249,10 +269,12 @@ function VaultPageInner() {
   }
 
   async function removeWork(item: VaultMeta) {
+    // 软删除进纸篓：IDB 副本一并忘掉（还原后从服务端列表回来），文件还在盘上
     await deleteVaultWork(item.key);
     forgetVaultKey(item.key);
     await refresh();
-    toast.success("已从目录移除");
+    void refreshTrash();
+    toast.success("已放进纸篓（可在纸篓里放回去）");
   }
 
   // 批量标签的选中集合：按 key 从全量目录取（改筛选不丢已选，动作也不漏隐藏中的）
@@ -308,6 +330,16 @@ function VaultPageInner() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {trash ? (
+            <Button size="sm" variant="ghost" onClick={() => setTrashOpen(true)}>
+              纸篓
+              {trash.items.length > 0 ? (
+                <span className="ml-1.5 rounded-full bg-elevated px-1.5 py-px text-xs text-subtle">
+                  {trash.items.length}
+                </span>
+              ) : null}
+            </Button>
+          ) : null}
           <Button size="sm" variant="ghost" onClick={() => setFlipOpen(true)} disabled={flipPool.length === 0}>
             随手翻一张
           </Button>
@@ -467,6 +499,15 @@ function VaultPageInner() {
       ) : null}
 
       <VaultFlipDialog items={all} aliases={authorAliases} open={flipOpen} onOpenChange={setFlipOpen} />
+      {trash ? (
+        <VaultTrashDialog
+          open={trashOpen}
+          onOpenChange={setTrashOpen}
+          items={trash.items}
+          bytes={trash.bytes}
+          onChanged={onTrashChanged}
+        />
+      ) : null}
     </div>
   );
 }

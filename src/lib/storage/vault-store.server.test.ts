@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { PNG } from "pngjs";
 import { openVaultStore, parseVaultKey, rowToMeta, type VaultPageFile } from "./vault-store.server.ts";
@@ -131,6 +132,7 @@ test("rowToMeta reads tags json", () => {
     bytes: 3,
     relative_path: null,
     folder_label: null,
+    deleted_at: null,
   });
   assert.deepEqual(meta.tags, ["VOCALOID"]);
   assert.equal(meta.relativePath, undefined);
@@ -254,6 +256,159 @@ test("put 入库即算哈希；hashes/dismiss/storageBy/remove 清理", () => {
     assert.equal(store.hashes().length, 0);
   } finally {
     store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ── 纸篓（软删除）─────────────────────────────────────────────────────────
+
+function tinyPng(): Uint8Array {
+  const img = new PNG({ width: 8, height: 8 });
+  for (let i = 0; i < 8 * 8; i++) {
+    img.data[(i << 2) + 3] = 255;
+  }
+  return new Uint8Array(PNG.sync.write(img));
+}
+
+function putWork(store: ReturnType<typeof openVaultStore>, id: string, savedAt = 1) {
+  return store.put(
+    { key: `pixiv:${id}`, source: "pixiv", id, title: `t${id}`, author: "a", authorId: "a1", tags: [], pageCount: 1, savedAt, bytes: 0 },
+    [{ bytes: tinyPng(), ext: "png", mime: "image/png" }],
+  );
+}
+
+test("软删除：读口径全隐、纸篓可见含封面页、还原如初", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-trash-"));
+  const store = openVaultStore(root);
+  try {
+    putWork(store, "501", 1_700_000_000_000);
+    assert.equal(store.softDelete("pixiv:501"), true);
+    assert.equal(store.softDelete("pixiv:501"), false, "重复软删幂等返回 false");
+    assert.equal(store.softDelete("pixiv:missing"), false);
+
+    // 一切在匣读口径看不见
+    assert.equal(store.list().length, 0);
+    assert.equal(store.get("pixiv:501"), undefined);
+    assert.equal(store.stats().count, 0);
+    assert.deepEqual(store.storageBy("source"), []);
+    assert.deepEqual(store.authors(), []);
+
+    // 纸篓可见：封面页照常读得出（纸篓要出缩略图）
+    const trash = store.trashList();
+    assert.equal(trash.length, 1);
+    assert.equal(trash[0]!.key, "pixiv:501");
+    assert.ok(trash[0]!.deletedAt > 0);
+    assert.equal(trash[0]!.hasFile, true);
+    assert.equal(trash[0]!.savedAt, 1_700_000_000_000);
+    assert.ok(store.readPage("pixiv:501", 0), "软删后封面页仍可读");
+
+    // 还原：回到原位，saved_at 不变
+    assert.equal(store.restore("pixiv:501"), true);
+    assert.equal(store.restore("pixiv:501"), false);
+    assert.equal(store.list().length, 1);
+    assert.equal(store.get("pixiv:501")?.savedAt, 1_700_000_000_000);
+    assert.equal(store.trashList().length, 0);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("软删后 putMeta 不复活；put 重新收入则出篓", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-trash2-"));
+  const store = openVaultStore(root);
+  try {
+    putWork(store, "502");
+    store.softDelete("pixiv:502");
+
+    // 远端/批量 meta 推送命中软删行：只更新 meta 字段，不复活
+    store.putMeta({ key: "pixiv:502", source: "pixiv", id: "502", title: "renamed", author: "a", authorId: "a1", tags: ["x"], pageCount: 1, savedAt: 9, bytes: 0 });
+    assert.equal(store.get("pixiv:502"), undefined, "putMeta 不得复活纸篓条目");
+    assert.equal(store.trashList().length, 1);
+
+    // 重新收入=显式收回：出篓回匣
+    store.put(
+      { key: "pixiv:502", source: "pixiv", id: "502", title: "again", author: "a", authorId: "a1", tags: [], pageCount: 1, savedAt: 10, bytes: 0 },
+      [{ bytes: tinyPng(), ext: "png", mime: "image/png" }],
+    );
+    assert.equal(store.get("pixiv:502")?.title, "again");
+    assert.equal(store.trashList().length, 0);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("trashPurge：单件与清空都走真删（文件+行+哈希全清）", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-purge-"));
+  const store = openVaultStore(root);
+  try {
+    putWork(store, "601");
+    putWork(store, "602");
+    store.softDelete("pixiv:601");
+    store.softDelete("pixiv:602");
+
+    assert.equal(store.trashPurge(["pixiv:601"]), 1);
+    assert.equal(existsSync(join(root, ".data", "vault", "files", "pixiv", "601")), false, "真删要清文件目录");
+    assert.equal(store.trashList().length, 1, "602 还在纸篓");
+    assert.equal(store.list().length, 0, "602 仍未出篓，匣内没有它");
+
+    assert.equal(store.trashPurge(), 1, "空参=清空");
+    assert.equal(store.trashList().length, 0);
+    assert.equal(store.list().length, 0);
+    assert.equal(store.remove("pixiv:602"), false, "删无可删返回 false");
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("软删行的哈希不进查重口径", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-trashhash-"));
+  const store = openVaultStore(root);
+  try {
+    const png = tinyPng();
+    putWork(store, "603");
+    store.putHash("pixiv:603", "abc1234567890def", 8, 8);
+    assert.equal(store.hashes().length, 1);
+    store.softDelete("pixiv:603");
+    assert.equal(store.hashes().length, 0, "查重扫描不得看见纸篓条目");
+    store.restore("pixiv:603");
+    assert.equal(store.hashes().length, 1);
+    assert.equal(png.byteLength > 0, true);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("老库升级：无 deleted_at 列的库打开后自动补列", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-upgrade-"));
+  try {
+    // 手造一个旧 schema 的库（没有 deleted_at），塞一行数据
+    mkdirSync(join(root, ".data", "vault"), { recursive: true });
+    const legacy = new DatabaseSync(join(root, ".data", "vault", "vault.sqlite"));
+    legacy.exec(`
+      CREATE TABLE works (
+        key TEXT PRIMARY KEY, source TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL,
+        author TEXT NOT NULL, author_id TEXT NOT NULL DEFAULT '', tags TEXT NOT NULL DEFAULT '[]',
+        page_count INTEGER NOT NULL, saved_at INTEGER NOT NULL, bytes INTEGER NOT NULL,
+        relative_path TEXT, folder_label TEXT
+      );
+    `);
+    legacy.prepare("INSERT INTO works (key, source, id, title, author, page_count, saved_at, bytes) VALUES ('pixiv:701', 'pixiv', '701', 'legacy', 'a', 0, 1, 0)").run();
+    legacy.close();
+
+    const store = openVaultStore(root);
+    try {
+      assert.equal(store.list().length, 1, "旧数据原样可见");
+      assert.equal(store.softDelete("pixiv:701"), true);
+      assert.equal(store.list().length, 0);
+      assert.equal(store.trashList().length, 1);
+    } finally {
+      store.close();
+    }
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });

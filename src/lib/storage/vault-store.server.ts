@@ -85,7 +85,11 @@ type WorkRow = {
   bytes: number;
   relative_path: string | null;
   folder_label: string | null;
+  deleted_at: number | null;
 };
+
+/** 纸篓条目：在匣字段之外带删除时间。 */
+export type TrashItem = VaultMeta & { deletedAt: number };
 
 export function parseVaultKey(raw: string): { source: Source; id: string } | null {
   const cut = raw.indexOf(":");
@@ -144,6 +148,10 @@ export type VaultStore = {
   pageExtList: (key: string) => { page: number; ext: string }[];
   patch: (key: string, patch: Partial<Pick<VaultMeta, "relativePath" | "folderLabel" | "title">>) => VaultMeta | undefined;
   remove: (key: string) => boolean;
+  softDelete: (key: string) => boolean;
+  restore: (key: string) => boolean;
+  trashList: () => TrashItem[];
+  trashPurge: (keys?: string[]) => number;
   putHash: (key: string, dhash: string, w: number, h: number) => void;
   hashes: () => { key: string; dhash: string }[];
   dismissPair: (a: string, b: string) => void;
@@ -161,8 +169,22 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const db = new DatabaseSync(join(dir, "vault.sqlite"));
   db.exec(SCHEMA);
 
-  const selectWork = db.prepare("SELECT * FROM works WHERE key = ?");
-  const selectWorks = db.prepare("SELECT * FROM works ORDER BY saved_at DESC");
+  // 纸篓（软删除）列：老库无痛升级——建表语句不含新列，这里幂等补齐。
+  // 降级回旧代码也安全：旧语句按名取列，读到 NULL 当在匣处理。
+  const workCols = db.prepare("PRAGMA table_info(works)").all() as { name: string }[];
+  if (!workCols.some((col) => col.name === "deleted_at")) {
+    db.exec("ALTER TABLE works ADD COLUMN deleted_at INTEGER");
+  }
+
+  // 在匣口径：一切面向纸匣页/统计/查重的读路径只看 deleted_at IS NULL；
+  // 纸篓与真删走 selectWorkAny（不过滤）。readPage 不过滤——纸篓要出封面。
+  const selectWork = db.prepare("SELECT * FROM works WHERE key = ? AND deleted_at IS NULL");
+  const selectWorkAny = db.prepare("SELECT * FROM works WHERE key = ?");
+  const selectWorks = db.prepare("SELECT * FROM works WHERE deleted_at IS NULL ORDER BY saved_at DESC");
+  const selectTrash = db.prepare("SELECT * FROM works WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC");
+  const softDeleteStmt = db.prepare("UPDATE works SET deleted_at = ? WHERE key = ? AND deleted_at IS NULL");
+  const restoreStmt = db.prepare("UPDATE works SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL");
+  const undeleteStmt = db.prepare("UPDATE works SET deleted_at = NULL WHERE key = ?");
   const upsertWork = db.prepare(
     `INSERT INTO works (key, source, id, title, author, author_id, tags, page_count, saved_at, bytes, relative_path, folder_label)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -186,12 +208,16 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const upsertHash = db.prepare(
     "INSERT INTO vault_hash (key, dhash, w, h) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET dhash=excluded.dhash, w=excluded.w, h=excluded.h",
   );
-  const selectHashes = db.prepare("SELECT key, dhash FROM vault_hash");
+  const selectHashes = db.prepare(
+    "SELECT v.key, v.dhash FROM vault_hash v JOIN works w ON w.key = v.key WHERE w.deleted_at IS NULL",
+  );
   const deleteHash = db.prepare("DELETE FROM vault_hash WHERE key = ?");
   const insertDismiss = db.prepare("INSERT INTO vault_dup_dismissed (pair) VALUES (?) ON CONFLICT(pair) DO NOTHING");
   const selectDismissed = db.prepare("SELECT pair FROM vault_dup_dismissed");
   const selectStorageBy = (col: "source" | "author") =>
-    db.prepare(`SELECT ${col} AS name, SUM(bytes) AS bytes, COUNT(*) AS count FROM works GROUP BY ${col} ORDER BY bytes DESC`);
+    db.prepare(
+      `SELECT ${col} AS name, SUM(bytes) AS bytes, COUNT(*) AS count FROM works WHERE deleted_at IS NULL GROUP BY ${col} ORDER BY bytes DESC`,
+    );
 
   function workDir(source: string, id: string) {
     return join(filesDir, safeSeg(source), safeSeg(id));
@@ -286,6 +312,8 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
           meta.relativePath ?? null,
           meta.folderLabel ?? null,
         );
+        // 重新收入=显式想收回：同 key 在纸篓里时借此出篓（putMeta 不走这里，不复活）
+        undeleteStmt.run(key);
         db.exec("COMMIT");
       } catch (err) {
         db.exec("ROLLBACK");
@@ -405,7 +433,9 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       return next;
     },
     remove(key) {
-      if (!store.get(key)) return false;
+      // 真删：纸篓清空/单件彻底删的唯一路径。存在性看不过滤口径——软删行也删得掉。
+      const row = selectWorkAny.get(key) as WorkRow | undefined;
+      if (!row) return false;
       dropFiles(key);
       deleteWork.run(key);
       deleteHash.run(key);
@@ -418,6 +448,33 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         }
       }
       return true;
+    },
+    softDelete(key) {
+      const row = selectWorkAny.get(key) as WorkRow | undefined;
+      if (!row || row.deleted_at) return false;
+      softDeleteStmt.run(Date.now(), key);
+      return true;
+    },
+    restore(key) {
+      const row = selectWorkAny.get(key) as WorkRow | undefined;
+      if (!row || !row.deleted_at) return false;
+      restoreStmt.run(key);
+      return true;
+    },
+    trashList() {
+      const stored = new Set((selectPageKeys.all() as { key: string }[]).map((row) => row.key));
+      return (selectTrash.all() as WorkRow[]).map((row) => ({
+        ...rowToMeta(row, stored.has(row.key)),
+        deletedAt: Number(row.deleted_at) || 0,
+      }));
+    },
+    trashPurge(keys) {
+      const targets = keys ?? (selectTrash.all() as WorkRow[]).map((row) => row.key);
+      let purged = 0;
+      for (const key of targets) {
+        if (store.remove(key)) purged += 1;
+      }
+      return purged;
     },
     putHash(key, dhash, w, h) {
       upsertHash.run(key, dhash, w, h);

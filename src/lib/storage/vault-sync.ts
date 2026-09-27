@@ -117,3 +117,50 @@ export async function deleteServerVault(key: string): Promise<boolean> {
     return false;
   }
 }
+
+export type ServerTrashItem = VaultMeta & { deletedAt: number };
+
+export type ServerTrashList = {
+  ok: boolean;
+  items: ServerTrashItem[];
+  bytes: number;
+};
+
+/** 纸篓列表（软删除的藏品）。服务端不可达返回 null（纸篓是纯服务端能力，此时入口直接隐身）。 */
+export async function listServerTrash(): Promise<ServerTrashList | null> {
+  try {
+    const res = await fetch("/api/vault/trash", { cache: "no-store" });
+    return await asJson<ServerTrashList>(res);
+  } catch {
+    return null;
+  }
+}
+
+export async function restoreServerTrash(key: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/vault/trash", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "restore", key }),
+    });
+    const body = await asJson<{ ok: boolean }>(res);
+    return Boolean(body?.ok);
+  } catch {
+    return false;
+  }
+}
+
+/** 彻底删（真删）：key 单件 / all 清空；confirm 与服务端防误触字段对齐。 */
+export async function purgeServerTrash(opts: { key?: string; all?: true }): Promise<boolean> {
+  try {
+    const res = await fetch("/api/vault/trash", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "purge", ...opts, confirm: "purge" }),
+    });
+    const body = await asJson<{ ok: boolean }>(res);
+    return Boolean(body?.ok);
+  } catch {
+    return false;
+  }
+}
