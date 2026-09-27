@@ -5,13 +5,14 @@
  *
  * 作用：hero 数字带（count-up）→ 用户画像（收藏节奏 / 心仪画师 / 兴趣标签 /
  *      来源构成 / 画像小结，聚合走 vault-profile.ts 纯函数）→ 明细统计
- *      （按月时间线 / 存储占用 / 查重状态）。
+ *      （按月时间线 / 存储占用 / 查重状态 / 纸匣健康度 / 翻译缺口）。
  * 用法：/vault/stats，入口在纸匣页头部。
  * 为什么：原先是六个同构 BarList 的 2 列平铺，信息密度低、像通用仪表盘，
  *        违背「不是仪表盘」的定位。数据流不变：listVault() 一份全量 meta
  *        喂画像与分布，服务端存储 / 查重两路各自降级、互不拖垮。
  */
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Link } from "@/lib/kami-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { listVault } from "@/lib/storage/vault";
 import { lexiconMap, useTagLexicon } from "@/lib/tag-lexicon";
 import { monthOf, untranslatedGap, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import {
+  healthStats,
   hourHistogram,
   profileSummary,
   tasteShift,
@@ -105,6 +107,9 @@ export function VaultStatsPage() {
   const sources = useMemo(() => sourceComposition(all ?? []), [all]);
   const summary = useMemo(() => profileSummary(all ?? [], authorAliases), [all, authorAliases]);
   const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
+  // 纸匣健康度（C2）：同吃本页 all，零新取数；四类口径互相独立，可能重复计入
+  const health = useMemo(() => healthStats(all ?? []), [all]);
+  const healthClean = health.noTags + health.missingFlags + health.replaced + health.noCover === 0;
   // 口味变迁（R）：今年 vs 去年的标签 / 画师年度对比（口径同画像，别名归一）
   const shift = useMemo(() => tasteShift(all ?? [], tagAliases), [all, tagAliases]);
   const shiftNow = new Date().getFullYear();
@@ -264,6 +269,49 @@ export function VaultStatsPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* 纸匣健康度（C2）：整卡 lg:col-span-2——夹在右列卡与整行翻译卡之间的
+                  单列卡会在两列网格留下半行空洞；全 0 是好消息，整卡仍渲染。 */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>纸匣健康度</CardTitle>
+                  <CardDescription>
+                    四类各有口径，同一条可能重复计入{healthClean ? " · 匣况良好，四类都没有欠账" : ""}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link
+                      to="/vault"
+                      className="rounded-xl bg-surface p-4 transition-colors hover:bg-accent/10"
+                      onClick={() => toast.info("用纸匣页的「选择」进入批量模式，可给这批加标签")}
+                    >
+                      <p className="font-display text-2xl tabular-nums">{health.noTags}</p>
+                      <p className="mt-1 text-sm">无标签</p>
+                      <p className="mt-0.5 text-xs text-muted">没有任何标签，搜不到也归不了类</p>
+                    </Link>
+                    <Link to="/settings" hash="storage" className="rounded-xl bg-surface p-4 transition-colors hover:bg-accent/10">
+                      <p className="font-display text-2xl tabular-nums">{health.missingFlags}</p>
+                      <p className="mt-1 text-sm">缺 AI/R-18 标记</p>
+                      <p className="mt-0.5 text-xs text-muted">筛选笺与访客遮盖对这批不生效</p>
+                    </Link>
+                    <Link to="/vault?replaced=1" className="rounded-xl bg-surface p-4 transition-colors hover:bg-accent/10">
+                      <p className="font-display text-2xl tabular-nums">{health.replaced}</p>
+                      <p className="mt-1 text-sm">原图已被替换</p>
+                      <p className="mt-0.5 text-xs text-muted">上游原图换过，本地像素是旧版</p>
+                    </Link>
+                    <Link
+                      to="/vault"
+                      className="rounded-xl bg-surface p-4 transition-colors hover:bg-accent/10"
+                      onClick={() => toast.info("点卡片进详情再「收入纸匣」可重下像素；文件夹副本请到设置→存储查授权")}
+                    >
+                      <p className="font-display text-2xl tabular-nums">{health.noCover}</p>
+                      <p className="mt-1 text-sm">无封面</p>
+                      <p className="mt-0.5 text-xs text-muted">应用内和文件夹都没有像素，只剩记录</p>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* 翻译缺口（lg:col-span-2）：无 booru 藏品（X=0）不渲染整卡，防空态死区 */}
               {gap.totalTags > 0 ? (

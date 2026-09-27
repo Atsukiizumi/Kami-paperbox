@@ -99,6 +99,12 @@ export function tagWatchKey(source: TagWatchSource, tag: string): string {
   return `${source}:${tag.trim().toLowerCase()}`;
 }
 
+/** 当前搜索词是否已订阅（P2-e 浏览页订阅钮的已订阅态；与 store.ts toggleWatchTag 同键匹配）。 */
+export function isTagSubscribed(watchTags: readonly WatchTag[], source: TagWatchSource, tag: string): boolean {
+  const key = tagWatchKey(source, tag);
+  return watchTags.some((w) => tagWatchKey(w.source, w.tag) === key);
+}
+
 /** 解析外部（备份/同步段）来的订阅列表：逐项校验，坏项丢弃，超限截取。 */
 export function parseWatchTags(raw: unknown): WatchTag[] {
   if (!Array.isArray(raw)) return [];

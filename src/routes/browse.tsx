@@ -43,7 +43,8 @@ import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/sync/browser-lo
 import { BOORU_FEEDS, isBooruPeriodFeed, parseBoardDate, type BooruFeed } from "@/lib/booru";
 import { pixivRankingDateParam, rankingPeriodOf, rememberRanking } from "@/lib/storage/ranking-archive";
 import { isBooru, siteLabel } from "@/lib/sites";
-import { isTagWatchSource } from "@/lib/watch";
+import { stepKbFocus, type KbFocusStep } from "@/lib/kb-paging";
+import { isTagSubscribed, isTagWatchSource } from "@/lib/watch";
 import { canonicalTag, tagPlaceholder } from "@/lib/site-tags";
 import type { FanboxCursor, FetchOk, Source, WorkCard } from "@/lib/types";
 import {
@@ -96,6 +97,8 @@ export function Home() {
   const savedTags = useSettings((s) => s.savedTags[tab] ?? []);
   const toggleSavedTag = useSettings((s) => s.toggleSavedTag);
   const toggleWatchTag = useSettings((s) => s.toggleWatchTag);
+  // P2-e：订阅钮已订阅态——按 tagWatchKey 同键匹配当前搜索词
+  const watchTags = useSettings((s) => s.watchTags);
 
   useEffect(() => {
     setSearchWord("");
@@ -361,6 +364,8 @@ export function Home() {
   const [kbFocus, setKbFocus] = useState<number | null>(null);
   const [kbAction, setKbAction] = useState<{ seq: number; kind: "save" | "like" | "preview" } | null>(null);
   const kbSeq = useRef(0);
+  // P2-d：J/K 翻页时的落地焦点（head/tail），新页 items 到位后由落地 effect 消费
+  const pendingKbLand = useRef<"head" | "tail" | null>(null);
   const canKeyboard =
     typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: fine)").matches;
   useEffect(() => {
@@ -373,18 +378,26 @@ export function Home() {
       kbSeq.current += 1;
       setKbAction({ seq: kbSeq.current, kind });
     }
+    // P2-d：J/K 步进判定在 stepKbFocus 纯函数（kb-paging.test.ts 逐条锁），
+    // 这里只接线：focus 落焦点；page 翻页 + 清焦点 + 记落地位置
+    function applyKbStep(step: KbFocusStep) {
+      if (step.kind === "focus") {
+        setKbFocus(step.index);
+      } else if (step.kind === "page") {
+        goListPage(listPage + step.delta);
+        setKbFocus(null);
+        pendingKbLand.current = step.landAt;
+      }
+    }
     function onKey(e: KeyboardEvent) {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        setKbFocus((i) => {
-          const next = i === null ? 0 : Math.min(i + 1, items.length - 1);
-          return next;
-        });
+        applyKbStep(stepKbFocus("next", kbFocus, items, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
       } else if (key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        setKbFocus((i) => (i === null ? null : Math.max(0, i - 1)));
+        applyKbStep(stepKbFocus("prev", kbFocus, items, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
       } else if (key === "s") {
         if (kbFocus !== null) {
           e.preventDefault();
@@ -406,7 +419,20 @@ export function Home() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canKeyboard, items.length, kbFocus]);
+    // P2-d：listPage / hasPrevPage / hasNextPage 必须在依赖里——等长页翻页时
+    // items.length 不变、监听器不重挂，闭包会持旧 listPage 跳错页（#166 坑 1）。
+    // items 传数组本身（stepKbFocus 只读 length），依赖随之用 items 而非 length。
+  }, [canKeyboard, items, kbFocus, listPage, hasPrevPage, hasNextPage]);
+
+  // P2-d：J/K 翻页后的焦点落地——新页 items 到位再落 head/tail（页尾落点用新页
+  // 实际长度，最后一页可能不满 BROWSE_PAGE_SIZE），落完清 ref。新页未画出（items
+  // 为空）时等下一次 items 变化再落。
+  useEffect(() => {
+    if (pendingKbLand.current === null) return;
+    if (items.length === 0) return;
+    setKbFocus(pendingKbLand.current === "head" ? 0 : items.length - 1);
+    pendingKbLand.current = null;
+  }, [items]);
 
   const loading =
     !settingsReady ||
@@ -604,7 +630,7 @@ export function Home() {
               }}
             >
               <Hash className="size-4" />
-              订阅
+              {isTagSubscribed(watchTags, tab, searchWord) ? "已订阅 ✓" : "订阅"}
             </Button>
           ) : null}
           <Button type="submit">打开</Button>

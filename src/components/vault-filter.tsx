@@ -4,7 +4,7 @@
  * 纸匣筛选纸（钮 + 已选笺 + 桌面 Popover / 手机 Drawer）。
  *
  * 作用：关闭态只露出筛选钮、已选笺和计数；打开后同一份内芯选站点/作者/标签/月份/在匣里。
- * 用法：纸匣页搜索框下一行挂 <VaultFilter value onChange authors tagOptions booruTagKeys totals showUnread showRecall />。
+ * 用法：纸匣页搜索框下一行挂 <VaultFilter value onChange authors tagOptions booruTagKeys totals showUnread showRecall showReplaced />。
  * 为什么：页上不再摊站点 Chip 和作者 Select；桌面纸片、手机抽屉共用 VaultFilterBody，避免两套 JSX。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -152,6 +152,7 @@ export function VaultFilterBody({
   booruTagKeys,
   showUnread,
   showRecall,
+  showReplaced,
   authorQuery,
   onAuthorQuery,
   tagQuery,
@@ -165,6 +166,7 @@ export function VaultFilterBody({
   booruTagKeys: Set<string>;
   showUnread: boolean;
   showRecall: boolean;
+  showReplaced: boolean;
   authorQuery: string;
   onAuthorQuery: (q: string) => void;
   tagQuery: string;
@@ -269,6 +271,14 @@ export function VaultFilterBody({
               今日去年
             </FilterChip>
           ) : null}
+          {showReplaced ? (
+            <FilterChip
+              active={value.replacedOnly}
+              onClick={() => onChange({ ...value, replacedOnly: !value.replacedOnly })}
+            >
+              原图已被替换
+            </FilterChip>
+          ) : null}
           <FilterChip active={value.ai} onClick={() => onChange({ ...value, ai: !value.ai })}>
             AI 作画
           </FilterChip>
@@ -302,6 +312,7 @@ export function VaultFilter({
   totals,
   showUnread,
   showRecall,
+  showReplaced,
 }: {
   value: VaultFilterState;
   onChange: (next: VaultFilterState) => void;
@@ -311,6 +322,7 @@ export function VaultFilter({
   totals: { count: number; bytes: number };
   showUnread: boolean;
   showRecall: boolean;
+  showReplaced: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [desktop, setDesktop] = useState(false);
@@ -336,6 +348,7 @@ export function VaultFilter({
     booruTagKeys,
     showUnread,
     showRecall,
+    showReplaced,
     authorQuery,
     onAuthorQuery: setAuthorQuery,
     tagQuery,

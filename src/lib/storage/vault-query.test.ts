@@ -239,6 +239,19 @@ test("mergeVaultItems 客户端先行三字段：远端行缺字段保留本地"
   assert.equal(hit.hasFile, true, "哨兵语义保持：远端给明确值以远端为准");
 });
 
+// ── replaced 过滤（C2 纸匣健康度，09-28-health-polish）───────────────────────
+
+test("filterVaultItems replaced 笺：只留 replaced === true；undefined / 不传不过滤", () => {
+  const rows = [
+    item({ key: "a", title: "已替换", author: "z", replaced: true }),
+    item({ key: "b", title: "未替换", author: "z", replaced: false }),
+    item({ key: "c", title: "旧数据无字段", author: "z" }), // replaced undefined
+  ];
+  assert.deepEqual(filterVaultItems(rows, { replaced: true }).map((r) => r.key), ["a"]);
+  assert.equal(filterVaultItems(rows, { replaced: undefined }).length, 3, "undefined = 不过滤");
+  assert.equal(filterVaultItems(rows, {}).length, 3, "不传 = 不过滤");
+});
+
 // ── 翻译缺口 untranslatedGap（09-27-tag-translate）──────────────────────────
 
 test("untranslatedGap：只扫 booru、按张去重、CJK 与 pixiv token 不进榜", () => {

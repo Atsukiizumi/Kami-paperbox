@@ -85,15 +85,22 @@ function VaultPageInner() {
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
 
-  // 案头深链：?recall=1 / ?unread=1 只当芯片初值，读完立刻从地址栏拿掉，避免分享带瞬时过滤。
+  // 案头深链：?recall=1 / ?unread=1 / ?replaced=1 只当芯片初值，读完立刻从地址栏拿掉，避免分享带瞬时过滤。
   useEffect(() => {
     const recall = searchParams.get("recall") === "1";
     const unread = searchParams.get("unread") === "1";
-    if (!recall && !unread) return;
-    setFilter((f) => ({ ...f, recallOnly: recall || f.recallOnly, unreadOnly: unread || f.unreadOnly }));
+    const replaced = searchParams.get("replaced") === "1";
+    if (!recall && !unread && !replaced) return;
+    setFilter((f) => ({
+      ...f,
+      recallOnly: recall || f.recallOnly,
+      unreadOnly: unread || f.unreadOnly,
+      replacedOnly: replaced || f.replacedOnly,
+    }));
     const url = new URL(window.location.href);
     url.searchParams.delete("recall");
     url.searchParams.delete("unread");
+    url.searchParams.delete("replaced");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }, [searchParams]);
 
@@ -165,6 +172,7 @@ function VaultPageInner() {
         tagAliases,
         ai: vaultQueryFlag(filter.ai),
         r18: vaultQueryFlag(filter.r18),
+        replaced: vaultQueryFlag(filter.replacedOnly),
       });
       // 今日去年 / 未读都叠在筛选之上：复用整页瀑布流；两芯片同时亮 = 交集
       const next = filter.recallOnly && recallKeys.size > 0 ? base.filter((item) => recallKeys.has(item.key)) : base;
@@ -410,6 +418,7 @@ function VaultPageInner() {
             totals={totals}
             showUnread={unreadKeys.size > 0}
             showRecall={recallTotal > 0}
+            showReplaced={all.some((i) => i.replaced)}
           />
           <div className="flex flex-wrap items-center gap-2">
             {smartFolders.map((folder) => (

@@ -274,10 +274,13 @@ export async function pullAccountSync(userId: string, opts: { force?: boolean } 
 
   for (const segment of SYNC_SEGMENTS) {
     const remote = data.segments[segment];
-    if (!remote) continue;
+    // 形态按「当前用户」每次拉取刷新（缺席 = 该用户服务端无 settings 段 = 无密文可冲）。
+    // 曾是仅在有远端段时才写——模块级单例跨账号残留：上个账号的密文形态会让新账号
+    // （KEK 尚未派生时）的 settings 推送被守卫静默吞掉（e2e 合集条 CI 红根因）。
     if (segment === "settings") {
-      serverSettingsEncrypted = remote.payload.kind === "cipher";
+      serverSettingsEncrypted = remote?.payload.kind === "cipher";
     }
+    if (!remote) continue;
     if (!shouldApplySegment(segment, remote.exportedAt, markers, userId, opts.force)) continue;
     try {
       if (segment === "settings" && remote.payload.kind === "cipher") {

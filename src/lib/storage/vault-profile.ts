@@ -4,8 +4,9 @@
  * 作用：在 listVault() 拿到的 VaultMeta[] 上推导「这个纸匣主人的收藏习惯」——
  *      按小时 / 周几的收藏节奏、标签词云分档、来源构成、画像小结语字段；
  *      末尾另附回顾三件套（今日去年 onThisDay / 年度报告 reportNarrative /
- *      随手翻一张 pickRandom），同样只吃数组吐结构。标签聚合口径走
- *      vault-tag-alias.ts 的别名表（词云与兴趣坐标合并变体计数）。
+ *      随手翻一张 pickRandom）、健康度四类计数 healthStats（C2），同样只吃
+ *      数组吐结构。标签聚合口径走 vault-tag-alias.ts 的别名表（词云与兴趣
+ *      坐标合并变体计数）。
  * 用法：const hours = hourHistogram(items); const summary = profileSummary(items)。
  *      只吃数组吐结构，零 IO，Node 单测直接跑（同 vault-query.ts 的拆法）。
  *      别名表由调用方从设置段带进 opts / 参数，缺省恒等（旧口径不变）。
@@ -359,6 +360,43 @@ export function pickRandom(items: VaultMeta[], rng: () => number = Math.random):
   if (pool.length === 0) return null;
   const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
   return pool[index];
+}
+
+// ── 纸匣健康度（C2，09-28-health-polish）──────────────────────────────────────
+
+/**
+ * 四类健康口径的计数集。四类独立判定、互不互斥——同一条可同时进多格，
+ * 页面文案须写明「重复计入」（不做去重 / 并集派生，PRD 没要）。
+ */
+export type VaultHealth = {
+  /** tags 为空数组；空串残留按非空算（不 trim），与 backfillPatch 判 `tags.length === 0` 同字面。 */
+  noTags: number;
+  /**
+   * aiType/xRestrict/rating 三字段全 undefined = 未知；显式 0/'' 是「确认没有」不算缺。
+   * 内联同 needsBackfill（vault-backfill.ts）口径，两处演化需同步——不 import：那边
+   * queue-runner → sonner 的副作用链会拖脏本纯函数文件的消费图。
+   */
+  missingFlags: number;
+  /** replaced === true（原图已被替换）；undefined / false 都不算，只认字面 true。 */
+  replaced: number;
+  /** !hasVaultCover(item)：与纸匣卡片取封面 / 翻牌池同一条判定链。 */
+  noCover: number;
+};
+
+/** 健康度四类计数：只吃数组吐结构，零 IO（同本文件其他聚合）。 */
+export function healthStats(items: readonly VaultMeta[]): VaultHealth {
+  let noTags = 0;
+  let missingFlags = 0;
+  let replaced = 0;
+  let noCover = 0;
+  for (const item of items) {
+    if (item.tags.length === 0) noTags += 1;
+    // 与 vault-backfill.ts needsBackfill 同口径，两处演化需同步（见 VaultHealth 注释）
+    if (item.aiType === undefined && item.xRestrict === undefined && item.rating === undefined) missingFlags += 1;
+    if (item.replaced === true) replaced += 1;
+    if (!hasVaultCover(item)) noCover += 1;
+  }
+  return { noTags, missingFlags, replaced, noCover };
 }
 
 // ── 口味变迁（R，09-22-product-batch-2）──────────────────────────────────────
