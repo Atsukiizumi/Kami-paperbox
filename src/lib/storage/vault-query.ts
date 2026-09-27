@@ -16,6 +16,7 @@ import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-na
 import { isBooru, isSource } from "../sites.ts";
 import { isNsfwRating } from "../booru.ts";
 import { isAiWork } from "../pixiv-feed.ts";
+import { isLexiconTargetToken, lexiconTokens } from "../tag-lexicon.ts";
 import { applyTagAlias, applyTagAliases } from "../vault-tag-alias.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
@@ -134,6 +135,58 @@ export function vaultTags(items: readonly VaultMeta[], aliases?: Record<string, 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .map(([tag]) => tag);
+}
+
+export type UntranslatedGap = {
+  /** 未翻译 token，按出现张数降序、同频按 en 字典序（同 vaultTags/tagCloud 稳定口径），top limit。 */
+  rows: Array<{ en: string; count: number }>;
+  /** 总览（全量口径，不受 limit 截断）：booru 藏品标签 token 去重数（仅 lexicon-target）。 */
+  totalTags: number;
+  /** 其中命中词表（zh 非空）数。 */
+  translated: number;
+  /** = totalTags - translated。 */
+  untranslated: number;
+};
+
+/**
+ * 翻译缺口统计：只扫 booru 藏品（词表是 en→zh 的 booru 域，pixiv 日文标签进榜不可补录）。
+ * tag 先过单跳别名再拆 token（与 tagCloud 同序）；每张一个 seen 且存归一 token——按张去重
+ * 对齐 tagCloud 口径，粒度到 token（`long hair` 与 `long_hair` 同张只计一），补录写回的
+ * 词表键才真正生效。CJK/全角 token 不进统计（补录不可达，进榜是死行）；lexicon 只收
+ * zh 非空键（lexiconMap 同口径），has 即已翻译。
+ */
+export function untranslatedGap(
+  items: readonly VaultMeta[],
+  tagAliases: Record<string, string> | undefined,
+  lexicon: Map<string, string>,
+  limit = 30,
+): UntranslatedGap {
+  const counts = new Map<string, number>();
+  // 总览三数按「去重 token」口径（X = 去重数、Y = 其中命中、W = X − Y，补录一个 token
+  // 才是 Y+1/W−1）；rows 的 count 才是张数。已翻 token 的跨张出现次数不进总览。
+  const translatedSeen = new Set<string>();
+  for (const item of items) {
+    if (!isBooru(item.source)) continue;
+    const seen = new Set<string>();
+    for (const tag of item.tags) {
+      for (const t of lexiconTokens(applyTagAlias(tag.trim(), tagAliases))) {
+        if (!isLexiconTargetToken(t) || seen.has(t)) continue;
+        seen.add(t);
+        if (lexicon.has(t)) translatedSeen.add(t);
+        else counts.set(t, (counts.get(t) ?? 0) + 1);
+      }
+    }
+  }
+  const rows = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+    .slice(0, Math.max(0, limit))
+    .map(([en, count]) => ({ en, count }));
+  return {
+    rows,
+    totalTags: translatedSeen.size + counts.size,
+    translated: translatedSeen.size,
+    untranslated: counts.size,
+  };
 }
 
 /** 出现过的月份（去重、新的在前），供时间轴下拉。 */

@@ -149,6 +149,45 @@ export function parseTagLexicon(raw: unknown): TagLexiconRow[] {
   return out;
 }
 
+export type ParsedBatch = { ok: TagLexiconRow[]; bad: number };
+
+/**
+ * 批量补录文本 → 词表行：每行取第一个出现的 Tab 或 `=`（谁先谁分），`=` 只切第一刀
+ * （zh 里再出现 `=` 属于 zh）；Tab 形的 zh 段止于下一个 Tab（Excel 粘贴的备注列丢弃），
+ * `=` 形不截。校验对齐 parseTagLexicon（en 归一非空、批内重复首者胜），唯空 zh 判非法——
+ * parseTagLexicon 允许空 zh 行，但空 zh 在 lexiconMap 里是「删除该 en 译文」，补录语义下是误删。
+ * 空行跳过不计数；不设行数上限（与导入 parseTagLexicon 同预算）。
+ */
+export function parseBatchRows(text: string): ParsedBatch {
+  const ok: TagLexiconRow[] = [];
+  let bad = 0;
+  const seen = new Set<string>();
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const tabAt = line.indexOf("\t");
+    const eqAt = line.indexOf("=");
+    if (tabAt === -1 && eqAt === -1) {
+      bad += 1;
+      continue;
+    }
+    // 只有其一用其一；两者都有取先者。Tab 形 zh 截断，= 形不截
+    const tabForm = tabAt !== -1 && (eqAt === -1 || tabAt < eqAt);
+    const en = normalizeLexiconKey(tabForm ? line.slice(0, tabAt) : line.slice(0, eqAt));
+    const rest = tabForm ? line.slice(tabAt + 1) : line.slice(eqAt + 1);
+    const zhAt = rest.indexOf("\t");
+    const zh = (tabForm && zhAt !== -1 ? rest.slice(0, zhAt) : rest).trim();
+    if (!en || !zh) {
+      bad += 1;
+      continue;
+    }
+    if (seen.has(en)) continue;
+    seen.add(en);
+    ok.push({ en, zh });
+  }
+  return { ok, bad };
+}
+
 export function lexiconMap(userRows: readonly TagLexiconRow[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const row of databaseTranslated()) {
@@ -167,6 +206,23 @@ export function lexiconMap(userRows: readonly TagLexiconRow[]): Map<string, stri
 export function translateBooruToken(token: string, map: Map<string, string>): string {
   const key = normalizeLexiconKey(token);
   return map.get(key) || token.replace(/_/g, " ");
+}
+
+/** tag 字符串 → 逐段归一键（与 displayTag 的 split 同口径）："Hatsune_Miku" → ["hatsune_miku"]、
+ *  "landscape sky" → ["landscape", "sky"]；空段剔除。 */
+export function lexiconTokens(tag: string): string[] {
+  return tag.split(/\s+/).filter(Boolean).map(normalizeLexiconKey).filter(Boolean);
+}
+
+/** 是否词表可翻的 token：可打印 ASCII（booru token 形态）。CJK/全角 token 不归词表管——
+ *  用户经批量标签手加的中文 tag 已可读，标「未翻」是噪音，且补录永远不可达。 */
+export function isLexiconTargetToken(token: string): boolean {
+  return /^[\x21-\x7E]+$/.test(token);
+}
+
+/** 该 tag 中未命中词表的 lexicon-target token 列表；空数组 = 无缺口（全命中或非词表域）。 */
+export function untranslatedTokens(tag: string, map: Map<string, string>): string[] {
+  return lexiconTokens(tag).filter((t) => isLexiconTargetToken(t) && !map.has(t));
 }
 
 export function upsertLexiconRow(rows: readonly TagLexiconRow[], en: string, zh: string): TagLexiconRow[] {
@@ -199,6 +255,7 @@ type LexiconState = {
   rows: TagLexiconRow[];
   setRows: (rows: TagLexiconRow[]) => void;
   setZh: (en: string, zh: string) => void;
+  addRows: (rows: TagLexiconRow[]) => void;
 };
 
 export const useTagLexicon = create<LexiconState>()(
@@ -207,6 +264,10 @@ export const useTagLexicon = create<LexiconState>()(
       rows: [],
       setRows: (rows) => set({ rows: parseTagLexicon(rows) }),
       setZh: (en, zh) => set((s) => ({ rows: upsertLexiconRow(s.rows, en, zh) })),
+      // 批量补录：upsert 合并进现有表（不是 setRows 的导入整表换）；折叠自带去重 + 排序，
+      // 同步段/备份读写整体 rows，自动搭车无需接线
+      addRows: (rows) =>
+        set((s) => ({ rows: rows.reduce((acc, r) => upsertLexiconRow(acc, r.en, r.zh), s.rows) })),
     }),
     { name: "kami-tag-lexicon", version: 1 },
   ),

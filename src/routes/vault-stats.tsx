@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/kami-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { EmptySheet } from "@/components/empty-sheet";
 import { HeroStrip } from "@/components/stats/hero-strip";
 import { RhythmClock } from "@/components/stats/rhythm-clock";
@@ -24,7 +25,8 @@ import { SourceBar } from "@/components/stats/source-bar";
 import { SummarySlip } from "@/components/stats/summary-slip";
 import { Reveal } from "@/components/stats/reveal";
 import { listVault } from "@/lib/storage/vault";
-import { monthOf, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { lexiconMap, useTagLexicon } from "@/lib/tag-lexicon";
+import { monthOf, untranslatedGap, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import {
   hourHistogram,
   profileSummary,
@@ -37,6 +39,9 @@ import { applyAuthorAlias, clusterAuthorVariants } from "@/lib/author-name";
 import { useSettings } from "@/lib/store";
 import { formatBytes } from "@/lib/utils";
 import type { VaultMeta } from "@/lib/types";
+
+/** 翻译缺口榜的行数上限（PRD 值）；总览数字永远算全量，不受截断影响。 */
+const GAP_LIMIT = 30;
 
 type StorageRow = { name: string; bytes: number; count: number };
 type StorageResponse = { ok: boolean; bySource?: StorageRow[]; byAuthor?: StorageRow[] };
@@ -104,6 +109,12 @@ export function VaultStatsPage() {
   const shift = useMemo(() => tasteShift(all ?? [], tagAliases), [all, tagAliases]);
   const shiftNow = new Date().getFullYear();
   const shiftHasLast = shift.tags.some((t) => t.lastYear > 0) || shift.authors.some((a) => a.lastYear > 0);
+  // 词表订阅派生：行内补录 setZh → rows 变 → lexMap/gap 重算 → 该行即时消失，零额外状态
+  const lexRows = useTagLexicon((s) => s.rows);
+  const setZh = useTagLexicon((s) => s.setZh);
+  const lexMap = useMemo(() => lexiconMap(lexRows), [lexRows]);
+  const gap = useMemo(() => untranslatedGap(all ?? [], tagAliases, lexMap, GAP_LIMIT), [all, tagAliases, lexMap]);
+  const gapPct = gap.totalTags > 0 ? Math.round((gap.translated / gap.totalTags) * 100) : 0;
 
   const storageRows = (storage?.bySource ?? []).slice(0, 8).map((r) => ({ name: r.name, bytes: r.bytes }));
   const storageMax = Math.max(1, ...storageRows.map((r) => r.bytes));
@@ -253,6 +264,51 @@ export function VaultStatsPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* 翻译缺口（lg:col-span-2）：无 booru 藏品（X=0）不渲染整卡，防空态死区 */}
+              {gap.totalTags > 0 ? (
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>翻译缺口</CardTitle>
+                    <CardDescription>
+                      共 {gap.totalTags} 个标签 · 已翻译 {gap.translated}（{gapPct}%）· 未翻译 {gap.untranslated}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {gap.rows.length === 0 ? (
+                      <p className="text-sm text-muted">没有翻译缺口</p>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {gap.rows.map((row) => (
+                          <li key={row.en} className="flex items-center gap-2">
+                            <span className="w-44 truncate font-mono text-xs text-muted" title={row.en}>
+                              {row.en}
+                            </span>
+                            <span className="shrink-0 tabular-nums text-xs text-subtle">{row.count} 张</span>
+                            {/* Enter 且 trim 非空才写：upsertLexiconRow 空 zh 是删译文语义，
+                                空回车必须忽略，误触等于删词（数据破坏级护栏） */}
+                            <Input
+                              className="h-8 w-28"
+                              placeholder="中文"
+                              onKeyDown={(e) => {
+                                // isComposing：中文输入法组合态的 Enter 是上屏不是提交——
+                                // 不拦会把组合中的拼音串写进词表当译文（trellis-check P1）
+                                if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+                                const zh = e.currentTarget.value.trim();
+                                if (!zh) return;
+                                setZh(row.en, zh);
+                              }}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {gap.rows.length === GAP_LIMIT && gap.untranslated > GAP_LIMIT ? (
+                      <p className="mt-2 text-xs text-subtle">只列前 {GAP_LIMIT} 条，其余去设置 → 词表搜索补录</p>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
           </section>
         </>
