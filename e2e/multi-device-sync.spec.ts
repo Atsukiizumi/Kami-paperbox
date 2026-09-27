@@ -130,6 +130,18 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
   await page.goto("/vault", { waitUntil: "domcontentloaded" });
   const createBtn = page.getByRole("button", { name: "新建合集" });
   await expect(createBtn).toBeVisible({ timeout: 30_000 });
+  // 临时诊断（CI 专用，定位后删除）：记录窗口内所有 sync 请求与本地合集态
+  const syncLog: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/account/sync")) {
+      syncLog.push(`>${r.method()} seg=${(r.postData() ?? "").slice(0, 80)}`);
+    }
+  });
+  page.on("response", (r) => {
+    if (r.url().includes("/api/account/sync")) {
+      syncLog.push(`<${r.request().method()} ${r.status()}`);
+    }
+  });
   // 新建合集走 window.prompt（与「存为智能文件夹」同一交互）：dialog 事件应答
   const promptAnswered = page.waitForEvent("dialog").then((d) => d.accept(COLLECTION_NAME));
   const pushDone = page.waitForResponse(
@@ -152,7 +164,13 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
   await expect
     .poll(() => readCollections(page), { timeout: 15_000 })
     .toEqual([expect.objectContaining({ name: COLLECTION_NAME })]);
-  await pushDone;
+  const pushResult = await Promise.race([pushDone.then(() => "ok"), page.waitForTimeout(62_000).then(() => "timeout")]);
+  if (pushResult !== "ok") {
+    console.log(`[diag] url=${page.url()} syncLog(${syncLog.length})=\n${syncLog.join("\n")}`);
+    const raw = await readCollections(page);
+    console.log(`[diag] collections=${JSON.stringify(raw)}`);
+    throw new Error("settings push 未在 62s 内出现（诊断信息见上方 [diag]）");
+  }
   const aCollections = await readCollections(page);
   expect(aCollections).toEqual([expect.objectContaining({ name: COLLECTION_NAME })]);
 
