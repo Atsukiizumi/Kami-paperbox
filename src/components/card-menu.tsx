@@ -3,15 +3,17 @@
 /**
  * 卡片右键纸签。
  *
- * 作用：打开、入队、到原站。三项够用，不必先点进详情。
+ * 作用：打开、入队、到原站；可选「加入合集」（纸匣 variant）与「添加翻译」
+ *      （quickTag，题注未翻 tag 右键快译）。不必先点进详情。
  * 用法：卡片 onContextMenu 里 setPos。
  */
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import { Link } from "@/lib/kami-link";
-import { Download, ExternalLink, ListPlus, PanelTop } from "lucide-react";
+import { Download, ExternalLink, Languages, ListPlus, PanelTop } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
 import { workOriginUrl } from "@/lib/sites";
+import { useTagLexicon } from "@/lib/tag-lexicon";
 
 export type CardMenuPos = { x: number; y: number };
 
@@ -21,6 +23,7 @@ export function CardMenu({
   onClose,
   onQueue,
   onAddToCollection,
+  quickTag,
 }: {
   work: WorkCard;
   pos: CardMenuPos | null;
@@ -32,6 +35,8 @@ export function CardMenu({
   onQueue: () => void;
   /** 加入合集（纸匣 variant 由调用方传入）：不传不渲染菜单项，浏览侧零影响。 */
   onAddToCollection?: () => void;
+  /** 未翻 booru tag（题注右键经 ArtworkCard 传入）：有值才出「添加翻译」项。 */
+  quickTag?: string;
 }) {
   useEffect(() => {
     if (!pos) return;
@@ -49,8 +54,11 @@ export function CardMenu({
   if (!pos || typeof document === "undefined") return null;
   const origin = workOriginUrl(work.source, work.id, work.authorId);
   const left = Math.min(pos.x + 8, window.innerWidth - 188);
-  // 菜单高度随项数变：第四项（加入合集）在时多留一行，避免贴底被裁
-  const top = Math.min(pos.y + 8, window.innerHeight - (onAddToCollection ? 196 : 160));
+  // 菜单高度随项数变：加入合集 / 添加翻译每多一项多留一行，避免贴底被裁
+  const top = Math.min(
+    pos.y + 8,
+    window.innerHeight - (onAddToCollection ? 196 : 160) - (quickTag ? 36 : 0),
+  );
 
   return createPortal(
     <div
@@ -60,6 +68,23 @@ export function CardMenu({
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {quickTag ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass}
+          onClick={() => {
+            onClose();
+            // prompt 取消 / 空串都忽略，不得走 setZh（空 zh 在 upsertLexiconRow 是删译文语义）
+            const zh = window.prompt(`为「${quickTag}」添加中文翻译`, "");
+            if (!zh || !zh.trim()) return;
+            useTagLexicon.getState().setZh(quickTag, zh.trim());
+          }}
+        >
+          <Languages className="size-3.5" />
+          添加翻译
+        </button>
+      ) : null}
       <Link
         role="menuitem"
         to="/work/$source/$id"

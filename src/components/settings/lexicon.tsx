@@ -9,9 +9,11 @@ import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import {
   TAG_LEXICON_FORMAT,
   mergeExportRows,
+  parseBatchRows,
   parseTagLexicon,
   useTagLexicon,
 } from "@/lib/tag-lexicon";
@@ -27,11 +29,13 @@ export function TagLexiconSection() {
   const rows = useTagLexicon((s) => s.rows);
   const setRows = useTagLexicon((s) => s.setRows);
   const setZh = useTagLexicon((s) => s.setZh);
+  const addRows = useTagLexicon((s) => s.addRows);
   const entries = useTagCatalog((s) => s.entries);
   const ingestMany = useTagCatalog((s) => s.ingestMany);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState("");
+  const [batchText, setBatchText] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [ns, setNs] = useState<TagNamespace | "all">("all");
 
@@ -125,6 +129,19 @@ export function TagLexiconSection() {
     }
   }
 
+  // 批量补录三态：有合法行 → 入库 + 清空（toast 带跳过数）；全非法 → 报错保文本供修；
+  // 空文本 → 按钮已禁用（解析器对空文本本就返回两零，防御分支不 toast）
+  function submitBatch() {
+    const { ok, bad } = parseBatchRows(batchText);
+    if (ok.length === 0) {
+      if (bad > 0) toast.error(`没有合法行 · 跳过 ${bad} 行`);
+      return;
+    }
+    addRows(ok);
+    setBatchText("");
+    toast.success(`已入库 ${ok.length} 条${bad ? ` · 跳过 ${bad} 行` : ""}`);
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -187,6 +204,25 @@ export function TagLexiconSection() {
               </Button>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>批量添加</CardTitle>
+          <CardDescription>每行一条：english_tag=中文，或 Tab 分隔（Excel 直接粘贴）。非法行跳过并计数。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            rows={6}
+            className="font-mono text-xs"
+            placeholder={"long_hair=长发\nmegami_magazine\t女神杂志"}
+            value={batchText}
+            onChange={(e) => setBatchText(e.target.value)}
+          />
+          <Button type="button" disabled={!batchText.trim()} onClick={submitBatch}>
+            解析并入库
+          </Button>
         </CardContent>
       </Card>
 

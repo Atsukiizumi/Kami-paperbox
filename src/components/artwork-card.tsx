@@ -10,7 +10,7 @@
  * 为什么：标题至少两行、卡片有最小宽度，避免竖图被挤成「私…」。
  *        保存/入队/红心叠在封面上，不占标题宽度。
  */
-import { useRef, useEffect, type CSSProperties, type MouseEvent } from "react";
+import { useRef, useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { Link } from "@/lib/kami-link";
 import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { CardMenu } from "@/components/card-menu";
@@ -103,6 +103,9 @@ export function ArtworkCard({
     likeCard,
     searchTag,
   } = useCardInteractions(work, pages, mediaRef);
+  // T4 快译：题注未翻 tag 右键 → 复用卡级菜单开合（setMenu），quickTag 交 CardMenu 出「添加翻译」；
+  // use-card-interactions 零改动（menu/setMenu 是它已返回的内部态）
+  const [menuTag, setMenuTag] = useState<string | null>(null);
 
   // 「看过」小标（T）：浏览历史命中即显示（纸匣 variant 不显示，那边有自己的未读体系）
   const viewed = useViewHistory((s) => s.items.some((x) => x.source === work.source && x.id === work.id));
@@ -155,6 +158,7 @@ export function ArtworkCard({
       onContextMenu={(e) => {
         e.preventDefault();
         hidePreview();
+        setMenuTag(null);
         setMenu({ x: e.clientX, y: e.clientY });
       }}
     >
@@ -341,12 +345,25 @@ export function ArtworkCard({
           hidePreview={hidePreview}
         />
         </div>
-        <CardCaption work={work} resolution={resolution} searchTag={searchTag} viewed={variant === "browse" ? viewed : undefined} />
+        <CardCaption
+          work={work}
+          resolution={resolution}
+          searchTag={searchTag}
+          viewed={variant === "browse" ? viewed : undefined}
+          onQuickTranslate={(tag, pos) => {
+            setMenuTag(tag);
+            setMenu(pos);
+          }}
+        />
       </div>
       <CardMenu
         work={work}
         pos={menu}
-        onClose={() => setMenu(null)}
+        quickTag={menuTag ?? undefined}
+        onClose={() => {
+          setMenu(null);
+          setMenuTag(null);
+        }}
         onQueue={() => {
           setMenu(null);
           queueCard();

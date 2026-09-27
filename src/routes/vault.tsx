@@ -30,6 +30,9 @@ import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
+import { isBooru } from "@/lib/sites";
+import { lexiconTokens } from "@/lib/tag-lexicon";
+import { applyTagAlias } from "@/lib/vault-tag-alias";
 import { useSettings } from "@/lib/store";
 import { deleteVaultWork, getVaultBlob, listVault, putVaultMeta, type VaultMeta } from "@/lib/storage/vault";
 import { forgetVaultKey } from "@/lib/storage/vault-index";
@@ -183,6 +186,17 @@ function VaultPageInner() {
   // 全量标签交给筛选纸：visibleVaultTags 负责 40 条上限、选中置顶与纸内搜索，页上不再摊 24 个。
   // 归一后变体并入规范名（计数合并压排序）：同一事物在纸里只剩一笺。
   const tagOptions = useMemo(() => vaultTags(all, tagAliases), [all, tagAliases]);
+  // booru 藏品出现过的归一 token 集：筛选笺只对「booru 侧真实出现过」的笺判未翻，
+  // 纯 pixiv/fanbox 笺（含小写英文）不得借 booru 词表误标。
+  const booruTagKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const item of all) {
+      if (!isBooru(item.source)) continue;
+      for (const tag of item.tags)
+        for (const t of lexiconTokens(applyTagAlias(tag, tagAliases))) keys.add(t);
+    }
+    return keys;
+  }, [all, tagAliases]);
   const filterActive = Boolean(text || filter.source !== "all" || filter.authorKey || filter.tags.length || filter.month);
   const totals = vaultTotals(items);
   // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
@@ -392,6 +406,7 @@ function VaultPageInner() {
             onChange={setFilter}
             authors={authors}
             tagOptions={tagOptions}
+            booruTagKeys={booruTagKeys}
             totals={totals}
             showUnread={unreadKeys.size > 0}
             showRecall={recallTotal > 0}

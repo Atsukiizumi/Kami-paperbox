@@ -4,16 +4,17 @@
  * 纸匣筛选纸（钮 + 已选笺 + 桌面 Popover / 手机 Drawer）。
  *
  * 作用：关闭态只露出筛选钮、已选笺和计数；打开后同一份内芯选站点/作者/标签/月份/在匣里。
- * 用法：纸匣页搜索框下一行挂 <VaultFilter value onChange authors tagOptions totals showUnread showRecall />。
+ * 用法：纸匣页搜索框下一行挂 <VaultFilter value onChange authors tagOptions booruTagKeys totals showUnread showRecall />。
  * 为什么：页上不再摊站点 Chip 和作者 Select；桌面纸片、手机抽屉共用 VaultFilterBody，避免两套 JSX。
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Drawer } from "vaul";
 import { MonthPicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { currentLexiconMap, lexiconTokens, untranslatedTokens } from "@/lib/tag-lexicon";
 import { SITE_LIST } from "@/lib/sites";
 import type { AuthorOption } from "@/lib/storage/vault-query.ts";
 import {
@@ -32,11 +33,14 @@ export function FilterChip({
   active,
   onClick,
   children,
+  title,
   "aria-label": ariaLabel,
 }: {
   active: boolean;
   onClick: () => void;
-  children: string;
+  /** ReactNode：未翻笺要前置小点 + truncate 文本包一层（VaultTagRow）；既有 string 调用点全兼容。 */
+  children: ReactNode;
+  title?: string;
   "aria-label"?: string;
 }) {
   return (
@@ -44,8 +48,9 @@ export function FilterChip({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
+      title={title}
       className={cn(
-        "h-9 shrink-0 rounded-full px-3.5 text-sm",
+        "inline-flex h-9 min-w-0 shrink-0 items-center gap-1 rounded-full px-3.5 text-sm",
         active ? "bg-accent text-accent-fg" : "bg-elevated text-muted hover:text-fg",
       )}
     >
@@ -59,15 +64,20 @@ export function VaultTagRow({
   selected,
   onToggle,
   onClear,
+  booruTagKeys,
 }: {
   tags: string[];
   selected: string[];
   onToggle: (tag: string) => void;
   onClear: () => void;
+  /** booru 藏品出现过的归一 token 集：判「该笺在 booru 域」——纯 pixiv/fanbox 笺不标未翻。 */
+  booruTagKeys: Set<string>;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);
+  // 渲染时读当前词表、不订阅（与 displayTag 一致）：补录后已挂载笺靠自然重渲刷新
+  const lexicon = currentLexiconMap();
   const ordered = useMemo(() => {
     const sel = new Set(selected);
     return [...tags.filter((t) => sel.has(t)), ...tags.filter((t) => !sel.has(t))];
@@ -93,9 +103,25 @@ export function VaultTagRow({
       >
         {ordered.map((tag) => {
           const active = selected.includes(tag);
+          // 弱标记条件：笺每个 token 都在 booru 侧出现过（纯 pixiv/fanbox 笺不标，混合来源标了不冤）
+          // && 有词表可翻但未命中的 token。词表读 currentLexiconMap 不订阅，与 displayTag 行为一致。
+          const untranslated =
+            lexiconTokens(tag).every((t) => booruTagKeys.has(t)) && untranslatedTokens(tag, lexicon).length > 0;
           return (
-            <FilterChip key={tag} active={active} onClick={() => onToggle(tag)}>
-              {tag}
+            <FilterChip
+              key={tag}
+              active={active}
+              title={untranslated ? `未翻译：${tag}` : undefined}
+              onClick={() => onToggle(tag)}
+            >
+              {untranslated ? (
+                <>
+                  <span aria-hidden className="size-1 shrink-0 rounded-full bg-subtle" />
+                  <span className="truncate">{tag}</span>
+                </>
+              ) : (
+                tag
+              )}
             </FilterChip>
           );
         })}
@@ -123,6 +149,7 @@ export function VaultFilterBody({
   onChange,
   authors,
   tagOptions,
+  booruTagKeys,
   showUnread,
   showRecall,
   authorQuery,
@@ -135,6 +162,7 @@ export function VaultFilterBody({
   onChange: (next: VaultFilterState) => void;
   authors: AuthorOption[];
   tagOptions: string[];
+  booruTagKeys: Set<string>;
   showUnread: boolean;
   showRecall: boolean;
   authorQuery: string;
@@ -205,6 +233,7 @@ export function VaultFilterBody({
           <VaultTagRow
             tags={visibleVaultTags(tagOptions, value.tags, tagQuery)}
             selected={value.tags}
+            booruTagKeys={booruTagKeys}
             onToggle={(tag) =>
               onChange({
                 ...value,
@@ -269,6 +298,7 @@ export function VaultFilter({
   onChange,
   authors,
   tagOptions,
+  booruTagKeys,
   totals,
   showUnread,
   showRecall,
@@ -277,6 +307,7 @@ export function VaultFilter({
   onChange: (next: VaultFilterState) => void;
   authors: AuthorOption[];
   tagOptions: string[];
+  booruTagKeys: Set<string>;
   totals: { count: number; bytes: number };
   showUnread: boolean;
   showRecall: boolean;
@@ -302,6 +333,7 @@ export function VaultFilter({
     onChange,
     authors,
     tagOptions,
+    booruTagKeys,
     showUnread,
     showRecall,
     authorQuery,

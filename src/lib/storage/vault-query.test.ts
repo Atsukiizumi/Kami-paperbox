@@ -5,6 +5,7 @@ import {
   haystackOf,
   mergeVaultItems,
   parseSmartFolders,
+  untranslatedGap,
   vaultAuthorOptions,
   vaultAuthors,
   vaultMonths,
@@ -236,4 +237,69 @@ test("mergeVaultItems 客户端先行三字段：远端行缺字段保留本地"
   assert.equal(hit.xRestrict, 1, "分级不被远端行清空");
   assert.equal(hit.rating, "e", "rating 不被远端行清空");
   assert.equal(hit.hasFile, true, "哨兵语义保持：远端给明确值以远端为准");
+});
+
+// ── 翻译缺口 untranslatedGap（09-27-tag-translate）──────────────────────────
+
+test("untranslatedGap：只扫 booru、按张去重、CJK 与 pixiv token 不进榜", () => {
+  const rows = [
+    // 同张重复 token 与大小写变体归一后同键：long_hair 在这张只计 1
+    item({ key: "yande:1", source: "yande", title: "a", author: "z", tags: ["long_hair", "LONG_HAIR", "long_hair"] }),
+    item({ key: "danbooru:2", source: "danbooru", title: "b", author: "z", tags: ["long_hair", "megami_magazine"] }),
+    // pixiv 藏品整张不扫：词表是 booru 域，pixiv token 进榜不可补录
+    item({ key: "pixiv:3", title: "c", author: "z", tags: ["totally_unknown"] }),
+    // CJK token 永远补录不可达：不进 X 也不进 W（死行）
+    item({ key: "konachan:4", source: "konachan", title: "d", author: "z", tags: ["鳴潮"] }),
+  ];
+  const gap = untranslatedGap(rows, undefined, new Map());
+  assert.deepEqual(gap.rows, [
+    { en: "long_hair", count: 2 },
+    { en: "megami_magazine", count: 1 },
+  ]);
+  assert.equal(gap.totalTags, 2);
+  assert.equal(gap.translated, 0);
+  assert.equal(gap.untranslated, 2);
+});
+
+test("untranslatedGap：别名变体合并计数 + 补录后剔除（X/Y/W 重算）", () => {
+  const rows = [
+    item({ key: "yande:1", source: "yande", title: "a", author: "z", tags: ["WutheringWaves"] }),
+    item({ key: "danbooru:2", source: "danbooru", title: "b", author: "z", tags: ["wuthering_waves"] }),
+  ];
+  const aliases = { WutheringWaves: "wuthering_waves" };
+  const before = untranslatedGap(rows, aliases, new Map());
+  assert.deepEqual(before.rows, [{ en: "wuthering_waves", count: 2 }]);
+  assert.equal(before.totalTags, 1);
+  // 补录写回词表键（lexiconMap 只收 zh 非空行，has 即已翻译）→ 行消失、W-1、Y+1、X 不变
+  const after = untranslatedGap(rows, aliases, new Map([["wuthering_waves", "鸣潮"]]));
+  assert.deepEqual(after.rows, []);
+  assert.deepEqual(
+    { x: after.totalTags, y: after.translated, w: after.untranslated },
+    { x: 1, y: 1, w: 0 },
+  );
+  // 不带别名表 → 变体分票各计 1，同频按 en 字典序（"_" < 字母）
+  const noAlias = untranslatedGap(rows, undefined, new Map());
+  assert.deepEqual(noAlias.rows, [
+    { en: "wuthering_waves", count: 1 },
+    { en: "wutheringwaves", count: 1 },
+  ]);
+});
+
+test("untranslatedGap：频次降序 + 同频字典序；limit 截 rows 但总览算全量", () => {
+  const rows = [
+    item({ key: "yande:1", source: "yande", title: "a", author: "z", tags: ["aa", "bb", "cc", "dd"] }),
+  ];
+  const truncated = untranslatedGap(rows, undefined, new Map(), 2);
+  assert.deepEqual(
+    truncated.rows.map((r) => r.en),
+    ["aa", "bb"],
+  );
+  assert.deepEqual({ x: truncated.totalTags, w: truncated.untranslated }, { x: 4, w: 4 });
+  // 已翻译的不进 rows：Y=1、W=3，总览仍 X=4
+  const mixed = untranslatedGap(rows, undefined, new Map([["bb", "有译"]]), 2);
+  assert.deepEqual(
+    mixed.rows.map((r) => r.en),
+    ["aa", "cc"],
+  );
+  assert.deepEqual({ x: mixed.totalTags, y: mixed.translated, w: mixed.untranslated }, { x: 4, y: 1, w: 3 });
 });

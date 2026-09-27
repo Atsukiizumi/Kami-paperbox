@@ -7,7 +7,7 @@
  *        FANBOX 接口一次只吃一个标签。混用会搜空。
  */
 import type { Source } from "./types.ts";
-import { currentLexiconMap, translateBooruToken } from "./tag-lexicon.ts";
+import { currentLexiconMap, translateBooruToken, untranslatedTokens } from "./tag-lexicon.ts";
 
 const SOURCES: readonly Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru"];
 
@@ -86,6 +86,17 @@ export function displayTag(source: Source, tag: string): string {
     .filter(Boolean)
     .map((part) => translateBooruToken(part, map))
     .join(" · ");
+}
+
+/**
+ * 展示时是否需要弱标记的否定面：非 booru 恒 true（pixiv/fanbox 永不标记，PRD 边界）；
+ * booru 按 displayTag 同款逐 token 口径判全命中——「标为未翻」与「显示原文回退」同链不劈叉。
+ * map 可注入（纯测试用），缺省 currentLexiconMap()。
+ */
+export function isTagTranslated(source: Source, tag: string, map?: Map<string, string>): boolean {
+  if (!isBooru(source)) return true;
+  const m = map ?? currentLexiconMap();
+  return untranslatedTokens(tag, m).length === 0;
 }
 
 export function tagEquals(source: Source, a: string, b: string): boolean {
