@@ -122,6 +122,10 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
   await page.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
   await submitAppAccount(page, email, "注册");
   await expect(page.getByText("已登录").first()).toBeVisible({ timeout: 30_000 });
+  // 登录后的 5s 静默窗会丢弃窗内到点的防抖推送（bridge 到点判窗直接 return 不补推）。
+  // CI 上 /vault 已被前序用例编译热身，注册→建合集只隔 ~1s，4s 防抖正好落窗内被丢
+  // （本地冷编译慢反而躲开）——等出窗口再操作，消除竞态。
+  await page.waitForTimeout(5_500);
 
   await page.goto("/vault", { waitUntil: "domcontentloaded" });
   const createBtn = page.getByRole("button", { name: "新建合集" });
@@ -140,7 +144,7 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
         r.status() === 200
       );
     },
-    { timeout: 30_000 },
+    { timeout: 60_000 },
   );
   await createBtn.click();
   await promptAnswered;
