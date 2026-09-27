@@ -171,6 +171,7 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
     console.log(`[diag] collections=${JSON.stringify(raw)}`);
     throw new Error("settings push 未在 62s 内出现（诊断信息见上方 [diag]）");
   }
+  void syncLog;
   const aCollections = await readCollections(page);
   expect(aCollections).toEqual([expect.objectContaining({ name: COLLECTION_NAME })]);
 
