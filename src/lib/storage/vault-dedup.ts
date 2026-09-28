@@ -6,10 +6,17 @@
  *      候选对生成走鸽笼分桶——dhash 均分 4 段各建索引，距离 < 16 位的
  *      两两必共享一段全等，只在桶内配对，几千条从 O(n²) 降到近线性；
  *      阈值 ≥ 段位数或哈希长度不整除时退回朴素全对，语义不变。
- * 用法：clusterDupes(store.hashes(), threshold, store.dismissedPairs())。
+ * 用法：clusterDupes(store.hashes(), threshold, store.dismissedPairs())，阈值传共享
+ *      常量 DUP_HASH_THRESHOLD（跨源视图/以图搜匣/收重提示同口径引用）。
  * 为什么不落库结果：几千条的重算是毫秒级，忽略/删除后重算天然即时生效。
  */
 import { hammingHex } from "./dhash.ts";
+
+/**
+ * 同图判定的共享阈值：三个消费面必须同口径，否则同一对图会
+ * 「多源簇里在、搜匣搜不到」的自相矛盾（design.md Q2 定案）。
+ */
+export const DUP_HASH_THRESHOLD = 10;
 
 export function pairKeyOf(a: string, b: string): string {
   return [a, b].sort().join("|");
@@ -19,7 +26,7 @@ export type DupGroup = { keys: string[]; maxDistance: number };
 
 export function clusterDupes(
   items: { key: string; dhash: string }[],
-  threshold = 10,
+  threshold = DUP_HASH_THRESHOLD,
   dismissed: string[] = [],
 ): DupGroup[] {
   const skip = new Set(dismissed);

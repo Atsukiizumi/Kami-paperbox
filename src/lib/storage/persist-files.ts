@@ -23,7 +23,7 @@ import { useSettings } from "../store.ts";
 import type { VaultMeta, WorkDetail, WorkPage } from "../types.ts";
 import { downloadBlob, listVault, patchVaultMeta, saveVaultWork } from "./vault.ts";
 import { rememberVaultKey } from "./vault-index.ts";
-import { patchServerVault, pushVaultToServer } from "./vault-sync.ts";
+import { patchServerVault, pushVaultToServer, type SimilarVaultHit } from "./vault-sync.ts";
 
 export type ArchiveWork = {
   source: string;
@@ -89,7 +89,7 @@ export async function archiveWork(
   work: WorkDetail,
   pages: { blob: Blob; page: WorkPage }[],
   opts: { download: boolean },
-): Promise<{ folder: boolean; folderSkipped: boolean; server: boolean }> {
+): Promise<{ folder: boolean; folderSkipped: boolean; server: boolean; similar?: SimilarVaultHit[] }> {
   const settings = useSettings.getState();
   const at = new Date();
   const folderHandle = canPickFolder() ? await ensureFolderPermission() : null;
@@ -123,7 +123,11 @@ export async function archiveWork(
     relativePath: relativePath ?? meta.relativePath,
     folderLabel: relativePath ? settings.folderLabel : meta.folderLabel,
   };
-  const server = folder ? false : Boolean(await pushVaultToServer(serverMeta, files));
+  // M3 收重提示：PUT 响应捎带的跨源近邻透传给队列层出 toast（folder 模式无
+  // PUT 自然缺省——服务端盲区是既有基建属性，视图覆盖计数兜底）。
+  const pushed = folder ? null : await pushVaultToServer(serverMeta, files);
+  const server = Boolean(pushed);
+  const similar = pushed?.similar;
   rememberVaultKey(work.source, work.id);
   if (opts.download && !folder) {
     for (let i = 0; i < pages.length; i += 1) {
@@ -134,7 +138,7 @@ export async function archiveWork(
       downloadBlob(item.blob, flattenDownloadName(relative));
     }
   }
-  return { folder, folderSkipped: preferFolder && !folder, server };
+  return { folder, folderSkipped: preferFolder && !folder, server, similar };
 }
 
 export async function rescanFolderHashes(): Promise<{ checked: number; replaced: number }> {

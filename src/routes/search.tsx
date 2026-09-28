@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SEARCH_FILE_EVENT } from "@/components/drop-to-search";
+import { VaultSearchBlock, type VaultSearchBlockState, type VaultSearchMatch } from "@/components/vault-search-block";
 import { prepareSearchImage } from "@/lib/prepare-search-image";
 import {
   engineLabel,
@@ -34,6 +35,8 @@ export function SearchPage() {
   const [groups, setGroups] = useState<SearchGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // 你的纸匣块（M2-2）：初值 unavailable = 块不渲染；401/异常/!ok 都归 unavailable
+  const [vaultState, setVaultState] = useState<VaultSearchBlockState>({ state: "unavailable" });
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +71,24 @@ export function SearchPage() {
       const safe = BOORU_SITES.every((site) => safeModeBySite[site]);
       body.set("safe", safe ? "1" : "0");
       if (apiKey) body.set("apiKey", apiKey);
+      // 自家纸匣块与外站请求并行（M2-2）：同一个 prepared File 另建 FormData，
+      // 互不阻塞——外站风控不影响自家块，反之亦然。401（访客）/异常/!ok 一律
+      // 归 unavailable 整块隐藏，公开内容面不对访客报错。
+      const vaultBody = new FormData();
+      vaultBody.set("file", prepared);
+      void fetch("/api/vault/search-by-image", { method: "POST", body: vaultBody })
+        .then(async (res) => {
+          if (res.status === 401) return { state: "unavailable" } as const;
+          const data = (await res.json().catch(() => null)) as {
+            ok: boolean;
+            matches?: VaultSearchMatch[];
+          } | null;
+          return data?.ok && data.matches
+            ? ({ state: "ready", matches: data.matches } as const)
+            : ({ state: "unavailable" } as const);
+        })
+        .then((next) => setVaultState(next))
+        .catch(() => setVaultState({ state: "unavailable" }));
       const res = await fetch("/api/reverse-search", { method: "POST", body });
       const data = (await res.json()) as ApiOk | ApiErr;
       if (!data.ok) throw new Error(data.error || "搜图失败");
@@ -188,6 +209,9 @@ export function SearchPage() {
       </Card>
 
       {error ? <p className="text-sm text-muted">{error}</p> : null}
+
+      {/* 你的纸匣块（M2-2）：自家结果优先于外站 groups；unavailable 整块不渲染 */}
+      <VaultSearchBlock state={vaultState} />
 
       {loading && groups.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted">

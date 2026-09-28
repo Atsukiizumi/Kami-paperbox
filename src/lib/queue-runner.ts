@@ -21,7 +21,7 @@ import { archiveWork } from "./storage/persist-files.ts";
 import { workKey } from "./storage/vault.ts";
 import { sleep } from "./utils.ts";
 import { extFromNameOrType } from "./ugoira-meta.ts";
-import { isBooru } from "./sites.ts";
+import { isBooru, isSource, siteLabel } from "./sites.ts";
 import { clampQueueConcurrency, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry } from "./queue-retry.ts";
 import { effectiveConcurrency, noteRateLimit, queueRetryDelayMs, rateLimitError } from "./queue-throttle.ts";
 import type { QueueItem, QueueKind, Source, WorkDetail } from "./types.ts";
@@ -60,6 +60,18 @@ export async function saveWorkNow(
   const original = useSettings.getState().downloadOriginal;
   const saved = await collectWorkFiles(detail, { original, onProgress: opts.onProgress });
   const result = await archiveWork(detail, saved, { download: opts.download });
+  // M3 收重提示：收藏成功后若服务端发现跨源近似条目，toast 可跳「同图多源」。
+  // 不阻塞不判重——sonner 自管理堆叠；folder 模式无捎带自然静默。
+  if (result.similar && result.similar.length > 0) {
+    const first = result.similar[0]!;
+    const label = isSource(first.source) ? siteLabel(first.source) : first.source;
+    toast.info(`纸匣里有相似条目（${label} 版）`, {
+      action: {
+        label: "去同图多源看看",
+        onClick: () => window.location.assign("/vault?cross=1"),
+      },
+    });
+  }
   const gif = saved.some((s) => extFromNameOrType(s.page.name, s.blob.type) === "gif");
   const title = detail.title || work.title || work.id;
   if (result.folder) {

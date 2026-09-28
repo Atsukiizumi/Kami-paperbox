@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clusterDupes, pairKeyOf } from "./vault-dedup.ts";
+import { DUP_HASH_THRESHOLD, clusterDupes, pairKeyOf } from "./vault-dedup.ts";
 import { hammingHex } from "./dhash.ts";
 import { dhashFromRgba } from "./dhash.ts";
 
@@ -19,6 +19,22 @@ function flip(hex: string, n: number): string {
 
 test("pairKeyOf 排序保证 a|b 与 b|a 相同", () => {
   assert.equal(pairKeyOf("pixiv:1", "danbooru:2"), pairKeyOf("danbooru:2", "pixiv:1"));
+});
+
+test("DUP_HASH_THRESHOLD 常量锁：值为 10，默认参数与显式 10 语义一致", () => {
+  assert.equal(DUP_HASH_THRESHOLD, 10);
+  const A = "f".repeat(16);
+  const at = [
+    { key: "a", dhash: A },
+    { key: "b", dhash: flip(A, DUP_HASH_THRESHOLD) },
+  ];
+  assert.deepEqual(clusterDupes(at), clusterDupes(at, DUP_HASH_THRESHOLD));
+  assert.equal(clusterDupes(at).length, 1);
+  const beyond = [
+    { key: "a", dhash: A },
+    { key: "b", dhash: flip(A, DUP_HASH_THRESHOLD + 1) },
+  ];
+  assert.equal(clusterDupes(beyond).length, 0);
 });
 
 test("A~B、B~C、A⋠C：并查集聚成一组", () => {
