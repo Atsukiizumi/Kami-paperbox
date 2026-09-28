@@ -72,10 +72,13 @@ export async function pushVaultMetaToServer(meta: VaultMeta): Promise<VaultMeta 
   }
 }
 
+/** PUT 响应的 similar 捎带（M3 收重提示）：跨源近邻的轻量形状，只供 toast 展示。 */
+export type SimilarVaultHit = { key: string; source: string; title: string };
+
 export async function pushVaultToServer(
   meta: VaultMeta,
   pages: { blob: Blob; ext?: string }[],
-): Promise<VaultMeta | null> {
+): Promise<{ item: VaultMeta; similar?: SimilarVaultHit[] } | null> {
   const form = new FormData();
   form.set("meta", JSON.stringify(meta));
   pages.forEach((page, i) => {
@@ -84,8 +87,8 @@ export async function pushVaultToServer(
   });
   try {
     const res = await fetch("/api/vault", { method: "PUT", body: form });
-    const body = await asJson<{ ok: boolean; item?: VaultMeta }>(res);
-    return body?.ok && body.item ? body.item : null;
+    const body = await asJson<{ ok: boolean; item?: VaultMeta; similar?: SimilarVaultHit[] }>(res);
+    return body?.ok && body.item ? { item: body.item, similar: body.similar } : null;
   } catch {
     return null;
   }

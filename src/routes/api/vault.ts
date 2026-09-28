@@ -15,6 +15,7 @@ import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
 import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
+import { nearestByDhash } from "@/lib/storage/vault-cross-source";
 import type { VaultQuery } from "@/lib/storage/vault-query";
 import { ensureVaultBackupScheduler } from "@/lib/storage/cloud-backup/engine.server";
 
@@ -133,8 +134,29 @@ export async function PUT(request: Request) {
             });
           }
           if (pages.length === 0) return json({ ok: false, error: "没有图片" }, 400);
-          const saved = getVaultStore().put(meta, pages);
-          return json({ ok: true, item: saved });
+          const store = getVaultStore();
+          const saved = store.put(meta, pages);
+          // M3 收重提示（纯增量可选字段，旧读方忽略）：put 已落本次哈希行，响应
+          // 顺带捎跨源近邻——排除自己、skipSameSourceAs 用 key 前缀（store.put 以
+          // parseVaultKey 解出的前缀入库，meta.source 允许与它不一致）、尊重忽略对。
+          // 三步整体自带 try/catch：提示功能绝不弄挂收藏写路径，任何失败照旧返回。
+          let similar: { key: string; source: string; distance: number }[] | undefined;
+          try {
+            const hashes = store.hashes(); // 只调一次
+            const self = hashes.find((h) => h.key === meta.key);
+            if (self) {
+              similar = nearestByDhash(hashes, self.dhash, {
+                excludeKeys: new Set([meta.key]),
+                sourceOf: (key) => key.split(":")[0],
+                skipSameSourceAs: meta.key.split(":")[0],
+                dismissed: store.dismissedPairs(),
+                limit: 3,
+              }).map((m) => ({ key: m.key, source: m.key.split(":")[0], distance: m.distance }));
+            }
+          } catch {
+            similar = undefined;
+          }
+          return json({ ok: true, item: saved, ...(similar?.length ? { similar } : {}) });
         } catch (err) {
           return fail(err, "写入失败");
         }

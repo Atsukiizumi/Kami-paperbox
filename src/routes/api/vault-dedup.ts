@@ -5,11 +5,10 @@
  *      action=dismiss 忽略一对。候选组不落库——忽略/删除后重算即时生效。
  * 为什么不开 guest：查重与处理是收藏管理动作，属个人面（与 /api/vault 同口径）。
  */
+import { DUP_HASH_THRESHOLD, clusterDupes, pairKeyOf } from "@/lib/storage/vault-dedup";
 import { dhashInfoFromBytesSync } from "@/lib/storage/dhash";
-import { clusterDupes, pairKeyOf } from "@/lib/storage/vault-dedup";
 import { getVaultStore } from "@/lib/storage/vault-store.server";
 
-const DEFAULT_THRESHOLD = 10;
 const SCAN_YIELD_EVERY = 50;
 
 function json(data: unknown, status = 200) {
@@ -19,7 +18,7 @@ function json(data: unknown, status = 200) {
 export async function GET() {
   try {
     const store = getVaultStore();
-    const groups = clusterDupes(store.hashes(), DEFAULT_THRESHOLD, store.dismissedPairs());
+    const groups = clusterDupes(store.hashes(), DUP_HASH_THRESHOLD, store.dismissedPairs());
     return json({ ok: true, ...groupsSummary(store, groups) });
   } catch (err) {
     return json({ ok: false, error: err instanceof Error ? err.message : "查重不可用" }, 500);
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
     const threshold =
       typeof body.threshold === "number" && Number.isFinite(body.threshold) && body.threshold >= 0 && body.threshold <= 64
         ? Math.floor(body.threshold)
-        : DEFAULT_THRESHOLD;
+        : DUP_HASH_THRESHOLD;
 
     // 补算缺失哈希：只对有首页文件的条目；每 50 条让出事件循环（对齐 sweepCache 的分批模式）
     const hashed = new Set(store.hashes().map((h) => h.key));

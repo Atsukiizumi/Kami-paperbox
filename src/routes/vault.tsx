@@ -38,8 +38,10 @@ import { deleteVaultWork, getVaultBlob, listVault, putVaultMeta, type VaultMeta 
 import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
+import { VaultCrossSource } from "@/components/vault-cross-source";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { listServerVault, listServerTrash, type ServerTrashItem } from "@/lib/storage/vault-sync";
+import type { CrossSourceCluster } from "@/lib/storage/vault-cross-source";
 import { VaultTrashDialog } from "@/components/vault-trash";
 import { EMPTY_VAULT_FILTER, vaultQueryFlag, type VaultFilterState } from "@/lib/vault-filter";
 
@@ -79,29 +81,42 @@ function VaultPageInner() {
   const sel = useBatchSelection();
   // 手工合集详情开关态：非 null 时正文区整体换成合集详情（与批量选择互斥，进入即退选）
   const [openCollectionId, setOpenCollectionId] = useState<string | null>(null);
+  // 同图多源（M1）：正文区整体切换（与合集互斥）；null = 服务端不可达（入口隐身，照纸篓先例）
+  const [crossOpen, setCrossOpen] = useState(false);
+  const [crossData, setCrossData] = useState<{ clusters: CrossSourceCluster[]; hashed: number; total: number } | null>(null);
   // 单卡「加入合集」弹层目标：null = 关；选择模式下不走单卡入口（工具条负责）
   const [addTarget, setAddTarget] = useState<VaultMeta | null>(null);
   const openCollection = openCollectionId ? collections.find((c) => c.id === openCollectionId) : undefined;
   const searchParams = useSearchParams();
   const historyItems = useViewHistory((s) => s.items);
 
-  // 案头深链：?recall=1 / ?unread=1 / ?replaced=1 只当芯片初值，读完立刻从地址栏拿掉，避免分享带瞬时过滤。
+  // 案头深链：?recall=1 / ?unread=1 / ?replaced=1 / ?cross=1 只当初值，读完立刻从
+  // 地址栏拿掉，避免分享带瞬时过滤/视图。
   useEffect(() => {
     const recall = searchParams.get("recall") === "1";
     const unread = searchParams.get("unread") === "1";
     const replaced = searchParams.get("replaced") === "1";
-    if (!recall && !unread && !replaced) return;
+    const cross = searchParams.get("cross") === "1";
+    if (!recall && !unread && !replaced && !cross) return;
     setFilter((f) => ({
       ...f,
       recallOnly: recall || f.recallOnly,
       unreadOnly: unread || f.unreadOnly,
       replacedOnly: replaced || f.replacedOnly,
     }));
+    if (cross) {
+      // 与合集互斥：深链直达跨源视图时退掉合集详情
+      sel.exit();
+      setOpenCollectionId(null);
+      setCrossOpen(true);
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("recall");
     url.searchParams.delete("unread");
     url.searchParams.delete("replaced");
+    url.searchParams.delete("cross");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 深链只跑一次的命令式清选，不随 sel 身份重跑
   }, [searchParams]);
 
   async function refresh() {
@@ -122,6 +137,28 @@ function VaultPageInner() {
     // 按 key 合并、本地覆盖优先（mergeVaultItems）：本地 meta 编辑（批量标签等）不被远端刷掉
     setAll(mergeVaultItems(local, remoteItems));
     setReady(true);
+    // 同图多源计数顺带回填（M1-4）：毫级重算，删除/标签等 refresh 天然带着刷新；
+    // 远端不可达保持 null → 按钮隐身（照纸篓 trash === null 先例）
+    if (remote !== null) {
+      try {
+        const res = await fetch("/api/vault/cross-source", { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok: boolean;
+          clusters?: CrossSourceCluster[];
+          hashed?: number;
+          total?: number;
+        };
+        setCrossData(
+          data.ok && data.clusters
+            ? { clusters: data.clusters, hashed: data.hashed ?? 0, total: data.total ?? 0 }
+            : null,
+        );
+      } catch {
+        setCrossData(null);
+      }
+    } else {
+      setCrossData(null);
+    }
   }
 
   useEffect(() => {
@@ -479,6 +516,20 @@ function VaultPageInner() {
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
+            {crossData ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  // 与合集互斥（照 onOpen 的退出动作）；正文区整体切换成跨源视图
+                  sel.exit();
+                  setOpenCollectionId(null);
+                  setCrossOpen(true);
+                }}
+              >
+                同图多源{crossData.clusters.length > 0 ? ` ${crossData.clusters.length}` : ""}
+              </Button>
+            ) : null}
           </div>
           {/* 合集笺行：智能文件夹笺的下一排；空合集零占位 */}
           {collections.length > 0 ? (
@@ -488,6 +539,7 @@ function VaultPageInner() {
               metas={metasByKey}
               onOpen={(id) => {
                 sel.exit();
+                setCrossOpen(false);
                 setOpenCollectionId(id);
               }}
             />
@@ -499,6 +551,18 @@ function VaultPageInner() {
 
       {!ready ? (
         <p className="text-sm text-muted">正在读取纸匣…</p>
+      ) : crossOpen ? (
+        // 同图多源：正文区整体切换（M1-4 不变量——只读消费 all，关闭后主列表原样）
+        <VaultCrossSource
+          items={all}
+          clusters={crossData?.clusters ?? []}
+          hashed={crossData?.hashed ?? 0}
+          total={crossData?.total ?? 0}
+          tagAliases={tagAliases}
+          onReload={() => void refresh()}
+          onDeleteMember={(item) => removeWork(item)}
+          onBack={() => setCrossOpen(false)}
+        />
       ) : openCollection ? (
         // 合集详情：正文区整体切换，不与批量选择态叠加（进入详情时已 sel.exit()）
         <CollectionDetail

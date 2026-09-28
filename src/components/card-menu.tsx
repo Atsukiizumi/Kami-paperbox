@@ -9,10 +9,11 @@
  */
 import { createPortal } from "react-dom";
 import { useEffect } from "react";
-import { Link } from "@/lib/kami-link";
-import { Download, ExternalLink, Languages, ListPlus, PanelTop } from "lucide-react";
+import { Link, useNavigate } from "@/lib/kami-link";
+import { Download, ExternalLink, Languages, ListPlus, PanelTop, ScanSearch } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
-import { workOriginUrl } from "@/lib/sites";
+import { isBooru, workOriginUrl } from "@/lib/sites";
+import { stashImageForSearch } from "@/lib/find-similar";
 import { useTagLexicon } from "@/lib/tag-lexicon";
 
 export type CardMenuPos = { x: number; y: number };
@@ -50,14 +51,18 @@ export function CardMenu({
       window.removeEventListener("resize", close);
     };
   }, [pos, onClose]);
+  const navigate = useNavigate();
 
   if (!pos || typeof document === "undefined") return null;
   const origin = workOriginUrl(work.source, work.id, work.authorId);
+  // 找相似的（M2-3）：仅 booru/pixiv 且有封面图才出——fanbox 无预览、无图卡（hasFile=false
+  // 的文件夹副本 thumb 为空串）天然排除；组件内自渲染，浏览卡/纸匣卡一处生效两处
+  const canFindSimilar = (isBooru(work.source) || work.source === "pixiv") && Boolean(work.thumb);
   const left = Math.min(pos.x + 8, window.innerWidth - 188);
-  // 菜单高度随项数变：加入合集 / 添加翻译每多一项多留一行，避免贴底被裁
+  // 菜单高度随项数变：加入合集 / 添加翻译 / 找相似的每多一项多留一行，避免贴底被裁
   const top = Math.min(
     pos.y + 8,
-    window.innerHeight - (onAddToCollection ? 196 : 160) - (quickTag ? 36 : 0),
+    window.innerHeight - (onAddToCollection ? 196 : 160) - (quickTag ? 36 : 0) - (canFindSimilar ? 36 : 0),
   );
 
   return createPortal(
@@ -115,6 +120,23 @@ export function CardMenu({
         >
           <ListPlus className="size-3.5" />
           加入合集
+        </button>
+      ) : null}
+      {canFindSimilar ? (
+        <button
+          type="button"
+          role="menuitem"
+          className={itemClass}
+          onClick={() => {
+            onClose();
+            // stash 成功才跳：失败已 toast，跳过去也只是空搜图页
+            void stashImageForSearch(work.thumb, `${work.id}.jpg`).then((ok) => {
+              if (ok) navigate({ to: "/search" });
+            });
+          }}
+        >
+          <ScanSearch className="size-3.5" />
+          找相似的
         </button>
       ) : null}
     </div>,

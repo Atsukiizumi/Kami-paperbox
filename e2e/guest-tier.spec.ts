@@ -35,5 +35,11 @@ test("访客能浏览公开内容，个人面仍需登录", async ({ page }) => 
   const vault = await page.request.put("/api/vault");
   expect(vault.status()).toBe(401);
 
+  // 跨站归并新增个人面端点（M1/M2，implement 步骤 6）：匿名一律 401
+  const crossSource = await page.request.get("/api/vault/cross-source");
+  expect(crossSource.status()).toBe(401);
+  const searchByImage = await page.request.post("/api/vault/search-by-image");
+  expect(searchByImage.status()).toBe(401);
+
   expect(errors, `页面错误：${errors.join(" | ")}`).toEqual([]);
 });
