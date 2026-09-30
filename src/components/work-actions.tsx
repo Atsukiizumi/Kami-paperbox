@@ -5,7 +5,7 @@
  * 用法：详情页和灯箱 footer。compact 不放搜来源。
  * 为什么：当场另存会让队列页空着，进度也看不见。
  */
-import { Archive, Download, ExternalLink, Heart, ScanSearch, Star, UserMinus, UserPlus } from "lucide-react";
+import { Archive, ClipboardCopy, Download, ExternalLink, Heart, ScanSearch, Star, UserMinus, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkDetail } from "@/lib/types";
 import type { ReactNode } from "react";
@@ -17,6 +17,7 @@ export function WorkActions({
   originUrl,
   onSave,
   onDownload,
+  onCopy,
   onSearchOrigin,
   onBookmark,
   onLike,
@@ -30,6 +31,8 @@ export function WorkActions({
   originUrl?: string;
   onSave: () => void;
   onDownload: () => void;
+  /** 复制 GIF（GIF 作品由调用方传，isGifWork 判定）：执行链在 copy-image。 */
+  onCopy?: () => void;
   onSearchOrigin?: () => void;
   onBookmark?: () => void;
   onLike?: () => void;
@@ -59,6 +62,12 @@ export function WorkActions({
         <Download className="size-4" />
         {inQueue ? "已在队列" : "下载"}
       </ActionChip>
+      {onCopy ? (
+        <ActionChip label="复制 GIF 到剪贴板" disabled={blocked} onClick={onCopy}>
+          <ClipboardCopy className="size-4" />
+          复制 GIF
+        </ActionChip>
+      ) : null}
       {work.source === "pixiv" && onBookmark ? (
         <ActionChip
           label={work.bookmarked ? "已收藏" : "收藏"}

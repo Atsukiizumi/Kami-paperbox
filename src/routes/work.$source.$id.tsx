@@ -19,6 +19,7 @@ import { WorkTagList } from "@/components/saved-tags";
 import { WorkStats } from "@/components/work-stats";
 import { FoldableText } from "@/components/profile-header";
 import { enqueueWork } from "@/lib/queue-runner";
+import { copyWorkImage, isGifWork } from "@/lib/copy-image";
 import { flyPaperToQueue } from "@/lib/paper-fly";
 import { fetchSource, mutateSource, warmPixivCsrf } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
@@ -311,6 +312,7 @@ export function WorkPage() {
       originUrl={originUrl}
       onSave={() => queueNow("vault")}
       onDownload={() => queueNow("download")}
+      onCopy={isGifWork(work) ? () => void copyWorkImage(work, { inVault }) : undefined}
       onSearchOrigin={() => void searchFromWork(work)}
       onBookmark={() => void doBookmark(work)}
       onLike={() => void doLike(work)}
@@ -485,6 +487,7 @@ export function WorkPage() {
             inQueue={inQueue}
             onSave={() => queueNow("vault")}
             onDownload={() => queueNow("download")}
+            onCopy={isGifWork(work) ? () => void copyWorkImage(work, { inVault }) : undefined}
             onBookmark={() => void doBookmark(work)}
             onLike={() => void doLike(work)}
             onFollow={() => void doFollow(work)}

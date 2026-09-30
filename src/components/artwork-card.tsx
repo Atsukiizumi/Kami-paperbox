@@ -359,6 +359,7 @@ export function ArtworkCard({
       <CardMenu
         work={work}
         pos={menu}
+        inVault={inVault}
         quickTag={menuTag ?? undefined}
         onClose={() => {
           setMenu(null);
