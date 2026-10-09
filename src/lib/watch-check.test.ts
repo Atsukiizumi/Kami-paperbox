@@ -51,6 +51,19 @@ test("逐画师检查：水位计数、失败隔离、fanbox 通道", async () =
   assert.equal(totalNew(results), 2);
 });
 
+test("pixiv 标已读用过滤后的第一条，不用上游未过滤的 newestId", async () => {
+  const { impl } = fakeFetch({
+    "pixivUser:1": {
+      op: "pixivUser",
+      items: [{ id: "102" }, { id: "100" }],
+      newestId: "999",
+    },
+  });
+  const [row] = await checkWatchArtists([artists[0]!], () => ({}), { fetchImpl: impl });
+  assert.equal(row?.newestId, "102");
+  assert.equal(row?.newCount, 1);
+});
+
 test("单画师失败不连坐；totalNew 忽略失败者", async () => {
   const { impl } = fakeFetch({
     "pixivUser:1": {
