@@ -6,9 +6,10 @@
  *      收入纸匣看「收入纸匣时写入文件夹」，下载看「下载写入该文件夹」。
  *      开关关着，或选不了文件夹（Safari / 火狐 / 手机），像素放进应用内目录；
  *      下载则改走浏览器下载。
- * 用法：只从队列 runner 调 archiveWork。
+ * 用法：队列 runner 调 archiveWork。纸匣页导出 ZIP 时用 collectFolderExportFiles 读文件夹里的原图。
  */
 import { extFromNameOrType } from "../ugoira-meta.ts";
+import { entryName, folderExportTargets } from "./vault-export-plan.ts";
 import { applyAuthorAlias, normalizeAuthorName } from "../author-name.ts";
 import {
   flattenDownloadName,
@@ -195,6 +196,39 @@ export async function rescanFolderHashes(): Promise<{ checked: number; replaced:
     if (update.count) replaced += 1;
   }
   return { checked, replaced };
+}
+
+/**
+ * 把只在下载文件夹里的藏品读成待打包的原图。
+ * 一次授权读完这一批。某条的记下路径读不到，计入 missed，不中断其余条目。
+ */
+export async function collectFolderExportFiles(
+  items: readonly VaultMeta[],
+  aliases?: Record<string, string>,
+): Promise<{ files: Record<string, Uint8Array>; missed: number }> {
+  const files: Record<string, Uint8Array> = {};
+  if (items.length === 0) return { files, missed: 0 };
+  const dir = canPickFolder() ? await ensureFolderPermission() : null;
+  let missed = 0;
+  for (const item of items) {
+    if (!dir || !item.relativePath) {
+      missed += 1;
+      continue;
+    }
+    const targets = folderExportTargets(item, (page) =>
+      relativePathFor(item, page, extFromNameOrType(item.relativePath), new Date(item.savedAt)),
+    );
+    let packed = false;
+    for (const target of targets) {
+      const file = await readRelativeFile(dir, target.path);
+      if (!file) continue;
+      const ext = extFromNameOrType(target.path, file.type);
+      files[entryName(item, target.page, ext, aliases)] = new Uint8Array(await file.arrayBuffer());
+      packed = true;
+    }
+    if (!packed) missed += 1;
+  }
+  return { files, missed };
 }
 
 export async function previewFromFolder(item: VaultMeta): Promise<Blob | undefined> {
