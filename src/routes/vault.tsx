@@ -29,7 +29,8 @@ import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
 import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
-import { exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
+import { collectFolderExportFiles, exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
+import { partitionVaultExport, zipWithFolderFiles } from "@/lib/storage/vault-export-plan";
 import { isBooru } from "@/lib/sites";
 import { lexiconTokens } from "@/lib/tag-lexicon";
 import { applyTagAlias } from "@/lib/vault-tag-alias";
@@ -273,40 +274,54 @@ function VaultPageInner() {
   }
 
   async function exportZip() {
-    // 有图才打：只收 hasFile 条目；缺图的由服务端记进包内 _skipped.json
-    const keys = items.filter((item) => item.hasFile).map((item) => item.key);
-    if (keys.length === 0) {
-      toast.info("当前筛选里没有应用内原图可打包");
+    // 应用内目录（hasFile）走服务端打包。只在下载文件夹里的原图没有这个标记，
+    // 服务端读不到字节，所以在浏览器里按记下的路径补进同一个包。
+    const plan = partitionVaultExport(items);
+    if (plan.server.length === 0 && plan.folder.length === 0) {
+      toast.info("当前筛选里没有可打包的原图");
       return;
     }
-    const truncated = keys.length > 400;
-    const bytesTotal = items.filter((item) => keys.includes(item.key)).reduce((sum, item) => sum + (item.bytes || 0), 0);
+    const bytesTotal = [...plan.server, ...plan.folder].reduce((sum, item) => sum + (item.bytes || 0), 0);
     if (bytesTotal > 500 * 1024 * 1024) {
       toast.info(`预计 ${formatBytes(bytesTotal)}，建议用筛选缩小范围分批导出`);
     }
     setExporting(true);
     try {
-      const res = await fetch("/api/vault/export", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          keys: truncated ? keys.slice(0, 400) : keys,
-          // 分夹名要套用户别名（同一画师不再各开一夹），随请求带给无状态的服务端
-          authorAliases: useSettings.getState().authorAliases,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || `导出失败（${res.status}）`);
+      const aliases = useSettings.getState().authorAliases;
+      const { files, missed } = await collectFolderExportFiles(plan.folder, aliases);
+      let serverBytes: Uint8Array | null = null;
+      if (plan.server.length > 0) {
+        const res = await fetch("/api/vault/export", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            keys: plan.server.map((item) => item.key),
+            // 分夹名要套用户别名（同一画师不再各开一夹），随请求带给无状态的服务端
+            authorAliases: aliases,
+          }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data.error || `导出失败（${res.status}）`);
+        }
+        serverBytes = new Uint8Array(await res.arrayBuffer());
       }
-      const blob = await res.blob();
+      const folderPacked = Object.keys(files).length > 0;
+      const zipBytes = folderPacked ? zipWithFolderFiles(serverBytes, files) : serverBytes;
+      if (!zipBytes) throw new Error("所选条目都没有可打包的原图文件");
+      const copy = new Uint8Array(zipBytes.byteLength);
+      copy.set(zipBytes);
+      const blob = new Blob([copy], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `kami-vault-${new Date().toISOString().slice(0, 10)}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`已导出 ${formatBytes(blob.size)}${truncated ? `（超出 400 上限，仅含前 400 条）` : ""}`);
+      const notes: string[] = [];
+      if (plan.truncated) notes.push("超出 400 上限，仅含前 400 条");
+      if (missed > 0) notes.push(`${missed} 张文件夹里的原图没读到`);
+      toast.success(`已导出 ${formatBytes(blob.size)}${notes.length ? `（${notes.join("；")}）` : ""}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "导出失败");
     } finally {
