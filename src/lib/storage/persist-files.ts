@@ -160,6 +160,25 @@ export async function archiveWork(
   return { folder, folderSkipped: preferFolder && !folder, server, similar };
 }
 
+/**
+ * 扫描一张之后：标记要不要改、这次要不要计入「已被替换」。
+ *
+ * 文件不在了也算已被替换。已经标过的，再扫一次仍然计入——
+ * 只在第一次加计数的话，第二次提示会说成「原图一致」。
+ * 哈希对上了就清掉标记，并且不计入。
+ */
+export function folderScanUpdate(
+  alreadyReplaced: boolean,
+  found: { missing: true } | { sha256: string },
+  expectedSha256: string,
+): { replaced: boolean; count: boolean; write: boolean } {
+  if ("missing" in found) {
+    return { replaced: true, count: true, write: !alreadyReplaced };
+  }
+  const mismatch = found.sha256 !== expectedSha256;
+  return { replaced: mismatch, count: mismatch, write: mismatch !== alreadyReplaced };
+}
+
 export async function rescanFolderHashes(): Promise<{ checked: number; replaced: number }> {
   const dir = canPickFolder() ? await ensureFolderPermission() : null;
   if (!dir) return { checked: 0, replaced: 0 };
@@ -170,19 +189,10 @@ export async function rescanFolderHashes(): Promise<{ checked: number; replaced:
     if (!item.relativePath || !item.sha256) continue;
     checked += 1;
     const file = await readRelativeFile(dir, item.relativePath);
-    if (!file) {
-      if (!item.replaced) {
-        await patchVaultMeta(item.key, { replaced: true });
-        replaced += 1;
-      }
-      continue;
-    }
-    const hex = await sha256Hex(file);
-    const mismatch = hex !== item.sha256;
-    if (mismatch !== Boolean(item.replaced)) {
-      await patchVaultMeta(item.key, { replaced: mismatch });
-    }
-    if (mismatch) replaced += 1;
+    const found = file ? { sha256: await sha256Hex(file) } : { missing: true as const };
+    const update = folderScanUpdate(Boolean(item.replaced), found, item.sha256);
+    if (update.write) await patchVaultMeta(item.key, { replaced: update.replaced });
+    if (update.count) replaced += 1;
   }
   return { checked, replaced };
 }
