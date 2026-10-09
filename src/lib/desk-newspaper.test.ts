@@ -8,7 +8,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FetchOk, WorkCard } from "./types.ts";
-import { rankingPageItems } from "./desk-newspaper.ts";
+import { newspaperHref, rankingPageItems } from "./desk-newspaper.ts";
+
+test("Pixiv 报纸去浏览日榜，图站报纸去热榜", () => {
+  assert.equal(newspaperHref("pixiv"), "/browse?feed=daily");
+  assert.equal(newspaperHref("yande"), "/rankings");
+  assert.equal(newspaperHref("danbooru"), "/rankings");
+});
 
 function card(id: string): WorkCard {
   return {

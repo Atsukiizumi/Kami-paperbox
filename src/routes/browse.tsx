@@ -8,6 +8,7 @@
 "use client";
 
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
 import { Link, useNavigate } from "@/lib/kami-link";
 import { Clipboard, RefreshCw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -118,6 +119,8 @@ export function Home() {
     setListPage(1);
   }, [browseQuery, browseExact, setBrowseQuery, tab]);
 
+  const pathname = usePathname();
+  const router = useRouter();
   const loggedIn = isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
   const feed: PixivFeed = feedPick ?? (loggedIn ? "recommend" : "daily");
   const fanboxFeed: FanboxFeed = fanboxPick ?? (fanboxCookie ? "home" : "creator");
@@ -130,6 +133,21 @@ export function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 登录态翻转时一次性纠正 feed，feed 变化不该重跑
   }, [loggedIn]);
+
+  // 案头「今日报纸 · Pixiv 日榜」落到这里。热榜页不收 Pixiv。
+  // 用过就把 ?feed=daily 拿掉，免得之后每次回到浏览都被拉回日榜。
+  useEffect(() => {
+    if (pathname !== "/browse") return;
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("feed") !== "daily") return;
+    setTab("pixiv");
+    setFeed("daily");
+    setSearchWord("");
+    setQuery("");
+    setBoardDate(parseBoardDate().iso);
+    setListPage(1);
+    router.replace("/browse");
+  }, [pathname, router, setTab]);
 
   useEffect(() => {
     if (fanboxCookie && fanboxFeed === "creator" && creatorId === "official") {
