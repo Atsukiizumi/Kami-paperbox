@@ -165,6 +165,16 @@ test("parseSmartFolders 往返 + 脏数据丢弃", () => {
   ]);
 });
 
+test("parseSmartFolders 收下 AI / R-18 的「只看」；排除态和原图替换笺不入库", () => {
+  assert.deepEqual(
+    parseSmartFolders([{ id: "a", name: "成人 AI", query: { ai: true, r18: true, replaced: true } }]),
+    [{ id: "a", name: "成人 AI", query: { ai: true, r18: true } }],
+  );
+  assert.deepEqual(parseSmartFolders([{ id: "b", name: "n", query: { ai: false, r18: "yes" } }]), [
+    { id: "b", name: "n", query: {} },
+  ]);
+});
+
 test("mergeVaultItems：本地覆盖优先——本地 tag 编辑不被远端刷掉（批量标签写回的前提）", () => {
   // 远端还存着旧标签；本地刚被批量编辑过（tags 已改）
   const remote = [
