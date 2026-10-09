@@ -245,6 +245,9 @@ export function parseSmartFolders(raw: unknown): SmartFolder[] {
       if (tags.length) query.tags = tags;
     }
     if (typeof q.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(q.month)) query.month = q.month;
+    // 笺开着才是「只看」。false 是排除，纸匣没有这一档，不入库。原图替换笺是瞬态，不进智能库。
+    if (q.ai === true) query.ai = true;
+    if (q.r18 === true) query.r18 = true;
     out.push({ id, name, query });
   }
   return out;

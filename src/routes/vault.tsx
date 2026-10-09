@@ -243,7 +243,9 @@ function VaultPageInner() {
     }
     return keys;
   }, [all, tagAliases]);
-  const filterActive = Boolean(text || filter.source !== "all" || filter.authorKey || filter.tags.length || filter.month);
+  const filterActive = Boolean(
+    text || filter.source !== "all" || filter.authorKey || filter.tags.length || filter.month || filter.ai || filter.r18,
+  );
   const totals = vaultTotals(items);
   // PER-3：大库分批渲染——首批 60 张，滚到底再续；过滤条件变化时回到首批
   const [visibleCount, setVisibleCount] = useState(60);
@@ -488,6 +490,8 @@ function VaultPageInner() {
                       authorKey: folder.query.authorKey ?? authorKeyForName(folder.query.author ?? ""),
                       tags: folder.query.tags ?? [],
                       month: folder.query.month ?? "",
+                      ai: folder.query.ai === true,
+                      r18: folder.query.r18 === true,
                     }));
                   }}
                 >
@@ -520,6 +524,9 @@ function VaultPageInner() {
                       authorKey: filter.authorKey || undefined,
                       tags: filter.tags,
                       month: filter.month || undefined,
+                      // 只存「只看」。未读 / 今日去年 / 原图替换是瞬态笺，不进智能库。
+                      ai: vaultQueryFlag(filter.ai),
+                      r18: vaultQueryFlag(filter.r18),
                     });
                 }}
               >
