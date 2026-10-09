@@ -113,10 +113,12 @@ export function VaultStatsPage() {
   // 纸匣健康度（C2）：同吃本页 all，零新取数；四类口径互相独立，可能重复计入
   const health = useMemo(() => healthStats(all ?? []), [all]);
   const healthClean = health.noTags + health.missingFlags + health.replaced + health.noCover === 0;
-  // 口味变迁（R）：今年 vs 去年的标签 / 画师年度对比（口径同画像，别名归一）
-  const shift = useMemo(() => tasteShift(all ?? [], tagAliases), [all, tagAliases]);
+  // 口味变迁：标签走标签别名，画师走画师别名。hasLastYear 不过张数阈值。
+  const shift = useMemo(
+    () => tasteShift(all ?? [], tagAliases, undefined, { authorAliases }),
+    [all, tagAliases, authorAliases],
+  );
   const shiftNow = new Date().getFullYear();
-  const shiftHasLast = shift.tags.some((t) => t.lastYear > 0) || shift.authors.some((a) => a.lastYear > 0);
   // 词表订阅派生：行内补录 setZh → rows 变 → lexMap/gap 重算 → 该行即时消失，零额外状态
   const lexRows = useTagLexicon((s) => s.rows);
   const setZh = useTagLexicon((s) => s.setZh);
@@ -174,7 +176,7 @@ export function VaultStatsPage() {
             <Reveal>
               <div className="rounded-xl bg-surface p-4">
                 <p className="text-xs text-muted">
-                  {shiftNow} 年 vs {shiftNow - 1} 年{shiftHasLast ? "" : "（去年还没有收藏，只看今年）"}
+                  {shiftNow} 年 vs {shiftNow - 1} 年{shift.hasLastYear ? "" : "（去年还没有收藏，只看今年）"}
                 </p>
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
                   <TasteShiftList title="标签" rows={shift.tags} />
