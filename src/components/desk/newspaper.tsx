@@ -25,7 +25,7 @@ import { useViewportActive } from "@/components/desk/use-viewport-active";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { parseBoardDate } from "@/lib/booru";
 import { snakeNodeCount, snakeOpacity } from "@/lib/desk-carousel";
-import { rankingPageItems } from "@/lib/desk-newspaper";
+import { newspaperHref, rankingPageItems } from "@/lib/desk-newspaper";
 import { Link } from "@/lib/kami-link";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { fetchSource } from "@/lib/source";
@@ -197,7 +197,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
 
   return (
     <section ref={viewportRef} className={className}>
-      <Link to="/rankings" className="text-sm text-muted hover:text-fg">
+      <Link to={newspaperHref(tab)} className="text-sm text-muted hover:text-fg">
         今日报纸 · {siteLabel(tab)} 日榜
       </Link>
       <div

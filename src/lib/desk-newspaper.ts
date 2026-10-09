@@ -7,6 +7,14 @@
  */
 import type { FetchOk, WorkCard } from "./types.ts";
 
+/**
+ * 报纸标题点进去的地址。
+ * Pixiv 日榜在浏览页打开；热榜页不收 Pixiv，点过去看不到这张报纸。
+ */
+export function newspaperHref(tab: string): "/browse?feed=daily" | "/rankings" {
+  return tab === "pixiv" ? "/browse?feed=daily" : "/rankings";
+}
+
 export function rankingPageItems(result: FetchOk | undefined): WorkCard[] {
   if (!result) return [];
   if (result.op === "pixivRanking" || result.op === "booruList") return result.items;
