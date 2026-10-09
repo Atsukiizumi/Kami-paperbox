@@ -347,6 +347,8 @@ export function CollectionDetail({
   const members = collectionMembers(collection, vaultKeys)
     .map((key) => metas.get(key))
     .filter((item): item is VaultMeta => Boolean(item));
+  // 上移 / 下移 / 置顶只在这些卡片之间换位。没画出来的 key 留在原下标。
+  const shownKeys = new Set(members.map((item) => item.key));
 
   function handleDelete() {
     if (!window.confirm(`删除合集「${collection.name}」？只删清单，里面的藏品不受影响。`)) return;
@@ -438,7 +440,7 @@ export function CollectionDetail({
               tagAliases={tagAliases}
               organizing={organizing}
               onRemove={() => removeFromCollection(collection.id, item.key)}
-              onReorder={(action) => reorderCollectionItem(collection.id, item.key, action)}
+              onReorder={(action) => reorderCollectionItem(collection.id, item.key, action, shownKeys)}
             />
           ))}
         </MasonryBoard>

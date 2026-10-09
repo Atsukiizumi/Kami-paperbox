@@ -126,6 +126,39 @@ test("moveCollectionItem：越界 no-op（首项上移/末项下移/未命中）
   }
 });
 
+test("moveCollectionItem：软失效的 key 留在原位，只在看得到的成员之间换", () => {
+  const present = new Set(["a", "b", "c"]);
+  assert.deepEqual(
+    moveCollectionItem(["a", "gone", "b"], "a", "down", present),
+    ["b", "gone", "a"],
+    "下移越过藏起来的 key，跟下一张可见的换",
+  );
+  assert.deepEqual(
+    moveCollectionItem(["a", "h1", "h2", "b"], "a", "down", present),
+    ["b", "h1", "h2", "a"],
+    "连续多个隐藏项也不挪动",
+  );
+  assert.deepEqual(moveCollectionItem(["a", "gone", "b"], "b", "up", present), ["b", "gone", "a"]);
+  assert.deepEqual(
+    moveCollectionItem(["gone", "a", "h2", "b"], "b", "top", present),
+    ["gone", "b", "h2", "a"],
+    "置顶落到第一张可见的位置",
+  );
+  assert.deepEqual(
+    moveCollectionItem(["gone", "a", "b"], "a", "up", present),
+    ["gone", "a", "b"],
+    "已经是第一张可见的，上移不动前面的隐藏项",
+  );
+  assert.deepEqual(moveCollectionItem(["a", "gone"], "a", "down", present), ["a", "gone"], "后面没有可见的，下移 no-op");
+  assert.deepEqual(moveCollectionItem(["a", "gone", "b"], "gone", "down", present), ["a", "gone", "b"], "藏起来的 key 自己不参与");
+  // 不传 present：每一项都参与，原先后邻对调还在
+  assert.deepEqual(moveCollectionItem(["a", "gone", "b"], "a", "down"), ["gone", "a", "b"]);
+  const items = ["a", "gone", "b"];
+  const next = moveCollectionItem(items, "a", "down", present);
+  assert.notEqual(next, items, "返回新数组");
+  assert.deepEqual(items, ["a", "gone", "b"], "入参顺序不变");
+});
+
 test("moveCollectionItem：不改入参", () => {
   const items = ["a", "b", "c"];
   const frozen: readonly string[] = Object.freeze([...items]);

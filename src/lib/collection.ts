@@ -65,18 +65,43 @@ export function collectionMembers(collection: Collection, vaultKeys: ReadonlySet
   return collection.items.filter((k) => vaultKeys.has(k));
 }
 
-/** 重排：action ∈ "up" | "down" | "top"；越界（首项上移/末项下移/未命中）原样返回。 */
-export function moveCollectionItem(items: readonly string[], key: string, action: "up" | "down" | "top"): string[] {
-  const index = items.indexOf(key);
-  if (index < 0) return [...items]; // 未命中：原样（新数组，不改入参）
-  if (action === "top") {
-    if (index === 0) return [...items];
-    return [key, ...items.filter((k) => k !== key)];
+/**
+ * 重排：action ∈ "up" | "down" | "top"；越界（可见序列的首项上移 / 末项下移 / 未命中）原样返回。
+ *
+ * present 是这一刻画得出来的成员。不传则每一项都参与。
+ * 传了的话，不在里面的 key 停在原下标：它们是纸匣里已经没有的藏品，重新收藏要回到原来的空档。
+ * 上移 / 下移 / 置顶只在看得到的卡片之间换位，不能把藏起来的 key 当成邻居对调走。
+ */
+export function moveCollectionItem(
+  items: readonly string[],
+  key: string,
+  action: "up" | "down" | "top",
+  present?: ReadonlySet<string>,
+): string[] {
+  const shown = (k: string) => present === undefined || present.has(k);
+  if (!shown(key)) return [...items];
+  const slots: number[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item !== undefined && shown(item)) slots.push(i);
   }
-  const target = action === "up" ? index - 1 : index + 1;
-  if (target < 0 || target >= items.length) return [...items]; // 首项上移/末项下移：no-op
+  const pos = slots.findIndex((i) => items[i] === key);
+  if (pos < 0) return [...items]; // 未命中：原样（新数组，不改入参）
+  if (action === "top") {
+    if (pos === 0) return [...items]; // 已经是第一张可见的
+    const next = [...items];
+    const order = slots.map((i) => items[i]);
+    const moved = order.splice(pos, 1)[0];
+    order.unshift(moved);
+    for (let i = 0; i < slots.length; i++) next[slots[i]] = order[i];
+    return next;
+  }
+  const target = action === "up" ? pos - 1 : pos + 1;
+  if (target < 0 || target >= slots.length) return [...items]; // 可见序列的首项上移 / 末项下移：no-op
   const next = [...items];
-  next[index] = items[target];
-  next[target] = items[index];
+  const from = slots[pos];
+  const to = slots[target];
+  next[from] = items[to];
+  next[to] = items[from];
   return next;
 }

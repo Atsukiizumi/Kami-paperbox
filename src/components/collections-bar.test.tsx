@@ -203,6 +203,18 @@ describe("CollectionDetail（合集详情）", () => {
     assert.deepEqual(useSettings.getState().collections[0]?.items, ["pixiv:3", "pixiv:2", "pixiv:1"]);
   });
 
+  it("整理顺序：下移越过已经不在纸匣里的 key，那个 key 留在原下标", () => {
+    useSettings.setState({
+      collections: [collectionFixture({ id: "c1", name: "風景", items: ["pixiv:1", "yande:gone", "pixiv:2"] })],
+    });
+    renderWithProviders(<CollectionDetailHarness id="c1" fallbackName="風景" />);
+    fireEvent.click(screen.getByRole("button", { name: "整理顺序" }));
+    const downs = screen.getAllByRole("button", { name: "下移" });
+    assert.equal(downs.length, 2, "失配 key 没有卡片");
+    fireEvent.click(downs[0] as HTMLButtonElement);
+    assert.deepEqual(useSettings.getState().collections[0]?.items, ["pixiv:2", "yande:gone", "pixiv:1"]);
+  });
+
   it("详情网格只渲染仍存在的成员（软失效）；全失配显示空态不删合集", () => {
     useSettings.setState({
       collections: [collectionFixture({ id: "c1", name: "風景", items: ["pixiv:1", "yande:gone"] })],

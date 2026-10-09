@@ -147,7 +147,7 @@ type SettingsState = {
   setCollectionCover: (id: string, coverKey?: string) => void;
   addToCollection: (id: string, keys: readonly string[]) => number | "full";
   removeFromCollection: (id: string, key: string) => void;
-  reorderCollectionItem: (id: string, key: string, action: "up" | "down" | "top") => void;
+  reorderCollectionItem: (id: string, key: string, action: "up" | "down" | "top", present?: ReadonlySet<string>) => void;
   removeCollection: (id: string) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
@@ -539,12 +539,13 @@ export const useSettings = create<SettingsState>()(
               : c,
           ),
         })),
-      reorderCollectionItem: (id, key, action) =>
+      reorderCollectionItem: (id, key, action, present) =>
         set((s) => ({
           collections: s.collections.map((c) => {
             if (c.id !== id || !c.items.includes(key)) return c; // key 不在 items 里 no-op
-            // 重排语义锁在纯函数里，setter 只做应用 + 刷 updatedAt
-            return { ...c, items: moveCollectionItem(c.items, key, action), updatedAt: Date.now() };
+            // 重排语义锁在纯函数里，setter 只做应用 + 刷 updatedAt。
+            // present 是这一刻画得出来的成员；软失效的 key 留在原下标。
+            return { ...c, items: moveCollectionItem(c.items, key, action, present), updatedAt: Date.now() };
           }),
         })),
       // 只删清单不动藏品：绝不碰 IDB / 服务端目录（PRD C4）

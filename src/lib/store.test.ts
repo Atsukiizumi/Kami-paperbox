@@ -429,6 +429,13 @@ test("removeFromCollection / reorderCollectionItem：未命中 no-op；重排走
     assert.deepEqual(useSettings.getState().collections[0]?.items, ["c", "a"]);
     useSettings.getState().reorderCollectionItem("c1", "c", "up");
     assert.deepEqual(useSettings.getState().collections[0]?.items, ["c", "a"], "首项上移 no-op");
+    useSettings.setState({ collections: [collectionFixture(1, { items: ["a", "gone", "b"] })] });
+    useSettings.getState().reorderCollectionItem("c1", "a", "down", new Set(["a", "b"]));
+    assert.deepEqual(
+      useSettings.getState().collections[0]?.items,
+      ["b", "gone", "a"],
+      "setter 把看得到的成员传给纯函数，软失效 key 留在原下标",
+    );
     // removeCollection 只删清单不动藏品：目标消失，其余不牵连
     useSettings.setState({ collections: [collectionFixture(1), collectionFixture(2)] });
     useSettings.getState().removeCollection("c1");
