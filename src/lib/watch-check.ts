@@ -51,7 +51,7 @@ export type WatchCheckResult = {
   source: WatchArtist["source"];
   id: string;
   newCount: number;
-  /** 当前最新作品 id（标已读用）。 */
+  /** 这次列表里看得到的最新作品 id（标已读用）。滤掉的编号不记。 */
   newestId?: string;
   /** 最新一张作品缩略图。 */
   latestThumb?: string;
@@ -82,10 +82,12 @@ async function checkOne(
       });
       if (r.op !== "pixivUser") throw new Error("返回异常");
       const items = (r.items ?? []) as { id: string }[];
+      // pixivUser.newestId 是未过滤的全量第一条。安全模式或过滤 AI 会把它从
+      // 这次的列表里拿掉。标已读若记下那个编号，下次检查对不上，新作就不再报。
       return {
         ...base,
         newCount: diffNewCount(items, artist.lastSeenId),
-        newestId: r.newestId ?? items[0]?.id,
+        newestId: items[0]?.id,
         latestThumb: pickThumb(r.items?.[0]),
         items: feedItems(r.items, "pixiv"),
         latestDate: latestDateOf(r.items),
