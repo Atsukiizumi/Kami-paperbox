@@ -213,7 +213,7 @@ export function mergeVaultItems(local: VaultMeta[], remoteItems: VaultMeta[]): V
     map.set(item.key, {
       ...item,
       hasFile: prev?.hasFile ?? item.hasFile,
-      // 客户端先行三字段远端行不携带：缺时保留本地，否则一次合并清空分级/AI 标记
+      // 旧目录行可能没有这三字段：缺时保留本地，否则一次合并清空分级/AI 标记
       aiType: item.aiType ?? prev?.aiType,
       xRestrict: item.xRestrict ?? prev?.xRestrict,
       rating: item.rating ?? prev?.rating,

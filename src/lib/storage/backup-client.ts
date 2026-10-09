@@ -155,8 +155,8 @@ export async function applySegment(
   }
   if (segment === "vault") {
     for (const item of parseVaultRecords(Array.isArray(data) ? data : [])) {
-      // 客户端先行字段（aiType/xRestrict/rating）服务端行不携带：写入前并本地，
-      // 否则远端目录段同步一次就把分级/AI 标记清空（mergeVaultRecords 同款守卫）
+      // 远端目录行缺 aiType/xRestrict/rating 时并上本地再写入，
+      // 否则旧行同步一次就把分级/AI 标记清空（mergeVaultRecords 同款守卫）
       const local = await getVaultMeta(item.key);
       await putVaultMeta(preserveClientVaultFields(item, local));
       rememberVaultKey(item.source, item.id);

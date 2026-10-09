@@ -6,7 +6,7 @@
  * 用法：设置 → 存储「补全档案」按钮调 runVaultBackfill；生产包装在下方，单测注入桩。
  * 为什么幂等即断点：三字段全 undefined = 「未知」；补全后至少落一个显式值
  *      （pixiv/fanbox 落 aiType+xRestrict、booru 落 rating），重跑只碰仍缺的条目，
- *      中断后不需要游标。只写本地 IDB（服务端列锁不回环，备份文件携带）。
+ *      中断后不需要游标。补全只写本地 IDB；服务端目录在收藏和放进纸篓时带走这些标记。
  * 为什么并发 1 + 限速：详情请求比列表重、上游风控敏感——保守换稳定。
  */
 import { loadWork } from "../queue-runner.ts";

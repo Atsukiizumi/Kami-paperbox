@@ -14,7 +14,7 @@
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { isSource } from "@/lib/sites";
 import type { Source, VaultMeta } from "@/lib/types";
-import { getVaultStore, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
+import { getVaultStore, normalizeVaultMarks, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
 import { nearestByDhash } from "@/lib/storage/vault-cross-source";
 import type { VaultQuery } from "@/lib/storage/vault-query";
 import { ensureVaultBackupScheduler } from "@/lib/storage/cloud-backup/engine.server";
@@ -56,6 +56,8 @@ function metaFromUnknown(raw: unknown): VaultMeta | null {
     bytes: typeof o.bytes === "number" ? o.bytes : 0,
     relativePath: typeof o.relativePath === "string" ? o.relativePath : undefined,
     folderLabel: typeof o.folderLabel === "string" ? o.folderLabel : undefined,
+    // 缺字段不写进对象：store 会沿用库里的旧标记，旧客户端的推送不会把 0 抹掉。
+    ...normalizeVaultMarks(o),
   };
 }
 

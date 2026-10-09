@@ -17,6 +17,7 @@ import { ProxiedImg } from "@/components/proxied-img";
 import { useVaultCover } from "@/components/vault-cover";
 import { normalizeAuthorName } from "@/lib/author-name";
 import { formatBytes } from "@/lib/utils";
+import { putVaultMeta } from "@/lib/storage/vault";
 import { purgeServerTrash, restoreServerTrash, type ServerTrashItem } from "@/lib/storage/vault-sync";
 
 function formatDate(at: number): string {
@@ -70,7 +71,20 @@ function TrashRow({
           size="sm"
           variant="secondary"
           disabled={busy}
-          onClick={() => void run(() => restoreServerTrash(item.key), "已放回纸匣")}
+          onClick={() =>
+            void run(async () => {
+              const ok = await restoreServerTrash(item.key);
+              if (!ok) return false;
+              try {
+                // 统计页读本机目录。服务端放回去之后把标记写回，AI / R-18 计数才还在。
+                const { deletedAt: _deletedAt, ...meta } = item;
+                await putVaultMeta(meta);
+              } catch {
+                /* 服务端已经放回；本机副本写失败时纸匣页仍读服务端目录 */
+              }
+              return true;
+            }, "已放回纸匣")
+          }
         >
           放回去
         </Button>
