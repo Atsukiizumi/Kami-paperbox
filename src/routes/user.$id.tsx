@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Layers, UserMinus, UserPlus } from "lucide-react";
 import { enqueueWorks } from "@/lib/queue-runner";
+import { formatBatchEnqueueToast } from "@/lib/queue-cap";
 import { applyFollowPatch } from "@/lib/user-follow";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useQueue } from "@/lib/store";
@@ -132,13 +133,11 @@ export function UserPage() {
       inVaultKeys: new Set(Object.keys(vaultKeys)),
       inQueueKeys: new Set(queueKeys),
     });
-    enqueueWorks(batchable, kind);
+    const tally = enqueueWorks(batchable, kind);
     const skipped: string[] = [];
     if (skippedVault) skipped.push(`已在纸匣 ${skippedVault}`);
     if (skippedQueue) skipped.push(`队列中 ${skippedQueue}`);
-    toast.success(
-      `${kind === "vault" ? "已入队：纸匣" : "已入队：下载"} ${batchable.length} 张${skipped.length ? `（跳过 ${skipped.join("、")}）` : ""}`,
-    );
+    toast.success(formatBatchEnqueueToast(kind, tally, skipped));
     sel.exit();
   }
 

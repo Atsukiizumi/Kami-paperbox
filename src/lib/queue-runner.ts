@@ -25,6 +25,7 @@ import { isBooru, isSource, siteLabel } from "./sites.ts";
 import { clampQueueConcurrency, MAX_QUEUE_ATTEMPTS, queueBackoffMs, queueShouldRetry } from "./queue-retry.ts";
 import { effectiveConcurrency, noteRateLimit, queueRetryDelayMs, rateLimitError } from "./queue-throttle.ts";
 import type { QueueItem, QueueKind, Source, WorkDetail } from "./types.ts";
+import { applyEnqueueMany, type EnqueueTally } from "./queue-cap.ts";
 
 const RUNNER_LOCK = "kami-queue-runner";
 
@@ -227,21 +228,28 @@ export function enqueueWorks(
     thumb: string;
   }>,
   kind: QueueKind = "download",
-) {
-  if (works.length === 0) return;
-  const q = useQueue.getState();
-  for (const work of works) {
-    q.enqueue({
-      key: workKey(work.source, work.id),
-      source: work.source,
-      id: work.id,
-      title: work.title,
-      author: work.author,
-      thumb: work.thumb,
-      kind,
-    });
-  }
+): EnqueueTally {
+  if (works.length === 0) return { kept: 0, dropped: 0 };
+  let tally: EnqueueTally = { kept: 0, dropped: 0 };
+  useQueue.setState((s) => {
+    const applied = applyEnqueueMany(
+      s.items,
+      works.map((work) => ({
+        key: workKey(work.source, work.id),
+        source: work.source,
+        id: work.id,
+        title: work.title,
+        author: work.author,
+        thumb: work.thumb,
+        kind,
+      })),
+      Date.now(),
+    );
+    tally = applied.tally;
+    return { items: applied.items };
+  });
   void runQueue();
+  return tally;
 }
 
 /** After a refresh, "running" rows are dead. Put them back in line and start the loop. */

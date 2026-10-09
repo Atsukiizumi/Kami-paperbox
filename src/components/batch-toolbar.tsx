@@ -8,7 +8,7 @@
  *      入队动作由父级执行（filterBatchable + enqueueWorks），本组件只报意图。
  *      传 children 替换默认「入纸匣 / 下载」动作区（纸匣批量整理用，可为空 =
  *      只读选择）；传 label 改可访问名；传 max={null} 解除 BATCH_MAX 上限。
- * 为什么：纸匣批量整理没有「入队」语义也不该被队列的 200 张上限卡住，但纸感
+ * 为什么：纸匣批量整理没有「入队」语义也不该被队列的 BATCH_MAX 卡住，但纸感
  *        语言（已选数 / 全选清除 / 完成退出的浮动纸条）要跟浏览批量同一条。
  */
 import { type ReactNode } from "react";

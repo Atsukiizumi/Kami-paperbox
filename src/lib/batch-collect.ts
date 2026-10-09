@@ -6,8 +6,11 @@
  */
 import type { WorkCard } from "./types.ts";
 
-/** 单次批量入队上限：队列在 localStorage（5MB 配额），不放宽。 */
-export const BATCH_MAX = 200;
+/**
+ * 队列在 localStorage，只留这么多条。
+ * 批量加载、选择条和入队共用这一个数，避免「加载至 200」而队列只留下 80。
+ */
+export const BATCH_MAX = 80;
 
 export function workKeyOf(card: Pick<WorkCard, "source" | "id">): string {
   return `${card.source}:${card.id}`;
