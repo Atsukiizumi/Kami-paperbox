@@ -27,7 +27,7 @@ import { useBatchSelection } from "@/components/use-batch-selection";
 import { VaultBatchActions, type BatchTagEntry } from "@/components/vault-batch-tags";
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { authorKey, normalizeAuthorName } from "@/lib/author-name";
-import { hasVaultCover, onThisDay } from "@/lib/storage/vault-profile";
+import { hasVaultCover, onThisDay, onThisDaySlipLine } from "@/lib/storage/vault-profile";
 import { formatBytes } from "@/lib/utils";
 import { collectFolderExportFiles, exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { partitionVaultExport, zipWithFolderFiles } from "@/lib/storage/vault-export-plan";
@@ -185,7 +185,7 @@ function VaultPageInner() {
 
   // 今日去年：月-日相同、年份早于今年的藏品按年份降序分组（now 随 all 快照取一次）
   const recallGroups = useMemo(() => onThisDay(all, Date.now()), [all]);
-  const recallTotal = recallGroups.reduce((n, group) => n + group.items.length, 0);
+  const recallLine = onThisDaySlipLine(recallGroups, Date.now());
   const recallKeys = useMemo(
     () => new Set(recallGroups.flatMap((group) => group.items.map((item) => item.key))),
     [recallGroups],
@@ -402,16 +402,13 @@ function VaultPageInner() {
             </p>
           ) : null}
           {/* 今日去年笺条：命中才递上来，点击把列表过滤到那批藏品 */}
-          {recallTotal > 0 ? (
+          {recallLine ? (
             <button
               type="button"
               className="kami-slip mt-3 cursor-pointer"
               onClick={() => setFilter((f) => ({ ...f, recallOnly: true }))}
             >
-              {/* 命中可能不止去年（往年同月日都算），按最近一年措辞，不虚报年份 */}
-              {recallGroups[0]?.year === new Date().getFullYear() - 1
-                ? `去年的今天，你收了 ${recallTotal} 张`
-                : `${recallGroups[0]?.year} 年的今天，你收了 ${recallTotal} 张`}
+              {recallLine}
             </button>
           ) : null}
         </div>
@@ -473,7 +470,7 @@ function VaultPageInner() {
             booruTagKeys={booruTagKeys}
             totals={totals}
             showUnread={unreadKeys.size > 0}
-            showRecall={recallTotal > 0}
+            showRecall={recallLine !== null}
             showReplaced={all.some((i) => i.replaced)}
           />
           <div className="flex flex-wrap items-center gap-2">

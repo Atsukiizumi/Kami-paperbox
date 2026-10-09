@@ -6,6 +6,7 @@ import {
   hourHistogram,
   hourPhaseName,
   onThisDay,
+  onThisDaySlipLine,
   peakBucket,
   pickRandom,
   profileSummary,
@@ -243,6 +244,19 @@ test("onThisDay：闰日 2-29 只在闰年的今天命中；平年 2-28 不捡�
   const hit = onThisDay(rows, at(2028, 1, 29, 12));
   assert.deepEqual(hit.map((g) => g.year), [2024]);
   assert.deepEqual(hit[0].items.map((i) => i.key), ["leap-2024"]);
+});
+
+test("onThisDaySlipLine：只有去年才称去年；更早的一年点名年份；跨年不归到某一年", () => {
+  const now = at(2026, 8, 14, 12);
+  const row = (key: string, year: number) =>
+    item({ key, title: key, author: "x", savedAt: at(year, 8, 14, 10) });
+  assert.equal(onThisDaySlipLine(onThisDay([row("a", 2025), row("b", 2025)], now), now), "去年的今天，你收了 2 张");
+  assert.equal(onThisDaySlipLine(onThisDay([row("c", 2023)], now), now), "2023 年的今天，你收了 1 张");
+  assert.equal(
+    onThisDaySlipLine(onThisDay([row("d", 2025), row("e", 2024), row("f", 2024)], now), now),
+    "往年的今天，你收了 3 张",
+  );
+  assert.equal(onThisDaySlipLine([], now), null);
 });
 
 test("filterByYear / vaultYears：本地年份切片、覆盖年份降序、无命中空数组", () => {
