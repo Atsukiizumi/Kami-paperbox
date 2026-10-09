@@ -28,6 +28,6 @@ test("全在纸匣 → batchable 空", () => {
   assert.equal(out.skippedVault, 1);
 });
 
-test("BATCH_MAX 常量为 200", () => {
-  assert.equal(BATCH_MAX, 200);
+test("BATCH_MAX 与队列上限同为 80", () => {
+  assert.equal(BATCH_MAX, 80);
 });

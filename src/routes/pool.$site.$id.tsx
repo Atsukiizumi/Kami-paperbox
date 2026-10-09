@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { enqueueWorks } from "@/lib/queue-runner";
+import { formatPoolEnqueueToast } from "@/lib/queue-cap";
 import { isBooru, siteLabel } from "@/lib/sites";
 import { poolOriginUrl } from "@/lib/booru";
 import { flyPaperToQueue } from "@/lib/paper-fly";
@@ -59,13 +60,9 @@ export function PoolPage() {
   const pool = query.data;
 
   function queueAll(kind: "download" | "vault") {
-    enqueueWorks(pool.items, kind);
+    const tally = enqueueWorks(pool.items, kind);
     flyPaperToQueue(document.querySelector(".kami-masonry")?.getBoundingClientRect());
-    toast.success(
-      kind === "vault"
-        ? `已加入队列：收入纸匣 ${pool.items.length} 张`
-        : `已加入队列：下载合集 ${pool.items.length} 张`,
-    );
+    toast.success(formatPoolEnqueueToast(kind, tally));
   }
 
   return (

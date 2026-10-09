@@ -17,6 +17,7 @@ import { cookiesFromSettings, useQueue, useSettings } from "@/lib/store";
 import { fanboxSessionFrom } from "@/lib/sync/browser-login";
 import { rememberAuthor } from "@/lib/view-history";
 import { enqueueWorks } from "@/lib/queue-runner";
+import { formatBatchEnqueueToast } from "@/lib/queue-cap";
 import { BATCH_MAX, filterBatchable, workKeyOf } from "@/lib/batch-collect";
 import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useBatchSelection } from "@/components/use-batch-selection";
@@ -121,13 +122,11 @@ export function CreatorPage() {
       inVaultKeys: new Set(Object.keys(vaultKeys)),
       inQueueKeys: new Set(queueKeys),
     });
-    enqueueWorks(batchable, kind);
+    const tally = enqueueWorks(batchable, kind);
     const skipped: string[] = [];
     if (skippedVault) skipped.push(`已在纸匣 ${skippedVault}`);
     if (skippedQueue) skipped.push(`队列中 ${skippedQueue}`);
-    toast.success(
-      `${kind === "vault" ? "已入队：纸匣" : "已入队：下载"} ${batchable.length} 张${skipped.length ? `（跳过 ${skipped.join("、")}）` : ""}`,
-    );
+    toast.success(formatBatchEnqueueToast(kind, tally, skipped));
     sel.exit();
   }
   const gridSelection = sel.active ? { selected: sel.selected, onToggle: sel.toggle } : undefined;

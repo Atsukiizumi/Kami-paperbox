@@ -15,6 +15,7 @@ import { AUTHOR_ALIAS_ENTRY_LIMIT, AUTHOR_ALIAS_TEXT_LIMIT, parseAuthorAliases }
 import { TAG_ALIAS_ENTRY_LIMIT, TAG_ALIAS_TEXT_LIMIT, parseTagAliases } from "./vault-tag-alias.ts";
 import { persist } from "zustand/middleware";
 import type { QueueItem, Source } from "./types.ts";
+import { applyEnqueue } from "./queue-cap.ts";
 import type { SearchEngine } from "./reverse-search.ts";
 import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search.ts";
 import { saveSessions } from "./source.ts";
@@ -729,28 +730,7 @@ export const useQueue = create<QueueState>()(
   persist(
     (set) => ({
       items: [],
-      enqueue: (item) =>
-        set((s) => {
-          const live = s.items.find((x) => x.key === item.key && (x.status === "queued" || x.status === "running"));
-          if (live) {
-            if (item.kind === "download" && live.kind !== "download") {
-              return {
-                items: s.items.map((x) => (x.key === item.key ? { ...x, kind: "download" as const } : x)),
-              };
-            }
-            return s;
-          }
-          const next: QueueItem = {
-            ...item,
-            kind: item.kind === "vault" ? "vault" : "download",
-            status: "queued",
-            progress: 0,
-            total: 1,
-            addedAt: Date.now(),
-            error: undefined,
-          };
-          return { items: [next, ...s.items.filter((x) => x.key !== item.key)].slice(0, 80) };
-        }),
+      enqueue: (item) => set((s) => ({ items: applyEnqueue(s.items, item, Date.now()) })),
       patch: (key, patch) =>
         set((s) => ({
           items: s.items.map((x) => (x.key === key ? { ...x, ...patch } : x)),

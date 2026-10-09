@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { BatchToolbar } from "./batch-toolbar.tsx";
+import { BATCH_MAX } from "@/lib/batch-collect";
 
 describe("BatchToolbar（批量收藏）", () => {
   let events: string[];
@@ -28,9 +29,9 @@ describe("BatchToolbar（批量收藏）", () => {
   }
 
   it("显示已选数；超上限禁用入队", () => {
-    renderBar(201);
-    assert.match(screen.getByRole("toolbar").textContent ?? "", /201/);
-    assert.match(screen.getByRole("toolbar").textContent ?? "", /上限 200/);
+    renderBar(BATCH_MAX + 1);
+    assert.match(screen.getByRole("toolbar").textContent ?? "", new RegExp(String(BATCH_MAX + 1)));
+    assert.match(screen.getByRole("toolbar").textContent ?? "", new RegExp(`上限 ${BATCH_MAX}`));
     const vault = screen.getByRole("button", { name: /入纸匣/ }) as HTMLButtonElement;
     const download = screen.getByRole("button", { name: /下载/ }) as HTMLButtonElement;
     assert.equal(vault.disabled, true);
