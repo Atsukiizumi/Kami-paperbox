@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { BrowsePager, BROWSE_PAGE_SIZE } from "@/components/browse-pager";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
+import { browseGridLoading } from "@/lib/browse-grid";
 import { PaperMark } from "@/components/paper-mark";
 import { SavedTagBar } from "@/components/saved-tags";
 import { SearchSuggest } from "@/components/search-suggest";
@@ -434,11 +435,14 @@ export function Home() {
     pendingKbLand.current = null;
   }, [items]);
 
-  const loading =
-    !settingsReady ||
-    refreshing ||
-    activeQuery.isLoading ||
-    (activeQuery.isFetching && items.length === 0 && !activeQuery.isFetchingNextPage);
+  const loading = browseGridLoading({
+    settingsReady,
+    refreshing,
+    isLoading: activeQuery.isLoading,
+    isFetching: activeQuery.isFetching,
+    isFetchingNextPage: activeQuery.isFetchingNextPage,
+    itemCount: items.length,
+  });
 
   useEffect(() => {
     setListPage(1);
