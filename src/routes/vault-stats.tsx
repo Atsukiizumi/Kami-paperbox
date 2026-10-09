@@ -105,7 +105,10 @@ export function VaultStatsPage() {
   const artists = useMemo(() => topAuthors(all ?? [], 10, authorAliases), [all, authorAliases]);
   const chips = useMemo(() => tagCloud(all ?? [], { limit: 40, tagAliases }), [all, tagAliases]);
   const sources = useMemo(() => sourceComposition(all ?? []), [all]);
-  const summary = useMemo(() => profileSummary(all ?? [], authorAliases), [all, authorAliases]);
+  const summary = useMemo(
+    () => profileSummary(all ?? [], authorAliases, tagAliases),
+    [all, authorAliases, tagAliases],
+  );
   const timeline = useMemo(() => monthlyTimeline(all ?? []), [all]);
   // 纸匣健康度（C2）：同吃本页 all，零新取数；四类口径互相独立，可能重复计入
   const health = useMemo(() => healthStats(all ?? []), [all]);

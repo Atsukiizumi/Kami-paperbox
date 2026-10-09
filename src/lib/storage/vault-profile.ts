@@ -136,8 +136,15 @@ export type ProfileSummary = {
   topWeekday: string | null;
 };
 
-/** 画像小结语字段集：页面拼句子，null 字段对应半句直接隐藏。 */
-export function profileSummary(items: VaultMeta[], aliases?: Record<string, string>): ProfileSummary {
+/**
+ * 画像小结语字段集：页面拼句子，null 字段对应半句直接隐藏。
+ * aliases 只改心头好画师的展示名。tagAliases 只归并 topTag，和词云同一张标签别名表。
+ */
+export function profileSummary(
+  items: VaultMeta[],
+  aliases?: Record<string, string>,
+  tagAliases?: Record<string, string>,
+): ProfileSummary {
   if (items.length === 0) {
     return { favoriteAuthor: null, topTag: null, spanDays: null, activePhase: null, topWeekday: null };
   }
@@ -152,10 +159,10 @@ export function profileSummary(items: VaultMeta[], aliases?: Record<string, stri
   let first = Number.POSITIVE_INFINITY;
   let last = 0;
   for (const item of items) {
-    // topTag 与词云同口径：别名归一 + 按张去重（同图双变体只计一张）。
+    // topTag 与词云同口径：标签别名归一 + 按张去重（同图双变体只计一张）。
     const seenTags = new Set<string>();
     for (const raw of item.tags) {
-      const tag = applyTagAlias(raw.trim(), aliases);
+      const tag = applyTagAlias(raw.trim(), tagAliases);
       if (!tag || seenTags.has(tag)) continue;
       seenTags.add(tag);
       tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);

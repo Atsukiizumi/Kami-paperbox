@@ -367,9 +367,22 @@ test("词云与小结 topTag：同图双变体按张去重、topTag 走别名归
   const chips = tagCloud(items, { tagAliases: aliases });
   const wu = chips.find((c) => c.tag === "鸣潮");
   assert.equal(wu?.count, 2, "双变体只按张去重计（a、b 两张）");
-  const summary = profileSummary(items, aliases);
+  const summary = profileSummary(items, undefined, aliases);
   assert.equal(summary.topTag?.tag, "鸣潮");
   assert.equal(summary.topTag?.rate, 2 / 3, "出现率按张数口径");
+});
+
+test("profileSummary：画师别名不改标签，标签别名不改画师名", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "あいす", tags: ["あいす"], savedAt: at(2026, 8, 1, 10) }),
+    item({ key: "b", title: "b", author: "別人", tags: ["あいす"], savedAt: at(2026, 8, 2, 10) }),
+  ];
+  const authorOnly = profileSummary(rows, { あいす: "アイス" });
+  assert.deepEqual(authorOnly.favoriteAuthor, { name: "アイス", count: 1 });
+  assert.equal(authorOnly.topTag?.tag, "あいす", "画师别名表不拿去改标签");
+  const tagOnly = profileSummary(rows, undefined, { あいす: "冰" });
+  assert.deepEqual(tagOnly.favoriteAuthor, { name: "あいす", count: 1 }, "标签别名表不拿去改画师");
+  assert.equal(tagOnly.topTag?.tag, "冰");
 });
 
 // ── 纸匣健康度 healthStats（C2，09-28-health-polish）─────────────────────────
