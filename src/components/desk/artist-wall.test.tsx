@@ -17,6 +17,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render } from "@testing-library/react";
 import { DeskArtistWall } from "./artist-wall.tsx";
 import { useSettings } from "@/lib/store";
+import { useVeil } from "@/lib/veil";
 import { credentialTag } from "@/lib/sync/cred-tag";
 import type { WorkCard } from "@/lib/types";
 
@@ -57,6 +58,7 @@ describe("DeskArtistWall（案头画师墙）", () => {
   beforeEach(() => {
     cleanup();
     useSettings.setState({ watchArtists: [], pixivCookie: "" });
+    useVeil.setState({ veil: false });
   });
 
   it("未登录 Pixiv（cookie 空）→ 不出现，缓存有旧数据也不出", async (t) => {
@@ -114,5 +116,20 @@ describe("DeskArtistWall（案头画师墙）", () => {
     assert.match(cells[0]?.getAttribute("href") ?? "", /\/work\/pixiv\/90\d\d/);
     const grid = cells[0]?.closest("div");
     assert.match(grid?.className ?? "", /grid-cols-3/);
+  });
+
+  it("遮盖开着时，R-18 封面模糊，普通封面不模糊", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    useSettings.setState({ pixivCookie: LOGGED_IN_COOKIE });
+    useVeil.setState({ veil: true });
+    const works = worksWithThumbs(3).map((work, i) => (i === 0 ? { ...work, xRestrict: 1 } : work));
+    const { container } = renderWall(LOGGED_IN_COOKIE, followingResult(works));
+    await act(async () => {
+      t.mock.timers.tick(30);
+    });
+    const cells = [...container.querySelectorAll("a[href^='/work/']")];
+    assert.equal(cells.length, 3);
+    const blurred = cells.filter((cell) => /blur-md/.test(cell.innerHTML));
+    assert.equal(blurred.length, 1);
   });
 });

@@ -16,6 +16,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
+import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useCrossfade } from "@/components/desk/use-crossfade";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { buildFrames, needsCarousel } from "@/lib/desk-carousel";
@@ -35,6 +36,7 @@ const WALL_POOL_CAP = 36;
 const wallFrameUrls = (batch: readonly WorkCard[]) => batch.map((card) => card.thumb);
 
 function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?: string }) {
+  const veil = useVeil((s) => s.veil);
   return (
     <div className={cn("grid grid-cols-3 gap-1.5", className)}>
       {batch.map((card) => (
@@ -45,7 +47,11 @@ function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?
           title={card.title}
           className="relative block aspect-square overflow-hidden rounded-md bg-elevated"
         >
-          <ProxiedImg src={card.thumb} alt={card.title} className="h-full w-full object-cover" />
+          <ProxiedImg
+            src={card.thumb}
+            alt={card.title}
+            className={cn("h-full w-full object-cover", veilCoverClass(veil, card))}
+          />
         </Link>
       ))}
     </div>

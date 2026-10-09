@@ -18,6 +18,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProxiedImg, warmMedia } from "@/components/proxied-img";
+import { useVeil, veilCoverClass } from "@/lib/veil";
+import { cn } from "@/lib/utils";
 import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { useViewportActive } from "@/components/desk/use-viewport-active";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
@@ -41,6 +43,7 @@ const NODE_STEP = NODE_W + NODE_GAP;
 const SNAKE_SPEED_PX_S = 45;
 
 function NodeCard({ card, rank, style }: { card: WorkCard; rank: number; style?: CSSProperties }) {
+  const veil = useVeil((s) => s.veil);
   return (
     <Link
       to="/work/$source/$id"
@@ -48,7 +51,11 @@ function NodeCard({ card, rank, style }: { card: WorkCard; rank: number; style?:
       style={style}
       className="relative block aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-lg bg-elevated shadow-[var(--shadow-paper-1)]"
     >
-      <ProxiedImg src={card.thumb} alt="" className="h-full w-full object-cover" />
+      <ProxiedImg
+        src={card.thumb}
+        alt=""
+        className={cn("h-full w-full object-cover", veilCoverClass(veil, card))}
+      />
       <span className="absolute left-1 top-1 text-[10px] tabular-nums text-accent-fg">{rank}</span>
     </Link>
   );
