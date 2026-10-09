@@ -1,9 +1,11 @@
 /**
  * 保存/导出的落盘入口。
  *
- * 作用：能选文件夹时，原图只写用户指定目录，纸匣记路径和 SHA-256，
+ * 作用：对应开关开着且能选文件夹时，原图写用户指定目录，纸匣记路径和 SHA-256，
  *      并写一条服务端目录（不含像素），删除才能进纸篓、放回去才有目录。
- *      选不了文件夹（Safari / 火狐 / 手机）才把像素放进应用内目录。
+ *      收入纸匣看「收入纸匣时写入文件夹」，下载看「下载写入该文件夹」。
+ *      开关关着，或选不了文件夹（Safari / 火狐 / 手机），像素放进应用内目录；
+ *      下载则改走浏览器下载。
  * 用法：只从队列 runner 调 archiveWork。
  */
 import { extFromNameOrType } from "../ugoira-meta.ts";
@@ -86,6 +88,14 @@ export async function writeWorkToFolder(
   return first || null;
 }
 
+/** 收入纸匣看镜像开关，下载看下载开关。两个都默认开。 */
+export function folderWriteEnabled(
+  download: boolean,
+  settings: { downloadToFolder: boolean; vaultMirrorFolder: boolean },
+): boolean {
+  return download ? settings.downloadToFolder : settings.vaultMirrorFolder;
+}
+
 export async function archiveWork(
   work: WorkDetail,
   pages: { blob: Blob; page: WorkPage }[],
@@ -93,7 +103,8 @@ export async function archiveWork(
 ): Promise<{ folder: boolean; folderSkipped: boolean; server: boolean; similar?: SimilarVaultHit[] }> {
   const settings = useSettings.getState();
   const at = new Date();
-  const folderHandle = canPickFolder() ? await ensureFolderPermission() : null;
+  const wantFolder = folderWriteEnabled(opts.download, settings);
+  const folderHandle = wantFolder && canPickFolder() ? await ensureFolderPermission() : null;
   const preferFolder = Boolean(folderHandle);
   let folder = false;
   let relativePath: string | undefined;

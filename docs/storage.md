@@ -116,7 +116,7 @@ work_related   (from_key, to_key)
 `archiveWork`（`persist-files.ts`）：
 
 1. 浏览器 `saveVaultWork` → IndexedDB（立刻能预览）
-2. 若选了文件夹 → 按模板镜像，并把相对路径补进 meta
+2. 若选了文件夹，且这次动作的开关开着（收入纸匣看「收入纸匣时写入文件夹」，下载看「下载写入该文件夹」）→ 按模板镜像，并把相对路径补进 meta。开关关着时不写该目录：收入纸匣只留应用内，下载走浏览器下载目录
 3. `pushVaultToServer` → `PUT /api/vault`（FormData：meta JSON + `page_0`…）
 4. Node `vault-store.server.ts` 写 SQLite + `files/…`
 
