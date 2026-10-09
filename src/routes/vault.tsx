@@ -551,7 +551,15 @@ function VaultPageInner() {
         </div>
       ) : null}
 
-      {dedupOpen ? <VaultDedup items={all} onChanged={() => void refresh()} /> : null}
+      {dedupOpen ? (
+        <VaultDedup
+          items={all}
+          onChanged={async () => {
+            await refresh();
+            void refreshTrash();
+          }}
+        />
+      ) : null}
 
       {!ready ? (
         <p className="text-sm text-muted">正在读取纸匣…</p>
