@@ -417,18 +417,24 @@ export type TasteShiftEntry = {
 export type TasteShift = {
   tags: TasteShiftEntry[];
   authors: TasteShiftEntry[];
+  /**
+   * 去年日历年里有没有收藏。不过 minTotal：低于对比阈值的收藏仍然算「有」。
+   * 页面用它决定「去年还没有收藏」这半句，不能从过滤后的榜单反推。
+   */
+  hasLastYear: boolean;
 };
 
 /**
  * 今年 vs 去年的兴趣对比：标签与画师（authorKey 簇）的年度计数。
- * 口径与画像/词云一致——标签过别名归一、按张去重；画师按簇计数。
+ * 口径与画像/词云一致——标签过标签别名归一、按张去重；画师按簇计数，展示名只套画师别名。
  * 只保留两侧合计 ≥ 阈值（3）的条目，按 |变化| 排序，各截前 N。
+ * aliases 是标签别名。画师别名从 opts.authorAliases 进，两张表不混用。
  */
 export function tasteShift(
   items: VaultMeta[],
   aliases?: Record<string, string>,
   now = new Date(),
-  opts: { minTotal?: number; limit?: number } = {},
+  opts: { minTotal?: number; limit?: number; authorAliases?: Record<string, string> } = {},
 ): TasteShift {
   const minTotal = opts.minTotal ?? 3;
   const limit = opts.limit ?? 8;
@@ -438,8 +444,11 @@ export function tasteShift(
   const tags = new Map<string, [number, number]>();
   const authors = new Map<string, [number, number]>();
   const authorNames = new Map<string, string>();
+  // 有没有去年的收藏，和后面的榜单过滤分开数：一张也算有。
+  let hasLastYear = false;
   for (const item of items) {
     const bucket = new Date(item.savedAt).getFullYear();
+    if (bucket === lastYear) hasLastYear = true;
     if (bucket !== thisYear && bucket !== lastYear) continue;
     const slot = bucket === thisYear ? 0 : 1;
     const seenTags = new Set<string>();
@@ -452,7 +461,7 @@ export function tasteShift(
       tags.set(tag, row);
     }
   }
-  // 画师按 authorKey 簇分桶（口径同画像：展示名取簇内最新 raw，别名再套）
+  // 画师按 authorKey 簇分桶（口径同画像：展示名取簇内最新 raw，再套画师别名）
   const authorRows = new Map<string, { row: [number, number]; name: string; latestAt: number }>();
   for (const item of items) {
     const raw = item.author.trim();
@@ -472,7 +481,7 @@ export function tasteShift(
   for (const [key, cur] of authorRows) {
     if (cur.row[0] + cur.row[1] === 0) continue;
     authors.set(key, cur.row);
-    authorNames.set(key, applyAuthorAlias(cur.name, aliases));
+    authorNames.set(key, applyAuthorAlias(cur.name, opts.authorAliases));
   }
 
   const toEntries = (map: Map<string, [number, number]>, names?: Map<string, string>): TasteShiftEntry[] =>
@@ -482,5 +491,5 @@ export function tasteShift(
       .sort((a, b) => Math.abs(b.thisYear - b.lastYear) - Math.abs(a.thisYear - a.lastYear) || b.thisYear - a.thisYear)
       .slice(0, limit);
 
-  return { tags: toEntries(tags), authors: toEntries(authors, authorNames) };
+  return { tags: toEntries(tags), authors: toEntries(authors, authorNames), hasLastYear };
 }

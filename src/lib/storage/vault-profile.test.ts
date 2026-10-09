@@ -448,6 +448,8 @@ test("tasteShift：今年/去年分桶、别名归一、新进退场、去年空
   assert.equal(tag("猫"), undefined, "低于阈值过滤");
   assert.equal(shift.authors.length, 1, "同一 authorId 归一为一簇");
   assert.equal(shift.authors[0]?.thisYear, 3);
+  assert.equal(shift.authors[0]?.name, "画师甲", "标签别名表不改画师名");
+  assert.equal(shift.hasLastYear, true);
   // 去年全空：只看今年
   const onlyThis = tasteShift(
     [items[2]!, items[3]!].map((r) => r),
@@ -455,4 +457,47 @@ test("tasteShift：今年/去年分桶、别名归一、新进退场、去年空
     now,
   );
   assert.equal(onlyThis.tags.some((t) => t.lastYear > 0), false);
+  assert.equal(onlyThis.hasLastYear, false, "去年一张都没有");
+});
+
+test("tasteShift：画师别名不改标签；去年有收藏但低于阈值时 hasLastYear 仍为真", () => {
+  const y = (n: number) => new Date(`${n}-06-01T00:00:00Z`).getTime();
+  const row = (
+    key: string,
+    year: number,
+    author: string,
+    tags: string[],
+  ): import("../types.ts").VaultMeta =>
+    ({
+      key,
+      source: "pixiv",
+      id: key,
+      title: "t",
+      author,
+      authorId: author,
+      tags,
+      savedAt: y(year),
+      pageCount: 1,
+      bytes: 1,
+    }) as import("../types.ts").VaultMeta;
+  const items = [
+    row("a", 2026, "あいす", ["猫"]),
+    row("b", 2026, "あいす", ["猫"]),
+    row("c", 2026, "あいす", ["猫"]),
+    // 去年两张，标签和画师都凑不满 3，不进榜
+    row("d", 2025, "あいす", ["冷门"]),
+    row("e", 2025, "別人", ["冷门"]),
+  ];
+  const now = new Date("2026-09-22T00:00:00Z");
+  const tagOnly = tasteShift(items, { あいす: "冰", 猫: "喵" }, now);
+  assert.equal(tagOnly.hasLastYear, true, "低于阈值的去年收藏也算有");
+  assert.equal(tagOnly.tags.find((t) => t.name === "冷门"), undefined);
+  assert.deepEqual(tagOnly.tags.find((t) => t.name === "喵"), { name: "喵", thisYear: 3, lastYear: 0 });
+  assert.equal(tagOnly.authors.find((a) => a.name === "あいす")?.thisYear, 3, "标签别名不改画师名");
+  assert.equal(tagOnly.authors.find((a) => a.name === "冰"), undefined);
+
+  const split = tasteShift(items, { あいす: "冰", 猫: "喵" }, now, { authorAliases: { あいす: "アイス" } });
+  assert.equal(split.authors.find((a) => a.name === "アイス")?.thisYear, 3);
+  assert.equal(split.tags.find((t) => t.name === "アイス"), undefined, "画师别名不改标签");
+  assert.equal(split.authors.find((a) => a.name === "別人"), undefined, "去年单独一名凑不满阈值");
 });
