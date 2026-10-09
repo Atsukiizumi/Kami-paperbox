@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { PNG } from "pngjs";
-import { openVaultStore, parseVaultKey, rowToMeta, type VaultPageFile } from "./vault-store.server.ts";
+import { normalizeVaultMarks, openVaultStore, parseVaultKey, rowToMeta, type VaultPageFile } from "./vault-store.server.ts";
 
 test("parseVaultKey rejects traversal", () => {
   assert.deepEqual(parseVaultKey("pixiv:123"), { source: "pixiv", id: "123" });
@@ -118,6 +118,28 @@ test("putMeta restores a catalog row without replacing files", () => {
     store.close();
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("normalizeVaultMarks 留下显式 0 / 空串 / false，丢掉脏值", () => {
+  const marks = normalizeVaultMarks({
+    aiType: 0,
+    xRestrict: 0,
+    rating: "E",
+    replaced: false,
+    sha256: "AB".repeat(32),
+  });
+  assert.equal(marks.aiType, 0);
+  assert.equal(marks.xRestrict, 0);
+  assert.equal(marks.rating, "e");
+  assert.equal(marks.replaced, false);
+  assert.equal(marks.sha256, "ab".repeat(32));
+  const dirty = normalizeVaultMarks({ aiType: "2", xRestrict: 3, rating: "explicit", replaced: "yes", sha256: "abc" });
+  assert.equal(dirty.aiType, undefined);
+  assert.equal(dirty.xRestrict, undefined);
+  assert.equal(dirty.rating, undefined);
+  assert.equal(dirty.replaced, undefined);
+  assert.equal(dirty.sha256, undefined);
+  assert.equal(normalizeVaultMarks({ rating: "" }).rating, "");
 });
 
 test("rowToMeta reads tags json", () => {
@@ -347,6 +369,72 @@ test("文件夹目录：putMeta 后软删进纸篓，放回去仍带着路径，
     assert.equal(back?.tags.join(","), "landscape");
     assert.equal(back?.hasFile, false);
     assert.equal(store.readPage("pixiv:880", 0), undefined);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("软删再放回：AI / R-18 / 分级 / 已被替换 / sha256 还在，显式 0 不被丢掉", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-marks-"));
+  const store = openVaultStore(root);
+  const sha = "ab".repeat(32);
+  const base = {
+    key: "pixiv:881",
+    source: "pixiv" as const,
+    id: "881",
+    title: "marked",
+    author: "a",
+    authorId: "a1",
+    tags: ["cat"],
+    pageCount: 1,
+    savedAt: 9,
+    bytes: 4,
+  };
+  try {
+    const saved = store.putMeta({
+      ...base,
+      aiType: 0,
+      xRestrict: 0,
+      rating: "",
+      replaced: true,
+      sha256: sha,
+    });
+    assert.equal(saved?.aiType, 0, "显式 0 不是未知");
+    assert.equal(saved?.xRestrict, 0);
+    assert.equal(saved?.rating, "");
+    assert.equal(saved?.replaced, true);
+    assert.equal(saved?.sha256, sha);
+
+    assert.equal(store.softDelete("pixiv:881"), true);
+    // 缺字段的目录推送（旧客户端）不得把纸篓里的标记抹掉，也不得复活
+    const renamed = store.putMeta({ ...base, title: "renamed" });
+    assert.equal(renamed, undefined);
+    const trashed = store.trashList()[0];
+    assert.equal(trashed?.title, "renamed");
+    assert.equal(trashed?.aiType, 0);
+    assert.equal(trashed?.xRestrict, 0);
+    assert.equal(trashed?.rating, "");
+    assert.equal(trashed?.replaced, true);
+    assert.equal(trashed?.sha256, sha);
+
+    assert.equal(store.restore("pixiv:881"), true);
+    const back = store.get("pixiv:881");
+    assert.equal(back?.title, "renamed");
+    assert.equal(back?.aiType, 0);
+    assert.equal(back?.xRestrict, 0);
+    assert.equal(back?.rating, "");
+    assert.equal(back?.replaced, true);
+    assert.equal(back?.sha256, sha);
+
+    const cleared = store.putMeta({ ...base, title: "renamed", replaced: false, aiType: 2 });
+    assert.equal(cleared?.aiType, 2);
+    assert.equal(cleared?.replaced, false);
+    assert.equal(cleared?.xRestrict, 0, "没带上的分级仍留着");
+    // 脏值不当成一次清空
+    const kept = store.putMeta({ ...base, title: "renamed", aiType: 9, sha256: "nope" });
+    assert.equal(kept?.aiType, 2);
+    assert.equal(kept?.sha256, sha);
   } finally {
     store.close();
     rmSync(root, { recursive: true, force: true });

@@ -257,7 +257,7 @@ export function parseVaultRecord(raw: unknown): VaultMeta | null {
     replaced: rec.replaced === true ? true : undefined,
     origin,
     aiType: Math.max(0, Number(rec.aiType) || 0) || undefined,
-    // 客户端先行三字段（服务端列锁不回环）：备份文件是唯一跨设备载体
+    // 备份文件带着这三字段。缺字段的旧档不补 0。
     xRestrict: Math.max(0, Number(rec.xRestrict) || 0) || undefined,
     rating: typeof rec.rating === "string" ? rec.rating.slice(0, 20) : undefined,
   };
@@ -387,9 +387,9 @@ export async function parseBackupFile(
 
 /**
  * vault 同步段写回前的单条守卫（纯函数，供 applySegment 与单测共用）：
- * 远端目录行不携带客户端先行三字段（服务端列锁），缺失时保留本地，
- * 防止一次拉取把分级/AI 标记清空（mergeVaultRecords 是批量同型，那是
- * 备份导入侧，这是同步段逐条写回侧）。
+ * 远端目录行缺 aiType/xRestrict/rating 时保留本地（旧行没有这几列），
+ * 防止一次拉取把分级/AI 标记清空。远端带了显式值则用远端。
+ * （mergeVaultRecords 是批量同型，那是备份导入侧，这是同步段逐条写回侧）。
  */
 export function preserveClientVaultFields(remote: VaultMeta, local?: VaultMeta): VaultMeta {
   return {
@@ -402,8 +402,8 @@ export function preserveClientVaultFields(remote: VaultMeta, local?: VaultMeta):
 
 export function mergeVaultRecords(current: VaultMeta[], incoming: VaultMeta[]): VaultMeta[] {  const map = new Map<string, VaultMeta>();
   for (const row of current) map.set(row.key, row);
-  // 客户端先行字段（aiType/xRestrict/rating）服务端行不携带：远端行覆盖时
-  // 缺字段保留本地，否则一次目录合并就把分级/AI 标记清空（hasFile 同款陷阱）
+  // aiType/xRestrict/rating：远端缺字段时保留本地（旧目录行没有这几列），
+  // 否则一次目录合并就把分级/AI 标记清空（hasFile 同款陷阱）
   for (const row of incoming) {
     const prev = map.get(row.key);
     map.set(row.key, {

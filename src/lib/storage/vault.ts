@@ -120,7 +120,7 @@ export async function saveVaultWork(
     folderLabel: opts?.folderLabel,
     origin: opts?.origin ?? (storeBlobs ? "app" : "folder"),
     replaced: opts?.replaced ?? false,
-    // 客户端先行三字段：纸匣 AI/R-18 筛选依据（服务端列锁不回环，合并守卫保本地）。
+    // 纸匣 AI/R-18 筛选依据，服务端目录一并写下，纸篓放回去还在。
     // aiType/xRestrict 用 ??：显式 0（确认非 AI / 全年龄）必须保留——用 || 会把 0
     // 归一成 undefined，新收的全年龄作品会被补全批处理误判为「待补」（P1 口径）。
     aiType: work.aiType ?? undefined,
@@ -153,10 +153,13 @@ export async function patchVaultMeta(key: string, patch: Partial<VaultMeta>): Pr
   });
 }
 
-/** 放进纸篓。服务端软删成功后才忘掉本机副本（还原从服务端目录回来）。
- *  文件夹收藏若还没有服务端目录，先补写再软删。失败时本机目录留着，调用方不要报成功。 */
+/** 放进纸篓。先把本机目录（含 AI / R-18 / 分级 / 已被替换 / 原图指纹）写上服务端，再软删。
+ *  软删成功后才忘掉本机副本（放回去从服务端目录回来）。
+ *  文件夹收藏若还没有服务端目录，这次补写再软删。失败时本机目录留着，调用方不要报成功。 */
 export async function deleteVaultWork(key: string): Promise<boolean> {
   const meta = await getVaultMeta(key);
+  // 已有的服务端行可能是旧目录，没有这几列标记。先整份推上去，再软删，放回去才带得回。
+  if (meta) await pushVaultMetaToServer(meta);
   let trashed = await deleteServerVault(key);
   if (!trashed && meta) {
     const pushed = await pushVaultMetaToServer(meta);

@@ -86,7 +86,62 @@ type WorkRow = {
   relative_path: string | null;
   folder_label: string | null;
   deleted_at: number | null;
+  /** NULL = 还没填过。0 是确认过的值，不能和 NULL 混。老库升级前没有这列。 */
+  ai_type?: number | null;
+  x_restrict?: number | null;
+  rating?: string | null;
+  replaced?: number | null;
+  sha256?: string | null;
 };
+
+function boundedInt(value: unknown, max: number): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > max) return undefined;
+  return value;
+}
+
+/**
+ * 目录上的 AI / 分级 / 已被替换 / 原图指纹。
+ *
+ * 缺字段或脏值不出现在结果里，写入时保留库里的旧值。
+ * 显式 0、空串、false 都是「确认过」，必须留下来。
+ */
+export function normalizeVaultMarks(raw: {
+  aiType?: unknown;
+  xRestrict?: unknown;
+  rating?: unknown;
+  replaced?: unknown;
+  sha256?: unknown;
+}): Pick<VaultMeta, "aiType" | "xRestrict" | "rating" | "replaced" | "sha256"> {
+  const out: Pick<VaultMeta, "aiType" | "xRestrict" | "rating" | "replaced" | "sha256"> = {};
+  const aiType = boundedInt(raw.aiType, 2);
+  if (aiType !== undefined) out.aiType = aiType;
+  const xRestrict = boundedInt(raw.xRestrict, 2);
+  if (xRestrict !== undefined) out.xRestrict = xRestrict;
+  if (typeof raw.rating === "string") {
+    const rating = raw.rating.trim().toLowerCase();
+    if (/^[a-z]{0,4}$/.test(rating)) out.rating = rating;
+  }
+  if (typeof raw.replaced === "boolean") out.replaced = raw.replaced;
+  if (typeof raw.sha256 === "string" && /^[a-f0-9]{64}$/i.test(raw.sha256)) {
+    out.sha256 = raw.sha256.toLowerCase();
+  }
+  return out;
+}
+
+/** 写入 works 的五列。入参没带的标记沿用 prev（纸篓行也算），避免一次缺字段的推送把确认过的 0 抹掉。 */
+function storedMarks(
+  meta: VaultMeta,
+  prev?: WorkRow | null,
+): [number | null, number | null, string | null, number | null, string | null] {
+  const marks = normalizeVaultMarks(meta);
+  return [
+    marks.aiType === undefined ? (prev?.ai_type ?? null) : marks.aiType,
+    marks.xRestrict === undefined ? (prev?.x_restrict ?? null) : marks.xRestrict,
+    marks.rating === undefined ? (prev?.rating ?? null) : marks.rating,
+    marks.replaced === undefined ? (prev?.replaced ?? null) : marks.replaced ? 1 : 0,
+    marks.sha256 === undefined ? (prev?.sha256 ?? null) : marks.sha256,
+  ];
+}
 
 /** 纸篓条目：在匣字段之外带删除时间。 */
 export type TrashItem = VaultMeta & { deletedAt: number };
@@ -135,6 +190,11 @@ export function rowToMeta(row: WorkRow, hasFile = false): VaultMeta {
     relativePath: row.relative_path || undefined,
     folderLabel: row.folder_label || undefined,
     hasFile,
+    aiType: row.ai_type == null ? undefined : Number(row.ai_type),
+    xRestrict: row.x_restrict == null ? undefined : Number(row.x_restrict),
+    rating: row.rating == null ? undefined : row.rating,
+    replaced: row.replaced == null ? undefined : Number(row.replaced) === 1,
+    sha256: row.sha256 || undefined,
   };
 }
 
@@ -171,12 +231,20 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const db = new DatabaseSync(join(dir, "vault.sqlite"));
   db.exec(SCHEMA);
 
-  // 纸篓（软删除）列：老库无痛升级——建表语句不含新列，这里幂等补齐。
-  // 降级回旧代码也安全：旧语句按名取列，读到 NULL 当在匣处理。
+  // 老库无痛升级——建表语句不含新列，这里幂等补齐。
+  // deleted_at：纸篓。降级回旧代码也安全：旧语句按名取列，读到 NULL 当在匣处理。
+  // 后五列是放回纸篓要用的标记。本机副本在软删成功后会清掉，列上没有就回不来。
+  // NULL = 还没填过；0、空串、replaced=0 是确认过的值。
   const workCols = db.prepare("PRAGMA table_info(works)").all() as { name: string }[];
-  if (!workCols.some((col) => col.name === "deleted_at")) {
-    db.exec("ALTER TABLE works ADD COLUMN deleted_at INTEGER");
-  }
+  const ensureCol = (name: string, ddl: string) => {
+    if (!workCols.some((col) => col.name === name)) db.exec(ddl);
+  };
+  ensureCol("deleted_at", "ALTER TABLE works ADD COLUMN deleted_at INTEGER");
+  ensureCol("ai_type", "ALTER TABLE works ADD COLUMN ai_type INTEGER");
+  ensureCol("x_restrict", "ALTER TABLE works ADD COLUMN x_restrict INTEGER");
+  ensureCol("rating", "ALTER TABLE works ADD COLUMN rating TEXT");
+  ensureCol("replaced", "ALTER TABLE works ADD COLUMN replaced INTEGER");
+  ensureCol("sha256", "ALTER TABLE works ADD COLUMN sha256 TEXT");
 
   // 在匣口径：一切面向纸匣页/统计/查重的读路径只看 deleted_at IS NULL；
   // 纸篓与真删走 selectWorkAny（不过滤）。readPage 不过滤——纸篓要出封面。
@@ -188,13 +256,15 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
   const restoreStmt = db.prepare("UPDATE works SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL");
   const undeleteStmt = db.prepare("UPDATE works SET deleted_at = NULL WHERE key = ?");
   const upsertWork = db.prepare(
-    `INSERT INTO works (key, source, id, title, author, author_id, tags, page_count, saved_at, bytes, relative_path, folder_label)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO works (key, source, id, title, author, author_id, tags, page_count, saved_at, bytes, relative_path, folder_label, ai_type, x_restrict, rating, replaced, sha256)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        source=excluded.source, id=excluded.id, title=excluded.title, author=excluded.author,
        author_id=excluded.author_id, tags=excluded.tags, page_count=excluded.page_count,
        saved_at=excluded.saved_at, bytes=excluded.bytes, relative_path=excluded.relative_path,
-       folder_label=excluded.folder_label`,
+       folder_label=excluded.folder_label,
+       ai_type=excluded.ai_type, x_restrict=excluded.x_restrict, rating=excluded.rating,
+       replaced=excluded.replaced, sha256=excluded.sha256`,
   );
   const deleteWork = db.prepare("DELETE FROM works WHERE key = ?");
   const deletePages = db.prepare("DELETE FROM pages WHERE key = ?");
@@ -301,6 +371,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
           insertPage.run(key, i, ext, pages[i]!.mime || "application/octet-stream", pages[i]!.bytes.byteLength, s.rel);
           bytes += pages[i]!.bytes.byteLength;
         });
+        const prevRow = selectWorkAny.get(key) as WorkRow | undefined;
         upsertWork.run(
           key,
           parsed.source,
@@ -314,6 +385,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
           bytes,
           meta.relativePath ?? null,
           meta.folderLabel ?? null,
+          ...storedMarks(meta, prevRow),
         );
         // 重新收入=显式想收回：同 key 在纸篓里时借此出篓（putMeta 不走这里，不复活）
         undeleteStmt.run(key);
@@ -370,6 +442,8 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
       const key = `${parsed.source}:${parsed.id}`;
       const prev = store.get(key);
       const at = meta.savedAt || prev?.savedAt || Date.now();
+      // 纸篓行 store.get 看不见，标记仍要沿用那一行，缺字段的推送不能把 0 抹掉。
+      const prevRow = selectWorkAny.get(key) as WorkRow | undefined;
       upsertWork.run(
         key,
         parsed.source,
@@ -383,6 +457,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         meta.bytes || prev?.bytes || 0,
         meta.relativePath ?? prev?.relativePath ?? null,
         meta.folderLabel ?? prev?.folderLabel ?? null,
+        ...storedMarks(meta, prevRow),
       );
       return store.get(key);
     },
@@ -419,6 +494,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         relativePath: patch.relativePath ?? current.relativePath,
         folderLabel: patch.folderLabel ?? current.folderLabel,
       };
+      const prevRow = selectWorkAny.get(key) as WorkRow | undefined;
       upsertWork.run(
         next.key,
         next.source,
@@ -432,6 +508,7 @@ export function openVaultStore(root = resolveKamiRoot()): VaultStore {
         next.bytes,
         next.relativePath ?? null,
         next.folderLabel ?? null,
+        ...storedMarks(next, prevRow),
       );
       return next;
     },
