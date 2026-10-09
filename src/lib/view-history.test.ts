@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import type { WorkCard } from "./types.ts";
 import {
   HISTORY_DAYS,
+  historyEntryFromWork,
+  historyToCard,
   parseAuthorHistory,
   parseHistoryItems,
   pruneHistory,
@@ -56,6 +59,49 @@ describe("view history", () => {
     const next = upsertAuthorHistory(first, author("9", 2, { name: "猫屋", avatar: "" }));
     assert.equal(next[0]?.avatar, "https://i.pximg.net/a.jpg");
     assert.equal(next[0]?.viewedAt, 2);
+  });
+
+  it("keeps rating marks so a later veil can see them", () => {
+    const work = {
+      source: "pixiv",
+      id: "7",
+      title: "t",
+      author: "a",
+      authorId: "1",
+      thumb: "",
+      pageCount: 1,
+      tags: ["原创", "AI生成"],
+      aiType: 0,
+      xRestrict: 1,
+      rating: "",
+    } as WorkCard;
+    const row = historyEntryFromWork(work, 5);
+    assert.equal(row.aiType, 0);
+    assert.equal(row.xRestrict, 1);
+    assert.equal(row.rating, "");
+    assert.deepEqual(row.tags, ["AI生成"]);
+    const card = historyToCard(row);
+    assert.equal(card.xRestrict, 1);
+    assert.equal(card.aiType, 0);
+    assert.deepEqual(card.tags, ["AI生成"]);
+  });
+
+  it("parseHistoryItems keeps explicit 0 and only AI tags", () => {
+    const [row] = parseHistoryItems([
+      {
+        source: "yande",
+        id: "3",
+        xRestrict: 0,
+        aiType: 0,
+        rating: "e",
+        tags: ["原创", "novelai", 3],
+      },
+    ]);
+    assert.equal(row?.xRestrict, 0);
+    assert.equal(row?.aiType, 0);
+    assert.equal(row?.rating, "e");
+    assert.deepEqual(row?.tags, ["novelai"]);
+    assert.equal(historyToCard(row!).rating, "e");
   });
 
   it("drops unknown author sources", () => {

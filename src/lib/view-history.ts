@@ -7,6 +7,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { PIXIV_AI_TAGS } from "./pixiv-feed.ts";
 import type { Source, WorkCard } from "./types.ts";
 
 export const HISTORY_LIMIT = 20_000;
@@ -25,6 +26,12 @@ export type HistoryEntry = {
   width?: number;
   height?: number;
   viewedAt: number;
+  /** 打开时的分级和 AI 标记。遮盖靠这些判断。缺了就是更早的记录，再打开一次会补上。显式 0 要留着。 */
+  aiType?: number;
+  xRestrict?: number;
+  rating?: string;
+  /** 只留能让遮盖认出 AI 的词，不把整份标签表写进历史。 */
+  tags?: string[];
 };
 
 export type AuthorHistoryEntry = {
@@ -65,6 +72,37 @@ export function upsertAuthorHistory(
   );
 }
 
+/** 遮盖认 AI 只用这几个词。历史不存其余标签。 */
+export function historyAiTags(tags: readonly string[] | undefined): string[] | undefined {
+  const hit = (tags ?? []).filter((tag) => PIXIV_AI_TAGS.has(tag.trim().toLowerCase()));
+  return hit.length > 0 ? hit : undefined;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/** 从作品抄进历史的分级。0 和空分级都要留下，不能当成没填过。 */
+export function historyEntryFromWork(work: WorkCard, viewedAt: number): HistoryEntry {
+  const tags = historyAiTags(work.tags);
+  return {
+    source: work.source,
+    id: work.id,
+    title: work.title,
+    author: work.author,
+    authorId: work.authorId,
+    thumb: work.thumb,
+    pageCount: work.pageCount || 1,
+    width: work.width,
+    height: work.height,
+    viewedAt,
+    ...(work.aiType !== undefined ? { aiType: work.aiType } : {}),
+    ...(work.xRestrict !== undefined ? { xRestrict: work.xRestrict } : {}),
+    ...(typeof work.rating === "string" ? { rating: work.rating } : {}),
+    ...(tags ? { tags } : {}),
+  };
+}
+
 export function historyToCard(entry: HistoryEntry): WorkCard {
   return {
     source: entry.source,
@@ -74,9 +112,12 @@ export function historyToCard(entry: HistoryEntry): WorkCard {
     authorId: entry.authorId,
     thumb: entry.thumb,
     pageCount: entry.pageCount,
-    tags: [],
+    tags: entry.tags ?? [],
     width: entry.width,
     height: entry.height,
+    aiType: entry.aiType,
+    xRestrict: entry.xRestrict,
+    rating: entry.rating,
   };
 }
 
@@ -102,6 +143,10 @@ export function parseHistoryItems(raw: unknown): HistoryEntry[] {
       width: Number(r.width) > 0 ? Number(r.width) : undefined,
       height: Number(r.height) > 0 ? Number(r.height) : undefined,
       viewedAt: Number(r.viewedAt) || 0,
+      aiType: finiteNumber(r.aiType),
+      xRestrict: finiteNumber(r.xRestrict),
+      rating: typeof r.rating === "string" ? r.rating : undefined,
+      tags: historyAiTags(Array.isArray(r.tags) ? r.tags.filter((tag): tag is string => typeof tag === "string") : undefined),
     });
     if (out.length >= 50_000) break;
   }
@@ -147,18 +192,7 @@ export const useViewHistory = create<ViewHistoryState>()(
       authors: [],
       push: (work) =>
         set((s) => ({
-          items: upsertHistory(s.items, {
-            source: work.source,
-            id: work.id,
-            title: work.title,
-            author: work.author,
-            authorId: work.authorId,
-            thumb: work.thumb,
-            pageCount: work.pageCount || 1,
-            width: work.width,
-            height: work.height,
-            viewedAt: Date.now(),
-          }),
+          items: upsertHistory(s.items, historyEntryFromWork(work, Date.now())),
         })),
       pushAuthor: (author) => {
         if (author.source !== "pixiv" && author.source !== "fanbox") return;
