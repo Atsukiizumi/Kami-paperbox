@@ -4,6 +4,15 @@ import { DUP_HASH_THRESHOLD, clusterDupes, pairKeyOf } from "./vault-dedup.ts";
 import { hammingHex } from "./dhash.ts";
 import { dhashFromRgba } from "./dhash.ts";
 
+/** 翻转 hex 哈希上指定的 bit（下标从最高位起）。 */
+function flipBits(hex: string, indexes: number[]): string {
+  const bits = [...hex].flatMap((ch) => parseInt(ch, 16).toString(2).padStart(4, "0").split(""));
+  for (const i of indexes) bits[i] = bits[i] === "1" ? "0" : "1";
+  let out = "";
+  for (let i = 0; i < bits.length; i += 4) out += parseInt(bits.slice(i, i + 4).join(""), 2).toString(16);
+  return out;
+}
+
 /** 翻转 hex 哈希的前 n 个 bit（二进制从最高位起）。 */
 function flip(hex: string, n: number): string {
   let bits = "";
@@ -70,6 +79,21 @@ test("dismissed 对不连边；孤立成员不成组", () => {
   assert.equal(groups.length, 0);
 });
 
+test("四段都有差异时，距离 4 和 10 仍成组，11 不成", () => {
+  const A = "0".repeat(16);
+  // 每段各翻 1 位：距离 4，四段全不等。旧分桶要求整段全等，这一对进不了任何桶。
+  const spread4 = flipBits(A, [0, 16, 32, 48]);
+  assert.equal(hammingHex(A, spread4), 4);
+  assert.equal(clusterDupes([{ key: "a", dhash: A }, { key: "b", dhash: spread4 }]).length, 1);
+  // 2+2+2+4 = 10，最近的一段差 2 位（⌊10/4⌋）。只探 1 位也会漏。
+  const spread10 = flipBits(A, [0, 1, 16, 17, 32, 33, 48, 49, 50, 51]);
+  assert.equal(hammingHex(A, spread10), 10);
+  assert.equal(clusterDupes([{ key: "a", dhash: A }, { key: "c", dhash: spread10 }]).length, 1);
+  const spread11 = flipBits(A, [0, 1, 2, 16, 17, 18, 32, 33, 34, 48, 49]);
+  assert.equal(hammingHex(A, spread11), 11);
+  assert.equal(clusterDupes([{ key: "a", dhash: A }, { key: "d", dhash: spread11 }]).length, 0);
+});
+
 test("阈值边界：距离等于阈值成组，大于不成", () => {
   const A = "f".repeat(16);
   const B = flip(A, 10);
@@ -101,7 +125,8 @@ test("真实 dHash 输出可聚类（同图不同尺寸）", () => {
 });
 
 test("鸽笼分桶与朴素全对结果等价（固定语料，桶路径生效）", () => {
-  // 16 段 hex（64 位）：阈值 10 < 16 → 走分桶；语料含近邻、远邻、重复哈希
+  // 16 hex（64 位）、阈值 10：走分桶（每段再探 2 位）。语料含近邻、远邻、重复哈希，
+  // 以及四段都有差异的距离 10。
   const base = "0123456789abcdef";
   const items = [
     { key: "a:1", dhash: base },
@@ -111,6 +136,9 @@ test("鸽笼分桶与朴素全对结果等价（固定语料，桶路径生效�
     { key: "b:2", dhash: flip("ffffffffffffffff", 2) },
     { key: "c:1", dhash: "fedcba9876543210" },
     { key: "a:4", dhash: base },
+    // 四段都有差异、距离 10：全等桶会漏，朴素全对不会
+    { key: "s:1", dhash: "0".repeat(16) },
+    { key: "s:2", dhash: flipBits("0".repeat(16), [0, 1, 16, 17, 32, 33, 48, 49, 50, 51]) },
   ];
   // 朴素参照：直接在测试里做全对并查集（与旧实现同构）
   const naive = (() => {
@@ -142,7 +170,7 @@ test("鸽笼分桶与朴素全对结果等价（固定语料，桶路径生效�
   for (const g of naive) assert.ok(out.some((o) => JSON.stringify(o) === JSON.stringify(g)), `缺组 ${g}`);
 });
 
-test("阈值 ≥ 段位数（16）退回朴素路径仍正确", () => {
+test("阈值 17：距离 16 的一对仍成组，更远的不进组", () => {
   const base = "0123456789abcdef";
   const far = "ffffffffffffffff"; // 与 base 距 32、与 flip(base,16) 距 24，阈值 17 下都不入组
   const groups = clusterDupes(

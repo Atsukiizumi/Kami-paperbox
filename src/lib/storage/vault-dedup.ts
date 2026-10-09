@@ -3,9 +3,10 @@
  *
  * 作用：对已存哈希做两两汉明距离（默认阈值内），≤阈值连边，并查集聚成
  *      「疑似同图不同源」组；忽略对（dismissed）的两端不连边。
- *      候选对生成走鸽笼分桶——dhash 均分 4 段各建索引，距离 < 16 位的
- *      两两必共享一段全等，只在桶内配对，几千条从 O(n²) 降到近线性；
- *      阈值 ≥ 段位数或哈希长度不整除时退回朴素全对，语义不变。
+ *      候选对生成走鸽笼分桶——dhash 均分 4 段。距离 ≤ 阈值时，至少有一段的
+ *      汉明距离 ≤ ⌊阈值/4⌋（阈值 10 时是 2）。桶按整段全等建，再探这段的近邻。
+ *      只认全等段会漏掉「四段都有一点差别」、距离却在 4–10 的一对。
+ *      哈希长度不能均分、或探查半径盖满整段时，退回朴素全对。
  * 用法：clusterDupes(store.hashes(), threshold, store.dismissedPairs())，阈值传共享
  *      常量 DUP_HASH_THRESHOLD（跨源视图/以图搜匣/收重提示同口径引用）。
  * 为什么不落库结果：几千条的重算是毫秒级，忽略/删除后重算天然即时生效。
@@ -20,6 +21,20 @@ export const DUP_HASH_THRESHOLD = 10;
 
 export function pairKeyOf(a: string, b: string): string {
   return [a, b].sort().join("|");
+}
+
+/** 段内汉明距离 ≤ radius 的全部异或掩码（含 0 = 整段相同）。 */
+function masksWithin(bits: number, radius: number): number[] {
+  const masks = [0];
+  const choose = (start: number, left: number, mask: number) => {
+    if (left === 0) {
+      masks.push(mask);
+      return;
+    }
+    for (let b = start; b <= bits - left; b++) choose(b + 1, left - 1, mask | (1 << b));
+  };
+  for (let r = 1; r <= radius; r++) choose(0, r, 0);
+  return masks;
 }
 
 export type DupGroup = { keys: string[]; maxDistance: number };
@@ -50,37 +65,49 @@ export function clusterDupes(
   };
   const edges: { a: string; b: string; d: number }[] = [];
 
-  // 候选对生成：鸽笼分桶——把 dhash 均分 4 段建桶（每段索引一次），海明距离
-  // < 段位数的两两必共享至少一段全等，桶内配对即完备候选；阈值 ≥ 段位数或哈希
-  // 长度不整除时退回朴素全对（保证语义与旧实现完全一致，只是快慢之别）。
+  // 候选对：鸽笼。均分 4 段后，距离 ≤ 阈值的一对至少有一段差 ≤ ⌊阈值/4⌋ 位。
+  // 只收整段全等会漏掉四段都有差异的近邻（阈值 10 时这段差 1 或 2 位）。
+  // 长度不能均分，或要探的半径已经盖满整段（分桶退化成全对）时走朴素全对。
   const CHUNKS = 4;
   const hexLen = items[0]?.dhash.length ?? 0;
-  const chunkBits = (hexLen / CHUNKS) * 4;
-  const useBuckets = hexLen > 0 && Number.isInteger(hexLen / CHUNKS) && threshold < chunkBits;
+  const step = hexLen / CHUNKS;
+  const chunkBits = step * 4;
+  const radius = Math.floor(threshold / CHUNKS);
+  const useBuckets =
+    items.length > 1 &&
+    Number.isInteger(step) &&
+    step > 0 &&
+    radius < chunkBits &&
+    threshold < chunkBits * CHUNKS;
   const candidates: [number, number][] = [];
   if (useBuckets) {
     const seenPair = new Set<number>();
+    const masks = masksWithin(chunkBits, radius);
     const buckets = new Map<string, number[]>();
     for (let i = 0; i < items.length; i++) {
       const h = items[i]!.dhash;
-      const step = hexLen / CHUNKS;
       for (let c = 0; c < CHUNKS; c++) {
         const k = `${c}:${h.slice(c * step, (c + 1) * step)}`;
-        const list = buckets.get(k) ?? [];
-        list.push(i);
-        buckets.set(k, list);
+        const list = buckets.get(k);
+        if (list) list.push(i);
+        else buckets.set(k, [i]);
       }
     }
-    for (const list of buckets.values()) {
-      if (list.length < 2) continue;
-      for (let x = 0; x < list.length; x++) {
-        for (let y = x + 1; y < list.length; y++) {
-          const i = Math.min(list[x]!, list[y]!);
-          const j = Math.max(list[x]!, list[y]!);
-          const pid = i * items.length + j;
-          if (seenPair.has(pid)) continue;
-          seenPair.add(pid);
-          candidates.push([i, j]);
+    for (let i = 0; i < items.length; i++) {
+      const h = items[i]!.dhash;
+      for (let c = 0; c < CHUNKS; c++) {
+        const chunk = h.slice(c * step, (c + 1) * step);
+        const value = parseInt(chunk, 16);
+        for (const mask of masks) {
+          const list = buckets.get(`${c}:${(value ^ mask).toString(16).padStart(step, "0")}`);
+          if (!list) continue;
+          for (const j of list) {
+            if (j <= i) continue;
+            const pid = i * items.length + j;
+            if (seenPair.has(pid)) continue;
+            seenPair.add(pid);
+            candidates.push([i, j]);
+          }
         }
       }
     }
