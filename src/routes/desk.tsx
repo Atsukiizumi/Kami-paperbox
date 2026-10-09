@@ -15,7 +15,7 @@ import { DeskNewspaper } from "@/components/desk/newspaper";
 import { DeskStack } from "@/components/desk/stack";
 import { unreadItems } from "@/lib/desk-unread";
 import { Link, useNavigate } from "@/lib/kami-link";
-import { onThisDay } from "@/lib/storage/vault-profile";
+import { onThisDay, onThisDaySlipLine } from "@/lib/storage/vault-profile";
 import { mergeVaultItems } from "@/lib/storage/vault-query";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
@@ -83,9 +83,10 @@ export function DeskPage() {
     [vaultReady, vault, historyItems],
   );
   const unreadCount = unread.length;
-  const slipCount = useMemo(() => {
-    if (!vaultReady) return 0;
-    return onThisDay(vault, Date.now()).reduce((n, group) => n + group.items.length, 0);
+  const slipLine = useMemo(() => {
+    if (!vaultReady) return null;
+    const now = Date.now();
+    return onThisDaySlipLine(onThisDay(vault, now), now);
   }, [vaultReady, vault]);
 
   // 右栏：信/纸叠之外，Pixiv 登录后画师墙也撑得起右栏（墙自带无数据隐身）。
@@ -100,9 +101,9 @@ export function DeskPage() {
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
         <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
         <p className="text-sm text-muted">{date}</p>
-        {slipCount > 0 ? (
+        {slipLine ? (
           <Link to="/vault?recall=1" className="kami-slip ml-auto">
-            去年的今天，你收了 {slipCount} 张
+            {slipLine}
           </Link>
         ) : null}
       </header>

@@ -214,8 +214,8 @@ export type OnThisDayGroup = {
 
 /**
  * 今日去年：savedAt 的月-日与今日相同、年份早于今年的藏品，按年份降序分组
- * （去年的今天排最前）。空输入 / 无命中返回 []。页面拿 items 过滤列表，
- * 拿分组拼「去年的今天 N 张」的笺条与续报。
+ * （最近一年排最前）。空输入 / 无命中返回 []。页面拿全部命中过滤列表。
+ * 笺条文案用 onThisDaySlipLine，不把跨年的张数说成某一年。
  */
 export function onThisDay(items: VaultMeta[], now: number): OnThisDayGroup[] {
   const want = monthDayKey(now);
@@ -232,6 +232,22 @@ export function onThisDay(items: VaultMeta[], now: number): OnThisDayGroup[] {
   return [...groups.entries()]
     .sort((a, b) => b[0] - a[0])
     .map(([year, bucket]) => ({ year, items: bucket }));
+}
+
+/**
+ * 今日去年笺的一句。张数是点开后会看到的全部命中。
+ * 只有一年、而且就是去年，才写「去年的今天」；只有更早的一年就点名那一年；
+ * 跨了好几年就写「往年的今天」，不把各年的张数算到最近一年头上。
+ */
+export function onThisDaySlipLine(groups: readonly OnThisDayGroup[], now: number): string | null {
+  const total = groups.reduce((n, group) => n + group.items.length, 0);
+  if (total === 0) return null;
+  if (groups.length === 1) {
+    const year = groups[0]?.year;
+    if (year === new Date(now).getFullYear() - 1) return `去年的今天，你收了 ${total} 张`;
+    return `${year} 年的今天，你收了 ${total} 张`;
+  }
+  return `往年的今天，你收了 ${total} 张`;
 }
 
 /** 年份切片（本地时区）：年度报告的聚合输入——切片直接喂既有画像函数，不另写聚合。 */
