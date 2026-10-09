@@ -13,6 +13,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
+import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useCrossfade } from "@/components/desk/use-crossfade";
 import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
@@ -34,6 +35,7 @@ const SHEET_INTERVAL_MS = 8000;
 const sheetFrameUrls = (frame: readonly WorkCard[]) => frame.map((card) => card.thumb);
 
 function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className?: string }) {
+  const veil = useVeil((s) => s.veil);
   return (
     <div className={cn("grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6", className)}>
       {cards.map((card) => (
@@ -43,7 +45,11 @@ function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className
           params={{ source: card.source, id: card.id }}
           className="relative block aspect-[3/4] overflow-hidden rounded-md bg-elevated"
         >
-          <ProxiedImg src={card.thumb} alt="" className="h-full w-full object-cover" />
+          <ProxiedImg
+            src={card.thumb}
+            alt=""
+            className={cn("h-full w-full object-cover", veilCoverClass(veil, card))}
+          />
         </Link>
       ))}
     </div>

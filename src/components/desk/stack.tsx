@@ -9,6 +9,7 @@
 "use client";
 
 import { ProxiedImg } from "@/components/proxied-img";
+import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useVaultCover } from "@/components/vault-cover";
 import { Link } from "@/lib/kami-link";
 import { hasVaultCover } from "@/lib/storage/vault-profile";
@@ -31,6 +32,7 @@ const LEAF_PLACE = [
 
 function StackLeaf({ item, place }: { item: VaultMeta; place: string }) {
   const { thumb } = useVaultCover(item);
+  const veil = useVeil((s) => s.veil);
   const src = thumb || vaultPageUrl(item.key);
   return (
     <div
@@ -39,7 +41,13 @@ function StackLeaf({ item, place }: { item: VaultMeta; place: string }) {
         place,
       )}
     >
-      {src ? <ProxiedImg src={src} alt="" className="h-full w-full object-cover" /> : null}
+      {src ? (
+        <ProxiedImg
+          src={src}
+          alt=""
+          className={cn("h-full w-full object-cover", veilCoverClass(veil, item))}
+        />
+      ) : null}
     </div>
   );
 }

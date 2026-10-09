@@ -9,6 +9,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { animateFlip } from "@/lib/motion";
 import { upgradeThumbUrl } from "@/lib/thumb-url";
+import { cn } from "@/lib/utils";
 import { ProxiedImg } from "./proxied-img";
 import { UgoiraPlayer, useUgoiraMeta } from "./ugoira-player";
 
@@ -30,6 +31,7 @@ export function HoverPreview({
   aspect,
   anchor,
   ugoiraId,
+  veiled = false,
 }: {
   open: boolean;
   src?: string;
@@ -37,6 +39,8 @@ export function HoverPreview({
   aspect: number;
   anchor: DOMRect | null;
   ugoiraId?: string;
+  /** 访客遮盖开着时，放大图也模糊，不把封面放清晰。 */
+  veiled?: boolean;
 }) {
   const outer = useRef<HTMLDivElement>(null);
   const held = useRef<{ src: string; alt: string; aspect: number; from: DOMRect } | null>(null);
@@ -109,24 +113,26 @@ export function HoverPreview({
           transformOrigin: "0 0",
         }}
       >
-        {ugoira.data ? (
-          <UgoiraPlayer
-            zipUrl={ugoira.data.src}
-            frames={ugoira.data.frames}
-            alt={shot.alt}
-            compact
-            active={open}
-            className="absolute inset-0 size-full"
-          />
-        ) : (
-          <ProxiedImg
-            src={hd}
-            alt={shot.alt}
-            fit="cover"
-            priority
-            className="absolute inset-0 size-full"
-          />
-        )}
+        <div className={cn("absolute inset-0", veiled && "blur-md select-none")}>
+          {ugoira.data ? (
+            <UgoiraPlayer
+              zipUrl={ugoira.data.src}
+              frames={ugoira.data.frames}
+              alt={shot.alt}
+              compact
+              active={open}
+              className="absolute inset-0 size-full"
+            />
+          ) : (
+            <ProxiedImg
+              src={hd}
+              alt={shot.alt}
+              fit="cover"
+              priority
+              className="absolute inset-0 size-full"
+            />
+          )}
+        </div>
       </div>
     </>,
     document.body,

@@ -379,6 +379,7 @@ export function ArtworkCard({
           aspect={aspect}
           anchor={preview}
           ugoiraId={ugoira ? work.id : undefined}
+          veiled={veiled}
         />
       ) : null}
     </article>
