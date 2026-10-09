@@ -57,6 +57,32 @@ describe("追踪页标签订阅", () => {
     assert.equal(useSettings.getState().watchTags.length, 0, "取消订阅即出列");
   });
 
+  it("画师头像走图片代理，不把 pximg 直接交给浏览器", () => {
+    useSettings.setState({
+      watchArtists: [
+        {
+          source: "pixiv",
+          id: "42",
+          name: "猫屋",
+          avatar: "https://i.pximg.net/user-profile/img/a.jpg",
+          addedAt: 1,
+        },
+      ],
+    });
+    const rect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = () =>
+      ({ width: 40, height: 40, top: 0, bottom: 40, left: 0, right: 40, x: 0, y: 0, toJSON() {} }) as DOMRect;
+    try {
+      const { container } = renderPage();
+      const img = container.querySelector("img");
+      assert.ok(img);
+      assert.match(img?.getAttribute("src") ?? "", /^\/api\/media\?u=/);
+      assert.doesNotMatch(img?.getAttribute("src") ?? "", /^https:\/\/i\.pximg\.net/);
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = rect;
+    }
+  });
+
   it("同词重复订阅不重复入列（toast 提示路径不炸）", () => {
     useSettings.setState({
       watchTags: [{ source: "pixiv", tag: "鳴潮", addedAt: 1 }],

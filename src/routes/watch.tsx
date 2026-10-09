@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Bell, Hash, Sparkles, UserPlus } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ArtworkGrid } from "@/components/artwork-card";
+import { ProxiedImg } from "@/components/proxied-img";
 import { useSettings } from "@/lib/store";
 import { setWatchBadge, useWatchBadge } from "@/lib/watch-badge";
 import {
@@ -329,7 +330,9 @@ export function WatchPage() {
                 <li key={keyOf(artist.source, artist.id)} className="flex items-center gap-3 rounded-lg bg-elevated/50 p-3">
                   <Link to={href} className="flex min-w-0 flex-1 items-center gap-3">
                     {artist.avatar ? (
-                      <img src={artist.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                      <span className="relative size-10 shrink-0 overflow-hidden rounded-full">
+                        <ProxiedImg src={artist.avatar} alt="" className="absolute inset-0 size-full" />
+                      </span>
                     ) : (
                       <span className="grid size-10 place-items-center rounded-full bg-fg/10 text-xs">画</span>
                     )}
@@ -352,7 +355,9 @@ export function WatchPage() {
                     </span>
                   </Link>
                   {r?.latestThumb && !r.error ? (
-                    <img src={r.latestThumb} alt="" className="hidden h-12 w-12 shrink-0 rounded-md object-cover sm:block" />
+                    <span className="relative hidden h-12 w-12 shrink-0 overflow-hidden rounded-md sm:block">
+                      <ProxiedImg src={r.latestThumb} alt="" className="absolute inset-0 size-full" />
+                    </span>
                   ) : null}
                   {r && !r.error && r.newCount > 0 && r.newestId ? (
                     <Button
@@ -423,7 +428,9 @@ export function WatchPage() {
                   </span>
                 </button>
                 {r?.latestThumb && !r.error ? (
-                  <img src={r.latestThumb} alt="" className="hidden h-12 w-12 shrink-0 rounded-md object-cover sm:block" />
+                  <span className="relative hidden h-12 w-12 shrink-0 overflow-hidden rounded-md sm:block">
+                    <ProxiedImg src={r.latestThumb} alt="" className="absolute inset-0 size-full" />
+                  </span>
                 ) : null}
                 {r && !r.error && r.newCount > 0 && r.newestId ? (
                   <Button
