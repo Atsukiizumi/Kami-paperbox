@@ -14,7 +14,7 @@
  *   磁盘用户文件夹自己不能搜，所以 meta 里记下 relativePath。
  */
 import type { VaultMeta, WorkDetail, WorkPage } from "../types.ts";
-import { deleteServerVault, fetchServerVaultBlob } from "./vault-sync.ts";
+import { deleteServerVault, fetchServerVaultBlob, pushVaultMetaToServer } from "./vault-sync.ts";
 
 export type { VaultMeta } from "../types.ts";
 
@@ -153,8 +153,16 @@ export async function patchVaultMeta(key: string, patch: Partial<VaultMeta>): Pr
   });
 }
 
-export async function deleteVaultWork(key: string): Promise<void> {
+/** 放进纸篓。服务端软删成功后才忘掉本机副本（还原从服务端目录回来）。
+ *  文件夹收藏若还没有服务端目录，先补写再软删。失败时本机目录留着，调用方不要报成功。 */
+export async function deleteVaultWork(key: string): Promise<boolean> {
   const meta = await getVaultMeta(key);
+  let trashed = await deleteServerVault(key);
+  if (!trashed && meta) {
+    const pushed = await pushVaultMetaToServer(meta);
+    if (pushed) trashed = await deleteServerVault(key);
+  }
+  if (!trashed) return false;
   const db = await openDb();
   const tx = db.transaction(["meta", "blobs"], "readwrite");
   tx.objectStore("meta").delete(key);
@@ -165,7 +173,7 @@ export async function deleteVaultWork(key: string): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-  await deleteServerVault(key);
+  return true;
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

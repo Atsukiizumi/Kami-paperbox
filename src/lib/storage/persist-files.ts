@@ -1,8 +1,9 @@
 /**
  * 保存/导出的落盘入口。
  *
- * 作用：能选文件夹时，原图只写用户指定目录，纸匣只记路径和 SHA-256。
- *      选不了文件夹（Safari / 火狐 / 手机）才退到应用内目录。
+ * 作用：能选文件夹时，原图只写用户指定目录，纸匣记路径和 SHA-256，
+ *      并写一条服务端目录（不含像素），删除才能进纸篓、放回去才有目录。
+ *      选不了文件夹（Safari / 火狐 / 手机）才把像素放进应用内目录。
  * 用法：只从队列 runner 调 archiveWork。
  */
 import { extFromNameOrType } from "../ugoira-meta.ts";
@@ -23,7 +24,7 @@ import { useSettings } from "../store.ts";
 import type { VaultMeta, WorkDetail, WorkPage } from "../types.ts";
 import { downloadBlob, listVault, patchVaultMeta, saveVaultWork } from "./vault.ts";
 import { rememberVaultKey } from "./vault-index.ts";
-import { patchServerVault, pushVaultToServer, type SimilarVaultHit } from "./vault-sync.ts";
+import { patchServerVault, pushVaultMetaToServer, pushVaultToServer, type SimilarVaultHit } from "./vault-sync.ts";
 
 export type ArchiveWork = {
   source: string;
@@ -123,11 +124,18 @@ export async function archiveWork(
     relativePath: relativePath ?? meta.relativePath,
     folderLabel: relativePath ? settings.folderLabel : meta.folderLabel,
   };
-  // M3 收重提示：PUT 响应捎带的跨源近邻透传给队列层出 toast（folder 模式无
-  // PUT 自然缺省——服务端盲区是既有基建属性，视图覆盖计数兜底）。
-  const pushed = folder ? null : await pushVaultToServer(serverMeta, files);
-  const server = Boolean(pushed);
-  const similar = pushed?.similar;
+  // 文件夹模式只推目录（像素留在用户文件夹）。没有这条服务端记录时，
+  // 删除无行可软删，纸篓是空的，提示却说可以放回去。
+  // 应用内模式仍整包推送，收重提示走像素 PUT 的 similar。
+  let server = false;
+  let similar: SimilarVaultHit[] | undefined;
+  if (folder) {
+    server = Boolean(await pushVaultMetaToServer(serverMeta));
+  } else {
+    const pushed = await pushVaultToServer(serverMeta, files);
+    server = Boolean(pushed);
+    similar = pushed?.similar;
+  }
   rememberVaultKey(work.source, work.id);
   if (opts.download && !folder) {
     for (let i = 0; i < pages.length; i += 1) {

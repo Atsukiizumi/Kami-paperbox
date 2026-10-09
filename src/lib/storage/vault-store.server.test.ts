@@ -316,6 +316,43 @@ test("软删除：读口径全隐、纸篓可见含封面页、还原如初", ()
   }
 });
 
+test("文件夹目录：putMeta 后软删进纸篓，放回去仍带着路径，不带像素", () => {
+  const root = mkdtempSync(join(tmpdir(), "kami-vault-folder-trash-"));
+  const store = openVaultStore(root);
+  try {
+    const saved = store.putMeta({
+      key: "pixiv:880",
+      source: "pixiv",
+      id: "880",
+      title: "folder",
+      author: "a",
+      authorId: "a1",
+      tags: ["landscape"],
+      pageCount: 1,
+      savedAt: 8,
+      bytes: 12,
+      relativePath: "a/880.jpg",
+      folderLabel: "Kami",
+    });
+    assert.ok(saved);
+    assert.equal(saved.hasFile, false);
+    assert.equal(store.softDelete("pixiv:880"), true);
+    const trashed = store.trashList();
+    assert.equal(trashed.length, 1);
+    assert.equal(trashed[0]?.relativePath, "a/880.jpg");
+    assert.equal(trashed[0]?.folderLabel, "Kami");
+    assert.equal(store.restore("pixiv:880"), true);
+    const back = store.get("pixiv:880");
+    assert.equal(back?.relativePath, "a/880.jpg");
+    assert.equal(back?.tags.join(","), "landscape");
+    assert.equal(back?.hasFile, false);
+    assert.equal(store.readPage("pixiv:880", 0), undefined);
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("软删后 putMeta 不复活；put 重新收入则出篓", () => {
   const root = mkdtempSync(join(tmpdir(), "kami-vault-trash2-"));
   const store = openVaultStore(root);

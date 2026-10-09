@@ -315,8 +315,12 @@ function VaultPageInner() {
   }
 
   async function removeWork(item: VaultMeta) {
-    // 软删除进纸篓：IDB 副本一并忘掉（还原后从服务端列表回来），文件还在盘上
-    await deleteVaultWork(item.key);
+    // 软删除进纸篓。服务端没收下这条目录时不报成功，本机记录留着。
+    const trashed = await deleteVaultWork(item.key);
+    if (!trashed) {
+      toast.error("没放进纸篓，这条还在");
+      return;
+    }
     forgetVaultKey(item.key);
     await refresh();
     void refreshTrash();
