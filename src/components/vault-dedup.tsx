@@ -8,8 +8,10 @@
  * 为什么忽略对持久化而组不持久化：重算是毫秒级，忽略/删除后重算即时生效。
  */
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { getVaultBlob } from "@/lib/storage/vault";
+import { deleteVaultWork, getVaultBlob } from "@/lib/storage/vault";
+import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { vaultPageUrl } from "@/lib/storage/vault-sync";
 import { previewFromFolder } from "@/lib/storage/persist-files";
 import { formatBytes } from "@/lib/utils";
@@ -141,16 +143,21 @@ export function VaultDedup({
   }
 
   async function removeOne(key: string) {
-    const res = await fetch(`/api/vault?key=${encodeURIComponent(key)}`, { method: "DELETE" });
-    if (!res.ok) {
-      setMessage("删除失败");
+    // 与纸匣卡片同一条路：服务端软删进纸篓，并清掉本机目录。
+    // DELETE 在没有记录时仍回 HTTP 200，正文 ok:false；只看 res.ok 会把卡片摘掉，刷新后又从本机目录回来。
+    const trashed = await deleteVaultWork(key);
+    if (!trashed) {
+      setMessage("没放进纸篓，这条还在");
       return;
     }
+    setMessage("");
+    forgetVaultKey(key);
     setGroups((prev) =>
       prev
         .map((g) => ({ ...g, keys: g.keys.filter((k) => k !== key) }))
         .filter((g) => g.keys.length >= 2),
     );
+    toast.success("已放进纸篓（可在纸篓里放回去）");
     await onChanged();
   }
 
