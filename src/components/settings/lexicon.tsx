@@ -24,6 +24,35 @@ import { listVault, downloadBlob } from "@/lib/storage/vault";
 
 const PAGE_SIZE = 80;
 
+/**
+ * 一行译文。只有改过这个框才提交。
+ * 框在译文入库前就挂上、当时是空的；批量添加之后如果照着框里的空值写回去，刚入库的译文会被删掉。
+ */
+function LexiconZhField({
+  en,
+  stored,
+  onCommit,
+}: {
+  en: string;
+  stored: string;
+  onCommit: (en: string, zh: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Input
+      value={draft ?? stored}
+      placeholder="中文"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft === null) return;
+        const next = draft.trim();
+        setDraft(null);
+        if (next !== stored) onCommit(en, next);
+      }}
+    />
+  );
+}
+
 export function TagLexiconSection() {
   const saved = useSettings((s) => s.savedTags);
   const rows = useTagLexicon((s) => s.rows);
@@ -235,15 +264,7 @@ export function TagLexiconSection() {
               <p className="truncate font-mono text-xs text-muted" title={row.en}>
                 {row.en}
               </p>
-              <Input
-                defaultValue={zhMap.get(row.en) ?? ""}
-                placeholder="中文"
-                onBlur={(e) => {
-                  const next = e.target.value.trim();
-                  if (next === (zhMap.get(row.en) ?? "")) return;
-                  setZh(row.en, next);
-                }}
-              />
+              <LexiconZhField en={row.en} stored={zhMap.get(row.en) ?? ""} onCommit={setZh} />
               <p className="text-xs text-subtle">
                 {row.count} · {row.sites.join("/")}
               </p>
