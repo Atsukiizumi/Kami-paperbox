@@ -105,3 +105,4 @@ test("omitSettingsCredentials 的清单与 SENSITIVE_SETTINGS_FIELDS 同源", ()
     ["pixivCookie", "fanboxCookie", "danbooruLogin", "danbooruApiKey", "saucenaoApiKey", "accounts", "activeAccountId"],
   );
 });
+

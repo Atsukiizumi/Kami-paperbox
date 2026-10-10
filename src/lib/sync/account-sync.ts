@@ -220,14 +220,28 @@ export async function buildSegmentPayload(
 
 // ── 推 / 拉 ────────────────────────────────────────────────────────────────
 
-/** 上次拉取看到的服务端分段形态（settings 是否密文），推送守卫用。 */
+/** 上次拉取看到的服务端分段形态（settings 是否密文），推送守卫用。
+ *  绑定 userId：切换账号时一进拉取就重置——上个密文账号的形态不该拦新账号
+ *  的推送（新账号服务端无密文可冲）。同账号拉取失败时保持上次值（守卫照常
+ *  保护密文凭据不被无钥匙的 plain 推送冲掉）。 */
 let serverSettingsEncrypted = false;
+let serverSettingsEncryptedFor: string | null = null;
+
+/** 测试观测/复位（生产不引用）：锁跨用户形态追踪的回归。 */
+export function serverSettingsEncryptedState(): boolean {
+  return serverSettingsEncrypted;
+}
+export function resetServerSettingsEncryptedFor(): void {
+  serverSettingsEncrypted = false;
+  serverSettingsEncryptedFor = null;
+}
 
 export async function pushAccountSyncSegment(userId: string, segment: SyncSegment): Promise<number | null> {
   const kek = await loadKek();
   if (segment === "settings" && !kek && serverSettingsEncrypted) {
     // 守卫：服务端存着密文凭据，而本机没有钥匙——推 omit 段会把凭据冲掉。
     // 等下次登录（KEK 在手）再推设置段；其余段不受影响。
+    console.warn(`[sync-diag] guarded: kek=no encrypted=${serverSettingsEncrypted} for=${serverSettingsEncryptedFor}`);
     return null;
   }
   const { collectBackup } = await import("../storage/backup-client");
@@ -254,6 +268,10 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
 type PullResult = { applied: SyncSegment[]; skipped: string[]; credsMerged: boolean };
 
 export async function pullAccountSync(userId: string, opts: { force?: boolean } = {}): Promise<PullResult> {
+  if (serverSettingsEncryptedFor !== userId) {
+    serverSettingsEncrypted = false;
+    serverSettingsEncryptedFor = userId;
+  }
   const res = await fetch("/api/account/sync", { cache: "no-store" });
   if (res.status === 401) return { applied: [], skipped: [], credsMerged: false };
   if (!res.ok) throw new Error("拉取账号数据失败");
