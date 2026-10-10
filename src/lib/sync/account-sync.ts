@@ -241,6 +241,7 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
   if (segment === "settings" && !kek && serverSettingsEncrypted) {
     // 守卫：服务端存着密文凭据，而本机没有钥匙——推 omit 段会把凭据冲掉。
     // 等下次登录（KEK 在手）再推设置段；其余段不受影响。
+    console.warn(`[sync-diag] guarded: kek=no encrypted=${serverSettingsEncrypted} for=${serverSettingsEncryptedFor}`);
     return null;
   }
   const { collectBackup } = await import("../storage/backup-client");
