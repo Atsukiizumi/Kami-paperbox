@@ -228,11 +228,18 @@ export async function pushAccountSyncSegment(userId: string, segment: SyncSegmen
   if (segment === "settings" && !kek && serverSettingsEncrypted) {
     // 守卫：服务端存着密文凭据，而本机没有钥匙——推 omit 段会把凭据冲掉。
     // 等下次登录（KEK 在手）再推设置段；其余段不受影响。
+    console.warn(`[sync-diag] settings push guarded: kek=${kek ? "yes" : "no"} serverEncrypted=${serverSettingsEncrypted}`);
     return null;
   }
-  const { collectBackup } = await import("../storage/backup-client");
-  const backup = await collectBackup();
-  const payload = await buildSegmentPayload(segment, backup, { kek });
+  let backup, payload;
+  try {
+    const mod = await import("../storage/backup-client");
+    backup = await mod.collectBackup();
+    payload = await buildSegmentPayload(segment, backup, { kek });
+  } catch (err) {
+    console.warn(`[sync-diag] push ${segment} pre-fetch failed:`, err);
+    throw err;
+  }
   const exportedAt = Date.now();
   const res = await fetch("/api/account/sync", {
     method: "POST",
