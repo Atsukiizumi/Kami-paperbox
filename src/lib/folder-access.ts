@@ -194,3 +194,51 @@ export async function readRelativeFile(
     return null;
   }
 }
+
+/**
+ * 图片扩展名白名单（导入扫描 L2）。
+ *
+ * 作用：listRelativeFiles 枚举过滤与 folder-import 反解 {ext} 捕获共用这一份。
+ * 为什么：两处必须同口径——枚举放过的扩展名反解不该收，反解拒收的枚举不该扫；
+ * 另立第二份表迟早漂移。
+ */
+export const IMAGE_FILE_EXTS = ["jpg", "jpeg", "png", "gif", "webp"] as const;
+
+function hasImageExt(name: string): boolean {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return false;
+  return (IMAGE_FILE_EXTS as readonly string[]).includes(name.slice(dot + 1).toLowerCase());
+}
+
+/**
+ * 递归枚举文件夹里的图片（文件夹导入的扫描层）。
+ *
+ * 作用：深度优先收相对路径（自拼 `/`，正斜杠形态）+ 文件句柄；`.` 开头隐藏项与
+ * 非图片扩展名跳过；超过 maxDepth（根的直接子项算第 1 层）/ maxCount 抛错中止。
+ * 用法：listRelativeFiles(dir, { maxDepth: 6, maxCount: 20000 })；size/lastModified
+ * 由调用方对幸存文件逐个 handle.getFile() 解出（folder-import 的 ImportScanResult）。
+ * 为什么：返回句柄而非逐文件统计——全量 stat 是扫描最贵的 IO，而大多数文件
+ * （非图片、已在匣）根本进不了纸匣，这笔 IO 只为反解得动的文件花。
+ */
+export async function listRelativeFiles(
+  root: FileSystemDirectoryHandle,
+  opts?: { maxDepth?: number; maxCount?: number },
+): Promise<{ path: string; handle: FileSystemFileHandle }[]> {
+  const maxDepth = opts?.maxDepth ?? 6;
+  const maxCount = opts?.maxCount ?? 20000;
+  const out: { path: string; handle: FileSystemFileHandle }[] = [];
+  const walk = async (dir: FileSystemDirectoryHandle, prefix: string, depth: number): Promise<void> => {
+    for await (const [name, entry] of dir.entries()) {
+      if (name.startsWith(".")) continue;
+      if (entry.kind === "directory") {
+        if (depth < maxDepth) await walk(entry, prefix ? `${prefix}/${name}` : name, depth + 1);
+        continue;
+      }
+      if (!hasImageExt(name)) continue;
+      if (out.length >= maxCount) throw new Error(`扫描中止：文件夹内图片超过 ${maxCount} 张`);
+      out.push({ path: prefix ? `${prefix}/${name}` : name, handle: entry });
+    }
+  };
+  await walk(root, "", 1);
+  return out;
+}
