@@ -31,12 +31,17 @@ function makeDeferred(): Deferred {
 
 /** POST /api/account/sync 计数——只认 POST，collectBackup 的 GET 不误计。 */
 let postCount = 0;
+let sessionUser: Record<string, unknown> | null = {
+  user: { id: "u-test", name: "Tester", email: "tester@example.com", image: null },
+  session: { id: "sess-test", userId: "u-test" },
+};
 /**
  * GET /api/account/sync 的受控 deferred：非 null 时挂起不 resolve，把前置 5s
  * 静默窗钉死在 t0+5000（bridge 拉取初值）；null 时回 401，pullAccountSync
  * 短路返回 applied=[]，拉取尾声把窗口推过（now+0）。
  */
 let syncGet: Deferred | null = null;
+let sessionGet: Deferred | null = null;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -48,11 +53,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 async function stubFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
   if (url.includes("/api/auth/get-session")) {
-    // Better Auth useSession 的会话源：use-current-user.ts 只消费 data.user
-    return jsonResponse({
-      user: { id: "u-test", name: "Tester", email: "tester@example.com", image: null },
-      session: { id: "sess-test", userId: "u-test" },
-    });
+    // Better Auth useSession 的会话源：use-current-user.ts 只消费 data.user。
+    // sessionUser=null 模拟硬导航后 session 尚未解析（第五根因的赛跑窗口）。
+    if (sessionGet) return sessionGet.promise;
+    if (sessionUser === null) return jsonResponse({ user: null, session: null });
+    return jsonResponse(sessionUser);
   }
   if (url.includes("/api/account/sync")) {
     if ((init?.method ?? "GET") === "POST") {
@@ -151,6 +156,11 @@ describe("AccountSyncBridge 静默窗补推（P2-a）", () => {
     localStorage.clear();
     postCount = 0;
     syncGet = null;
+    sessionGet = null;
+    sessionUser = {
+      user: { id: "u-test", name: "Tester", email: "tester@example.com", image: null },
+      session: { id: "sess-test", userId: "u-test" },
+    };
     installIndexedDBStub();
     useSettings.setState({ hideAi: false });
   });
@@ -229,4 +239,55 @@ describe("AccountSyncBridge 静默窗补推（P2-a）", () => {
     });
     assert.equal(postCount, 1, "不叠罗汉，最终恰一次");
   });
+
+  // 第五根因：未登录期间的变化在登录后补排（硬导航 session 解析赛跑）。
+  // 关键是「同一挂载内翻转」：session 解析只是 React 状态更新、组件不卸载，
+  // useRef 的 pending 集合才活着——所以 get-session 用挂起 deferred 模拟
+  // 解析慢，而不是 cleanup 重挂（那会丢 ref，测的不是真实场景）。
+  it("signedOut 期间的 settings 变化在登录拉取完成后补推（真实改动不丢）", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    syncGet = makeDeferred();
+    sessionGet = makeDeferred(); // get-session 挂起 = session 尚未解析（isPending 期）
+
+    render(<Bridge />);
+    act(() => {
+      t.mock.timers.tick(1); // 订阅 effect 建立（signedIn=false 期订阅已活）
+    });
+    await act(async () => {
+      await flush(); // flush 掉非 timer 的 promise 链（get-session 仍挂起）
+    });
+    // 未登录期间 settings 变化（对应 e2e 里 session 未解析完就点了建合集）
+    act(() => {
+      useSettings.setState({ hideAi: true });
+    });
+    await act(async () => {
+      await flush();
+    });
+    assert.equal(postCount, 0, "未登录期零推送");
+
+    // session 解析完成（同挂载内翻转 signedIn: false→true）→ 拉取 → 补排
+    await act(async () => {
+      sessionGet?.resolve(
+        jsonResponse({
+          user: { id: "u-test", name: "Tester", email: "tester@example.com", image: null },
+          session: { id: "sess-test", userId: "u-test" },
+        }),
+      );
+      await flush();
+    });
+    await act(async () => {
+      syncGet?.resolve(jsonResponse({ segments: {}, legacy: null, kdfSalt: null }));
+      await flush();
+    });
+    await act(async () => {
+      t.mock.timers.tick(4000 + 100); // 补排防抖到点
+      await flush();
+    });
+    assert.equal(postCount >= 1, true, "登录后 settings 段被补推（第五根因修复）");
+
+    await act(async () => {
+      t.mock.timers.tick(6000);
+      await flush();
+    });
+    cleanup();  });
 });

@@ -52,6 +52,13 @@ export function AccountSyncBridge() {
   const debounces = useRef(new Map<SyncSegment, ReturnType<typeof setTimeout>>());
   /** TD-21：上次见到的凭据指纹；null = 尚未观察到（首事件只记基准不判脏）。 */
   const credsSeen = useRef<string | null>(null);
+  /**
+   * 未登录期间变化过的段（第五根因）：硬导航后 better-auth 解析 session 期间
+   * signedIn=false，订阅回调直接 return 会把用户改动（如建合集）静默丢弃——
+   * session 解析完成后 store 不会再 set，推送永不发生。记下来，登录拉取完成
+   * 后补排防抖（credsMerged 同款显式绕窗：改动是真实的，不属于恢复回声）。
+   */
+  const pendingSignedOut = useRef(new Set<SyncSegment>());
 
   // 登录 / 启动：拉一次服务端各段，比本地新就恢复
   useEffect(() => {
@@ -77,6 +84,20 @@ export function AccountSyncBridge() {
               void pushAccountSyncSegment(userId, "settings").catch(() => undefined);
             }, PUSH_DEBOUNCE_MS),
           );
+        }
+        // 第五根因补排：未登录期间的真实改动（订阅回调 signedOut 时记录的段）
+        // 在此刻补防抖——与 credsMerged 同理显式绕窗（改动真实、非恢复回声）。
+        if (pendingSignedOut.current.size > 0) {
+          for (const seg of pendingSignedOut.current) {
+            clearTimeout(debounces.current.get(seg));
+            debounces.current.set(
+              seg,
+              setTimeout(() => {
+                void pushAccountSyncSegment(userId, seg).catch((e) => console.warn(`[sync-diag] push ${seg} rejected:`, e));
+              }, PUSH_DEBOUNCE_MS),
+            );
+          }
+          pendingSignedOut.current.clear();
         }
       })
       .catch(() => {
@@ -111,7 +132,10 @@ export function AccountSyncBridge() {
             credsSeen.current = fp;
           }
         }
-        if (!signedIn || !userId) return;
+        if (!signedIn || !userId) {
+          pendingSignedOut.current.add(segment);
+          return;
+        }
         clearTimeout(debounces.current.get(segment));
         debounces.current.set(
           segment,
