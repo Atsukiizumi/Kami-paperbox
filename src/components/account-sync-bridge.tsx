@@ -93,7 +93,7 @@ export function AccountSyncBridge() {
             debounces.current.set(
               seg,
               setTimeout(() => {
-                void pushAccountSyncSegment(userId, seg).catch((e) => console.warn(`[sync-diag] push ${seg} rejected:`, e));
+                void pushAccountSyncSegment(userId, seg).catch(() => undefined);
               }, PUSH_DEBOUNCE_MS),
             );
           }
@@ -141,17 +141,16 @@ export function AccountSyncBridge() {
           segment,
           setTimeout(() => {
             const wait = suppressUntil.current - Date.now();
-            console.info(`[sync-diag] debounce fired: ${segment} wait=${wait}`);
             if (wait > 0) {
               debounces.current.set(
                 segment,
                 setTimeout(() => {
-                  void pushAccountSyncSegment(userId, segment).catch((e) => console.warn(`[sync-diag] push ${segment} rejected:`, e));
+                  void pushAccountSyncSegment(userId, segment).catch(() => undefined);
                 }, wait + PUSH_AFTER_WINDOW_TAIL_MS),
               );
               return;
             }
-            void pushAccountSyncSegment(userId, segment).catch((e) => console.warn(`[sync-diag] push ${segment} rejected:`, e));
+            void pushAccountSyncSegment(userId, segment).catch(() => undefined);
           }, PUSH_DEBOUNCE_MS),
         );
       }),
