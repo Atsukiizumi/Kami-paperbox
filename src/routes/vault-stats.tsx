@@ -27,7 +27,7 @@ import { SummarySlip } from "@/components/stats/summary-slip";
 import { Reveal } from "@/components/stats/reveal";
 import { listVault } from "@/lib/storage/vault";
 import { lexiconMap, useTagLexicon } from "@/lib/tag-lexicon";
-import { monthOf, untranslatedGap, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
+import { groupVaultByMonth, untranslatedGap, vaultAuthors, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import {
   healthStats,
   hourHistogram,
@@ -65,13 +65,11 @@ function topAuthors(
   return rows.sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : 1)).slice(0, n);
 }
 
+// 按月时间线 = 回忆流的月份分组口径截近 12 月（groupVaultByMonth 只此一份分组实现）。
 function monthlyTimeline(items: VaultMeta[]): { name: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    const m = monthOf(item.savedAt);
-    counts.set(m, (counts.get(m) ?? 0) + 1);
-  }
-  return [...counts.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 12).map(([name, count]) => ({ name, count }));
+  return groupVaultByMonth(items)
+    .slice(0, 12)
+    .map((g) => ({ name: g.month, count: g.items.length }));
 }
 
 export function VaultStatsPage() {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   filterVaultItems,
+  groupVaultByMonth,
   haystackOf,
   mergeVaultItems,
   parseSmartFolders,
@@ -208,7 +209,61 @@ test("mergeVaultItems：本地覆盖优先——本地 tag 编辑不被远端刷
   assert.equal(mergeVaultItems(localOnly, []), localOnly);
 });
 
-// ── AI / R-18 筛选 + 客户端先行字段合并守卫（09-21-tag-watch-vault-filter）────
+// ── 月份分组 groupVaultByMonth（回忆流 + 按月时间线共用口径，10-11-wlm）──────
+
+test("groupVaultByMonth：跨年相邻不混，月份倒序（2026-01 在 2025-12 前）", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "z", savedAt: new Date(2025, 11, 31, 23, 59).getTime() }), // 月末边界
+    item({ key: "b", title: "b", author: "z", savedAt: new Date(2026, 0, 1).getTime() }), // 月首边界
+  ];
+  assert.deepEqual(groupVaultByMonth(rows), [
+    { month: "2026-01", items: [rows[1]] },
+    { month: "2025-12", items: [rows[0]] },
+  ]);
+});
+
+test("groupVaultByMonth：单月全落一组；空数组给空组", () => {
+  const rows = [
+    item({ key: "a", title: "a", author: "z", savedAt: new Date(2026, 8, 1).getTime() }),
+    item({ key: "b", title: "b", author: "z", savedAt: new Date(2026, 8, 30).getTime() }), // 同月月末
+  ];
+  assert.deepEqual(groupVaultByMonth(rows), [{ month: "2026-09", items: [rows[1], rows[0]] }]); // 组内 savedAt 倒序
+  assert.deepEqual(groupVaultByMonth([]), []);
+});
+
+test("groupVaultByMonth：同月多条组内按 savedAt 倒序，与传入顺序无关", () => {
+  const early = item({ key: "a", title: "a", author: "z", savedAt: new Date(2026, 7, 2).getTime() });
+  const late = item({ key: "b", title: "b", author: "z", savedAt: new Date(2026, 7, 20).getTime() });
+  const mid = item({ key: "c", title: "c", author: "z", savedAt: new Date(2026, 7, 10).getTime() });
+  const grouped = groupVaultByMonth([early, late, mid]);
+  assert.equal(grouped.length, 1);
+  assert.deepEqual(grouped[0]?.items.map((r) => r.key), ["b", "c", "a"]);
+});
+
+test("groupVaultByMonth：多月倒序 + 计数；截 12 个月 = 统计页时间线的派生口径不变", () => {
+  // 14 个连月各 1 张 + 最近月 3 张：slice(0, 12) 留的是最新 12 个月，计数是各月张数
+  const rows: VaultMeta[] = [];
+  for (let i = 13; i >= 0; i--) {
+    rows.push(item({ key: `m${i}`, title: `m${i}`, author: "z", savedAt: new Date(2026, 8 - i, 15).getTime() }));
+  }
+  rows.push(
+    item({ key: "x1", title: "x", author: "z", savedAt: new Date(2026, 8, 1).getTime() }),
+    item({ key: "x2", title: "x", author: "z", savedAt: new Date(2026, 8, 2).getTime() }),
+  );
+  const grouped = groupVaultByMonth(rows);
+  assert.equal(grouped.length, 14);
+  assert.equal(grouped[0]?.month, "2026-09");
+  assert.equal(grouped[0]?.items.length, 3, "2026-09 三条");
+  assert.equal(grouped[13]?.month, "2025-08");
+  const timeline = grouped.slice(0, 12).map((g) => ({ name: g.month, count: g.items.length }));
+  assert.deepEqual(
+    timeline.map((r) => r.name),
+    ["2026-09", "2026-08", "2026-07", "2026-06", "2026-05", "2026-04", "2026-03", "2026-02", "2026-01", "2025-12", "2025-11", "2025-10"],
+  );
+  assert.deepEqual(timeline.map((r) => r.count), [3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "最老两个月被截掉");
+});
+
+
 
 test("filterVaultItems ai 笺：aiType 命中、旧藏品按标签词表兜底、false 排除", () => {
   const items = [

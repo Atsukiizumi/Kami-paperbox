@@ -95,3 +95,18 @@ test("空库空历史 → []；历史有键但匣里没有 → []", () => {
   assert.deepEqual(unreadItems([], [], now), []);
   assert.deepEqual(unreadItems([], [hist({ id: "9", viewedAt: now })], now), []);
 });
+
+test("lastPage 水位不进未读口径（M3 不变量：只看 viewedAt vs savedAt）", () => {
+  const now = Date.UTC(2026, 8, 16);
+  const savedAt = now - 2 * DAY;
+  // 打开晚于收藏、翻到第 3 页：已读，水位多少都一样
+  assert.equal(
+    unreadItems([meta({ id: "1", savedAt })], [hist({ id: "1", viewedAt: savedAt + 1000, lastPage: 2 })], now).length,
+    0,
+  );
+  // 打开早于收藏、水位翻到很后面：照样未读
+  assert.equal(
+    unreadItems([meta({ id: "2", savedAt })], [hist({ id: "2", viewedAt: savedAt - 1000, lastPage: 50 })], now).length,
+    1,
+  );
+});

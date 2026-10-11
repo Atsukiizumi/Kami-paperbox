@@ -40,6 +40,7 @@ import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultCrossSource } from "@/components/vault-cross-source";
+import { VaultTimeline } from "@/components/vault-timeline";
 import { VaultFlipDialog } from "@/components/vault-flip";
 import { listServerVault, listServerTrash, type ServerTrashItem } from "@/lib/storage/vault-sync";
 import type { CrossSourceCluster } from "@/lib/storage/vault-cross-source";
@@ -85,6 +86,9 @@ function VaultPageInner() {
   // 同图多源（M1）：正文区整体切换（与合集互斥）；null = 服务端不可达（入口隐身，照纸篓先例）
   const [crossOpen, setCrossOpen] = useState(false);
   const [crossData, setCrossData] = useState<{ clusters: CrossSourceCluster[]; hashed: number; total: number } | null>(null);
+  // 回忆流（W）：第三互斥视图。纯本地分组，不依赖跨源数据——入口不包 crossData 条件，
+  // 否则无服务端时整个回忆流跟着隐身
+  const [timelineOpen, setTimelineOpen] = useState(false);
   // 单卡「加入合集」弹层目标：null = 关；选择模式下不走单卡入口（工具条负责）
   const [addTarget, setAddTarget] = useState<VaultMeta | null>(null);
   const openCollection = openCollectionId ? collections.find((c) => c.id === openCollectionId) : undefined;
@@ -539,14 +543,28 @@ function VaultPageInner() {
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                // 回忆流（W）：互斥三连同款；纯本地视图，不包 crossData 条件（离线可达）
+                sel.exit();
+                setOpenCollectionId(null);
+                setCrossOpen(false);
+                setTimelineOpen(true);
+              }}
+            >
+              回忆流
+            </Button>
             {crossData ? (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  // 与合集互斥（照 onOpen 的退出动作）；正文区整体切换成跨源视图
+                  // 与合集/回忆流互斥；正文区整体切换成跨源视图
                   sel.exit();
                   setOpenCollectionId(null);
+                  setTimelineOpen(false);
                   setCrossOpen(true);
                 }}
               >
@@ -563,6 +581,7 @@ function VaultPageInner() {
               onOpen={(id) => {
                 sel.exit();
                 setCrossOpen(false);
+                setTimelineOpen(false);
                 setOpenCollectionId(id);
               }}
             />
@@ -582,6 +601,10 @@ function VaultPageInner() {
 
       {!ready ? (
         <p className="text-sm text-muted">正在读取纸匣…</p>
+      ) : timelineOpen ? (
+        // 回忆流（W）：纯本地视图，吃全量 all（不吃 filter/text），排在 crossOpen
+        // 之前——不受「服务端不可达 crossData 为 null」的入口隐身逻辑牵连
+        <VaultTimeline items={all} tagAliases={tagAliases} onBack={() => setTimelineOpen(false)} />
       ) : crossOpen ? (
         // 同图多源：正文区整体切换（M1-4 不变量——只读消费 all，关闭后主列表原样）
         <VaultCrossSource

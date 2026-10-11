@@ -32,6 +32,8 @@ export type HistoryEntry = {
   rating?: string;
   /** 只留能让遮盖认出 AI 的词，不把整份标签表写进历史。 */
   tags?: string[];
+  /** 最后浏览到的页（0-based 水位，长漫画续读）。关灯箱写一次；只认 [0, pageCount) 内的整数。缺 = 没翻过或旧记录。 */
+  lastPage?: number;
 };
 
 export type AuthorHistoryEntry = {
@@ -53,7 +55,29 @@ export function pruneHistory(items: HistoryEntry[], now = Date.now()): HistoryEn
 
 export function upsertHistory(items: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
   const key = `${entry.source}:${entry.id}`;
-  return pruneHistory([entry, ...items.filter((x) => `${x.source}:${x.id}` !== key)]);
+  // 同 key 旧水位结转（upsertAuthorHistory 结转 name/avatar 同模式）：rememberView 走
+  // historyEntryFromWork 重建条目、不带 lastPage，不结转则每次打开详情都冲掉续读水位；
+  // clamp 到新 pageCount−1——重开时页数缩水，旧水位不得越界。条目自带 lastPage 优先。
+  const prev = items.find((x) => `${x.source}:${x.id}` === key);
+  const carried = entry.lastPage ?? clampPage(prev?.lastPage, entry.pageCount);
+  const next = carried === undefined ? entry : { ...entry, lastPage: carried };
+  return pruneHistory([next, ...items.filter((x) => `${x.source}:${x.id}` !== key)]);
+}
+
+/** 水位只认 [0, pageCount−1]：无值原样过，越界截到末页（条目 pageCount ≥ 1 是入史时的不变量）。 */
+function clampPage(value: number | undefined, pageCount: number): number | undefined {
+  return value === undefined ? undefined : Math.min(value, pageCount - 1);
+}
+
+/**
+ * 续读定位页（详情页打开后滚到哪）：没写过水位、单页、clamp 后落在首页（等于没翻过）
+ * 或末页（看完，不打扰）都返回 null 不定位；其余返回 clamp 进页数的定位页。
+ * 为什么 clamp 两次：水位可能来自 pageCount 更大的旧记录（作品改版）。
+ */
+export function resumePage(entry: HistoryEntry | undefined, pageCount: number): number | null {
+  if (entry?.lastPage === undefined || pageCount <= 1) return null;
+  const page = Math.min(entry.lastPage, pageCount - 1);
+  return page <= 0 || page >= pageCount - 1 ? null : page;
 }
 
 export function upsertAuthorHistory(
@@ -80,6 +104,13 @@ export function historyAiTags(tags: readonly string[] | undefined): string[] | u
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/** 续读水位的持久层形态：整数、0 ≤ v < 10000。越界/小数当没写过，不给脏数据入史。 */
+function finitePage(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < 10_000
+    ? value
+    : undefined;
 }
 
 /** 从作品抄进历史的分级。0 和空分级都要留下，不能当成没填过。 */
@@ -132,6 +163,9 @@ export function parseHistoryItems(raw: unknown): HistoryEntry[] {
     const source = SOURCES.includes(r.source as Source) ? (r.source as Source) : null;
     const id = typeof r.id === "string" ? r.id.trim() : "";
     if (!source || !id) continue;
+    // 白名单重建：新字段必须在这里带回，否则 migrate/迁移路径一过就丢（lastPage 之鉴）。
+    const pageCount = Math.max(1, Number(r.pageCount) || 1);
+    const lastPage = finitePage(r.lastPage);
     out.push({
       source,
       id,
@@ -139,7 +173,8 @@ export function parseHistoryItems(raw: unknown): HistoryEntry[] {
       author: typeof r.author === "string" ? r.author : "",
       authorId: typeof r.authorId === "string" ? r.authorId : "",
       thumb: typeof r.thumb === "string" ? r.thumb : "",
-      pageCount: Math.max(1, Number(r.pageCount) || 1),
+      pageCount,
+      lastPage: clampPage(lastPage, pageCount),
       width: Number(r.width) > 0 ? Number(r.width) : undefined,
       height: Number(r.height) > 0 ? Number(r.height) : undefined,
       viewedAt: Number(r.viewedAt) || 0,
@@ -181,6 +216,8 @@ type ViewHistoryState = {
   pushAuthor: (author: Omit<AuthorHistoryEntry, "viewedAt">) => void;
   remove: (source: Source, id: string) => void;
   removeAuthor: (source: AuthorHistoryEntry["source"], id: string) => void;
+  /** 写续读水位：条目存在才原位 patch（clamp 进该条目页数），不存在/页码非法 no-op。 */
+  setLastPage: (source: Source, id: string, page: number) => void;
   clear: () => void;
   prune: () => void;
 };
@@ -215,12 +252,26 @@ export const useViewHistory = create<ViewHistoryState>()(
         set((s) => ({
           authors: s.authors.filter((x) => !(x.source === source && x.id === id)),
         })),
+      setLastPage: (source, id, page) =>
+        set((s) => {
+          // 不存在则原样返回（zustand 同引用不通知）：不为水位凭空造历史条目、也不空转重渲
+          if (!s.items.some((x) => x.source === source && x.id === id)) return s;
+          return {
+            items: s.items.map((x) => {
+              if (x.source !== source || x.id !== id) return x;
+              const p = clampPage(finitePage(page), x.pageCount);
+              return p === undefined ? x : { ...x, lastPage: p };
+            }),
+          };
+        }),
       clear: () => set({ items: [], authors: [] }),
       prune: () => set((s) => ({ items: pruneHistory(s.items) })),
     }),
     {
       name: HISTORY_STORAGE_KEY,
-      version: 2,
+      // v3 = lastPage 续读水位。zustand 版本不等即 migrate（任一方向）：升级过一次
+      // parseHistoryItems 白名单把水位带回来；回滚 v2 代码重解析只丢水位不丢条目。
+      version: 3,
       migrate: (persisted) => {
         const p = (persisted ?? {}) as { items?: unknown; authors?: unknown };
         return {
