@@ -10,6 +10,7 @@
  * 为什么：右栏只有信和纸叠时下方留白；关注画师最新更新的图正好补一面会呼吸的墙。
  * 数据：fetchSource pixivFollowing page=1（关注新作品流，WorkCard[] 带缩略图），
  *      仅 Pixiv 登录时拉（与本地追踪名单无关），staleTime 与去浏览同档（BROWSE_STALE_MS）。
+ *      缓存键带上 R-18 和过滤 AI，开关一改就换一档，不把另一档的墙再亮半小时。
  */
 "use client";
 
@@ -60,6 +61,8 @@ function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?
 
 export function DeskArtistWall() {
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const safeMode = useSettings((s) => s.safeModeBySite.pixiv);
+  const hideAi = useSettings((s) => s.hideAi);
   const accounts = useSettings((s) => s.accounts);
   const activeAccountId = useSettings((s) => s.activeAccountId);
   const hydrated = useSettingsHydrated();
@@ -68,8 +71,9 @@ export function DeskArtistWall() {
     Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
 
   const query = useQuery({
-    queryKey: ["desk-artist-wall", credentialTag(pixivCookie)],
+    queryKey: ["desk-artist-wall", credentialTag(pixivCookie), safeMode, hideAi],
     // 关注新作品流只取决于 Pixiv 登录，与本地追踪名单无关——追踪名单为空也要出墙。
+    // safeMode / hideAi 必须在键里：请求会按这两档过滤，漏了就在 staleTime 内亮旧墙。
     enabled: hydrated && pixivLoggedIn,
     staleTime: BROWSE_STALE_MS,
     queryFn: () =>

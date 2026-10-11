@@ -23,8 +23,13 @@ import type { WorkCard } from "@/lib/types";
 
 const LOGGED_IN_COOKIE = "PHPSESSID=123456_ABCDEFGHIJ";
 
-/** 与组件内的 queryKey 同构：desk-artist-wall + 凭据指纹（随测试态 cookie 变化）。 */
-const artistWallQueryKey = (cookie: string) => ["desk-artist-wall", credentialTag(cookie)];
+/** 与组件内的 queryKey 同构。默认 R-18 开、过滤 AI 关，和设置初值一致。 */
+const artistWallQueryKey = (cookie: string, safeMode = true, hideAi = false) => [
+  "desk-artist-wall",
+  credentialTag(cookie),
+  safeMode,
+  hideAi,
+];
 
 function followingResult(items: WorkCard[]) {
   return { op: "pixivFollowing", items, nextPage: null };
@@ -43,10 +48,10 @@ function worksWithThumbs(n: number): WorkCard[] {
   }));
 }
 
-function renderWall(cookie: string, data?: unknown) {
+function renderWall(cookie: string, data?: unknown, safeMode = true, hideAi = false) {
   // gcTime 0：测试不挂观察者的缓存条目立刻回收，不留 5 分钟 gc 定时器。
   const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } });
-  if (data !== undefined) client.setQueryData(artistWallQueryKey(cookie), data);
+  if (data !== undefined) client.setQueryData(artistWallQueryKey(cookie, safeMode, hideAi), data);
   return render(
     <QueryClientProvider client={client}>
       <DeskArtistWall />
@@ -57,7 +62,12 @@ function renderWall(cookie: string, data?: unknown) {
 describe("DeskArtistWall（案头画师墙）", () => {
   beforeEach(() => {
     cleanup();
-    useSettings.setState({ watchArtists: [], pixivCookie: "" });
+    useSettings.setState({
+      watchArtists: [],
+      pixivCookie: "",
+      hideAi: false,
+      safeModeBySite: { ...useSettings.getState().safeModeBySite, pixiv: true },
+    });
     useVeil.setState({ veil: false });
   });
 
@@ -131,5 +141,28 @@ describe("DeskArtistWall（案头画师墙）", () => {
     assert.equal(cells.length, 3);
     const blurred = cells.filter((cell) => /blur-md/.test(cell.innerHTML));
     assert.equal(blurred.length, 1);
+  });
+
+  it("关掉 R-18 后不沿用安全模式那一档的墙", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    useSettings.setState({
+      pixivCookie: LOGGED_IN_COOKIE,
+      hideAi: false,
+      safeModeBySite: { ...useSettings.getState().safeModeBySite, pixiv: false },
+    });
+    const { container, unmount } = renderWall(LOGGED_IN_COOKIE, followingResult(worksWithThumbs(3)), false, false);
+    await act(async () => {
+      t.mock.timers.tick(30);
+    });
+    assert.equal(container.querySelectorAll("a[href^='/work/']").length, 3);
+    unmount();
+    useSettings.setState({
+      safeModeBySite: { ...useSettings.getState().safeModeBySite, pixiv: true },
+    });
+    const next = renderWall(LOGGED_IN_COOKIE);
+    await act(async () => {
+      t.mock.timers.tick(30);
+    });
+    assert.equal(next.container.querySelectorAll("a[href^='/work/']").length, 0);
   });
 });

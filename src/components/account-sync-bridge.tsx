@@ -52,6 +52,13 @@ export function AccountSyncBridge() {
   const debounces = useRef(new Map<SyncSegment, ReturnType<typeof setTimeout>>());
   /** TD-21：上次见到的凭据指纹；null = 尚未观察到（首事件只记基准不判脏）。 */
   const credsSeen = useRef<string | null>(null);
+  /**
+   * 未登录期间变化过的段（第五根因）：硬导航后 better-auth 解析 session 期间
+   * signedIn=false，订阅回调直接 return 会把用户改动（如建合集）静默丢弃——
+   * session 解析完成后 store 不会再 set，推送永不发生。记下来，登录拉取完成
+   * 后补排防抖（credsMerged 同款显式绕窗：改动是真实的，不属于恢复回声）。
+   */
+  const pendingSignedOut = useRef(new Set<SyncSegment>());
 
   // 登录 / 启动：拉一次服务端各段，比本地新就恢复
   useEffect(() => {
@@ -78,6 +85,20 @@ export function AccountSyncBridge() {
             }, PUSH_DEBOUNCE_MS),
           );
         }
+        // 第五根因补排：未登录期间的真实改动（订阅回调 signedOut 时记录的段）
+        // 在此刻补防抖——与 credsMerged 同理显式绕窗（改动真实、非恢复回声）。
+        if (pendingSignedOut.current.size > 0) {
+          for (const seg of pendingSignedOut.current) {
+            clearTimeout(debounces.current.get(seg));
+            debounces.current.set(
+              seg,
+              setTimeout(() => {
+                void pushAccountSyncSegment(userId, seg).catch(() => undefined);
+              }, PUSH_DEBOUNCE_MS),
+            );
+          }
+          pendingSignedOut.current.clear();
+        }
       })
       .catch(() => {
         if (alive) suppressUntil.current = 0;
@@ -92,6 +113,13 @@ export function AccountSyncBridge() {
   // 补推体内不判窗、不续期——续期只在这一层，一条改动最多「一次防抖 + 一次补推」，
   // 不可能成环；同 key 覆盖，窗内再改动时订阅路径连补推定时器一起清掉重排。
   // 订阅常驻（含访客态）：访客期的凭据变化要记脏（TD-21），只是不推送。
+  //
+  // 依赖 deliberately 不含 isPending（CI 合集 e2e 间歇红第四根因）：每次页面
+  // 硬导航后 better-auth 解析 session 会让 isPending 翻转，effect 重跑的 cleanup
+  // 会清掉全部 pending 防抖 timer——store 只 set 过一次的段（如建合集）再无
+  // 变化重排，推送就此丢失。vault 段靠挂载后 vault-index refresh 的二次 set
+  // 复活、settings 没有——「vault 照推 settings 零 POST」的签名由此而来。
+  // 登录瞬间的跳过由回调内的 signedIn 判定兜住；isPending 只属于拉取 effect。
   useEffect(() => {
     const unsubs = STORE_SEGMENTS.map(({ subscribe, segment }) =>
       subscribe(() => {
@@ -104,7 +132,10 @@ export function AccountSyncBridge() {
             credsSeen.current = fp;
           }
         }
-        if (!signedIn || !userId) return;
+        if (!signedIn || !userId) {
+          pendingSignedOut.current.add(segment);
+          return;
+        }
         clearTimeout(debounces.current.get(segment));
         debounces.current.set(
           segment,
@@ -127,6 +158,8 @@ export function AccountSyncBridge() {
     const timers = debounces.current; // cleanup 捕获快照，不追 live ref
     return () => {
       for (const unsub of unsubs) unsub();
+      // 只在真正登出/换号时清 timer：依赖里只剩 [signedIn, userId]，本 cleanup
+      // 触发即意味着二者之一变了——旧 timer 闭包里的 userId 已过期，推了会串号。
       for (const timer of timers.values()) clearTimeout(timer);
     };
   }, [signedIn, userId]);

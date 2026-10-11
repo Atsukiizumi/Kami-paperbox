@@ -118,6 +118,11 @@ test("A 建合集自动推送，B 拉取一致（collections 随设置段同步�
   // ── Context A：注册 → 纸匣页「新建合集」（window.prompt 命名）→ 4s 防抖推送 ──
   await page.addInitScript(seedOnboarded(15));
   page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+  // 临时诊断（定位 sync-diag 后删除）：把 browser console 转发到 test stdout
+  page.on("console", (msg) => {
+    const text = msg.text();
+    if (text.includes("sync-diag")) console.log(`[browser-console] ${text}`);
+  });
 
   await page.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
   await submitAppAccount(page, email, "注册");
