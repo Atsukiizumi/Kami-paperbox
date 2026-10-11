@@ -92,6 +92,13 @@ export function AccountSyncBridge() {
   // 补推体内不判窗、不续期——续期只在这一层，一条改动最多「一次防抖 + 一次补推」，
   // 不可能成环；同 key 覆盖，窗内再改动时订阅路径连补推定时器一起清掉重排。
   // 订阅常驻（含访客态）：访客期的凭据变化要记脏（TD-21），只是不推送。
+  //
+  // 依赖 deliberately 不含 isPending（CI 合集 e2e 间歇红第四根因）：每次页面
+  // 硬导航后 better-auth 解析 session 会让 isPending 翻转，effect 重跑的 cleanup
+  // 会清掉全部 pending 防抖 timer——store 只 set 过一次的段（如建合集）再无
+  // 变化重排，推送就此丢失。vault 段靠挂载后 vault-index refresh 的二次 set
+  // 复活、settings 没有——「vault 照推 settings 零 POST」的签名由此而来。
+  // 登录瞬间的跳过由回调内的 signedIn 判定兜住；isPending 只属于拉取 effect。
   useEffect(() => {
     const unsubs = STORE_SEGMENTS.map(({ subscribe, segment }) =>
       subscribe(() => {
@@ -128,6 +135,8 @@ export function AccountSyncBridge() {
     const timers = debounces.current; // cleanup 捕获快照，不追 live ref
     return () => {
       for (const unsub of unsubs) unsub();
+      // 只在真正登出/换号时清 timer：依赖里只剩 [signedIn, userId]，本 cleanup
+      // 触发即意味着二者之一变了——旧 timer 闭包里的 userId 已过期，推了会串号。
       for (const timer of timers.values()) clearTimeout(timer);
     };
   }, [signedIn, userId]);
