@@ -472,6 +472,11 @@ html.kami-motion {
   z-index: 21;
 }
 
+/* 续读定位锚（M2）：滚到水位页时让开粘性操作条（top 3.5rem + 余量），页首不被盖 */
+[data-work-page] {
+  scroll-margin-top: 4.5rem;
+}
+
 .kami-work-stage {
   background: color-mix(in oklab, var(--color-bg) 70%, var(--color-surface));
 }

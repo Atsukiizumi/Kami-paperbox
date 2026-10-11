@@ -1,7 +1,8 @@
 /**
  * 纸匣目录查询（纯函数，不碰 IndexedDB）。
  *
- * 作用：按关键字、站点、作者过滤已保存作品；作者口径走 author-name.ts 的
+ * 作用：按关键字、站点、作者过滤已保存作品；月份分组（monthOf → groupVaultByMonth，
+ *      回忆流与按月时间线共用）；作者口径走 author-name.ts 的
  *      分组键（同 authorId / 规范化同名归一），装饰名变体不再裂开；标签
  *      口径走 vault-tag-alias.ts 的别名表（变体原文 → 规范名，标签整理）。
  * 用法：filterVaultItems(listVault() 的结果, { text, source, authorKey, tagAliases })。
@@ -50,6 +51,26 @@ export type SmartFolder = {
 export function monthOf(savedAt: number): string {
   const d = new Date(savedAt);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * 按 savedAt 落 "YYYY-MM" 分组：月份倒序（最新在上），组内按 savedAt 倒序。
+ *
+ * 作用：回忆流（整月分组渲染）与统计页按月时间线（截近 12 月）共用的唯一分组口径。
+ * 用法：groupVaultByMonth(listVault() 的结果)；时间线取 .slice(0, 12) 再数 items.length。
+ * 为什么：月份字符串只出自 monthOf 一处，两处消费各派生，不再各写一份分组实现。
+ */
+export function groupVaultByMonth(items: VaultMeta[]): { month: string; items: VaultMeta[] }[] {
+  const groups = new Map<string, VaultMeta[]>();
+  for (const item of items) {
+    const month = monthOf(item.savedAt);
+    const bucket = groups.get(month);
+    if (bucket) bucket.push(item);
+    else groups.set(month, [item]);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([month, rows]) => ({ month, items: rows.sort((a, b) => b.savedAt - a.savedAt) }));
 }
 
 export function haystackOf(item: VaultMeta, tagAliases?: Record<string, string>): string {

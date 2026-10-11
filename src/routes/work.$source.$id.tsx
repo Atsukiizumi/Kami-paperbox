@@ -35,7 +35,7 @@ import { canonicalTag } from "@/lib/site-tags";
 import { pickRelatedTag } from "@/lib/booru";
 import { stashReverseImage } from "@/lib/reverse-search";
 import type { WorkDetail } from "@/lib/types";
-import { rememberView } from "@/lib/view-history";
+import { rememberView, resumePage, useViewHistory } from "@/lib/view-history";
 import { collectBooruTags } from "@/lib/tag-catalog";
 
 export function WorkPage() {
@@ -107,6 +107,23 @@ export function WorkPage() {
     if (!query.isSuccess || !query.data) return;
     rememberView(query.data);
     collectBooruTags(query.data.source, query.data.tags);
+  }, [src, id, query.isSuccess, query.data]);
+
+  // 续读定位（M2）：query 成功后读一次历史水位（getState 不订阅历史，避免多余重渲），
+  // resumePage 判定值得定位（翻到中途）才滚动。didLocateRef 按 source:id 一次性：
+  // rememberView 回填 / 点赞收藏 patch 让 work 换新身份重跑本 effect，不得二次滚动。
+  const didLocateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!query.isSuccess || !query.data) return;
+    const key = `${src}:${id}`;
+    if (didLocateRef.current === key) return;
+    didLocateRef.current = key;
+    const entry = useViewHistory.getState().items.find((x) => x.source === src && x.id === id);
+    const page = resumePage(entry, query.data.pageCount);
+    if (page === null) return;
+    document
+      .querySelector(`[data-work-page="${page}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [src, id, query.isSuccess, query.data]);
 
   const lightboxItems: LightboxItem[] = useMemo(() => {
@@ -421,7 +438,9 @@ export function WorkPage() {
                 ) : null}
               </figure>
             ) : (
-            <figure key={`${page.original}-${i}`} className="kami-enter">
+            <figure key={`${page.original}-${i}`} className="kami-enter" data-work-page={i}>
+              {/* data-work-page 用 pages.map 的原索引（:408 口径）：水位/定位/正文点击
+                  三者同 setPreview(i) 一套索引；附件混排的灯箱索引错位是既有事实，不修 */}
               <button
                 type="button"
                 className="block w-full cursor-zoom-in"
@@ -475,7 +494,14 @@ export function WorkPage() {
         items={lightboxItems}
         index={preview ?? 0}
         open={preview !== null}
-        onClose={() => setPreview(null)}
+        onClose={() => {
+          // 关灯箱写一次续读水位（M2 单一写点）：灯箱四路翻页全汇 onIndex=setPreview，
+          // 闭包里的 preview 就是最后浏览页（Esc/遮罩/关闭钮同源）；纯滚动正文不记。
+          if (preview !== null && work.pageCount > 1) {
+            useViewHistory.getState().setLastPage(src, id, Math.min(preview, work.pageCount - 1));
+          }
+          setPreview(null);
+        }}
         onIndex={setPreview}
         originUrl={originUrl}
         footer={
