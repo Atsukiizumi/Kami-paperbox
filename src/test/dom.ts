@@ -16,7 +16,7 @@ const g = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean
 if (typeof g.document === "undefined") {
   g.document = dom.window.document;
 }
-for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "NodeFilter", "TreeWalker", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "localStorage", "CustomEvent", "Event", "ResizeObserver", "MutationObserver", "matchMedia"] as const) {
+for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "NodeFilter", "TreeWalker", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "HTMLFormElement", "HTMLSelectElement", "Document", "DocumentFragment", "ShadowRoot", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame", "localStorage", "CustomEvent", "Event", "ResizeObserver", "MutationObserver", "matchMedia"] as const) {
   const existing = (g as Record<string, unknown>)[key];
   if (existing === undefined || key === "localStorage") {
     const fromDom = (dom.window as unknown as Record<string, unknown>)[key];
@@ -24,6 +24,15 @@ for (const key of ["window", "navigator", "HTMLElement", "Element", "Node", "Nod
   }
 }
 g.IS_REACT_ACT_ENVIRONMENT = true;
+
+// Node 自带 Event / CustomEvent 构造器，但 jsdom 的 EventTarget 只认 jsdom 事件实例。
+// Radix（Dialog 的 DismissableLayer / FocusScope）直接 new 全局构造器再 dispatch 到
+// document，事件必须统一成 jsdom 版本，否则 dialog 一挂载就整树崩（首次测 Radix
+// Dialog/Select 时发现）。
+for (const key of ["Event", "CustomEvent", "UIEvent", "MouseEvent", "KeyboardEvent", "FocusEvent", "PointerEvent"] as const) {
+  const fromDom = (dom.window as unknown as Record<string, unknown>)[key];
+  if (fromDom !== undefined) (g as Record<string, unknown>)[key] = fromDom;
+}
 
 // jsdom 不实现 scrollIntoView（键盘流焦点滚动用）；给空实现即可
 if (typeof g.HTMLElement !== "undefined" && !g.HTMLElement.prototype.scrollIntoView) {

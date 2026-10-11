@@ -24,6 +24,7 @@ import { useSettings } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
 import { effectiveLastBackupAt, isBackupOverdue } from "./backup-reminder";
 import { CloudBackupCard } from "./cloud-backup";
+import { FolderImportCard } from "./folder-import-card";
 import { rescanFolderHashes } from "@/lib/storage/persist-files";
 import { backfillTargets, runVaultBackfill } from "@/lib/storage/vault-backfill";
 import { listVault } from "@/lib/storage/vault";
@@ -346,6 +347,7 @@ export function StorageSection() {
       </CardContent>
     </Card>
     <CloudBackupCard onStatus={setCloudOkAt} />
+    <FolderImportCard granted={granted} />
     <AuthorTidyCard />
     <TagTidyCard />
     <AboutCard />
