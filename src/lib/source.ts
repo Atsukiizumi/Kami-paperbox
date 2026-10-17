@@ -21,6 +21,16 @@ export const fetchSchema = z.intersection(
   z.object({
     pixivCookie: z.string().max(8192).optional(),
     fanboxCookie: z.string().max(8192).optional(),
+    xCookie: z.string().max(8192).optional(),
+    // X GraphQL queryId 覆盖（设置段 v16「高级」区，M4 接线）：三个已知键各自
+    // 可选；空值不进键——x.ts resolveXQueryIds 回落内置默认表
+    xQueryIds: z
+      .object({
+        userByScreenName: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+        userMedia: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+        tweetResult: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+      })
+      .optional(),
     danbooruLogin: z.string().max(120).optional(),
     danbooruApiKey: z.string().max(200).optional(),
     safeMode: z.boolean().optional(),
@@ -121,6 +131,17 @@ export const fetchSchema = z.intersection(
       source: z.enum(["pixiv", "fanbox", "yande", "konachan", "danbooru"]),
       word: z.string().min(1).max(80),
     }),
+    // X（Twitter）媒体推：handle 是 @ 后那段（1–15 位字母数字下划线）；cursor 是
+    // GraphQL 不透明游标（base64 形态，只透传不解释）。
+    z.object({
+      op: z.literal("xUserMedia"),
+      handle: z.string().regex(/^[A-Za-z0-9_]{1,15}$/),
+      cursor: z.string().max(512).optional(),
+    }),
+    z.object({
+      op: z.literal("xTweet"),
+      id: z.string().regex(/^\d{1,20}$/),
+    }),
   ]),
 );
 
@@ -193,6 +214,9 @@ export function warmPixivCsrf(pixivCookie?: string) {
 export const sessionSchema = z.object({
   pixiv: z.string().max(8192).optional(),
   fanbox: z.string().max(8192).optional(),
+  // X 会话 Cookie（auth_token=…; ct0=…）。服务端镜像 kami_x 在 M4 接线；
+  // schema 先备好字段，sessions 路由未消费时 zod 原样吞掉不报错。
+  x: z.string().max(8192).optional(),
   danbooruLogin: z.string().max(120).optional(),
   danbooruApiKey: z.string().max(200).optional(),
 });

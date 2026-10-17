@@ -501,6 +501,49 @@ export async function pixivUgoira(id: string, cookie?: string): Promise<FetchOk>
   return { op: "pixivUgoira", ugoira: meta };
 }
 
+/**
+ * X 域路径保留词（小写比对）：pixiv 社交字段偶尔混入 intent/share 类系统
+ * 链接，尾段撞上即弃——那是功能路径不是 handle。
+ */
+const X_RESERVED_TAIL_WORDS = new Set([
+  "intent", "share", "home", "search", "hashtag", "explore", "settings",
+  "messages", "notifications", "i", "compose", "account", "login",
+  "signup", "sessions", "tos", "privacy", "personalization",
+]);
+
+/**
+ * 从 pixiv `social.twitter.url` 提取 X handle（S1 实证：`?full=1` body 的
+ * 该字段即画师主页「外部リンク」）。取 host 后第一段路径：twitter.com /
+ * x.com 双域、?query、尾斜杠、/handle/status/… 深链都归到同一段；再按 X
+ * 规则校验尾段——只允许字母数字下划线、≤15 字符、不撞保留路径词，任一
+ * 不过整个丢弃返回 undefined（宁可不关联，不存脏 handle）。大小写保留
+ * 外链原样（关联比对由消费方归一）。
+ */
+export function twitterHandleFromUrl(url: string): string | undefined {
+  if (typeof url !== "string" || !url) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const tail = parsed.pathname.split("/").filter(Boolean)[0];
+  if (!tail || tail.length > 15) return undefined;
+  if (!/^[A-Za-z0-9_]+$/.test(tail)) return undefined;
+  if (X_RESERVED_TAIL_WORDS.has(tail.toLowerCase())) return undefined;
+  return tail;
+}
+
+/**
+ * `ajax/user/{id}?full=1` body 的社交段 → UserProfile.social：只回收
+ * twitter（X 自动关联的主信号），pawoo 是 mastodon 系忽略；无 X 链接或
+ * 尾段不合法时整个不设（可选字段，旧缓存无感）。
+ */
+export function socialFromUserFull(user: Record<string, unknown>): { twitter?: string } | undefined {
+  const twitter = twitterHandleFromUrl(asString(asRecord(asRecord(user.social).twitter).url));
+  return twitter ? { twitter } : undefined;
+}
+
 export async function pixivUser(
   id: string,
   offset: number,
@@ -551,6 +594,7 @@ export async function pixivUser(
       if (keepPixivCard(card, hideAi)) items.push(card);
     }
   }
+  const social = socialFromUserFull(user);
   const profile: UserProfile = {
     id: asString(user.userId || id),
     name: asString(user.name),
@@ -559,6 +603,7 @@ export async function pixivUser(
     following: asNumber(user.following) || undefined,
     totalWorks: ids.length + pickup.length,
     isFollowed: asBool(user.isFollowed),
+    ...(social ? { social } : {}),
   };
   return { op: "pixivUser", profile, items, pickup, newestId, total: ids.length + pickup.length, listTotal: ids.length, offset };
 }

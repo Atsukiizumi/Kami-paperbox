@@ -65,6 +65,27 @@ export function applyAuthorAlias(name: string, aliases?: Record<string, string>)
   return typeof mapped === "string" && mapped.trim() && mapped !== name ? mapped : name;
 }
 
+/** 「名字＠平台」尾巴里的平台域词（小写比对）：是发图地标注不是 X handle。 */
+const HANDLE_DOMAIN_WORDS = new Set(["twitter", "x"]);
+
+/**
+ * 回收 normalizeAuthorName 剥掉的 @handle 尾巴（旁路函数：本体行为与其
+ * 34 处消费方不动，这里只把被剥的信息捡回来当 X 关联的次级建议信号）。
+ *
+ * pixiv 昵称常见「名字＠twitter」「名字@x」形态——尾巴是域词说明只是在
+ * 标注发图平台，不是 X handle，丢弃；其余 @somename 视为候选 X handle
+ * 返回（小写化归一，采纳与否由建议卡人工甄别）。尾巴提取复用 HANDLE_RE
+ * 语义（@ / 全角 ＠ 后跟 ASCII 字母数字._-）；多名尾巴取最后一个（昵称
+ * 后缀长在末尾）；无尾巴 / 纯 @ / 域词尾巴一律 undefined。
+ */
+export function extractAuthorHandleTail(name: string): string | undefined {
+  if (typeof name !== "string") return undefined;
+  const tails = name.match(HANDLE_RE);
+  if (!tails || tails.length === 0) return undefined;
+  const tail = tails[tails.length - 1]!.slice(1).toLowerCase();
+  return HANDLE_DOMAIN_WORDS.has(tail) ? undefined : tail;
+}
+
 export const AUTHOR_ALIAS_ENTRY_LIMIT = 200;
 export const AUTHOR_ALIAS_TEXT_LIMIT = 120;
 

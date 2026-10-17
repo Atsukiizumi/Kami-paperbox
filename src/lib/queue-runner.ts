@@ -46,6 +46,13 @@ export async function loadWork(source: Source, id: string): Promise<WorkDetail> 
     if (r.op !== "fanboxPost") throw new Error("返回类型异常");
     return r.work;
   }
+  if (source === "x") {
+    // X 单推回源（TweetResultByRestId）：guest 亦可，无 Cookie 下载链不断；
+    // pbs.twimg.com 图走 /api/media 通用路径（MEDIA_HOSTS 已白名单），后续无需特判
+    const r = await fetchSource({ data: { op: "xTweet", id, ...creds } });
+    if (r.op !== "xTweet") throw new Error("返回类型异常");
+    return r.work;
+  }
   if (!isBooru(source)) throw new Error("未知站点");
   const r = await fetchSource({ data: { op: "booruPost", site: source, id, ...creds } });
   if (r.op !== "booruPost") throw new Error("返回类型异常");

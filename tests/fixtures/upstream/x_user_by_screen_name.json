@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "fetchedAt": "2026-10-18",
+    "url": "https://x.com/i/api/graphql/yvm61GcJCIpqEwe_3RBccw/UserByScreenName?variables={\"screenName\":\"pixiv\",\"__relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider\":false}",
+    "auth": "guest（Bearer + x-guest-token，未登录实测 200）",
+    "note": "精简脱敏：保留实现所取字段；id 是 base64 全局 ID，rest_id 才是数字主键；legacy 在该响应中为空对象"
+  },
+  "data": {
+    "user_result_by_screen_name": {
+      "id": "VXNlcjoxMjk4NTkxMg==",
+      "result": {
+        "__typename": "User",
+        "rest_id": "12985912",
+        "core": { "created_at_ms": 1201975541000, "name": "pixiv", "screen_name": "pixiv" },
+        "avatar": { "image_url": "https://pbs.twimg.com/profile_images/1884128769876860928/TlykAoFy_normal.jpg" },
+        "banner": { "image_url": "https://pbs.twimg.com/profile_banners/12985912/1749780086" },
+        "location": { "location": "Tokyo" },
+        "possibly_sensitive": false,
+        "relationship_counts": { "followers": 516337, "following": 16212 },
+        "tweet_counts": { "tweets": 40649 },
+        "legacy": {}
+      }
+    }
+  }
+}

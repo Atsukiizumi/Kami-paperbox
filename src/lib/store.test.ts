@@ -8,8 +8,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { toast } from "sonner";
+import type { Account } from "./sync/accounts.ts";
 import { COLLECTION_ITEMS_LIMIT, COLLECTION_LIMIT, type Collection } from "./collection.ts";
-import { IDENTITY_REFRESH_TOAST_ID, migrateSettings, useSettings } from "./store.ts";
+import {
+  IDENTITY_REFRESH_TOAST_ID,
+  SETTINGS_PERSIST_FIELDS,
+  cookiesFromSettings,
+  migrateSettings,
+  partializeSettings,
+  useSettings,
+} from "./store.ts";
 import { TAG_ALIAS_ENTRY_LIMIT } from "./vault-tag-alias.ts";
 
 type ErrCall = { message: unknown; options: { id?: string } | undefined };
@@ -38,6 +46,16 @@ function resetStore() {
     accounts: [],
     activeAccountId: null,
   });
+}
+
+// ── X 设置段（10-17-x-account-link M4）：persist v15→v16 迁移 + setter + 凭据组装 ──
+
+const X_TOKEN = "a".repeat(40);
+const X_CT0 = "b".repeat(40);
+const X_OK = `auth_token=${X_TOKEN}; ct0=${X_CT0}`;
+
+function resetXState() {
+  useSettings.setState({ xCookie: "", xAssociations: {}, xGraphQLQueryIds: {} });
 }
 
 test("whoami 非 200 时弹固定 id 的失败提示，不回填身份", async () => {
@@ -192,7 +210,7 @@ test("setTagAliasCluster 满员守卫：新键不进表、已有键照常改写"
 });
 
 test("persist v12→v13：safeMode 广播成 safeModeBySite，缺站点回安全侧", () => {
-  // v12 老档：只有全局 safeMode=false（R-18 全开）→ 五站全开
+  // v12 老档：只有全局 safeMode=false（R-18 全开）→ 全部站点开（x 同格回安全侧）
   const legacy = migrateSettings({ safeMode: false }, 12) as Record<string, unknown>;
   assert.deepEqual(legacy.safeModeBySite, {
     pixiv: false,
@@ -200,6 +218,7 @@ test("persist v12→v13：safeMode 广播成 safeModeBySite，缺站点回安全
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   // v13 新档：记录部分站点 → 缺的站点回安全侧
   const partial = migrateSettings({ safeModeBySite: { pixiv: false } }, 13) as Record<string, unknown>;
@@ -209,6 +228,7 @@ test("persist v12→v13：safeMode 广播成 safeModeBySite，缺站点回安全
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
   // 脏值当缺省：回退到旧全局 safeMode（true → 安全侧）
   const dirty = migrateSettings({ safeModeBySite: { pixiv: "no" }, safeMode: true }, 13) as Record<string, unknown>;
@@ -219,13 +239,14 @@ test("persist v12→v13：safeMode 广播成 safeModeBySite，缺站点回安全
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
 });
 
 test("setSafeModeFor 只动指定站点，其余站点不受牵连", () => {
   const before = useSettings.getState().safeModeBySite;
   try {
-    useSettings.setState({ safeModeBySite: { pixiv: true, fanbox: true, yande: true, konachan: true, danbooru: true } });
+    useSettings.setState({ safeModeBySite: { pixiv: true, fanbox: true, yande: true, konachan: true, danbooru: true, x: true } });
     useSettings.getState().setSafeModeFor("pixiv", false);
     assert.deepEqual(useSettings.getState().safeModeBySite, {
       pixiv: false,
@@ -233,6 +254,7 @@ test("setSafeModeFor 只动指定站点，其余站点不受牵连", () => {
       yande: true,
       konachan: true,
       danbooru: true,
+      x: true,
     });
     useSettings.getState().setSafeModeFor("pixiv", true);
     assert.equal(useSettings.getState().safeModeBySite.pixiv, true);
@@ -442,5 +464,136 @@ test("removeFromCollection / reorderCollectionItem：未命中 no-op；重排走
     assert.deepEqual(useSettings.getState().collections.map((c) => c.id), ["c2"]);
   } finally {
     useSettings.setState({ collections: before });
+  }
+});
+
+// ── X 设置段（10-17-x-account-link M4）：persist v15→v16 迁移 + setter + 凭据组装 ──
+
+test("persist v15→v16：X 三段缺省补默认（\"\"/{}/{}），老档已有字段不丢、脏值清洗", () => {
+  // v15 老档：整个载荷没有 X 字段（M4 之前的代码从不写它们）
+  const v15 = migrateSettings(
+    { folderLabel: "Kami", collections: [{ id: "c1", name: "風景", items: [], createdAt: 1, updatedAt: 1 }] },
+    15,
+  ) as Record<string, unknown>;
+  assert.equal(v15.xCookie, "", "缺字段补默认空串，不得是 undefined");
+  assert.deepEqual(v15.xAssociations, {}, "缺字段补默认空表");
+  assert.deepEqual(v15.xGraphQLQueryIds, {});
+  assert.equal(v15.folderLabel, "Kami", "老档已有字段保留");
+  assert.equal((v15.collections as Collection[]).length, 1, "v15 已有字段迁移不丢");
+  // v15 老档的账号没有 xCookie 字段（运行时 undefined）→ 迁移补 ""
+  const withAccounts = migrateSettings(
+    { accounts: [{ id: "a1", name: "主号", pixivCookie: PIXIV_SESSION }], activeAccountId: "a1" },
+    15,
+  ) as { accounts: Account[] };
+  assert.equal(withAccounts.accounts[0]?.xCookie, "");
+  // v16 新档：已有值经白名单清洗保留（整段 DevTools 头收敛 / 坏关联丢 / 空 queryId 撤覆盖）
+  const v16 = migrateSettings(
+    {
+      xCookie: `guest_id=v1%3A1; ${X_OK}; twid=u%3D2`,
+      xAssociations: {
+        "pixiv:11": { handle: "@masara", restId: "123", origin: "manual", addedAt: 1 },
+        bad: "junk",
+      },
+      xGraphQLQueryIds: { userMedia: " QWOimofaocjeRda7Tm5pNA ", tweetResult: "" },
+    },
+    16,
+  ) as Record<string, unknown>;
+  assert.equal(v16.xCookie, X_OK, "Cookie 收敛成 auth_token+ct0 规范形态");
+  assert.deepEqual(v16.xAssociations, {
+    "pixiv:11": { handle: "masara", restId: "123", origin: "manual", addedAt: 1 },
+  });
+  assert.deepEqual(v16.xGraphQLQueryIds, { userMedia: "QWOimofaocjeRda7Tm5pNA" }, "空串=未覆盖被撤");
+  // 空档兜底
+  const empty = migrateSettings(null, 0) as Record<string, unknown>;
+  assert.deepEqual(empty.xAssociations, {});
+  assert.deepEqual(empty.xGraphQLQueryIds, {});
+  assert.equal(empty.xCookie, "");
+});
+
+test("setXCookie：写当前账号（无账号自动建号），syncSessions 镜像带清洗后的 x", async () => {
+  const fetchOriginal = globalThis.fetch;
+  // 经对象属性绕开 TS 的「闭包外仍视为 null」收窄；saveSessions 的 body 是扁平
+  // { pixiv, fanbox, x, … }（sessionSchema 同形），没有 data 包裹层
+  const captured: { posted: { x?: string } | null } = { posted: null };
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    captured.posted = init?.body ? (JSON.parse(String(init.body)) as { x?: string }) : null;
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  resetStore();
+  resetXState();
+  try {
+    useSettings.getState().setXCookie(`noise; ${X_OK}; extra=1`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const s = useSettings.getState();
+    assert.equal(s.accounts.length, 1, "无账号时自动建号");
+    assert.equal(s.accounts[0]?.xCookie, `noise; ${X_OK}; extra=1`, "账号存原文（清洗在边界）");
+    assert.equal(s.activeAccountId, s.accounts[0]?.id);
+    assert.equal(s.xCookie, `noise; ${X_OK}; extra=1`, "顶层镜像当前账号");
+    assert.equal(captured.posted?.x, X_OK, "服务端镜像只收 sanitize 后的规范形态");
+    // 半截 Cookie（只 auth_token）：存原文可继续编辑，镜像侧不落
+    useSettings.getState().setXCookie(`auth_token=${X_TOKEN}`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(captured.posted?.x, "", "缺 ct0 不落镜像");
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    resetStore();
+    resetXState();
+  }
+});
+
+test("setXAssociation / removeXAssociation：清洗入库、坏值拒、解除删键", () => {
+  const before = useSettings.getState().xAssociations;
+  try {
+    useSettings.setState({ xAssociations: {} });
+    useSettings.getState().setXAssociation("pixiv:11", {
+      handle: "@masara",
+      restId: "123",
+      origin: "manual",
+      addedAt: 1,
+    });
+    assert.deepEqual(useSettings.getState().xAssociations, {
+      "pixiv:11": { handle: "masara", restId: "123", origin: "manual", addedAt: 1 },
+    }, "@ 前缀剥掉、restId 保留");
+    // 坏 handle 整条拒：表不动
+    const snap = useSettings.getState().xAssociations;
+    useSettings.getState().setXAssociation("pixiv:12", { handle: "bad handle", origin: "auto", addedAt: 1 });
+    assert.deepEqual(useSettings.getState().xAssociations, snap);
+    // 空键拒
+    useSettings.getState().setXAssociation("   ", { handle: "ok", origin: "auto", addedAt: 1 });
+    assert.deepEqual(useSettings.getState().xAssociations, snap);
+    // 解除关联：删键；未命中 no-op
+    useSettings.getState().removeXAssociation("pixiv:11");
+    assert.deepEqual(useSettings.getState().xAssociations, {});
+    useSettings.getState().removeXAssociation("不存在的");
+    assert.deepEqual(useSettings.getState().xAssociations, {});
+  } finally {
+    useSettings.setState({ xAssociations: before });
+  }
+});
+
+test("cookiesFromSettings：X 凭据只在 x 数据源请求里带，Cookie 走 sanitize、空覆盖不进键", () => {
+  const before = useSettings.getState();
+  try {
+    useSettings.setState({
+      xCookie: `junk; ${X_OK}; extra=1`,
+      xGraphQLQueryIds: { userByScreenName: "NewId_1", userMedia: "" },
+    } as Partial<typeof before>);
+    const x = cookiesFromSettings("x");
+    assert.equal(x.xCookie, X_OK, "请求只带 sanitize 后的两字段形态");
+    assert.deepEqual(x.xQueryIds, { userByScreenName: "NewId_1" }, "空覆盖撤掉、好覆盖带上");
+    assert.equal(x.safeMode, before.safeModeBySite.x, "safeMode 取 x 自己的开关");
+    const pixiv = cookiesFromSettings("pixiv");
+    assert.equal(pixiv.xCookie, undefined, "其他数据源不带 X Cookie");
+    assert.equal(pixiv.xQueryIds, undefined);
+  } finally {
+    useSettings.setState({ xCookie: before.xCookie, xGraphQLQueryIds: before.xGraphQLQueryIds });
+  }
+});
+
+test("partialize 白名单键清单与实际输出一致，X 三段在册（结构性漏采回归锁）", () => {
+  const keys = Object.keys(partializeSettings(useSettings.getState())).sort();
+  assert.deepEqual(keys, [...SETTINGS_PERSIST_FIELDS].sort(), "手抄清单与 partialize 输出不得漂移");
+  for (const field of ["xCookie", "xAssociations", "xGraphQLQueryIds"]) {
+    assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `${field} 必须持久化`);
   }
 });

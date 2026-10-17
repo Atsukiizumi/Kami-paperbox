@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "fetchedAt": "2026-10-18",
+    "url": "https://www.pixiv.net/ajax/user/11?full=1&lang=zh",
+    "auth": "未登录 cookie 亦 200（浏览器实测）",
+    "note": "S1 实证：body.social.twitter.url 即画师主页「外部リンク」的 X 账号；pawoo 为 mastodon 系，忽略。精简脱敏，只留实现相关字段"
+  },
+  "error": false,
+  "message": "",
+  "body": {
+    "userId": "11",
+    "name": "pixiv事務局",
+    "image": "https://i.pximg.net/user-profile/img/2025/01/28/14/59/33/26898736_058dfc75acb3b71f4cdce3fdb7a9da87_50.jpg",
+    "imageBig": "https://i.pximg.net/user-profile/img/2025/01/28/14/59/33/26898736_058dfc75acb3b71f4cdce3fdb7a9da87_170.jpg",
+    "premium": true,
+    "isFollowed": false,
+    "following": 0,
+    "comment": "（略）",
+    "webpage": "https://www.pixiv.net/",
+    "social": {
+      "twitter": { "url": "https://twitter.com/pixiv" },
+      "pawoo": { "url": "https://pawoo.net/oauth_authentications/11?provider=pixiv" }
+    },
+    "official": true
+  }
+}

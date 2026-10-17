@@ -12,15 +12,29 @@ export const UA =
  * /api/source 据此回 502（用户态错误如「需要登录」保持 400，S7）。
  */
 export class UpstreamError extends Error {
-  constructor(message: string) {
+  /** 源站 HTTP 状态码（网络层失败无值）。调用方按码分支（如 X 的 401→Cookie 失效）。 */
+  readonly status?: number;
+  constructor(message: string, status?: number) {
     super(message);
     this.name = "UpstreamError";
+    this.status = status;
   }
 }
 
+type UpstreamOrigin = "pixiv" | "fanbox" | "x";
+
+const ORIGIN_LABEL: Record<UpstreamOrigin, string> = { pixiv: "Pixiv", fanbox: "FANBOX", x: "X" };
+
 export async function upstreamJson(
   url: string,
-  opts: { cookie?: string; origin: "pixiv" | "fanbox" },
+  opts: {
+    cookie?: string;
+    origin: UpstreamOrigin;
+    /** 站点特有头（X 的 Authorization / x-csrf-token）。晚于公共头合并，可覆盖。 */
+    headers?: Record<string, string>;
+    /** 请求方法（默认 GET）。X 的 guest activate 是 POST，其余上游全 GET。 */
+    method?: string;
+  },
 ): Promise<unknown> {
   const headers: Record<string, string> = {
     "User-Agent": UA,
@@ -30,24 +44,25 @@ export async function upstreamJson(
   if (opts.origin === "pixiv") {
     headers.Referer = "https://www.pixiv.net/";
     withPixivUserId(headers, opts.cookie);
+  } else if (opts.origin === "x") {
+    headers.Referer = "https://x.com/";
   } else {
     headers.Referer = "https://www.fanbox.cc/";
     headers.Origin = "https://www.fanbox.cc";
   }
   if (opts.cookie) headers.Cookie = opts.cookie;
+  if (opts.headers) Object.assign(headers, opts.headers);
 
-  const res = await outboundFetch(url, { headers, redirect: "follow" });
+  const res = await outboundFetch(url, { headers, redirect: "follow", ...(opts.method ? { method: opts.method } : {}) });
   if (!res.ok) {
-    throw new UpstreamError(
-      opts.origin === "pixiv"
-        ? `Pixiv 请求失败（${res.status}）`
-        : `FANBOX 请求失败（${res.status}）`,
-    );
+    // 文案保持「{站点} 请求失败（{状态码}）」全角括号格式：queue-throttle 的
+    // rateLimitError 正则靠「（429）/（503）」后缀触发全局冷却，别改半角。
+    throw new UpstreamError(`${ORIGIN_LABEL[opts.origin]} 请求失败（${res.status}）`, res.status);
   }
   try {
     return await res.json();
   } catch {
-    throw new UpstreamError(`${opts.origin === "pixiv" ? "Pixiv" : "FANBOX"} 返回了无法解析的数据`);
+    throw new UpstreamError(`${ORIGIN_LABEL[opts.origin]} 返回了无法解析的数据`);
   }
 }
 

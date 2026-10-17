@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { currentLexiconMap, lexiconTokens, untranslatedTokens } from "@/lib/tag-lexicon";
-import { SITE_LIST } from "@/lib/sites";
+import { ALL_SOURCES, siteLabel } from "@/lib/sites";
 import type { AuthorOption } from "@/lib/storage/vault-query.ts";
 import {
   applySlipClear,
@@ -190,9 +190,9 @@ export function VaultFilterBody({
           onValueChange={(v) => v && onChange({ ...value, source: v as VaultFilterState["source"] })}
         >
           <ToggleGroupItem value="all">全部</ToggleGroupItem>
-          {SITE_LIST.map((site) => (
-            <ToggleGroupItem key={site.id} value={site.id}>
-              {site.label}
+          {ALL_SOURCES.map((site) => (
+            <ToggleGroupItem key={site} value={site}>
+              {siteLabel(site)}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>

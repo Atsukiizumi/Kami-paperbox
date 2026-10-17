@@ -272,6 +272,8 @@ export async function tagSuggest(source: Source, word: string, pixiv?: string, a
   const prefix = word.trim();
   if (!prefix) return { op: "tagSuggest", items: [] };
   if (source === "fanbox") return { op: "tagSuggest", items: [] };
+  // X 无标签搜索接口（fetchSchema 的 tagSuggest 也不收 x）：到这里就是空表
+  if (source === "x") return { op: "tagSuggest", items: [] };
   if (source === "pixiv") {
     const encoded = encodeURIComponent(prefix);
     try {

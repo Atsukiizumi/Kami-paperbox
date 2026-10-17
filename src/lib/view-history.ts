@@ -152,7 +152,7 @@ export function historyToCard(entry: HistoryEntry): WorkCard {
   };
 }
 
-const SOURCES: Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru"];
+const SOURCES: Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru", "x"];
 
 export function parseHistoryItems(raw: unknown): HistoryEntry[] {
   if (!Array.isArray(raw)) return [];

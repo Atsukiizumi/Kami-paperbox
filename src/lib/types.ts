@@ -13,8 +13,32 @@ export type { UgoiraMeta } from "./ugoira-meta.ts";
 export type { PixivRankMode, PixivFeed } from "./pixiv-feed.ts";
 export type { BooruFeed } from "./booru.ts";
 
-export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
+/** x = X（Twitter）媒体推数据源：不是浏览站（SITE_LIST 不含），入口在画师页 X 关联。 */
+export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru" | "x";
 export type BooruSite = "yande" | "konachan" | "danbooru";
+
+/**
+ * X GraphQL queryId 覆盖键。镜像 upstream/x.ts 的 XQueryKey——x.ts 是服务端
+ * 适配器（http.ts 带 node 依赖）不能进客户端包，两处键名由 x-account 组件测试
+ * 交叉断言锁住（X_QUERY_IDS 与占位符默认值一致）。
+ */
+export type XQueryIdKey = "userByScreenName" | "userMedia" | "tweetResult";
+
+/**
+ * 画师 ↔ X 账号关联（设置段 v16 xAssociations 的值；键 = authorKey，如
+ * "pixiv:12345"，见 author-name.ts 的 authorKey）。M5 关联卡读写，M4 先落数据面。
+ */
+export type XAssociation = {
+  /** X handle（@ 后那段，存规范形态不带 @）。 */
+  handle: string;
+  /** X 用户数字主键（首次解析 handle 时缓存的 restId，省一次 UserByScreenName）。 */
+  restId?: string;
+  /** auto = 画师页建议采纳；manual = 手工录入。 */
+  origin: "auto" | "manual";
+  addedAt: number;
+  /** 自动发现后被忽略的候选 handle（同 handle 不再提示，R2）。 */
+  ignoredHandles?: string[];
+};
 
 export type TagSuggestItem = {
   tag: string;
@@ -85,6 +109,8 @@ export type UserProfile = {
   following?: number;
   totalWorks: number;
   isFollowed?: boolean;
+  /** 画师档案里自报的社交外链（`?full=1` 富字段 / 主页 HTML 兜底）。仅存在时返回，旧缓存无感。 */
+  social?: { twitter?: string };
 };
 
 export type CreatorProfile = {
@@ -144,11 +170,23 @@ export type FetchOk =
       postCount: number;
       items: WorkCard[];
     }
-  | { op: "tagSuggest"; items: TagSuggestItem[] };
+  | { op: "tagSuggest"; items: TagSuggestItem[] }
+  | {
+      /** X 媒体时间线一页（原创媒体推）。user 随页带回（restId 供关联段、name/avatar 供顶栏）。 */
+      op: "xUserMedia";
+      items: WorkCard[];
+      nextCursor?: string;
+      user: { restId: string; name: string; avatar: string };
+    }
+  | { op: "xTweet"; work: WorkDetail };
 
 export type FetchInput = {
   pixivCookie?: string;
   fanboxCookie?: string;
+  /** X 会话 Cookie 原文（auth_token=…; ct0=…）。对齐 pixivCookie 惯例，只在服务端发出。 */
+  xCookie?: string;
+  /** X GraphQL queryId 覆盖（设置段 v16「高级」区；空值回落内置默认表，见 x.ts resolveXQueryIds）。 */
+  xQueryIds?: Partial<Record<XQueryIdKey, string>>;
   /** Danbooru 账号。带账号的 API 请求能免 Cloudflare 人机验证。 */
   danbooruLogin?: string;
   danbooruApiKey?: string;
@@ -177,6 +215,8 @@ export type FetchInput = {
   | { op: "booruPost"; site: BooruSite; id: string }
   | { op: "booruPool"; site: BooruSite; id: string }
   | { op: "tagSuggest"; source: Source; word: string }
+  | { op: "xUserMedia"; handle: string; cursor?: string }
+  | { op: "xTweet"; id: string }
 );
 
 export type SocialInput = {

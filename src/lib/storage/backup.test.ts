@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BACKUP_FORMAT, BACKUP_FORMAT_V2, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords, preserveClientVaultFields } from "./backup.ts";
+import { BACKUP_FORMAT, BACKUP_FORMAT_V2, BACKUP_SETTINGS_FIELDS, buildBackup, mergeVaultRecords, parseBackup, parseBackupFile, parseBackupSettings, parseVaultRecords, preserveClientVaultFields } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
 import type { Collection } from "../collection.ts";
 import type { SmartFolder } from "./vault-query.ts";
 import type { WatchArtist } from "../watch.ts";
 
 const FAKE_SESSION = "11111111_testhashvalue";
+/** 形态合法的 X 会话样本（auth_token 40 位 + ct0 40 位，与 sanitizeXCookie 口径对齐）。 */
+const FAKE_X_COOKIE = "auth_token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; ct0=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 function sampleSettings() {
   return {
@@ -19,9 +21,12 @@ function sampleSettings() {
     watchTags: [{ source: "pixiv" as const, tag: "鳴潮", addedAt: 1, lastSeenId: "900" }],
     collections: [],
     fanboxCookie: FAKE_SESSION,
+    xCookie: FAKE_X_COOKIE,
+    xAssociations: { "pixiv:11": { handle: "masara", restId: "123", origin: "manual" as const, addedAt: 1 } },
+    xGraphQLQueryIds: {},
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
-    safeModeBySite: { pixiv: false, fanbox: false, yande: false, konachan: false, danbooru: false },
+    safeModeBySite: { pixiv: false, fanbox: false, yande: false, konachan: false, danbooru: false, x: false },
     hideAi: true,
     downloadOriginal: true,
     vaultMirrorFolder: true,
@@ -39,6 +44,7 @@ function sampleSettings() {
       yande: ["landscape"],
       konachan: [],
       danbooru: [],
+      x: [],
     },
     accounts: [
       {
@@ -46,6 +52,7 @@ function sampleSettings() {
         name: "主号",
         pixivCookie: FAKE_SESSION,
         fanboxCookie: FAKE_SESSION,
+        xCookie: FAKE_X_COOKIE,
         pixivProfile: { id: "11111111", name: "demo" },
         fanboxProfile: null,
       },
@@ -116,6 +123,7 @@ test("buildBackup round-trips settings, accounts, and vault records", () => {
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.equal(parsed.backup.vault[0]?.key, "pixiv:99");
   assert.equal(parsed.backup.vault[0]?.relativePath, "demo/99.jpg");
@@ -273,17 +281,18 @@ test("tagAliases 随备份往返（标签整理）；缺段补空、脏项与成
   );
 });
 
-test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，缺/脏回安全侧", () => {
-  // v13 新档：逐站点值原样保留
-  const perSite = { pixiv: true, fanbox: false, yande: true, konachan: false, danbooru: true };
+test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到全部站点，缺/脏回安全侧", () => {
+  // v13 新档：逐站点值原样保留（x 同格：X 时间线无服务端过滤，但记录位要保真）
+  const perSite = { pixiv: true, fanbox: false, yande: true, konachan: false, danbooru: true, x: true };
   assert.deepEqual(parseBackupSettings({ safeModeBySite: perSite }).safeModeBySite, perSite);
-  // v13 前旧备份：只有全局 safeMode → 广播到五站
+  // v13 前旧备份：只有全局 safeMode → 广播到全部站点（含 x，缺省回安全侧）
   assert.deepEqual(parseBackupSettings({ safeMode: false }).safeModeBySite, {
     pixiv: false,
     fanbox: false,
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.deepEqual(parseBackupSettings({ safeMode: true }).safeModeBySite, {
     pixiv: true,
@@ -291,6 +300,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
   // 新记录缺站点：用旧全局值兜底，两端都缺回安全侧
   assert.deepEqual(parseBackupSettings({ safeMode: false, safeModeBySite: { pixiv: true } }).safeModeBySite, {
@@ -299,6 +309,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.deepEqual(parseBackupSettings({}).safeModeBySite, {
     pixiv: true,
@@ -306,6 +317,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
   // 脏值当缺省
   assert.equal(parseBackupSettings({ safeModeBySite: { pixiv: "no" } }).safeModeBySite.pixiv, true);
@@ -407,4 +419,49 @@ test("preserveClientVaultFields：vault 同步段写回守卫（applySegment 用
   const none = preserveClientVaultFields(remote, undefined);
   assert.equal(none.aiType, undefined);
   assert.equal(none.xRestrict, undefined);
+});
+
+// ── X 设置段（10-17-x-account-link M4）：xCookie/xAssociations/xGraphQLQueryIds ──
+
+test("X 三段随备份往返（含账号级 xCookie）；缺段补默认、脏值宽松清洗", () => {
+  const backup = buildBackup({ settings: sampleSettings() });
+  assert.equal(backup.settings.xCookie, FAKE_X_COOKIE);
+  assert.deepEqual(backup.settings.xAssociations, {
+    "pixiv:11": { handle: "masara", restId: "123", origin: "manual", addedAt: 1 },
+  });
+  assert.equal(backup.settings.accounts[0]?.xCookie, FAKE_X_COOKIE, "账号级 X Cookie 随账号段走");
+  const parsed = parseBackup(JSON.parse(JSON.stringify(backup)));
+  assert.ok(parsed.ok);
+  if (!parsed.ok) return;
+  assert.equal(parsed.backup.settings.xCookie, FAKE_X_COOKIE);
+  assert.deepEqual(parsed.backup.settings.xAssociations, {
+    "pixiv:11": { handle: "masara", restId: "123", origin: "manual", addedAt: 1 },
+  });
+  assert.equal(parsed.backup.settings.accounts[0]?.xCookie, FAKE_X_COOKIE);
+  // 旧备份（v16 之前，无 X 字段）→ 默认值不连坐
+  const legacy = parseBackupSettings({});
+  assert.equal(legacy.xCookie, "");
+  assert.deepEqual(legacy.xAssociations, {});
+  assert.deepEqual(legacy.xGraphQLQueryIds, {});
+  // 宽松解析：类型不对给默认值；整段 DevTools 头收敛成两字段规范形态
+  const dirty = parseBackupSettings({
+    xCookie: `guest_id=v1%3A1; ${FAKE_X_COOKIE}; twid=u%3D2`,
+    xAssociations: "junk",
+    xGraphQLQueryIds: { userMedia: "QWOimofaocjeRda7Tm5pNA", tweetResult: 42 },
+  });
+  assert.equal(dirty.xCookie, FAKE_X_COOKIE);
+  assert.deepEqual(dirty.xAssociations, {});
+  assert.deepEqual(dirty.xGraphQLQueryIds, { userMedia: "QWOimofaocjeRda7Tm5pNA" });
+  // 旧备份的账号没有 xCookie 字段 → 补 ""（Account.xCookie 必有字段）
+  const oldAccounts = parseBackupSettings({
+    accounts: [{ id: "a1", name: "旧档账号", pixivCookie: FAKE_SESSION }],
+  });
+  assert.equal(oldAccounts.accounts[0]?.xCookie, "");
+});
+
+test("BACKUP_SETTINGS_FIELDS 手抄清单与 parseBackupSettings 输出键一致（防漂）", () => {
+  assert.deepEqual(Object.keys(parseBackupSettings({})).sort(), [...BACKUP_SETTINGS_FIELDS].sort());
+  for (const field of ["xCookie", "xAssociations", "xGraphQLQueryIds"]) {
+    assert.ok(BACKUP_SETTINGS_FIELDS.includes(field), `${field} 必须在备份字段清单`);
+  }
 });

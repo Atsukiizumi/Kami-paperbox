@@ -33,6 +33,9 @@ test("真实在用媒体域全部放行（mapping 固定样本 + fixture + 运�
     "https://img3.saucenao.com/res/pixiv/6825/68259314_p0_master1200.jpg",
     "https://iqdb.org/thm/aB3cD4.jpg",
     "https://ascii2d.net/thumbnail/aB3cD4.jpg",
+    // X 静态图（x.ts 映射层产出 ?format=…&name=orig 直链；视频域有意不在白名单）
+    "https://pbs.twimg.com/media/GhX1aBc.jpg?format=jpg&name=orig",
+    "https://pbs.twimg.com/profile_images/1/ava_normal.jpg",
   ];
   for (const raw of allowed) {
     const url = parseAllowedMediaUrl(raw);
@@ -80,6 +83,8 @@ test("白名单外 / 伪装成白名单的域拦截（精确集收紧面）", ()
     "https://www.fanbox.cc/img.jpg",
     "https://img4.saucenao.com/img.jpg",
     "https://files.konachan.com/img.jpg",
+    // X 视频域：首版只收静态图（PRD Out of Scope），有意不加白名单
+    "https://video.twimg.com/ext_tw_video/1/pu/vid/avc1/720x1280/aB3cD4.mp4",
     // http / userinfo
     "http://i.pximg.net/img.jpg",
     "https://u:p@i.pximg.net/img.jpg",

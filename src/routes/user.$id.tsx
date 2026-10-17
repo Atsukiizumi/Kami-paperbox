@@ -7,6 +7,7 @@ import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
 import { FoldableText, ProfileAvatar } from "@/components/profile-header";
 import { WatchToggle } from "@/components/watch-toggle";
+import { XLinkCard } from "@/components/x-link-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -194,6 +195,7 @@ export function UserPage() {
           ) : null}
         </div>
       </header>
+      <XLinkCard authorId={profile.id} name={profile.name} socialTwitter={profile.social?.twitter} />
       {pinned.length > 0 ? (
         <section className="space-y-3">
           <h2 className="text-sm font-medium text-muted">置顶</h2>

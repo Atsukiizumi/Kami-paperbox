@@ -10,9 +10,10 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applySegment, snapshotSettings } from "./backup-client.ts";
+import { applySegment, SNAPSHOT_SETTINGS_FIELDS, snapshotSettings } from "./backup-client.ts";
+import { BACKUP_SETTINGS_FIELDS } from "./backup.ts";
+import { SETTINGS_PERSIST_FIELDS, useSettings } from "../store.ts";
 import type { Collection } from "../collection.ts";
-import { useSettings } from "../store.ts";
 import type { SmartFolder } from "./vault-query.ts";
 
 const FOLDER_A: SmartFolder = {
@@ -38,6 +39,11 @@ function withLocalLists<T>(fn: () => Promise<T>): Promise<T> {
     tagAliases: useSettings.getState().tagAliases,
     authorAliases: useSettings.getState().authorAliases,
     collections: useSettings.getState().collections,
+    xCookie: useSettings.getState().xCookie,
+    xAssociations: useSettings.getState().xAssociations,
+    xGraphQLQueryIds: useSettings.getState().xGraphQLQueryIds,
+    accounts: useSettings.getState().accounts,
+    activeAccountId: useSettings.getState().activeAccountId,
   };
   return fn().finally(() => {
     useSettings.setState({
@@ -46,6 +52,11 @@ function withLocalLists<T>(fn: () => Promise<T>): Promise<T> {
       tagAliases: before.tagAliases,
       authorAliases: before.authorAliases,
       collections: before.collections,
+      xCookie: before.xCookie,
+      xAssociations: before.xAssociations,
+      xGraphQLQueryIds: before.xGraphQLQueryIds,
+      accounts: before.accounts,
+      activeAccountId: before.activeAccountId,
     });
   });
 }
@@ -242,5 +253,103 @@ test("拉取显式空合集（用户真清空）照常应用", async () => {
     });
   } finally {
     restore();
+  }
+});
+
+// ── X 设置段（10-17-x-account-link M4）：结构性列表同款白名单/守卫 + 三处交叉断言 ──
+
+const X_TOKEN = "a".repeat(40);
+const X_CT0 = "b".repeat(40);
+const X_OK = `auth_token=${X_TOKEN}; ct0=${X_CT0}`;
+const X_ASSOCS_A = { "pixiv:11": { handle: "masara", origin: "manual" as const, addedAt: 1 } };
+const X_QUERY_IDS_A = { userMedia: "OverrideId_1" };
+
+test("采集白名单带上 X 三段（xCookie/xAssociations/xGraphQLQueryIds 不漏采）", () => {
+  const before = {
+    xCookie: useSettings.getState().xCookie,
+    xAssociations: useSettings.getState().xAssociations,
+    xGraphQLQueryIds: useSettings.getState().xGraphQLQueryIds,
+  };
+  try {
+    useSettings.setState({ xCookie: X_OK, xAssociations: X_ASSOCS_A, xGraphQLQueryIds: X_QUERY_IDS_A });
+    const snap = snapshotSettings();
+    assert.equal(snap.xCookie, X_OK, "xCookie 必须进设置段");
+    assert.deepEqual(snap.xAssociations, X_ASSOCS_A, "xAssociations 必须进设置段");
+    assert.deepEqual(snap.xGraphQLQueryIds, X_QUERY_IDS_A, "xGraphQLQueryIds 必须进设置段");
+  } finally {
+    useSettings.setState(before);
+  }
+});
+
+test("拉取旧载荷（无 X 字段键）不清空本地 X 段与账号级 X Cookie", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({
+        xCookie: X_OK,
+        xAssociations: X_ASSOCS_A,
+        xGraphQLQueryIds: X_QUERY_IDS_A,
+        accounts: [
+          { id: "acc-1", name: "主号", pixivCookie: "", fanboxCookie: "", xCookie: X_OK },
+        ],
+        activeAccountId: "acc-1",
+      });
+      // 旧版本推送的载荷：整个 settings 里没有任何 X 字段（含账号记录不带 xCookie 键）
+      await applySegment("settings", {
+        settings: { hideAi: true, accounts: [{ id: "acc-1", name: "主号" }] },
+      });
+      assert.deepEqual(useSettings.getState().xAssociations, X_ASSOCS_A, "字段缺失时应保留本地关联表");
+      assert.deepEqual(useSettings.getState().xGraphQLQueryIds, X_QUERY_IDS_A, "字段缺失时保留本地覆盖");
+      assert.equal(useSettings.getState().xCookie, X_OK, "字段缺失时保留本地顶层 xCookie");
+      assert.equal(useSettings.getState().accounts[0]?.xCookie, X_OK, "账号级 X Cookie 按 id 并回（升级窗口守卫）");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("拉取显式空 X 段（用户真清空）照常应用", async () => {
+  const restore = stubFetch();
+  try {
+    await withLocalLists(async () => {
+      useSettings.setState({
+        xCookie: X_OK,
+        xAssociations: X_ASSOCS_A,
+        xGraphQLQueryIds: X_QUERY_IDS_A,
+        accounts: [
+          { id: "acc-1", name: "主号", pixivCookie: "", fanboxCookie: "", xCookie: X_OK },
+        ],
+        activeAccountId: "acc-1",
+      });
+      await applySegment("settings", {
+        settings: {
+          hideAi: true,
+          xCookie: "",
+          xAssociations: {},
+          xGraphQLQueryIds: {},
+          accounts: [{ id: "acc-1", name: "主号", xCookie: "" }],
+        },
+      });
+      assert.deepEqual(useSettings.getState().xAssociations, {}, "显式空表应清空本地");
+      assert.deepEqual(useSettings.getState().xGraphQLQueryIds, {});
+      assert.equal(useSettings.getState().xCookie, "");
+      assert.equal(useSettings.getState().accounts[0]?.xCookie, "", "远端账号带显式空 xCookie = 用户真清了，照用远端");
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("三处字段清单交叉断言：X 三段在册，采集清单 ⊆ persist ∩ 备份（三处接线回归锁）", () => {
+  for (const field of ["xCookie", "xAssociations", "xGraphQLQueryIds"] as const) {
+    assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `store persist 白名单缺 ${field}`);
+    assert.ok(BACKUP_SETTINGS_FIELDS.includes(field), `备份字段清单缺 ${field}`);
+    assert.ok(SNAPSHOT_SETTINGS_FIELDS.includes(field), `采集白名单缺 ${field}`);
+  }
+  // 更强的结构性防线：每个被采集的设置段字段必须既被持久化（重启不丢）也被
+  // 备份解析认得（拉取侧 parse 不会用默认值清空）——漏任何一处就是同步事故
+  for (const field of SNAPSHOT_SETTINGS_FIELDS) {
+    assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `采集了 ${field} 但 persist 白名单没有（重启即丢）`);
+    assert.ok(BACKUP_SETTINGS_FIELDS.includes(field), `采集了 ${field} 但备份解析不认（拉取会清空）`);
   }
 });

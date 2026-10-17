@@ -1,0 +1,50 @@
+{
+ "_meta": {
+  "fetchedAt": "2026-10-18",
+  "endpoint": "TweetResultByRestId (xZfFqfOmKQu_OXekGI59mg) variables-only 无 features",
+  "auth": "guest 亦 200（credentials omit + x-guest-token）",
+  "note": "扁平结构 data.tweetResult.result——队列 xTweet 回源端点"
+ },
+ "data": {
+  "tweetResult": {
+   "result": {
+    "__typename": "Tweet",
+    "rest_id": "2109985996532261093",
+    "core": {
+     "user_results": {
+      "result": {
+       "__typename": "User",
+       "rest_id": "738706683061374977",
+       "core": {
+        "name": "masara💘",
+        "screen_name": "masara_ASM1"
+       },
+       "avatar": {
+        "image_url": "https://pbs.twimg.com/profile_images/1640740401941471233/_2tMgCfJ_normal.jpg"
+       }
+      }
+     }
+    },
+    "legacy": {
+     "full_text": "岐阜も鬼カメムシ多かったなー https://t.co/0A1L5ekXrQ",
+     "created_at": "Tue Oct 13 12:33:57 +0000 2026",
+     "possibly_sensitive": false,
+     "entities": {
+      "media": [
+       {
+        "id_str": "2109985982703620096",
+        "type": "photo",
+        "media_url_https": "https://pbs.twimg.com/media/HUgtEnQaUAAkdTR.jpg",
+        "url": "https://t.co/0A1L5ekXrQ"
+       }
+      ],
+      "hashtags": []
+     }
+    },
+    "extended_entities": {
+     "media": []
+    }
+   }
+  }
+ }
+}

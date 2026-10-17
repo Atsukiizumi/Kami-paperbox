@@ -1,7 +1,7 @@
 /**
  * 控流配置（kami.config.json 的 throttle）。
  *
- * 作用：封面并发、429 重试、搜图间隔都从这里读。
+ * 作用：封面并发、429 重试、搜图间隔、X 串行闸门间隔都从这里读。
  * 用法：parseThrottle(json)；服务端 getThrottle() 读文件。
  * 为什么：pximg 一紧就要把并发降到 3，一松可以加到 10。写进配置文件，
  *        不要改代码。改完保存即生效（按文件 mtime 重读）。
@@ -13,6 +13,8 @@ export type ThrottleConfig = {
   mediaConcurrency: number;
   mediaRetry: number;
   mediaRetryMs: number;
+  /** X 上游串行闸门的最小出口间隔（R6；与 upstream/x.ts 的 X_MIN_INTERVAL_MS 默认一致）。 */
+  xMinIntervalMs: number;
   search: Record<SearchEngine, number>;
 };
 
@@ -20,6 +22,7 @@ export const DEFAULT_THROTTLE: ThrottleConfig = {
   mediaConcurrency: 6,
   mediaRetry: 1,
   mediaRetryMs: 500,
+  xMinIntervalMs: 1500,
   search: {
     saucenao: 8_000,
     ascii2d: 15_000,
@@ -46,6 +49,7 @@ export function parseThrottle(raw: unknown): ThrottleConfig {
     mediaConcurrency: clamp(Number(t.mediaConcurrency), 1, 32, DEFAULT_THROTTLE.mediaConcurrency),
     mediaRetry: clamp(Number(t.mediaRetry), 0, 5, DEFAULT_THROTTLE.mediaRetry),
     mediaRetryMs: clamp(Number(t.mediaRetryMs), 100, 10_000, DEFAULT_THROTTLE.mediaRetryMs),
+    xMinIntervalMs: clamp(Number(t.xMinIntervalMs), 250, 60_000, DEFAULT_THROTTLE.xMinIntervalMs),
     search,
   };
 }

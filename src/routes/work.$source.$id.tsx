@@ -30,17 +30,18 @@ import { workKey as vaultWorkKey } from "@/lib/storage/vault";
 import { useVaultIndex } from "@/lib/storage/vault-index";
 import { patchCachedWork } from "@/lib/work-cache";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { parseSource, workOriginUrl, isBooru } from "@/lib/sites";
+import { parseSource, workOriginUrl, isBooru, xHandleFromAuthor } from "@/lib/sites";
 import { canonicalTag } from "@/lib/site-tags";
 import { pickRelatedTag } from "@/lib/booru";
 import { stashReverseImage } from "@/lib/reverse-search";
-import type { WorkDetail } from "@/lib/types";
+import type { WorkDetail, Source } from "@/lib/types";
 import { rememberView, resumePage, useViewHistory } from "@/lib/view-history";
 import { collectBooruTags } from "@/lib/tag-catalog";
 
 export function WorkPage() {
   const { source, id } = useParams<{ source: string; id: string }>();
-  const src = parseSource(source);
+  // x 不在 SITE_LIST（不是浏览站，D2），parseSource 会误吞成 pixiv——这里显式放行
+  const src: Source = source === "x" ? "x" : parseSource(source);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pixivCookie = useSettings((s) => s.pixivCookie);
@@ -304,7 +305,13 @@ export function WorkPage() {
   }
 
 
-  const originUrl = workOriginUrl(src, work.id, work.authorId);
+  // x 的 authorId 是 restId（身份键），原推链接要 handle——与 CardMenu 同口径
+  // 从 author「显示名@handle」尾巴取回；取不到 workOriginUrl 自退 intent 链接
+  const originUrl = workOriginUrl(
+    src,
+    work.id,
+    src === "x" ? (xHandleFromAuthor(work.author) ?? work.authorId) : work.authorId,
+  );
 
   function searchTag(tag: string) {
     const word = canonicalTag(src, tag) || tag;
@@ -359,6 +366,19 @@ export function WorkPage() {
           >
             {work.author}
           </Link>
+        ) : src === "x" ? (
+          // author 是「显示名@handle」（映射层藏 handle 的口径）：回链 X 预览页；
+          // 取不到 handle（异常数据）退纯文本
+          xHandleFromAuthor(work.author) ? (
+            <Link
+              to={`/x/${xHandleFromAuthor(work.author)}`}
+              className="text-sm text-muted hover:text-fg hover:underline"
+            >
+              {work.author}
+            </Link>
+          ) : (
+            <span className="text-sm text-muted">{work.author}</span>
+          )
         ) : (
           <button
             type="button"
@@ -477,13 +497,23 @@ export function WorkPage() {
 
       <div className="mx-auto max-w-3xl space-y-4 pt-6">
         {work.tags.length > 0 ? (
-          <WorkTagList
-            source={src}
-            tags={work.tags}
-            saved={savedTags}
-            onSearch={searchTag}
-            onToggle={(tag) => toggleSavedTag(src, tag)}
-          />
+          // x 的 hashtag 不是任何浏览站的搜索词（X 不是浏览站，D2）——点标签
+          // setTab("x") 会把浏览页带进非法站；退成静态展示
+          src === "x" ? (
+            <p className="flex flex-wrap gap-1.5">
+              {work.tags.map((tag) => (
+                <Badge key={tag}>#{tag}</Badge>
+              ))}
+            </p>
+          ) : (
+            <WorkTagList
+              source={src}
+              tags={work.tags}
+              saved={savedTags}
+              onSearch={searchTag}
+              onToggle={(tag) => toggleSavedTag(src, tag)}
+            />
+          )
         ) : null}
         {work.description && !(work.originSource && work.description === `来源 ${work.originSource}`) ? (
           <FoldableText text={work.description} lines={4} />
