@@ -9,9 +9,12 @@
  * 产物）则优先取样，缺省回退内联样本——仓库 clone 即 hermetic，永远绿。
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { loadUpstreamFixture } from "../../../tests/fixtures/upstream/loader.ts";
-import { mapIllustList, mapPixivCard } from "./pixiv.ts";
+import { mapIllustList, mapPixivCard, socialFromUserFull, twitterHandleFromUrl } from "./pixiv.ts";
 import { extractFanboxPages, mapFanboxPostCard, sizeFromFanboxUrl } from "./fanbox.ts";
 import { asBooruPosts } from "./booru-sites.ts";
 
@@ -81,6 +84,62 @@ test("mapIllustList：R-18 过滤、广告跳过、AI 过滤各归其位", () =>
     ["222"],
     "safeMode=false 时 R-18 放行",
   );
+});
+
+// ── Pixiv 画师档案社交捕获（M3：X 自动关联地基） ────────────────────────────
+
+/**
+ * 读 pixiv `?full=1` 画师档案快照。区别于 loader 的 `data` 包裹惯例：这份
+ * fixture 保的是 pixiv 原信封 `{_meta, error, message, body}`，测试读 body
+ * 键。快照随本提交入库（M0 S1 实证），缺库 = checkout 损坏，直接 assert
+ * 失败不静默跳过（对齐 x.test.ts 的严格模式）。
+ */
+function pixivUserFullBody(): Record<string, unknown> {
+  const path = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../tests/fixtures/upstream/pixiv_user_full_social.json",
+  );
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as { body?: Record<string, unknown> };
+  assert.ok(parsed.body, "pixiv_user_full_social.json fixture 应在库（tests/fixtures/upstream/）");
+  return parsed.body;
+}
+
+test("社交捕获快照：social.twitter.url → handle；pawoo 忽略；无 social 段不设", () => {
+  const social = socialFromUserFull(pixivUserFullBody());
+  assert.deepEqual(social, { twitter: "pixiv" }, "S1 实证样本：https://twitter.com/pixiv 的尾段");
+  // pawoo（mastodon 系）与 webpage 不进 social——只回收 twitter 一个键
+  assert.deepEqual(Object.keys(social ?? {}), ["twitter"]);
+
+  assert.equal(socialFromUserFull({}), undefined, "无 social 段 → 整个不设（可选字段，旧缓存无感）");
+  assert.equal(socialFromUserFull({ social: {} }), undefined);
+  assert.equal(
+    socialFromUserFull({ social: { pawoo: { url: "https://pawoo.net/@someone" } } }),
+    undefined,
+    "只有 pawoo 同样不设",
+  );
+});
+
+test("twitterHandleFromUrl：URL 尾段解析边界（双域 / query / 尾斜杠 / 非法 / 超长 / 保留字）", () => {
+  // 双域与形态容忍
+  assert.equal(twitterHandleFromUrl("https://twitter.com/pixiv"), "pixiv");
+  assert.equal(twitterHandleFromUrl("https://x.com/pixiv"), "pixiv", "x.com 域同规则");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/handle?s=20"), "handle", "带 query");
+  assert.equal(twitterHandleFromUrl("https://x.com/handle/"), "handle", "尾斜杠");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/handle/status/123456"), "handle", "深链取 host 后第一段");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/Pixiv"), "Pixiv", "大小写保留外链原样");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/" + "a".repeat(15)), "a".repeat(15), "15 字符恰好合法");
+  // 丢弃分支：非法字符 / 超长 / 保留路径词 / 无路径 / 非法 URL
+  assert.equal(twitterHandleFromUrl("https://twitter.com/名前"), undefined, "CJK 尾段（%编码后含非法字符）");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/ha.ndle"), undefined, "点不在 X 字符集");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/ha-ndle"), undefined, "连字符不在 X 字符集");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/" + "a".repeat(16)), undefined, "超过 15 字符");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/intent/tweet?text=hi"), undefined, "保留路径词 intent");
+  assert.equal(twitterHandleFromUrl("https://x.com/share"), undefined, "保留路径词 share");
+  assert.equal(twitterHandleFromUrl("https://twitter.com/"), undefined, "无路径段");
+  assert.equal(twitterHandleFromUrl("https://twitter.com"), undefined);
+  assert.equal(twitterHandleFromUrl(""), undefined);
+  assert.equal(twitterHandleFromUrl("not a url"), undefined);
+  assert.equal(twitterHandleFromUrl("twitter.com/pixiv"), undefined, "无协议不成 URL");
 });
 
 // ── FANBOX 映射 ─────────────────────────────────────────────────────────────

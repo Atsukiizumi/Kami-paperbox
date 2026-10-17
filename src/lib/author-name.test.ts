@@ -7,6 +7,7 @@ import {
   AUTHOR_ALIAS_TEXT_LIMIT,
   clusterAuthorVariants,
   clusterNeedsAlias,
+  extractAuthorHandleTail,
   normalizeAuthorName,
   parseAuthorAliases,
   type AuthorItem,
@@ -42,6 +43,36 @@ test("剥除顺序有锁：@handle → emoji → 空白折叠 → 首尾装饰",
   // 若装饰步先跑且不回头，会留下 "user-" 拖着尾巴。
   assert.equal(normalizeAuthorName("user-@pixiv"), "user");
   assert.equal(normalizeAuthorName("☆-user-☆@pixiv"), "user");
+});
+
+test("extractAuthorHandleTail：域词丢弃，真 handle 回收（X 关联次级信号）", () => {
+  // pixiv 昵称常见「名字＠twitter」「名字@x」——那是发图地标注不是 handle
+  assert.equal(extractAuthorHandleTail("画師A＠twitter"), undefined, "全角＠域词");
+  assert.equal(extractAuthorHandleTail("画師A@twitter"), undefined, "半角@域词");
+  assert.equal(extractAuthorHandleTail("name＠X"), undefined, "域词大小写不敏感");
+  assert.equal(extractAuthorHandleTail("name@x"), undefined);
+  // 其余尾巴 = 候选 X handle（小写化归一）
+  assert.equal(extractAuthorHandleTail("name＠some_handle"), "some_handle");
+  assert.equal(extractAuthorHandleTail("name＠Some_Handle"), "some_handle", "大小写归一");
+  assert.equal(extractAuthorHandleTail("name@Some_Handle"), "some_handle");
+  assert.equal(extractAuthorHandleTail("名前＠some.handle"), "some.handle", "复用 HANDLE_RE 字母数字._- 语义");
+  // 无尾巴 / 纯 @ / @ 后非 ASCII（HANDLE_RE 不吃）
+  assert.equal(extractAuthorHandleTail("古河渚"), undefined);
+  assert.equal(extractAuthorHandleTail(""), undefined);
+  assert.equal(extractAuthorHandleTail("@"), undefined);
+  assert.equal(extractAuthorHandleTail("@🎨user"), undefined);
+  // 多名尾巴取最后一个；最后一个撞域词 → 丢弃
+  assert.equal(extractAuthorHandleTail("A＠twitter B＠real_one"), "real_one");
+  assert.equal(extractAuthorHandleTail("A＠real_one B＠twitter"), undefined);
+});
+
+test("extractAuthorHandleTail 与 normalizeAuthorName 并行不悖：本体照剥，旁路只回收", () => {
+  const raw = "画師A＠some_handle";
+  assert.equal(normalizeAuthorName(raw), "画師A", "本体行为不变（34 处消费方）");
+  assert.equal(extractAuthorHandleTail(raw), "some_handle");
+  // 域词尾巴两函数各自如实：本体剥掉，旁路不回收
+  assert.equal(normalizeAuthorName("画師A＠twitter"), "画師A");
+  assert.equal(extractAuthorHandleTail("画師A＠twitter"), undefined);
 });
 
 test("authorKey：id 与名字的分裂 / 归一语义", () => {
