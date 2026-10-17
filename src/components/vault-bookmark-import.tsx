@@ -122,8 +122,7 @@ export function VaultBookmarkImport({
       if (item.status === "queued" || item.status === "running") keys.add(item.key);
     }
     return keys;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在进入 preview 这一拍取快照
-  }, [phase]);
+  }, [phase]); // 只在进入 preview 这一拍取快照
 
   const tally = useMemo(
     () => filterBatchable(cards, { inVaultKeys, inQueueKeys: queueKeys }),
