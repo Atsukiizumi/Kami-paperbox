@@ -9,7 +9,9 @@ import "../test/dom.ts";
 import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { WatchPage } from "./watch.tsx";
+import { WatchArtistRow, WatchPage } from "./watch.tsx";
+import type { WatchCheckResult } from "@/lib/watch-check";
+import type { WatchArtist } from "@/lib/watch";
 import { useSettings } from "@/lib/store";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
@@ -109,4 +111,84 @@ describe("今日更新聚合视图", () => {
   });
 
 
+});
+
+// ── 画师行断更天数（O，10-17-slideshow-stale-clean）──────────────────────────
+
+describe("画师行断更天数", () => {
+  beforeEach(() => {
+    cleanup();
+  });
+
+  const DAY = 86_400_000;
+
+  /** 本地墙上时间 → 带本机偏移的 ISO 串（偏移随串走，daysSince 按本地日历日读回，任何时区跑都确定）。 */
+  function isoDaysAgo(days: number): string {
+    const d = new Date(Date.now() - days * DAY);
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? "+" : "-";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+      `T${pad(d.getHours())}:${pad(d.getMinutes())}:00${sign}${pad(Math.floor(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`
+    );
+  }
+
+  const artist: WatchArtist = { source: "pixiv", id: "42", name: "猫屋", avatar: "", addedAt: 1 };
+
+  function renderRow(opts: { r?: WatchCheckResult; checking?: boolean }) {
+    return render(
+      <AppRouterContext.Provider value={stubRouter as never}>
+        <WatchArtistRow
+          artist={artist}
+          r={opts.r}
+          checking={opts.checking ?? false}
+          onSeen={() => {}}
+          onUnwatch={() => {}}
+        />
+      </AppRouterContext.Provider>,
+    );
+  }
+
+  function rowLi() {
+    return document.body.querySelector("li");
+  }
+
+  it("断更 >90 天：整行 opacity-60 grayscale +「100 天没更新了」，按钮仍可点", () => {
+    renderRow({ r: { source: "pixiv", id: "42", newCount: 2, newestId: "99", latestDate: isoDaysAgo(100) } });
+    assert.match(screen.getByText(/100 天没更新了/).textContent ?? "", /100 天没更新了/);
+    assert.match(rowLi()?.className ?? "", /grayscale/, "整行标灰（连头像一起）");
+    const unwatch = screen.getByRole("button", { name: "取消" }) as HTMLButtonElement;
+    assert.equal(unwatch.disabled, false, "标灰不禁用：取消追踪仍可点");
+    const seen = screen.getByRole("button", { name: "标为已读" }) as HTMLButtonElement;
+    assert.equal(seen.disabled, false, "标为已读仍可点");
+  });
+
+  it("断更 ≤90 天：正常天数段文案，无标灰类", () => {
+    renderRow({ r: { source: "pixiv", id: "42", newCount: 0, latestDate: isoDaysAgo(10) } });
+    assert.match(screen.getByText(/距上次更新 10 天/).textContent ?? "", /距上次更新 10 天/);
+    assert.doesNotMatch(rowLi()?.className ?? "", /grayscale/);
+    assert.doesNotMatch(rowLi()?.className ?? "", /opacity-60/);
+  });
+
+  it("有检查结果但 latestDate 缺：出「距上次更新 —」，不标灰", () => {
+    renderRow({ r: { source: "pixiv", id: "42", newCount: 0 } });
+    assert.match(document.body.textContent ?? "", /距上次更新 —/);
+    assert.doesNotMatch(rowLi()?.className ?? "", /grayscale/);
+  });
+
+  it("未检查（无 r）：「还没检查过」且无天数段，不标灰", () => {
+    renderRow({});
+    assert.match(document.body.textContent ?? "", /还没检查过/);
+    assert.doesNotMatch(document.body.textContent ?? "", /距上次更新/);
+    assert.doesNotMatch(rowLi()?.className ?? "", /grayscale/);
+  });
+
+  it("error 优先：检查失败行不出天数段（catch 分支不落 latestDate，别读成断更）", () => {
+    renderRow({ r: { source: "pixiv", id: "42", newCount: 0, error: "Cookie 失效", latestDate: isoDaysAgo(100) } });
+    assert.match(document.body.textContent ?? "", /检查失败：Cookie 失效/);
+    assert.doesNotMatch(document.body.textContent ?? "", /距上次更新/);
+    assert.doesNotMatch(document.body.textContent ?? "", /没更新了/);
+    assert.doesNotMatch(rowLi()?.className ?? "", /grayscale/, "error 行不标灰");
+  });
 });

@@ -16,6 +16,8 @@
  */
 import { applyAuthorAlias, authorKey, clusterAuthorVariants } from "../author-name.ts";
 import { applyTagAlias } from "../vault-tag-alias.ts";
+import { workKey } from "../desk-unread.ts";
+import type { HistoryEntry } from "../view-history.ts";
 import type { Source, VaultMeta } from "../types.ts";
 
 /** 24 桶按本地钟点：hours[h] = 收藏在 h 点的藏品数。 */
@@ -406,6 +408,16 @@ export type VaultHealth = {
   noCover: number;
 };
 
+/**
+ * 缺标记口径：aiType/xRestrict/rating 三字段全 undefined = 未知；显式 0/'' 是
+ * 「确认没有」不算缺。本文件私有 helper，healthStats 与 cleanupCandidates 共用
+ * （消复制）。内联同 needsBackfill（vault-backfill.ts）口径，两处演化需同步——
+ * 不 import：那边 queue-runner → sonner 的副作用链会拖脏本纯函数文件的消费图。
+ */
+function missingVaultFlags(item: VaultMeta): boolean {
+  return item.aiType === undefined && item.xRestrict === undefined && item.rating === undefined;
+}
+
 /** 健康度四类计数：只吃数组吐结构，零 IO（同本文件其他聚合）。 */
 export function healthStats(items: readonly VaultMeta[]): VaultHealth {
   let noTags = 0;
@@ -414,12 +426,66 @@ export function healthStats(items: readonly VaultMeta[]): VaultHealth {
   let noCover = 0;
   for (const item of items) {
     if (item.tags.length === 0) noTags += 1;
-    // 与 vault-backfill.ts needsBackfill 同口径，两处演化需同步（见 VaultHealth 注释）
-    if (item.aiType === undefined && item.xRestrict === undefined && item.rating === undefined) missingFlags += 1;
+    if (missingVaultFlags(item)) missingFlags += 1;
     if (item.replaced === true) replaced += 1;
     if (!hasVaultCover(item)) noCover += 1;
   }
   return { noTags, missingFlags, replaced, noCover };
+}
+
+// ── 清理向导命中列表（K，10-17-slideshow-stale-clean）────────────────────────
+
+export const CLEAN_BATCH_LIMIT = 200;
+/** 「N 月」= N × 30 天：与 HISTORY_DAYS 的天数算术同基（view-history.ts historyCutoff），不引日历月长度歧义。 */
+export const CLEAN_MONTH_MS = 30 * 24 * 60 * 60_000;
+
+export type CleanFilters = {
+  /** 超过 N 个月未读（过滤维度）；undefined = 该维度不勾。 */
+  unreadMonths?: 3 | 6 | 12;
+  /** item.replaced === true（healthStats 同字面，只认 true）。 */
+  replaced?: boolean;
+  /** 缺标记（missingVaultFlags 同口径：三字段全 undefined 才缺，显式 0/'' 不缺）。 */
+  missingFlags?: boolean;
+  /** 排序开关：开 = bytes 降序（大文件优先）；关 = savedAt 降序（listVault 默认序）。 */
+  sortByBytes?: boolean;
+};
+
+export type CleanCandidate = { item: VaultMeta; idleMonths: number; lastViewedAt?: number };
+
+/**
+ * 清理向导命中列表：三过滤维度交集 + 排序。now 可注入（测试定边界）。
+ * 为什么「N 月未读」锚定 savedAt（激进口径）：desk-unread 把「历史已剪枝」当未知是护
+ * 红点不虚报（虚报是打扰）；这里当「未打开」是护不漏筛——漏筛只是少清一条，且预览可见、
+ * 勾选可取消、纸篓可还原三重兜底。收藏后打开过（viewedAt ≥ savedAt）从 viewedAt 起算；
+ * 收藏前看过或窗外查不到一律从 savedAt 起算（当未打开，lastViewedAt 不出）。
+ * 返回全量命中；200 截断是 UI 层事，纯函数不藏截断。
+ */
+export function cleanupCandidates(
+  items: readonly VaultMeta[],
+  history: readonly HistoryEntry[],
+  filters: CleanFilters,
+  now = Date.now(),
+): CleanCandidate[] {
+  // 一个过滤维度都不勾 → 空列表（sortByBytes 是排序不是过滤）；UI 层另出「先勾一个维度」提示
+  const anyFilter = filters.unreadMonths !== undefined || filters.replaced === true || filters.missingFlags === true;
+  if (!anyFilter) return [];
+  // history 是 90 天窗（HISTORY_DAYS），窗外条目已被剪枝 = 查不到（正是激进口径的由来）
+  const viewedAt = new Map(history.map((h): [string, number] => [workKey(h.source, h.id), h.viewedAt]));
+  const out: CleanCandidate[] = [];
+  for (const item of items) {
+    if (filters.replaced === true && item.replaced !== true) continue;
+    if (filters.missingFlags === true && !missingVaultFlags(item)) continue;
+    const seen = viewedAt.get(item.key);
+    const opened = seen !== undefined && seen >= item.savedAt ? seen : undefined;
+    const anchor = opened ?? item.savedAt;
+    const idleMonths = Math.floor(Math.max(0, now - anchor) / CLEAN_MONTH_MS);
+    if (filters.unreadMonths !== undefined && now - anchor < filters.unreadMonths * CLEAN_MONTH_MS) continue;
+    out.push(opened === undefined ? { item, idleMonths } : { item, idleMonths, lastViewedAt: opened });
+  }
+  return out.sort((a, b) => {
+    const primary = filters.sortByBytes ? b.item.bytes - a.item.bytes : b.item.savedAt - a.item.savedAt;
+    return primary || (a.item.key < b.item.key ? -1 : 1); // 同值 tie-break key 升序，稳定输出
+  });
 }
 
 // ── 口味变迁（R，09-22-product-batch-2）──────────────────────────────────────

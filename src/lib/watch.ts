@@ -105,6 +105,27 @@ export function isTagSubscribed(watchTags: readonly WatchTag[], source: TagWatch
   return watchTags.some((w) => tagWatchKey(w.source, w.tag) === key);
 }
 
+// ── 断更天数（O，10-17-slideshow-stale-clean）────────────────────────────────
+
+/** 断更阈值（天）：距上次更新超过该值标灰。PRD 定案 90。 */
+export const WATCH_STALE_DAYS = 90;
+
+/**
+ * 距今天数：latestDate（ISO 字符串，watch-check.ts 从最新页首条透传）→ 本地日历日差。
+ * 无日期 / 解析失败返回 null（渲染层出「—」）。now 可注入（测试定边界）。
+ * 为什么两端各截到本地日历日：latestDate 带什么时区偏移都无所谓，只比观众本地的日历日；
+ * DST 造成的 ±1h 由 Math.round 吸收；未来日期（时钟偏移/上游时区超前）夹到 0，不出负数。
+ */
+export function daysSince(latestDate: string | undefined, now = new Date()): number | null {
+  if (!latestDate) return null;
+  const then = new Date(latestDate);
+  if (Number.isNaN(then.getTime())) return null;
+  const day = 86_400_000;
+  const a = Date.UTC(then.getFullYear(), then.getMonth(), then.getDate());
+  const b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.round((b - a) / day));
+}
+
 /** 解析外部（备份/同步段）来的订阅列表：逐项校验，坏项丢弃，超限截取。 */
 export function parseWatchTags(raw: unknown): WatchTag[] {
   if (!Array.isArray(raw)) return [];

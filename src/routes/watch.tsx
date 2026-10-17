@@ -37,13 +37,16 @@ import {
   WATCH_DEFAULT_LIMIT,
   WATCH_MAX_LIMIT,
   WATCH_MIN_LIMIT,
+  WATCH_STALE_DAYS,
   clampWatchLimit,
+  daysSince,
   tagWatchKey,
   type WatchTag,
 } from "@/lib/watch";
 import { siteLabel } from "@/lib/sites";
 import { cookiesFromSettings } from "@/lib/store";
 import { fetchSource } from "@/lib/source";
+import { cn } from "@/lib/utils";
 
 export function WatchPage() {
   const watchArtists = useSettings((s) => s.watchArtists);
@@ -325,64 +328,22 @@ export function WatchPage() {
           <ul className="space-y-2">
             {watchArtists.map((artist) => {
               const r = results[keyOf(artist.source, artist.id)];
-              const href = artist.source === "pixiv" ? `/user/${artist.id}` : `/creator/${artist.id}`;
               return (
-                <li key={keyOf(artist.source, artist.id)} className="flex items-center gap-3 rounded-lg bg-elevated/50 p-3">
-                  <Link to={href} className="flex min-w-0 flex-1 items-center gap-3">
-                    {artist.avatar ? (
-                      <span className="relative size-10 shrink-0 overflow-hidden rounded-full">
-                        <ProxiedImg src={artist.avatar} alt="" className="absolute inset-0 size-full" />
-                      </span>
-                    ) : (
-                      <span className="grid size-10 place-items-center rounded-full bg-fg/10 text-xs">画</span>
-                    )}
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{artist.name || artist.id}</span>
-                        <span className="shrink-0 rounded-full bg-fg/5 px-2 text-[10px] text-muted">{artist.source}</span>
-                      </span>
-                      <span className="block truncate text-xs text-muted">
-                        {checking && !r
-                          ? "检查中…"
-                          : r?.error
-                            ? `检查失败：${r.error}`
-                            : r
-                              ? r.newCount > 0
-                                ? `${r.newCount} 张新作品`
-                                : "没有新作品"
-                              : "还没检查过"}
-                      </span>
-                    </span>
-                  </Link>
-                  {r?.latestThumb && !r.error ? (
-                    <span className="relative hidden h-12 w-12 shrink-0 overflow-hidden rounded-md sm:block">
-                      <ProxiedImg src={r.latestThumb} alt="" className="absolute inset-0 size-full" />
-                    </span>
-                  ) : null}
-                  {r && !r.error && r.newCount > 0 && r.newestId ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setWatchSeen(artist.source, artist.id, r.newestId!);
-                        setResults((prev) => ({ ...prev, [keyOf(artist.source, artist.id)]: { ...r, newCount: 0 } }));
-                        setWatchBadge(Math.max(0, badge - r.newCount));
-                      }}
-                    >
-                      标为已读
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      toggleWatchArtist({ source: artist.source, id: artist.id, name: artist.name, avatar: artist.avatar });
-                      toast.success("已取消追踪");
-                    }}
-                  >
-                    取消
-                  </Button>
-                </li>
+                <WatchArtistRow
+                  key={keyOf(artist.source, artist.id)}
+                  artist={artist}
+                  r={r}
+                  checking={checking}
+                  onSeen={(newestId, count) => {
+                    setWatchSeen(artist.source, artist.id, newestId);
+                    setResults((prev) => ({ ...prev, [keyOf(artist.source, artist.id)]: { ...r, newCount: 0 } }));
+                    setWatchBadge(Math.max(0, badge - count));
+                  }}
+                  onUnwatch={() => {
+                    toggleWatchArtist({ source: artist.source, id: artist.id, name: artist.name, avatar: artist.avatar });
+                    toast.success("已取消追踪");
+                  }}
+                />
               );
             })}
           </ul>
@@ -461,6 +422,83 @@ export function WatchPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+// ── 画师行（O 断更提醒，10-17-slideshow-stale-clean）─────────────────────────
+
+/**
+ * 画师行：results[keyOf] 命中态、断更天数与标灰都在这一层。
+ * 为什么 error 行不追加天数段：checkOne 的 catch 分支不落 latestDate，「检查失败」跟个
+ * 「距上次更新 —」会读成「断更了」——error 判定优先于 latestDate 缺。
+ */
+export function WatchArtistRow({
+  artist,
+  r,
+  checking,
+  onSeen,
+  onUnwatch,
+}: {
+  artist: WatchArtist;
+  /** results 里该画师的检查结果（未检查过 = undefined）。 */
+  r?: WatchCheckResult;
+  checking: boolean;
+  onSeen: (newestId: string, count: number) => void;
+  onUnwatch: () => void;
+}) {
+  const days = r && !r.error ? daysSince(r.latestDate) : null;
+  const stale = days !== null && days > WATCH_STALE_DAYS;
+  const href = artist.source === "pixiv" ? `/user/${artist.id}` : `/creator/${artist.id}`;
+  return (
+    // 标灰只降观感不禁用：取消追踪/标为已读不能被视觉性禁用，仅整行降透明度
+    <li className={cn("flex items-center gap-3 rounded-lg bg-elevated/50 p-3", stale && "opacity-60 grayscale")}>
+      <Link to={href} className="flex min-w-0 flex-1 items-center gap-3">
+        {artist.avatar ? (
+          <span className="relative size-10 shrink-0 overflow-hidden rounded-full">
+            <ProxiedImg src={artist.avatar} alt="" className="absolute inset-0 size-full" />
+          </span>
+        ) : (
+          <span className="grid size-10 place-items-center rounded-full bg-fg/10 text-xs">画</span>
+        )}
+        <span className="min-w-0">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium">{artist.name || artist.id}</span>
+            <span className="shrink-0 rounded-full bg-fg/5 px-2 text-[10px] text-muted">{artist.source}</span>
+          </span>
+          <span className="block truncate text-xs text-muted">
+            {checking && !r
+              ? "检查中…"
+              : r?.error
+                ? `检查失败：${r.error}`
+                : r
+                  ? r.newCount > 0
+                    ? `${r.newCount} 张新作品`
+                    : "没有新作品"
+                  : "还没检查过"}
+            {r && !r.error
+              ? days === null
+                ? " · 距上次更新 —"
+                : stale
+                  ? ` · ${days} 天没更新了`
+                  : ` · 距上次更新 ${days} 天`
+              : null}
+          </span>
+        </span>
+      </Link>
+      {r?.latestThumb && !r.error ? (
+        <span className="relative hidden h-12 w-12 shrink-0 overflow-hidden rounded-md sm:block">
+          <ProxiedImg src={r.latestThumb} alt="" className="absolute inset-0 size-full" />
+        </span>
+      ) : null}
+      {r && !r.error && r.newCount > 0 && r.newestId ? (
+        <Button size="sm" variant="secondary" onClick={() => onSeen(r.newestId!, r.newCount)}>
+          标为已读
+        </Button>
+      ) : null}
+      <Button size="sm" variant="ghost" onClick={onUnwatch}>
+        取消
+      </Button>
+    </li>
   );
 }
 
