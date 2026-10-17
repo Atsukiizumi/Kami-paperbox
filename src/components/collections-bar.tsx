@@ -14,10 +14,12 @@
  *      同作品生成同 key，失配项自然恢复；详情卡与纸匣主网格共用同一套
  *      cardFromMeta / VaultCard，封面链与拼版口径不会漂移。
  */
+import { hasVaultCover } from "@/lib/storage/vault-profile";
 import { useState, type MouseEvent } from "react";
 import { ArrowDown, ArrowUp, ArrowUpToLine, X } from "lucide-react";
 import { toast } from "sonner";
 import { ArtworkCard } from "@/components/artwork-card";
+import { CollectionSlideshow } from "@/components/collection-slideshow";
 import { EmptySheet } from "@/components/empty-sheet";
 import { MasonryBoard } from "@/components/masonry-board";
 import { ProxiedImg } from "@/components/proxied-img";
@@ -342,6 +344,7 @@ export function CollectionDetail({
   const reorderCollectionItem = useSettings((s) => s.reorderCollectionItem);
   const [organizing, setOrganizing] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [slideshowOpen, setSlideshowOpen] = useState(false);
 
   // 软失效：只渲染当前纸匣里仍存在的成员，失配 key 不清洗存储（重新收藏自然恢复）
   const members = collectionMembers(collection, vaultKeys)
@@ -410,6 +413,16 @@ export function CollectionDetail({
               ) : null}
             </PopoverContent>
           </Popover>
+          {/* 放映按「有像素的成员」判定（check P2-3）：全员翻不出像素时禁用，
+              否则点了 slides=0 只有空白无任何反馈 */}
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!members.some((m) => hasVaultCover(m))}
+            onClick={() => setSlideshowOpen(true)}
+          >
+            放映
+          </Button>
           <Button
             size="sm"
             variant={organizing ? "secondary" : "ghost"}
@@ -445,6 +458,16 @@ export function CollectionDetail({
           ))}
         </MasonryBoard>
       )}
+
+      {/* 放映条件渲染：关闭即卸载，blob URL 在组件卸载时统一 revoke。 */}
+      {slideshowOpen ? (
+        <CollectionSlideshow
+          name={collection.name}
+          members={members}
+          open
+          onClose={() => setSlideshowOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
