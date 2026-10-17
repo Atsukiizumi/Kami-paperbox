@@ -18,6 +18,7 @@ import {
   pixivUgoira,
   pixivUser,
 } from "./pixiv.ts";
+import { xTweet, xUserMedia } from "./x.ts";
 
 export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
@@ -67,10 +68,12 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return booruPool(input.site, input.id, safe, booruAuth);
     case "tagSuggest":
       return tagSuggest(input.source, input.word, pixiv, booruAuth);
+    // X 的 Cookie 原文从 fetch input 直取（fetchSchema 已校验）；queryId 覆盖
+    // 值待 M4 从设置段接入，这里先走内置默认表。
     case "xUserMedia":
+      return xUserMedia(input.handle, input.cursor, input.xCookie);
     case "xTweet":
-      // M2（src/lib/upstream/x.ts）接真实现；先占住分支让 Source 联合的穷尽检查过。
-      throw new Error("x upstream: pending");
+      return xTweet(input.id, input.xCookie);
     default: {
       const _never: never = input;
       throw new Error(`未知操作: ${JSON.stringify(_never)}`);

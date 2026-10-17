@@ -8,7 +8,11 @@ test("rateLimitError 判定", () => {
   assert.equal(rateLimitError("第 3/40 页：下载失败（429）"), true);
   assert.equal(rateLimitError("下载失败（503）"), true);
   assert.equal(rateLimitError("上游风控"), true);
+  // X 上游同格式文案（upstream/http.ts「X 请求失败（429）」/ x.ts GraphQL code 88）：
+  // X 数据源接入后其限速也要能触发全局冷却
+  assert.equal(rateLimitError("X 请求失败（429）"), true);
   assert.equal(rateLimitError("需要登录 Pixiv"), false);
+  assert.equal(rateLimitError("X Cookie 已失效，请到设置更新"), false);
   assert.equal(rateLimitError("下载失败（403）"), false);
 });
 
