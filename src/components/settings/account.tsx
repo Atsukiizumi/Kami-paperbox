@@ -37,6 +37,7 @@ import {
 } from "@/lib/sync/browser-login";
 import { pullAccountSync, pushAccountSyncSegment, readSyncMarkers, SYNC_SEGMENTS } from "@/lib/sync/account-sync";
 import { useHydrated } from "@/lib/use-hydrated";
+import { XAccountCard } from "./x-account";
 import { mask } from "./mask";
 import { cn } from "@/lib/utils";
 
@@ -380,6 +381,9 @@ export function AccountsPartition({
           )}
         </CardContent>
       </Card>
+
+      {/* X（Twitter）：独立卡（无登录中转；Cookie 只服务时间线接口），直接订阅 store */}
+      <XAccountCard />
     </div>
   );
 }

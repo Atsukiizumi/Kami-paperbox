@@ -12,10 +12,32 @@ import type { FetchInput, FetchOk } from "@/lib/types";
 
 const SOURCE_CACHE_TAG = (key: string) => `source:${key}`;
 
+/** 从 HttpOnly 会话镜像里读 kami_x（X Cookie）。只给 X op 兜底——不进 /api/media（twimg 免登录）。 */
+function readMirroredXCookie(header: string | null): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0 || part.slice(0, eq).trim() !== "kami_x") continue;
+    const raw = part.slice(eq + 1).trim();
+    try {
+      return decodeURIComponent(raw) || undefined;
+    } catch {
+      return raw || undefined;
+    }
+  }
+  return undefined;
+}
+
 export async function POST(request: Request) {
   try {
     const raw = await request.json();
     const data = fetchSchema.parse(raw) as FetchInput;
+    // X 会话镜像读回：请求体没带 xCookie 时从 kami_x HttpOnly Cookie 兜底
+    //（设置段未水合 / 其他入口直打 API 时时间线仍可用）。请求体带值时以它为准。
+    if ((data.op === "xUserMedia" || data.op === "xTweet") && !data.xCookie) {
+      const mirrored = readMirroredXCookie(request.headers.get("cookie"));
+      if (mirrored) data.xCookie = mirrored;
+    }
     const { dispatchFetch } = await import("@/lib/upstream.server");
     const cacheKey = sourceCacheKey(data);
     const load = () => cachedDispatchFetch(data, dispatchFetch);

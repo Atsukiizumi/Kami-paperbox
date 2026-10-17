@@ -3,6 +3,7 @@
  * 签名与行为不变——上层（/api/source、source-cache）零改动。
  */
 import { fanboxCookieHeader, pixivCookieHeader } from "../sync/browser-login.ts";
+import { getThrottle } from "../throttle.server.ts";
 import type { FetchInput, FetchOk } from "../types.ts";
 import { booruList, booruPool, booruPost, tagSuggest, type BooruAuth } from "./booru-sites.ts";
 import { fanboxCreator, fanboxFeedList, fanboxPost, fanboxTagged } from "./fanbox.ts";
@@ -18,7 +19,7 @@ import {
   pixivUgoira,
   pixivUser,
 } from "./pixiv.ts";
-import { xTweet, xUserMedia } from "./x.ts";
+import { xTweet, xUserMedia, setXMinIntervalMs } from "./x.ts";
 
 export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
@@ -68,12 +69,16 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return booruPool(input.site, input.id, safe, booruAuth);
     case "tagSuggest":
       return tagSuggest(input.source, input.word, pixiv, booruAuth);
-    // X 的 Cookie 原文从 fetch input 直取（fetchSchema 已校验）；queryId 覆盖
-    // 值待 M4 从设置段接入，这里先走内置默认表。
+    // X 的 Cookie 原文与 queryId 覆盖均从 fetch input 直取（fetchSchema 已校验；
+    // 覆盖值来自设置段 v16「高级」区，M4 起经 cookiesFromSettings("x") 带上）。
+    // 闸门间隔每次 X op 前按 kami.config.json throttle.xMinIntervalMs 刷新
+    //（getThrottle 按 mtime 缓存，开销可忽略；配置改完即生效，无需重启）。
     case "xUserMedia":
-      return xUserMedia(input.handle, input.cursor, input.xCookie);
+      setXMinIntervalMs(getThrottle().xMinIntervalMs);
+      return xUserMedia(input.handle, input.cursor, input.xCookie, input.xQueryIds);
     case "xTweet":
-      return xTweet(input.id, input.xCookie);
+      setXMinIntervalMs(getThrottle().xMinIntervalMs);
+      return xTweet(input.id, input.xCookie, input.xQueryIds);
     default: {
       const _never: never = input;
       throw new Error(`未知操作: ${JSON.stringify(_never)}`);

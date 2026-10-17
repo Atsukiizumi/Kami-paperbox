@@ -22,6 +22,15 @@ export const fetchSchema = z.intersection(
     pixivCookie: z.string().max(8192).optional(),
     fanboxCookie: z.string().max(8192).optional(),
     xCookie: z.string().max(8192).optional(),
+    // X GraphQL queryId 覆盖（设置段 v16「高级」区，M4 接线）：三个已知键各自
+    // 可选；空值不进键——x.ts resolveXQueryIds 回落内置默认表
+    xQueryIds: z
+      .object({
+        userByScreenName: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+        userMedia: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+        tweetResult: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+      })
+      .optional(),
     danbooruLogin: z.string().max(120).optional(),
     danbooruApiKey: z.string().max(200).optional(),
     safeMode: z.boolean().optional(),

@@ -14,7 +14,13 @@ import { clampQueueConcurrency } from "./queue-retry.ts";
 import { AUTHOR_ALIAS_ENTRY_LIMIT, AUTHOR_ALIAS_TEXT_LIMIT, parseAuthorAliases } from "./author-name.ts";
 import { TAG_ALIAS_ENTRY_LIMIT, TAG_ALIAS_TEXT_LIMIT, parseTagAliases } from "./vault-tag-alias.ts";
 import { persist } from "zustand/middleware";
-import type { QueueItem, Source } from "./types.ts";
+import type { QueueItem, Source, XAssociation, XQueryIdKey } from "./types.ts";
+import {
+  parseXAssociations,
+  parseXQueryIdOverrides,
+  sanitizeXCookie,
+  X_ASSOCIATION_LIMIT,
+} from "./x-settings.ts";
 import { applyEnqueue } from "./queue-cap.ts";
 import type { SearchEngine } from "./reverse-search.ts";
 import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search.ts";
@@ -90,9 +96,11 @@ export const IDENTITY_REFRESH_TOAST_ID = "kami-identity-refresh";
  */
 export const SESSION_SYNC_TOAST_ID = "kami-session-sync";
 
-type SettingsState = {
+export type SettingsState = {
   pixivCookie: string;
   fanboxCookie: string;
+  /** X（Twitter）会话 Cookie 原文（auth_token=…; ct0=…）。顶层镜像当前账号，真身在 Account.xCookie。 */
+  xCookie: string;
   danbooruLogin: string;
   danbooruApiKey: string;
   /** 每站点安全模式（true = 隐藏该站 R-18）。浏览页右上角开关读写当前站点这一份。 */
@@ -123,6 +131,10 @@ type SettingsState = {
   watchTags: WatchTag[];
   /** 手工合集：随设置段同步；上限 50×500。 */
   collections: Collection[];
+  /** 画师 ↔ X 账号关联（键 = authorKey "pixiv:{authorId}"，v16 起随设置段同步）。 */
+  xAssociations: Record<string, XAssociation>;
+  /** X GraphQL queryId 覆盖（X 前端发版轮换后失效时才需填；空 = 用内置默认表）。 */
+  xGraphQLQueryIds: Partial<Record<XQueryIdKey, string>>;
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -151,6 +163,12 @@ type SettingsState = {
   removeCollection: (id: string) => void;
   setPixivCookie: (v: string) => void;
   setFanboxCookie: (v: string) => void;
+  setXCookie: (v: string) => void;
+  /** X GraphQL queryId 覆盖整表写入（设置页「高级」区；空值键会被清洗掉）。 */
+  setXGraphQLQueryIds: (v: Partial<Record<XQueryIdKey, string>>) => void;
+  /** 写/改一条画师关联（M5 关联卡消费；白名单清洗 + 上限截断）。 */
+  setXAssociation: (key: string, assoc: XAssociation) => void;
+  removeXAssociation: (key: string) => void;
   setDanbooruLogin: (v: string) => void;
   setDanbooruApiKey: (v: string) => void;
   setSafeModeFor: (source: Source, v: boolean) => void;
@@ -185,13 +203,14 @@ type SettingsState = {
 function withActiveCookies(
   accounts: Account[],
   activeAccountId: string | null,
-): Pick<SettingsState, "accounts" | "activeAccountId" | "pixivCookie" | "fanboxCookie"> {
+): Pick<SettingsState, "accounts" | "activeAccountId" | "pixivCookie" | "fanboxCookie" | "xCookie"> {
   const cookies = cookiesOf(accounts, activeAccountId);
   return {
     accounts,
     activeAccountId,
     pixivCookie: cookies.pixivCookie,
     fanboxCookie: cookies.fanboxCookie,
+    xCookie: cookies.xCookie,
   };
 }
 
@@ -214,6 +233,8 @@ export function migrateSettings(persisted: unknown, version: number) {
       ...a,
       pixivCookie,
       fanboxCookie,
+      // v16 前的老档没有 xCookie（运行时是 undefined，类型上被 as 盖住）；清洗兜底成 ""
+      xCookie: sanitizeXCookie(a.xCookie),
       pixivProfile: pixivCookie ? a.pixivProfile : null,
       fanboxProfile: fanboxCookie ? a.fanboxProfile : null,
     };
@@ -254,6 +275,11 @@ export function migrateSettings(persisted: unknown, version: number) {
     watchTags: parseWatchTags(p.watchTags),
     // v15（手工合集）：新增 collections 设置段；<15 老档缺字段补默认空表
     collections: parseCollections(p.collections),
+    // v16（X 账号关联）：新增 xCookie / xAssociations / xGraphQLQueryIds；
+    // <16 老档缺字段补默认（""/{}/{}），已有值经白名单清洗保留
+    xCookie: sanitizeXCookie(typeof p.xCookie === "string" ? p.xCookie : ""),
+    xAssociations: parseXAssociations(p.xAssociations),
+    xGraphQLQueryIds: parseXQueryIdOverrides(p.xGraphQLQueryIds),
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -270,11 +296,99 @@ export function migrateSettings(persisted: unknown, version: number) {
   return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
 }
 
+/**
+ * partialize 白名单（具名导出供单测断言键清单——「结构性列表漏采事故」回归锁，
+ * 见 backup-client.ts 同款注释）。新增设置段必须三处同步：这里、storage/backup.ts
+ * 的 parseBackupSettings、storage/backup-client.ts 的 SNAPSHOT_SETTINGS_FIELDS。
+ */
+export function partializeSettings(s: SettingsState) {
+  return {
+    pixivCookie: s.pixivCookie,
+    fanboxCookie: s.fanboxCookie,
+    xCookie: s.xCookie,
+    danbooruLogin: s.danbooruLogin,
+    danbooruApiKey: s.danbooruApiKey,
+    safeModeBySite: s.safeModeBySite,
+    hideAi: s.hideAi,
+    downloadOriginal: s.downloadOriginal,
+    queueConcurrency: s.queueConcurrency,
+    vaultMirrorFolder: s.vaultMirrorFolder,
+    downloadToFolder: s.downloadToFolder,
+    pathPreset: s.pathPreset,
+    pathTemplate: s.pathTemplate,
+    folderLabel: s.folderLabel,
+    tab: s.tab,
+    searchEngine: s.searchEngine,
+    saucenaoApiKey: s.saucenaoApiKey,
+    recents: s.recents,
+    savedTags: s.savedTags,
+    smartFolders: s.smartFolders,
+    authorAliases: s.authorAliases,
+    tagAliases: s.tagAliases,
+    watchArtists: s.watchArtists,
+    watchLimit: s.watchLimit,
+    watchTags: s.watchTags,
+    collections: s.collections,
+    xAssociations: s.xAssociations,
+    xGraphQLQueryIds: s.xGraphQLQueryIds,
+    accounts: s.accounts,
+    activeAccountId: s.activeAccountId,
+    theme: s.theme,
+    appearance: s.appearance,
+    uiStyle: s.uiStyle,
+    onboarded: s.onboarded,
+    lastBackupAt: s.lastBackupAt,
+  };
+}
+
+/**
+ * persist 白名单键清单（与 partializeSettings 同步演进；测试断言两者一致，并
+ * 与 backup / backup-client 侧字段清单交叉断言——三处接线缺一处就是同步事故）。
+ */
+export const SETTINGS_PERSIST_FIELDS: readonly string[] = [
+  "pixivCookie",
+  "fanboxCookie",
+  "xCookie",
+  "danbooruLogin",
+  "danbooruApiKey",
+  "safeModeBySite",
+  "hideAi",
+  "downloadOriginal",
+  "queueConcurrency",
+  "vaultMirrorFolder",
+  "downloadToFolder",
+  "pathPreset",
+  "pathTemplate",
+  "folderLabel",
+  "tab",
+  "searchEngine",
+  "saucenaoApiKey",
+  "recents",
+  "savedTags",
+  "smartFolders",
+  "authorAliases",
+  "tagAliases",
+  "watchArtists",
+  "watchLimit",
+  "watchTags",
+  "collections",
+  "xAssociations",
+  "xGraphQLQueryIds",
+  "accounts",
+  "activeAccountId",
+  "theme",
+  "appearance",
+  "uiStyle",
+  "onboarded",
+  "lastBackupAt",
+];
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set, get) => ({
       pixivCookie: "",
       fanboxCookie: "",
+      xCookie: "",
       danbooruLogin: "",
       danbooruApiKey: "",
       safeModeBySite: parseSafeModeBySite(undefined),
@@ -300,6 +414,8 @@ export const useSettings = create<SettingsState>()(
       watchLimit: 100,
       watchTags: [],
       collections: [],
+      xAssociations: {},
+      xGraphQLQueryIds: {},
       accounts: [],
       activeAccountId: null,
       theme: DEFAULT_THEME,
@@ -333,6 +449,41 @@ export const useSettings = create<SettingsState>()(
         });
         void get().syncSessions();
       },
+      setXCookie: (xCookie) => {
+        // 存原文（trim 后），清洗发生在各边界（migrate / syncSessions / 请求组装），
+        // 与 pixivCookie 同款：输入框逐键写入不会因中间态不完整被抹掉
+        set((s) => {
+          if (!s.activeAccountId) {
+            const acc = createAccount("账号 1", s.pixivCookie, s.fanboxCookie, xCookie);
+            return withActiveCookies([acc], acc.id);
+          }
+          const accounts = s.accounts.map((a) =>
+            a.id === s.activeAccountId ? { ...a, xCookie } : a,
+          );
+          return withActiveCookies(accounts, s.activeAccountId);
+        });
+        void get().syncSessions();
+      },
+      setXGraphQLQueryIds: (v) => set({ xGraphQLQueryIds: parseXQueryIdOverrides(v) }),
+      setXAssociation: (key, assoc) =>
+        set((s) => {
+          const k = key.trim();
+          if (!k || k.length > 120) return s;
+          // 复用备份解析做白名单清洗，保证持久化形状与同步段一致（addSmartFolder 同款）
+          const [cleanKey, clean] = Object.entries(parseXAssociations({ [k]: assoc }))[0] ?? [];
+          if (!cleanKey || !clean) return s;
+          if (!(k in s.xAssociations) && Object.keys(s.xAssociations).length >= X_ASSOCIATION_LIMIT) {
+            return s; // 满员不进，调用方提示
+          }
+          return { xAssociations: { ...s.xAssociations, [k]: clean } };
+        }),
+      removeXAssociation: (key) =>
+        set((s) => {
+          if (!(key in s.xAssociations)) return s;
+          const xAssociations = { ...s.xAssociations };
+          delete xAssociations[key];
+          return { xAssociations };
+        }),
       setDanbooruLogin: (danbooruLogin) => set({ danbooruLogin: danbooruLogin.trim().slice(0, 120) }),
       setDanbooruApiKey: (danbooruApiKey) => set({ danbooruApiKey: danbooruApiKey.trim().slice(0, 200) }),
       setSafeModeFor: (source, v) =>
@@ -589,11 +740,12 @@ export const useSettings = create<SettingsState>()(
         });
       },
       syncSessions: async () => {
-        const { pixivCookie, fanboxCookie, danbooruLogin, danbooruApiKey } = get();
+        const { pixivCookie, fanboxCookie, xCookie, danbooruLogin, danbooruApiKey } = get();
         const pixiv = sanitizePixivCookie(pixivCookie);
         const fanbox = fanboxSessionFrom(fanboxCookie, pixiv);
+        const x = sanitizeXCookie(xCookie);
         await saveSessions({
-          data: { pixiv, fanbox, danbooruLogin, danbooruApiKey },
+          data: { pixiv, fanbox, x, danbooruLogin, danbooruApiKey },
         });
       },
       applyProfiles: (profiles) => {
@@ -645,42 +797,11 @@ export const useSettings = create<SettingsState>()(
     {
       name: SETTINGS_STORAGE_KEY,
       // v15（手工合集）：新增 collections 设置段；<15 老档缺字段补默认空表
-      version: 15,
+      // v16（X 账号关联）：新增 xCookie / xAssociations / xGraphQLQueryIds；
+      //   <16 老档缺字段补默认（""/{}/{}）
+      version: 16,
       migrate: migrateSettings,
-      partialize: (s) => ({
-        pixivCookie: s.pixivCookie,
-        fanboxCookie: s.fanboxCookie,
-        danbooruLogin: s.danbooruLogin,
-        danbooruApiKey: s.danbooruApiKey,
-        safeModeBySite: s.safeModeBySite,
-        hideAi: s.hideAi,
-        downloadOriginal: s.downloadOriginal,
-        queueConcurrency: s.queueConcurrency,
-        vaultMirrorFolder: s.vaultMirrorFolder,
-        downloadToFolder: s.downloadToFolder,
-        pathPreset: s.pathPreset,
-        pathTemplate: s.pathTemplate,
-        folderLabel: s.folderLabel,
-        tab: s.tab,
-        searchEngine: s.searchEngine,
-        saucenaoApiKey: s.saucenaoApiKey,
-        recents: s.recents,
-        savedTags: s.savedTags,
-        smartFolders: s.smartFolders,
-        authorAliases: s.authorAliases,
-        tagAliases: s.tagAliases,
-        watchArtists: s.watchArtists,
-        watchLimit: s.watchLimit,
-        watchTags: s.watchTags,
-        collections: s.collections,
-        accounts: s.accounts,
-        activeAccountId: s.activeAccountId,
-        theme: s.theme,
-        appearance: s.appearance,
-        uiStyle: s.uiStyle,
-        onboarded: s.onboarded,
-        lastBackupAt: s.lastBackupAt,
-      }),
+      partialize: partializeSettings,
     },
   ),
 );
@@ -700,6 +821,8 @@ export function useSettingsHydrated(): boolean {
 export function cookiesFromSettings(source: Source): {
   pixivCookie?: string;
   fanboxCookie?: string;
+  xCookie?: string;
+  xQueryIds?: Partial<Record<XQueryIdKey, string>>;
   danbooruLogin?: string;
   danbooruApiKey?: string;
   safeMode: boolean;
@@ -708,9 +831,21 @@ export function cookiesFromSettings(source: Source): {
   const s = useSettings.getState();
   const pixiv = sanitizePixivCookie(s.pixivCookie);
   const fanbox = fanboxSessionFrom(s.fanboxCookie, pixiv);
+  // X 凭据只在 X 数据源的请求里带（queryId 覆盖同车）；其他站点的请求不带，
+  // 既省载荷也不把 X Cookie 泄给无关 op 的日志 / 缓存键
+  const xExtras =
+    source === "x"
+      ? {
+          xCookie: sanitizeXCookie(s.xCookie) || undefined,
+          ...(Object.keys(s.xGraphQLQueryIds).length
+            ? { xQueryIds: parseXQueryIdOverrides(s.xGraphQLQueryIds) }
+            : {}),
+        }
+      : {};
   return {
     pixivCookie: pixiv || undefined,
     fanboxCookie: fanbox || undefined,
+    ...xExtras,
     danbooruLogin: s.danbooruLogin || undefined,
     danbooruApiKey: s.danbooruApiKey || undefined,
     safeMode: s.safeModeBySite[source],

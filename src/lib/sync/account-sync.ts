@@ -34,6 +34,8 @@ const CREDS_DIRTY_KEY = "kami-cred-dirty-v1";
 export const SENSITIVE_SETTINGS_FIELDS = [
   "pixivCookie",
   "fanboxCookie",
+  // v16：X Cookie 同为会话凭据——明文 omit 段不上服务端，拉取时本地非空优先
+  "xCookie",
   "danbooruLogin",
   "danbooruApiKey",
   "saucenaoApiKey",

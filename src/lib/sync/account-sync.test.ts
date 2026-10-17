@@ -99,10 +99,45 @@ test("脏标记读取在无 localStorage 环境（node 测试）下安全退化�
 });
 
 test("omitSettingsCredentials 的清单与 SENSITIVE_SETTINGS_FIELDS 同源", () => {
-  // TD-21：两处清单必须同步演进——这里锁字段集
+  // TD-21：两处清单必须同步演进——这里锁字段集（v16 起 xCookie 同为凭据：
+  // 明文 omit 段不上服务端、拉取时本地非空优先）
   assert.deepEqual(
     [...SENSITIVE_SETTINGS_FIELDS],
-    ["pixivCookie", "fanboxCookie", "danbooruLogin", "danbooruApiKey", "saucenaoApiKey", "accounts", "activeAccountId"],
+    [
+      "pixivCookie",
+      "fanboxCookie",
+      "xCookie",
+      "danbooruLogin",
+      "danbooruApiKey",
+      "saucenaoApiKey",
+      "accounts",
+      "activeAccountId",
+    ],
+  );
+});
+
+test("omitSettingsCredentials 拿掉 X Cookie；mergeCredentialsOnPull 本地 X Cookie 压过远端旧档", () => {
+  // omit：xCookie 是凭据，明文段置空（不上服务端）
+  const out = omitSettingsCredentials({
+    settings: { xCookie: "auth_token=a; ct0=b", folderLabel: "Kami" },
+    proxyUrl: "",
+  });
+  assert.equal((out.settings as Record<string, unknown>).xCookie, "");
+  assert.equal((out.settings as Record<string, unknown>).folderLabel, "Kami", "非凭据字段保留");
+  // TD-21 拉取合并：访客期本机新录的 X Cookie（非空）压过远端旧档
+  const remote = {
+    settings: { xCookie: "auth_token=old; ct0=old", hideAi: true },
+    proxyUrl: "",
+  } as unknown as Parameters<typeof mergeCredentialsOnPull>[0];
+  const { settings, merged } = mergeCredentialsOnPull(remote, { xCookie: "auth_token=new; ct0=new" });
+  assert.equal((settings.settings as Record<string, unknown>).xCookie, "auth_token=new; ct0=new", "本地 X Cookie 保留");
+  assert.equal(merged, true);
+  // 本地为空 → 取远端（新设备恢复流）
+  const restore = mergeCredentialsOnPull(remote, { xCookie: "" });
+  assert.equal(
+    (restore.settings.settings as Record<string, unknown>).xCookie,
+    "auth_token=old; ct0=old",
+    "本地空 → 远端 X Cookie 恢复",
   );
 });
 

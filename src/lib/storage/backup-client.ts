@@ -18,7 +18,7 @@ import {
   type BackupSettings,
 } from "./backup.ts";
 import { deriveBoxKey, openJson, randomSaltB64, sealJson, type CipherBox } from "./crypto-box.ts";
-import { useSettings } from "../store.ts";
+import { useSettings, type SettingsState } from "../store.ts";
 import { useTagCatalog } from "../tag-catalog.ts";
 import { parseTagLexicon, useTagLexicon } from "../tag-lexicon.ts";
 import { downloadBlob, getVaultMeta, listVault, putVaultMeta } from "./vault.ts";
@@ -26,45 +26,59 @@ import { rememberVaultKey, useVaultIndex } from "./vault-index.ts";
 import { listServerVault, pushVaultMetaToServer } from "./vault-sync.ts";
 import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "../view-history.ts";
 
-/** 设置段采集白名单。导出仅供测试断言字段齐全（结构性列表漏采事故的回归锁）。 */
+/**
+ * 设置段采集白名单（「结构性列表漏采事故」回归锁，smartFolders / watchArtists /
+ * tagAliases / collections / X 三段同款陷阱位）：漏采 = 推不进同步段 + 备份文件，
+ * 拉取侧 parse 的空默认值还会把本地整份抹掉。测试交叉断言本清单与 store 的
+ * SETTINGS_PERSIST_FIELDS、backup 的 BACKUP_SETTINGS_FIELDS 一致。
+ * 注意与那两处的有意差异：queueConcurrency 不进同步段（每台设备自己的并发），
+ * lastBackupAt 只留本机（备份提醒不跨设备）。
+ */
+export const SNAPSHOT_SETTINGS_FIELDS = [
+  "pixivCookie",
+  "fanboxCookie",
+  "danbooruLogin",
+  "danbooruApiKey",
+  "safeModeBySite",
+  "hideAi",
+  "downloadOriginal",
+  "vaultMirrorFolder",
+  "downloadToFolder",
+  "pathPreset",
+  "pathTemplate",
+  "folderLabel",
+  "tab",
+  "searchEngine",
+  "saucenaoApiKey",
+  "recents",
+  "savedTags",
+  "authorAliases",
+  // 标签别名（标签整理）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+  "tagAliases",
+  // 结构性列表：曾长期漏在这里——推不进同步段/备份文件，拉取侧还会用空默认值清掉本地
+  "smartFolders",
+  "watchArtists",
+  "watchLimit",
+  // 标签订阅（v14）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+  "watchTags",
+  // 手工合集（v15）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
+  "collections",
+  // X 账号关联（v16）：xCookie / xAssociations / xGraphQLQueryIds 同款陷阱位
+  "xCookie",
+  "xAssociations",
+  "xGraphQLQueryIds",
+  "accounts",
+  "activeAccountId",
+  "theme",
+  "appearance",
+  "uiStyle",
+  "onboarded",
+] as const satisfies readonly (keyof SettingsState)[];
+
+/** 设置段采集：按白名单键清单从 store 取值再过 parseBackupSettings 清洗。导出仅供测试断言字段齐全。 */
 export function snapshotSettings(): BackupSettings {
-  const s = useSettings.getState();
-  return parseBackupSettings({
-    pixivCookie: s.pixivCookie,
-    fanboxCookie: s.fanboxCookie,
-    danbooruLogin: s.danbooruLogin,
-    danbooruApiKey: s.danbooruApiKey,
-    safeModeBySite: s.safeModeBySite,
-    hideAi: s.hideAi,
-    downloadOriginal: s.downloadOriginal,
-    vaultMirrorFolder: s.vaultMirrorFolder,
-    downloadToFolder: s.downloadToFolder,
-    pathPreset: s.pathPreset,
-    pathTemplate: s.pathTemplate,
-    folderLabel: s.folderLabel,
-    tab: s.tab,
-    searchEngine: s.searchEngine,
-    saucenaoApiKey: s.saucenaoApiKey,
-    recents: s.recents,
-    savedTags: s.savedTags,
-    authorAliases: s.authorAliases,
-    // 标签别名（标签整理）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
-    tagAliases: s.tagAliases,
-    // 结构性列表：曾长期漏在这里——推不进同步段/备份文件，拉取侧还会用空默认值清掉本地
-    smartFolders: s.smartFolders,
-    watchArtists: s.watchArtists,
-    watchLimit: s.watchLimit,
-    // 标签订阅（v14）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
-    watchTags: s.watchTags,
-    // 手工合集（v15）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
-    collections: s.collections,
-    accounts: s.accounts,
-    activeAccountId: s.activeAccountId,
-    theme: s.theme,
-    appearance: s.appearance,
-    uiStyle: s.uiStyle,
-    onboarded: s.onboarded,
-  });
+  const s = useSettings.getState() as unknown as Record<string, unknown>;
+  return parseBackupSettings(Object.fromEntries(SNAPSHOT_SETTINGS_FIELDS.map((k) => [k, s[k]])));
 }
 
 async function readProxyUrl(): Promise<string> {
@@ -138,6 +152,26 @@ export async function applySegment(
     if (!hasField("collections") && local.collections.length > 0) settings.collections = local.collections;
     if (!hasField("tagAliases") && Object.keys(local.tagAliases).length > 0) settings.tagAliases = local.tagAliases;
     if (!hasField("authorAliases") && Object.keys(local.authorAliases).length > 0) settings.authorAliases = local.authorAliases;
+    // X 设置段（v16）：旧远端载荷不含这三字段，parse 默认值（""/{}/{}）会把本地清空
+    if (!hasField("xAssociations") && Object.keys(local.xAssociations).length > 0) settings.xAssociations = local.xAssociations;
+    if (!hasField("xGraphQLQueryIds") && Object.keys(local.xGraphQLQueryIds).length > 0) {
+      settings.xGraphQLQueryIds = local.xGraphQLQueryIds;
+    }
+    if (!hasField("xCookie") && local.xCookie) settings.xCookie = local.xCookie;
+    // 升级窗口的账号级 X Cookie：远端整组账号里一个 xCookie 键都没有（<v16 推的档）
+    // 时，按账号 id 保留本地值——accounts 是整组替换，不并会把顶层守卫保住的
+    // xCookie 又经账号抹掉。远端账号带了 xCookie 键（含显式空串 = 用户真清了）则照用远端。
+    const rawAccounts = Array.isArray(raw.accounts) ? raw.accounts : [];
+    const remoteHasAccountX = rawAccounts.some(
+      (rec) => rec != null && typeof rec === "object" && Object.prototype.hasOwnProperty.call(rec, "xCookie"),
+    );
+    if (!remoteHasAccountX) {
+      const localById = new Map(local.accounts.map((a) => [a.id, a]));
+      settings.accounts = settings.accounts.map((a) => ({
+        ...a,
+        xCookie: localById.get(a.id)?.xCookie ?? "",
+      }));
+    }
     useSettings.setState({ ...settings });
     await useSettings.getState().syncSessions();
     if (typeof seg.proxyUrl === "string" && seg.proxyUrl) {

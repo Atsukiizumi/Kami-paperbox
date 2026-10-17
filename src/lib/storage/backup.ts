@@ -11,6 +11,8 @@ import { parseAuthorAliases } from "../author-name.ts";
 import { parseTagAliases } from "../vault-tag-alias.ts";
 import { asRecordOrNull as asRecord } from "../parse.ts";
 import { fanboxSessionFrom, sanitizePixivCookie } from "../sync/browser-login.ts";
+import { parseXAssociations, parseXQueryIdOverrides, sanitizeXCookie } from "../x-settings.ts";
+import type { XAssociation, XQueryIdKey } from "../types.ts";
 import { DEFAULT_PATH_TEMPLATE, parsePathPreset, templateForPreset, type PathPreset } from "./download-path.ts";
 import { parseProxyUrl } from "../proxy-url.ts";
 import { clampQueueConcurrency } from "../queue-retry.ts";
@@ -43,6 +45,8 @@ export const BACKUP_FORMAT_V2 = "kami-paperbox-backup-v2";
 export type BackupSettings = {
   pixivCookie: string;
   fanboxCookie: string;
+  /** X（Twitter）会话 Cookie（auth_token=…; ct0=…，规范化形态）。v16 起随设置段同步。 */
+  xCookie: string;
   danbooruLogin: string;
   danbooruApiKey: string;
   /** 每站点安全模式（v13 起替代全局 safeMode；旧备份的 safeMode 广播到五站）。 */
@@ -71,6 +75,10 @@ export type BackupSettings = {
   watchTags: WatchTag[];
   /** 手工合集（v15 起随设置段同步）。 */
   collections: Collection[];
+  /** 画师 ↔ X 账号关联（键 = authorKey "pixiv:{authorId}"，v16 起随设置段同步）。 */
+  xAssociations: Record<string, XAssociation>;
+  /** X GraphQL queryId 覆盖（X 前端发版轮换后失效时才需填，v16 起随设置段同步）。 */
+  xGraphQLQueryIds: Partial<Record<XQueryIdKey, string>>;
   accounts: Account[];
   activeAccountId: string | null;
   theme: ThemeId;
@@ -78,6 +86,49 @@ export type BackupSettings = {
   uiStyle: UiStyle;
   onboarded: boolean;
 };
+
+/**
+ * BackupSettings 键清单（「结构性列表漏采事故」回归锁）：与 store 的
+ * SETTINGS_PERSIST_FIELDS、backup-client 的 SNAPSHOT_SETTINGS_FIELDS 三处
+ * 交叉断言（backup.test / backup-client.test）。新增设置段必须三处同步。
+ * 测试断言本清单与 parseBackupSettings({}) 的输出键一致，防止此处手抄漂移。
+ */
+export const BACKUP_SETTINGS_FIELDS: readonly string[] = [
+  "pixivCookie",
+  "fanboxCookie",
+  "xCookie",
+  "danbooruLogin",
+  "danbooruApiKey",
+  "safeModeBySite",
+  "hideAi",
+  "downloadOriginal",
+  "queueConcurrency",
+  "vaultMirrorFolder",
+  "downloadToFolder",
+  "pathPreset",
+  "pathTemplate",
+  "folderLabel",
+  "tab",
+  "searchEngine",
+  "saucenaoApiKey",
+  "recents",
+  "savedTags",
+  "smartFolders",
+  "authorAliases",
+  "tagAliases",
+  "watchArtists",
+  "watchLimit",
+  "watchTags",
+  "collections",
+  "xAssociations",
+  "xGraphQLQueryIds",
+  "accounts",
+  "activeAccountId",
+  "theme",
+  "appearance",
+  "uiStyle",
+  "onboarded",
+];
 
 export type BackupHistory = {
   items: HistoryEntry[];
@@ -145,6 +196,8 @@ function parseAccounts(raw: unknown): Account[] {
       name: typeof rec.name === "string" && rec.name.trim() ? rec.name.trim() : "未命名",
       pixivCookie,
       fanboxCookie,
+      // v16 前的旧备份账号没有 xCookie；sanitize 顺带把整段 DevTools 粘贴收敛成两字段规范形态
+      xCookie: sanitizeXCookie(typeof rec.xCookie === "string" ? rec.xCookie : ""),
       pixivProfile: pixivCookie ? parseProfile(rec.pixivProfile) : null,
       fanboxProfile: fanboxCookie ? parseProfile(rec.fanboxProfile) : null,
     });
@@ -196,6 +249,9 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
   return {
     pixivCookie: cookies.pixivCookie,
     fanboxCookie: cookies.fanboxCookie,
+    // v16：X 三段宽松解析（类型不对给默认值）；旧备份缺字段补 ""/{}/{}，
+    // 旧远端载荷不清空本地由 backup-client 的 hasField 守卫负责
+    xCookie: sanitizeXCookie(typeof p.xCookie === "string" ? p.xCookie : ""),
     // v13：新备份带 safeModeBySite；旧备份只有全局 safeMode，广播到五站，
     // 两者都缺回安全侧（与迁移同一套口径）
     safeModeBySite: parseSafeModeBySite(p.safeModeBySite, p.safeMode !== false),
@@ -221,6 +277,8 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     watchLimit: clampWatchLimit(p.watchLimit),
     watchTags: parseWatchTags(p.watchTags),
     collections: parseCollections(p.collections),
+    xAssociations: parseXAssociations(p.xAssociations),
+    xGraphQLQueryIds: parseXQueryIdOverrides(p.xGraphQLQueryIds),
     accounts: legacy.accounts,
     activeAccountId: legacy.activeAccountId,
     theme: parseThemeId(p.theme),

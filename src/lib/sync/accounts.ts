@@ -12,11 +12,18 @@ export type Account = {
   name: string;
   pixivCookie: string;
   fanboxCookie: string;
+  /** X（Twitter）会话 Cookie（auth_token=…; ct0=…）。画师 X 预览的时间线接口用，随账号切换。 */
+  xCookie: string;
   pixivProfile?: SiteProfile | null;
   fanboxProfile?: SiteProfile | null;
 };
 
-export function createAccount(name: string, pixivCookie = "", fanboxCookie = ""): Account {
+export function createAccount(
+  name: string,
+  pixivCookie = "",
+  fanboxCookie = "",
+  xCookie = "",
+): Account {
   const id =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -26,6 +33,7 @@ export function createAccount(name: string, pixivCookie = "", fanboxCookie = "")
     name: name.trim() || "未命名",
     pixivCookie: pixivCookie.trim(),
     fanboxCookie: fanboxCookie.trim(),
+    xCookie: xCookie.trim(),
     pixivProfile: null,
     fanboxProfile: null,
   };
@@ -34,11 +42,12 @@ export function createAccount(name: string, pixivCookie = "", fanboxCookie = "")
 export function cookiesOf(
   accounts: Account[],
   activeId: string | null,
-): { pixivCookie: string; fanboxCookie: string } {
+): { pixivCookie: string; fanboxCookie: string; xCookie: string } {
   const acc = accounts.find((a) => a.id === activeId);
   return {
     pixivCookie: acc?.pixivCookie ?? "",
     fanboxCookie: acc?.fanboxCookie ?? "",
+    xCookie: acc?.xCookie ?? "",
   };
 }
 
@@ -73,6 +82,7 @@ export function accountLabel(account: Account | undefined): string {
   const bits: string[] = [];
   if (account.pixivCookie) bits.push("Pixiv");
   if (account.fanboxCookie) bits.push("FANBOX");
+  if (account.xCookie) bits.push("X");
   return bits.length ? `${account.name} · ${bits.join("/")}` : account.name;
 }
 

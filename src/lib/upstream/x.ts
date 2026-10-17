@@ -20,6 +20,22 @@ import { asNumber, asRecord, asString, UpstreamError, upstreamJson } from "./htt
 /** 相邻 X 上游调用的最小出口间隔（R6 保守节流）。导出供测试注入假时钟断言。 */
 export const X_MIN_INTERVAL_MS = 1500;
 
+/**
+ * 闸门间隔的运行时注入点：kami.config.json 的 throttle.xMinIntervalMs（dispatch
+ * 侧每次 X op 前刷新，对齐 throttle.server.ts 惯例）。默认 = X_MIN_INTERVAL_MS；
+ * 非法值回落默认。测试用完记得 setXMinIntervalMs(X_MIN_INTERVAL_MS) 复位。
+ */
+let xMinIntervalMs = X_MIN_INTERVAL_MS;
+
+export function setXMinIntervalMs(ms: number): void {
+  xMinIntervalMs = Number.isFinite(ms) && ms > 0 ? ms : X_MIN_INTERVAL_MS;
+}
+
+/** 测试观测当前闸门间隔（生产不引用；M4 配置注入接线的断言用）。 */
+export function xGateIntervalForTest(): number {
+  return xMinIntervalMs;
+}
+
 /** UserMedia 单页条数（M0 实证变量形态用 20）。 */
 const X_PAGE_COUNT = 20;
 
@@ -152,7 +168,7 @@ let guestTokenCache: Promise<string> | null = null;
 
 /** POST api.x.com/1.1/guest/activate.json（仅 Bearer，无 Cookie）换 guest token。 */
 async function activateGuestToken(): Promise<string> {
-  const json = await runExclusive(moduleGate, defaultClock, X_MIN_INTERVAL_MS, () =>
+  const json = await runExclusive(moduleGate, defaultClock, xMinIntervalMs, () =>
     upstreamJson("https://api.x.com/1.1/guest/activate.json", {
       origin: "x",
       method: "POST",
@@ -248,7 +264,7 @@ async function xGraphQL(args: {
   session: XSession | null;
 }): Promise<unknown> {
   const call = (guestToken?: string) =>
-    runExclusive(moduleGate, defaultClock, X_MIN_INTERVAL_MS, () =>
+    runExclusive(moduleGate, defaultClock, xMinIntervalMs, () =>
       xGraphQLOnce({ ...args, guestToken }),
     );
   if (args.session) return call();

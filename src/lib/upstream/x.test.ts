@@ -19,6 +19,8 @@ import {
   parseXCookie,
   resolveXQueryIds,
   runExclusive,
+  setXMinIntervalMs,
+  xGateIntervalForTest,
   xPbsVariant,
   xUserMedia,
   type XClock,
@@ -273,6 +275,28 @@ test("闸门不毒化：失败任务不挡后续排队；首个任务不空等",
     ran = true;
   });
   assert.equal(ran, true);
+});
+
+test("setXMinIntervalMs：配置注入生效（kami.config.json 接线），非法值回落默认", async () => {
+  const { clock } = fakeClock();
+  const gate = newXGate();
+  setXMinIntervalMs(3000);
+  try {
+    const stamps: number[] = [];
+    const task = () =>
+      runExclusive(gate, clock, xGateIntervalForTest(), async () => {
+        stamps.push(clock.now());
+      });
+    await task();
+    await task();
+    // 第二个任务的出口要等 3000ms 间隔（注入值），不是默认 1500
+    assert.equal(stamps[1], 3000);
+    // 非法注入回落内置默认
+    setXMinIntervalMs(Number.NaN);
+    assert.equal(xGateIntervalForTest(), X_MIN_INTERVAL_MS);
+  } finally {
+    setXMinIntervalMs(X_MIN_INTERVAL_MS); // 复位，别污染其他测试
+  }
 });
 
 // ── queryId 覆盖 / Cookie 解析 / 入口前置校验 ────────────────────────────────
