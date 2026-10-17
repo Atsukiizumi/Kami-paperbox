@@ -217,20 +217,45 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 
 ---
 
-## 6. 请求怎么出得去
+## 6. X（Twitter）
+
+X 是第六个数据源，但**不是浏览站**——入口挂画师页（pixiv 主页「外部リンク」自动发现 → 「X 关联」卡 → `/x/{handle}` 预览）。认证同 Pixiv 一条线：**用户自己的网页会话 Cookie**（`auth_token=…; ct0=…`，设置页粘贴），不碰账号密码。
+
+接口走 web GraphQL（2026-10 实测基线，queryId 随 X 前端发版轮换）：
+
+| 用途 | 端点 | 认证 |
+| --- | --- | --- |
+| handle → userId | `GET https://x.com/i/api/graphql/{qid}/UserByScreenName` | guest 可 / Cookie 可 |
+| 媒体时间线 | `…/UserMedia`（只含用户自发的媒体推——转发、纯文字天然不进） | **必须 Cookie**（guest 404） |
+| 单推回源（队列下载） | `…/TweetResultByRestId` | guest 可 / Cookie 可 |
+
+要点：
+
+1. **variables-only**：query string 只带 `variables=<urlencoded json>`，**不需要 features map**（旧社区方案最脆的一块，实测可整个去掉）。注意 userId 无效时不报错而是静默 `{"data":{"user":{}}}`，别误判成 features 问题。
+2. 头三件套：公共 web Bearer（多年未变）+ Cookie + `x-csrf-token: {ct0 值}`——**GET 也要 csrf**，缺了 403 code 353。
+3. guest 通道：`POST https://api.x.com/1.1/guest/activate.json`（仅 Bearer）换 `x-guest-token` 头——只能查用户与单推，拉不了时间线。
+4. 媒体免登录：`pbs.twimg.com/media/…?format=jpg&name=orig` 直链公开（白名单已加 `pbs.twimg.com`；`video.twimg.com` 不在首版范围）。
+5. 风控：X 对账号级抓取敏感——上游调用全过模块级串行闸门（默认间隔 1.5s，`kami.config.json` 的 `throttle.xMinIntervalMs` 可调），429 文案对齐全局冷却正则；预览查询 10 分钟 staleTime，无任何自动轮询。
+6. queryId 轮换对策：内置 2026-10 实证默认值 + 设置页 X 高级区可覆盖三键——失效时按 [reverse-engineering.md](reverse-engineering.md) 第四场自己抓新的填。
+
+响应路径：媒体时间线 `data.user.result.timeline.timeline.instructions[].entries[]`（媒体格是 `TimelineTimelineModule`，推文在 `content.items[].item.itemContent.tweet_results.result`，一个模块≈一天聚合；游标 = `TimelineTimelineCursor.content.value` 回填 `variables.cursor`）；单推扁平 `data.tweetResult.result`。真实样本精简在 `tests/fixtures/upstream/x_*.json`。
+
+---
+
+## 7. 请求怎么出得去
 
 浏览器不能直接打 `www.pixiv.net/ajax/…`：跨域、Cookie、还有 pximg 的 Referer 检查。所以：
 
 1. 界面只跟纸匣自己的服务说话（`fetchSource` / `mutateSource` / `/api/whoami` / `/api/media`）。
 2. 服务端用 `outboundFetch`（必要时走 curl）带上 Cookie 和头，去打上游。
 3. 设置里的代理（`kami.config.json` / `KAMI_PROXY`）对上游和登录中转都生效。
-4. 媒体 URL 白名单：`pximg.net`、`fanbox.cc`、图站、搜图站。别的地址拒绝。
+4. 媒体 URL 白名单：`pximg.net`、`fanbox.cc`、图站、搜图站、`pbs.twimg.com`（X 静态图）。别的地址拒绝。
 
 登录中转是同一思路的另一面：官方页跑在后端的 Chrome 里，画面和点击中转到你眼前，Cookie 用 CDP 读，不经过「页面 JS 读 Cookie」这条走不通的路。
 
 ---
 
-## 7. 代码落点
+## 8. 代码落点
 
 > TD-01 拆分（2026-09-10）后，原 `upstream.server.ts` 单文件按站点分家；桶文件仍在，新代码直接进对应模块。
 
@@ -238,6 +263,7 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 | --- | --- |
 | `src/lib/upstream/pixiv.ts` | Pixiv 读接口、JSON → 卡片 / 作品 |
 | `src/lib/upstream/fanbox.ts` | FANBOX 读接口、游标分页 |
+| `src/lib/upstream/x.ts` | X 读接口（GraphQL 三端点 / 串行闸门 / guest 回退 / 媒体推展平） |
 | `src/lib/upstream/booru-sites.ts` | yande / konachan / danbooru 列表、榜单、合集、镜像回退 |
 | `src/lib/upstream/media.ts` | 图片代理拉取（Referer / Basic / 48MB 上限 / 单飞） |
 | `src/lib/upstream/dispatch.ts` | op → 站点函数分发 |
@@ -256,7 +282,7 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 
 ---
 
-## 8. 接口改了怎么办
+## 9. 接口改了怎么办
 
 Pixiv / FANBOX 会改字段名、加 Cloudflare、换登录回跳。没有订阅通知。发现列表空了或又 401 时：
 

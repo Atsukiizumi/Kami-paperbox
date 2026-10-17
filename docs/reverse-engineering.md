@@ -465,7 +465,7 @@ PY
 
 ---
 
-## 8. 三场实战
+## 8. 四场实战
 
 ### 8.1 日榜：同一 URL 加 `format=json`
 
@@ -520,6 +520,28 @@ curl -sS -A "Mozilla/5.0 …" \
 ```
 
 动态列表同理：`https://api.fanbox.cc/post.listHome?limit=10`。
+
+### 8.4 X（Twitter）：旧客户端 main.js 抠 queryId 表 + variables-only 重放
+
+现象：X 按账号 / UA 分流两套前端——**新 x-web**（rolldown 分包，每个 GraphQL 操作一个 `assets/<Op>.graphql-<hash>.js` chunk，Relay `params.id` 就是 queryId）和**旧 responsive-web**（webpack，queryId 表在 `main.<hash>.js`）。登录态浏览器常收旧版，未登录常收新版。
+动作：
+
+1. 登录态页面拿到 `main.<hash>.js` 的 URL（DevTools Network 面板，或控制台 `[...document.scripts].map(s=>s.src)`）。
+2. 整文件拉下来，正则一把抠全表（本 build 104 个操作）：
+
+   ```js
+   [...text.matchAll(/\{queryId:"([^"]+)",operationName:"([^"]+)",operationType:"([^"]+)"/g)]
+   ```
+
+3. **variables-only 重放**：`GET https://x.com/i/api/graphql/{qid}/{Op}?variables=<urlencoded json>`，头带公共 web Bearer + Cookie + `x-csrf-token`（= ct0 值，**GET 也要**）。缺什么变量，422 GRAPHQL_VALIDATION_FAILED 会点名（如 `path:["variable","focalTweetId"]`）——让 API 自己教你怎么调。
+
+结果：UserMedia / TweetResultByRestId / UserByScreenName 全通，且**不带 features map 也 200**（旧社区方案的大包袱实测可弃，见 upstream.md §6）。
+坑：
+
+- 网页版 performance 资源表被清空、时间线分页用模块内捕获的原始 fetch——页面挂 fetch 钩子拦不到分页流量；但 **SPA 路由 loader（bio 文字链接跳转）走 window.fetch**，钩子能吃到完整 URL。
+- userId 无效 → 静默 `{"data":{"user":{}}}`，不是 features 问题。
+- 缺 csrf 头 → 403 code 353「requires a matching csrf cookie and header」。
+- guest 通道（`POST api.x.com/1.1/guest/activate.json` 换 `x-guest-token`）只能查用户和单推，时间线 404。
 
 ---
 
