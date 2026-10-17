@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CLEAN_BATCH_LIMIT,
+  CLEAN_MONTH_MS,
+  cleanupCandidates,
   filterByYear,
   healthStats,
   hourHistogram,
@@ -18,6 +21,7 @@ import {
   weekdayHistogram,
   weekdayName,
 } from "./vault-profile.ts";
+import type { HistoryEntry } from "../view-history.ts";
 import type { VaultMeta } from "../types.ts";
 
 function item(over: Partial<VaultMeta> & Pick<VaultMeta, "key" | "title" | "author">): VaultMeta {
@@ -436,6 +440,128 @@ test("healthStats：replaced 只认字面 true，undefined / false 都不进 rep
     item({ key: "b", title: "b", author: "x", hasFile: true, replaced: false }),
   ];
   assert.equal(healthStats(rows).replaced, 0);
+});
+
+// ── 清理向导命中列表 cleanupCandidates（K，10-17-slideshow-stale-clean）────────
+
+const DAY = 86_400_000;
+const NOW = new Date(2026, 9, 17, 12, 0).getTime();
+
+function histEntry(source: VaultMeta["source"], id: string, viewedAt: number): HistoryEntry {
+  return { source, id, title: `t-${id}`, author: "画师", authorId: "1", thumb: "", pageCount: 1, viewedAt };
+}
+
+test("cleanupCandidates：未读维度单开——200 天前收 N=3/6 命中 N=12 不命中；100 天前只命中 N=3", () => {
+  const all = [
+    item({ key: "pixiv:200", title: "a", author: "x", savedAt: NOW - 200 * DAY }),
+    item({ key: "pixiv:100", title: "b", author: "x", savedAt: NOW - 100 * DAY }),
+    item({ key: "pixiv:fresh", title: "c", author: "x", savedAt: NOW - 10 * DAY }),
+  ];
+  assert.deepEqual(
+    cleanupCandidates(all, [], { unreadMonths: 3 }, NOW).map((c) => c.item.key),
+    ["pixiv:100", "pixiv:200"], // 默认 savedAt 降序：最近收藏在前
+  );
+  assert.deepEqual(
+    cleanupCandidates(all, [], { unreadMonths: 6 }, NOW).map((c) => c.item.key),
+    ["pixiv:200"], // 200 ≥ 6×30 命中，100 < 180 不命中
+  );
+  assert.deepEqual(cleanupCandidates(all, [], { unreadMonths: 12 }, NOW), [], "200 < 12×30=360，不命中");
+});
+
+test("cleanupCandidates：replaced 维度单开——只认字面 true（healthStats 同字面）", () => {
+  const rows = [
+    item({ key: "pixiv:1", title: "a", author: "x", replaced: true }),
+    item({ key: "pixiv:2", title: "b", author: "x" }),
+    item({ key: "pixiv:3", title: "c", author: "x", replaced: false }),
+  ];
+  assert.deepEqual(
+    cleanupCandidates(rows, [], { replaced: true }, NOW).map((c) => c.item.key),
+    ["pixiv:1"],
+  );
+});
+
+test("cleanupCandidates：缺标记维度单开——三字段全 undefined 命中，显式 0/'' 是「确认没有」不算", () => {
+  const rows = [
+    item({ key: "pixiv:missing", title: "a", author: "x" }), // 三字段全 undefined
+    item({ key: "pixiv:zero", title: "b", author: "x", aiType: 0, xRestrict: 0, rating: "" }),
+    item({ key: "pixiv:half", title: "c", author: "x", aiType: 0 }), // 一字段有值就不算缺
+  ];
+  assert.deepEqual(
+    cleanupCandidates(rows, [], { missingFlags: true }, NOW).map((c) => c.item.key),
+    ["pixiv:missing"],
+  );
+});
+
+test("cleanupCandidates：组合维度取交集——未读 ∩ replaced，只命中两者都满足的", () => {
+  const rows = [
+    item({ key: "pixiv:both", title: "a", author: "x", savedAt: NOW - 200 * DAY, replaced: true }),
+    item({ key: "pixiv:replaced-fresh", title: "b", author: "x", savedAt: NOW - 10 * DAY, replaced: true }),
+    item({ key: "pixiv:idle-only", title: "c", author: "x", savedAt: NOW - 200 * DAY }),
+  ];
+  assert.deepEqual(
+    cleanupCandidates(rows, [], { unreadMonths: 3, replaced: true }, NOW).map((c) => c.item.key),
+    ["pixiv:both"],
+  );
+});
+
+test("cleanupCandidates：30 天月边界——anchor 恰好 89/90/91 天前对 N=3 → 不命中/命中/命中", () => {
+  assert.equal(CLEAN_MONTH_MS, 30 * DAY);
+  const at = (days: number) => [item({ key: `pixiv:${days}`, title: "a", author: "x", savedAt: NOW - days * DAY })];
+  assert.equal(cleanupCandidates(at(89), [], { unreadMonths: 3 }, NOW).length, 0, "89 < 90 不命中");
+  assert.equal(cleanupCandidates(at(90), [], { unreadMonths: 3 }, NOW).length, 1, "恰好 90 = 3×30 命中（≥）");
+  assert.equal(cleanupCandidates(at(91), [], { unreadMonths: 3 }, NOW).length, 1);
+});
+
+test("cleanupCandidates：viewedAt 语义——收藏后打开过从 viewedAt 起算；收藏前看过当未打开", () => {
+  const saved = NOW - 200 * DAY;
+  const openedRecently = item({ key: "pixiv:opened", title: "a", author: "x", savedAt: saved, replaced: true });
+  const openedBeforeSave = item({ key: "pixiv:before", title: "b", author: "x", savedAt: saved });
+  // 收藏后 10 天前打开过：anchor = viewedAt → 不满 3 个月，未读维度不入列；lastViewedAt 透传
+  assert.deepEqual(
+    cleanupCandidates([openedRecently], [histEntry("pixiv", "opened", NOW - 10 * DAY)], { unreadMonths: 3 }, NOW),
+    [],
+    "从 viewedAt 起算 10 天 < 3 月",
+  );
+  const withSeen = cleanupCandidates(
+    [openedRecently],
+    [histEntry("pixiv", "opened", NOW - 10 * DAY)],
+    { replaced: true },
+    NOW,
+  );
+  assert.equal(withSeen[0]?.lastViewedAt, NOW - 10 * DAY, "窗内条目透传 lastViewedAt（预览行「最后查看」用）");
+  assert.equal(withSeen[0]?.idleMonths, 0, "10 天未满 1 个月 → 常在看");
+  // 收藏前看过（viewedAt < savedAt）：当未打开，anchor = savedAt → 命中且不出 lastViewedAt
+  const hit = cleanupCandidates(
+    [openedBeforeSave],
+    [histEntry("pixiv", "before", saved - DAY)],
+    { unreadMonths: 3 },
+    NOW,
+  );
+  assert.deepEqual(hit.map((c) => c.item.key), ["pixiv:before"]);
+  assert.equal(hit[0]?.lastViewedAt, undefined, "收藏前看过不算「最后查看」（当未打开）");
+});
+
+test("cleanupCandidates：排序——sortByBytes 开 bytes 降序（同 bytes 按 key 升序），关 savedAt 降序", () => {
+  const rows = [
+    item({ key: "pixiv:b", title: "b", author: "x", savedAt: NOW - 2 * DAY, bytes: 300 }),
+    item({ key: "pixiv:a", title: "a", author: "x", savedAt: NOW - 1 * DAY, bytes: 300 }),
+    item({ key: "pixiv:c", title: "c", author: "x", savedAt: NOW - 3 * DAY, bytes: 500 }),
+  ];
+  assert.deepEqual(
+    cleanupCandidates(rows, [], { missingFlags: true, sortByBytes: true }, NOW).map((c) => c.item.key),
+    ["pixiv:c", "pixiv:a", "pixiv:b"], // 500 最大在前；同 300 按 key 升序
+  );
+  assert.deepEqual(
+    cleanupCandidates(rows, [], { missingFlags: true }, NOW).map((c) => c.item.key),
+    ["pixiv:a", "pixiv:b", "pixiv:c"], // savedAt 降序（listVault 默认序）
+  );
+});
+
+test("cleanupCandidates：三个过滤维度全不勾 → 空数组（排序开关不算过滤维度）；截断不藏在纯函数里", () => {
+  assert.equal(CLEAN_BATCH_LIMIT, 200);
+  const rows = [item({ key: "pixiv:1", title: "a", author: "x", replaced: true })];
+  assert.deepEqual(cleanupCandidates(rows, [], {}, NOW), []);
+  assert.deepEqual(cleanupCandidates(rows, [], { sortByBytes: true }, NOW), []);
 });
 
 // ── 口味变迁（R）────────────────────────────────────────────────────────────

@@ -39,6 +39,7 @@ import { deleteVaultWork, getVaultBlob, listVault, putVaultMeta, type VaultMeta 
 import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
+import { VaultCleanWizard } from "@/components/vault-clean";
 import { VaultCrossSource } from "@/components/vault-cross-source";
 import { VaultTimeline } from "@/components/vault-timeline";
 import { VaultFlipDialog } from "@/components/vault-flip";
@@ -73,6 +74,8 @@ function VaultPageInner() {
    */
   const [filter, setFilter] = useState<VaultFilterState>(EMPTY_VAULT_FILTER);
   const [dedupOpen, setDedupOpen] = useState(false);
+  // 清理向导（K）：与查重同款的开合态，分区渲染在 VaultDedup 同位
+  const [cleanOpen, setCleanOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
@@ -543,6 +546,9 @@ function VaultPageInner() {
             <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setDedupOpen((v) => !v)}>
               {dedupOpen ? "收起查重" : "查重"}
             </Button>
+            <Button size="sm" variant="ghost" onClick={() => setCleanOpen((v) => !v)}>
+              {cleanOpen ? "收起清理" : "清理向导"}
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -592,6 +598,18 @@ function VaultPageInner() {
       {dedupOpen ? (
         <VaultDedup
           items={all}
+          onChanged={async () => {
+            await refresh();
+            void refreshTrash();
+          }}
+        />
+      ) : null}
+
+      {/* 清理向导（K）：onChanged 与 VaultDedup 同一条刷新链——refresh 回填纸匣 + refreshTrash 回填纸篓计数 */}
+      {cleanOpen ? (
+        <VaultCleanWizard
+          items={all}
+          history={historyItems}
           onChanged={async () => {
             await refresh();
             void refreshTrash();
