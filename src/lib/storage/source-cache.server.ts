@@ -50,6 +50,12 @@ export function sourceCacheKey(input: FetchInput): string | null {
     case "pixivMyFollowing":
       // 追踪导入用：画师名单与 safe/hideAi 无关，按账号 + 页即可
       return hashKey({ op: input.op, page: input.page, uid });
+    case "pixivMyBookmarks":
+      // 收藏夹 items 是服务端按 safeMode/hideAi 过滤后的结果——key 缺这两维，
+      // 切过滤口径重开向导会命中旧口径缓存（30 分钟污染，续跑语义跟着错）。
+      // 所以照 pixivFollowing 带全过滤维，不照 pixivMyFollowing（名单与过滤无关）；
+      // 向导重开从第 1 页重拉时，同口径 30 分钟内全部命中缓存、不打上游。
+      return hashKey({ op: input.op, page: input.page, restrict: input.restrict ?? "", safe, hideAi, uid });
     // PER-9：画师列表进缓存——大画师每翻一页都要全量重拉 profile/all（可达
     // 数万 id）+ 60 个批量 illusts，不缓存时翻页放大非常明显。
     case "pixivUser":

@@ -62,6 +62,9 @@ export function SearchPage() {
   async function run(target: File) {
     setLoading(true);
     setError("");
+    // P2-b：新一轮 run 先把上一轮的纸匣命中清回 unavailable——旧块先隐，
+    // 新结果回包再现，语义与初值一致；换图重搜期间不得残留旧命中
+    setVaultState({ state: "unavailable" });
     try {
       const prepared = await prepareSearchImage(target);
       const body = new FormData();

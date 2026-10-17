@@ -103,6 +103,9 @@ export function Home() {
   const watchTags = useSettings((s) => s.watchTags);
 
   useEffect(() => {
+    // P2-e：切站即弃未落地的 J/K 翻页焦点——否则新站 items 到位后，落地 effect
+    // 会把 head/tail 焦点错落到新站列表上
+    pendingKbLand.current = null;
     setSearchWord("");
     setQuery("");
     setSearchFilter(DEFAULT_PIXIV_SEARCH);
@@ -413,10 +416,10 @@ export function Home() {
       const key = e.key.toLowerCase();
       if (key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        applyKbStep(stepKbFocus("next", kbFocus, items, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
+        applyKbStep(stepKbFocus("next", kbFocus, { length: items.length }, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
       } else if (key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        applyKbStep(stepKbFocus("prev", kbFocus, items, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
+        applyKbStep(stepKbFocus("prev", kbFocus, { length: items.length }, { hasPrev: hasPrevPage, hasNext: hasNextPage }));
       } else if (key === "s") {
         if (kbFocus !== null) {
           e.preventDefault();
@@ -440,8 +443,9 @@ export function Home() {
     return () => window.removeEventListener("keydown", onKey);
     // P2-d：listPage / hasPrevPage / hasNextPage 必须在依赖里——等长页翻页时
     // items.length 不变、监听器不重挂，闭包会持旧 listPage 跳错页（#166 坑 1）。
-    // items 传数组本身（stepKbFocus 只读 length），依赖随之用 items 而非 length。
-  }, [canKeyboard, items, kbFocus, listPage, hasPrevPage, hasNextPage]);
+    // P2-c：stepKbFocus 只读 length，传 { length: items.length } 结构类型即可，
+    // 依赖随之用 items.length——数组身份每渲染都变，监听器不再每渲染重挂。
+  }, [canKeyboard, items.length, kbFocus, listPage, hasPrevPage, hasNextPage]);
 
   // P2-d：J/K 翻页后的焦点落地——新页 items 到位再落 head/tail（页尾落点用新页
   // 实际长度，最后一页可能不满 BROWSE_PAGE_SIZE），落完清 ref。新页未画出（items

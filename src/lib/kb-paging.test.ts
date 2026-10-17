@@ -37,3 +37,16 @@ test("空列表两方向都 noop", () => {
   assert.deepEqual(stepKbFocus("next", null, { length: 0 }, pager), { kind: "noop" });
   assert.deepEqual(stepKbFocus("prev", 0, { length: 0 }, pager), { kind: "noop" });
 });
+
+test("P2-c：{length} 形参与数组实参判定一致（结构类型用法不被改回数组）", () => {
+  const arr = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  for (const dir of ["next", "prev"] as const) {
+    for (const focus of [null, 0, 2]) {
+      assert.deepEqual(
+        stepKbFocus(dir, focus, { length: arr.length }, pager),
+        stepKbFocus(dir, focus, arr, pager),
+        `${dir}@${focus}：bare {length} 与数组实参同判`,
+      );
+    }
+  }
+});
