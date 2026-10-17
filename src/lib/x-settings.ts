@@ -52,6 +52,51 @@ function normalizeHandle(raw: unknown): string {
   return typeof raw === "string" ? raw.trim().replace(/^@/, "") : "";
 }
 
+/** X 保留路径词（小写比对）：镜像 upstream/pixiv.ts 的 X_RESERVED_TAIL_WORDS——
+ * x.com/intent、/share、/home 等是功能路径不是 handle，撞上即弃；两处一致性由
+ * x-link-card 组件测试的 URL 样本交叉断言锁住（同 X_DEFAULT_QUERY_IDS 防漂惯例）。 */
+const X_RESERVED_INPUT_WORDS = new Set([
+  "intent", "share", "home", "search", "hashtag", "explore", "settings",
+  "messages", "notifications", "i", "compose", "account", "login",
+  "signup", "sessions", "tos", "privacy", "personalization",
+]);
+
+function isValidXHandle(raw: string): boolean {
+  return HANDLE_RE.test(raw) && !X_RESERVED_INPUT_WORDS.has(raw.toLowerCase());
+}
+
+/**
+ * 手动录入框的 handle 三形态解析（M5 关联卡，客户端安全）：`@handle`（含全角
+ * ＠）、裸 `handle`、x.com / twitter.com 个人页整条 URL（可无协议、可带
+ * www / mobile 子域、可深链 /status/…、可带 ?query 与尾斜杠——统一取 host 后
+ * 第一段）。尾段按 X 规则校验（字母数字下划线、≤15 位、不撞保留路径词）；
+ * 非法输入（空 / 非法字符 / 超长 / 他站域名 URL）返回 undefined。
+ * 为什么不直接用 upstream/pixiv.ts 的 twitterHandleFromUrl：它住在 server 适配
+ * 器模块里（连带 http.ts → curl-fetch.server 的 node 依赖进不了客户端包），
+ * 这里等价重写并收紧一处——手动录入必须核验域名属 X/Twitter，防止把
+ * pixiv.net/users/123 之类他站 URL 的首段误当 handle 存进关联表。
+ */
+export function parseXHandleInput(raw: string): string | undefined {
+  const text = raw.trim();
+  if (!text) return undefined;
+  if (!text.includes("/")) {
+    const bare = text.replace(/^[@＠]/, "");
+    return isValidXHandle(bare) ? bare : undefined;
+  }
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase();
+  const onXSite =
+    host === "x.com" || host === "twitter.com" || host.endsWith(".x.com") || host.endsWith(".twitter.com");
+  if (!onXSite) return undefined;
+  const tail = url.pathname.split("/").filter(Boolean)[0] ?? "";
+  return isValidXHandle(tail) ? tail : undefined;
+}
+
 /**
  * 解析外部（旧档迁移 / 备份 / 同步段）来的关联表：键 = authorKey，值逐项校验
  * （handle 合法、origin 只认 auto/manual），坏条目丢弃、超限截取。
