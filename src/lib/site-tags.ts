@@ -9,7 +9,7 @@
 import type { Source } from "./types.ts";
 import { currentLexiconMap, translateBooruToken, untranslatedTokens } from "./tag-lexicon.ts";
 
-const SOURCES: readonly Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru"];
+const SOURCES: readonly Source[] = ["pixiv", "fanbox", "yande", "konachan", "danbooru", "x"];
 
 function isBooru(source: Source): boolean {
   return source === "yande" || source === "konachan" || source === "danbooru";
@@ -18,7 +18,7 @@ function isBooru(source: Source): boolean {
 export const MAX_SAVED_TAGS = 24;
 
 export function emptySavedTags(): Record<Source, string[]> {
-  return { pixiv: [], fanbox: [], yande: [], konachan: [], danbooru: [] };
+  return { pixiv: [], fanbox: [], yande: [], konachan: [], danbooru: [], x: [] };
 }
 
 export function parseSavedTags(raw: unknown): Record<Source, string[]> {
@@ -121,6 +121,8 @@ export function tagHint(source: Source): string {
       return "图站：空格拆成多个标签（并且）。标签里的空格写成下划线，例如 hatsune_miku。";
     case "danbooru":
       return "Danbooru：空格=并且。未登录最多两个标签（安全模式会占一个 rating）。";
+    case "x":
+      return "X：话题标签（#hashtag）取自推文本身，不从搜索框查。";
   }
 }
 
@@ -134,6 +136,8 @@ export function tagPlaceholder(source: Source): string {
     case "konachan":
     case "danbooru":
       return "多个标签用空格分开（空格写成 _ ），或粘贴作品 / 合集链接";
+    case "x":
+      return "X 预览从画师页的「X 关联」进入";
   }
 }
 

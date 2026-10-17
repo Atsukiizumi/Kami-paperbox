@@ -22,7 +22,7 @@ import {
   SquareArrowOutUpRight,
 } from "lucide-react";
 import type { WorkCard } from "@/lib/types";
-import { isBooru, workOriginUrl } from "@/lib/sites";
+import { isBooru, workOriginUrl, xHandleFromAuthor } from "@/lib/sites";
 import { stashImageForSearch } from "@/lib/find-similar";
 import { useTagLexicon } from "@/lib/tag-lexicon";
 import { canCopyImage, copyWorkImage } from "@/lib/copy-image";
@@ -67,7 +67,13 @@ export function CardMenu({
   const navigate = useNavigate();
 
   if (!pos || typeof document === "undefined") return null;
-  const origin = workOriginUrl(work.source, work.id, work.authorId);
+  // X 作品的 authorId 是 restId（身份键），原推链接要 handle——映射层把它藏在
+  // author「显示名@handle」尾巴里，这里取回；取不到 workOriginUrl 自退 intent 链。
+  const origin = workOriginUrl(
+    work.source,
+    work.id,
+    work.source === "x" ? (xHandleFromAuthor(work.author) ?? work.authorId) : work.authorId,
+  );
   // 找相似的（M2-3）：仅 booru/pixiv 且有封面图才出——fanbox 无预览、无图卡（hasFile=false
   // 的文件夹副本 thumb 为空串）天然排除；组件内自渲染，浏览卡/纸匣卡一处生效两处
   const canFindSimilar = (isBooru(work.source) || work.source === "pixiv") && Boolean(work.thumb);

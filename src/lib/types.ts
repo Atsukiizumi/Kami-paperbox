@@ -13,7 +13,8 @@ export type { UgoiraMeta } from "./ugoira-meta.ts";
 export type { PixivRankMode, PixivFeed } from "./pixiv-feed.ts";
 export type { BooruFeed } from "./booru.ts";
 
-export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru";
+/** x = X（Twitter）媒体推数据源：不是浏览站（SITE_LIST 不含），入口在画师页 X 关联。 */
+export type Source = "pixiv" | "fanbox" | "yande" | "konachan" | "danbooru" | "x";
 export type BooruSite = "yande" | "konachan" | "danbooru";
 
 export type TagSuggestItem = {
@@ -85,6 +86,8 @@ export type UserProfile = {
   following?: number;
   totalWorks: number;
   isFollowed?: boolean;
+  /** 画师档案里自报的社交外链（`?full=1` 富字段 / 主页 HTML 兜底）。仅存在时返回，旧缓存无感。 */
+  social?: { twitter?: string };
 };
 
 export type CreatorProfile = {
@@ -144,11 +147,21 @@ export type FetchOk =
       postCount: number;
       items: WorkCard[];
     }
-  | { op: "tagSuggest"; items: TagSuggestItem[] };
+  | { op: "tagSuggest"; items: TagSuggestItem[] }
+  | {
+      /** X 媒体时间线一页（原创媒体推）。user 随页带回（restId 供关联段、name/avatar 供顶栏）。 */
+      op: "xUserMedia";
+      items: WorkCard[];
+      nextCursor?: string;
+      user: { restId: string; name: string; avatar: string };
+    }
+  | { op: "xTweet"; work: WorkDetail };
 
 export type FetchInput = {
   pixivCookie?: string;
   fanboxCookie?: string;
+  /** X 会话 Cookie 原文（auth_token=…; ct0=…）。对齐 pixivCookie 惯例，只在服务端发出。 */
+  xCookie?: string;
   /** Danbooru 账号。带账号的 API 请求能免 Cloudflare 人机验证。 */
   danbooruLogin?: string;
   danbooruApiKey?: string;
@@ -177,6 +190,8 @@ export type FetchInput = {
   | { op: "booruPost"; site: BooruSite; id: string }
   | { op: "booruPool"; site: BooruSite; id: string }
   | { op: "tagSuggest"; source: Source; word: string }
+  | { op: "xUserMedia"; handle: string; cursor?: string }
+  | { op: "xTweet"; id: string }
 );
 
 export type SocialInput = {

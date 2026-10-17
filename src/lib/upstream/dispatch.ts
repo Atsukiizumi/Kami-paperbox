@@ -67,6 +67,10 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
       return booruPool(input.site, input.id, safe, booruAuth);
     case "tagSuggest":
       return tagSuggest(input.source, input.word, pixiv, booruAuth);
+    case "xUserMedia":
+    case "xTweet":
+      // M2（src/lib/upstream/x.ts）接真实现；先占住分支让 Source 联合的穷尽检查过。
+      throw new Error("x upstream: pending");
     default: {
       const _never: never = input;
       throw new Error(`未知操作: ${JSON.stringify(_never)}`);

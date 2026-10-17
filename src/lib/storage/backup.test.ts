@@ -21,7 +21,7 @@ function sampleSettings() {
     fanboxCookie: FAKE_SESSION,
     danbooruLogin: "demo",
     danbooruApiKey: "db-key",
-    safeModeBySite: { pixiv: false, fanbox: false, yande: false, konachan: false, danbooru: false },
+    safeModeBySite: { pixiv: false, fanbox: false, yande: false, konachan: false, danbooru: false, x: false },
     hideAi: true,
     downloadOriginal: true,
     vaultMirrorFolder: true,
@@ -39,6 +39,7 @@ function sampleSettings() {
       yande: ["landscape"],
       konachan: [],
       danbooru: [],
+      x: [],
     },
     accounts: [
       {
@@ -116,6 +117,7 @@ test("buildBackup round-trips settings, accounts, and vault records", () => {
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.equal(parsed.backup.vault[0]?.key, "pixiv:99");
   assert.equal(parsed.backup.vault[0]?.relativePath, "demo/99.jpg");
@@ -273,17 +275,18 @@ test("tagAliases 随备份往返（标签整理）；缺段补空、脏项与成
   );
 });
 
-test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，缺/脏回安全侧", () => {
-  // v13 新档：逐站点值原样保留
-  const perSite = { pixiv: true, fanbox: false, yande: true, konachan: false, danbooru: true };
+test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到全部站点，缺/脏回安全侧", () => {
+  // v13 新档：逐站点值原样保留（x 同格：X 时间线无服务端过滤，但记录位要保真）
+  const perSite = { pixiv: true, fanbox: false, yande: true, konachan: false, danbooru: true, x: true };
   assert.deepEqual(parseBackupSettings({ safeModeBySite: perSite }).safeModeBySite, perSite);
-  // v13 前旧备份：只有全局 safeMode → 广播到五站
+  // v13 前旧备份：只有全局 safeMode → 广播到全部站点（含 x，缺省回安全侧）
   assert.deepEqual(parseBackupSettings({ safeMode: false }).safeModeBySite, {
     pixiv: false,
     fanbox: false,
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.deepEqual(parseBackupSettings({ safeMode: true }).safeModeBySite, {
     pixiv: true,
@@ -291,6 +294,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
   // 新记录缺站点：用旧全局值兜底，两端都缺回安全侧
   assert.deepEqual(parseBackupSettings({ safeMode: false, safeModeBySite: { pixiv: true } }).safeModeBySite, {
@@ -299,6 +303,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: false,
     konachan: false,
     danbooru: false,
+    x: false,
   });
   assert.deepEqual(parseBackupSettings({}).safeModeBySite, {
     pixiv: true,
@@ -306,6 +311,7 @@ test("safeModeBySite：新档逐站往返，旧档 safeMode 广播到五站，�
     yande: true,
     konachan: true,
     danbooru: true,
+    x: true,
   });
   // 脏值当缺省
   assert.equal(parseBackupSettings({ safeModeBySite: { pixiv: "no" } }).safeModeBySite.pixiv, true);
