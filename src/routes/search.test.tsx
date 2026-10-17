@@ -11,7 +11,6 @@ import { registerHooks } from "node:module";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 // 组件链静态引入样式；node:test 不认 .css（card-menu.test 同款垫片）
