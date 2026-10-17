@@ -10,7 +10,8 @@
  *      .github/workflows/refresh-fixtures.yml 的 workflow_dispatch 里跑）。
  * 为什么：上游改版时 mapping.test.ts 最先红，真实快照给样本更新提供依据。
  *      脱敏是硬闸：响应头全弃、JSON 递归删凭据形键、URL 只留 origin+pathname；
- *      端点全部匿名——任何 Cookie / PHPSESSID / API key 都不允许进流水线。
+ *      端点默认匿名——凭据不允许落盘。唯一例外：收藏夹样本是登录端点，只在
+ *      KAMI_PIXIV_COOKIE 提供登录态时抓取（Cookie 只进请求头，响应体走同一脱敏闸）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -180,6 +181,31 @@ async function fetchPixivAjaxFixture(dir, rankingJson) {
 }
 
 /**
+ * 收藏夹样本（B1）：ajax/user/{uid}/illusts/bookmarks 是登录端点，匿名必 401——
+ * 只在 KAMI_PIXIV_COOKIE 提供登录态 PHPSESSID（裸值或 PHPSESSID= 前缀均可）时抓；
+ * 缺省跳过，mapping 测试回退内联样本。Cookie 只拼进请求头，不进 fixture。
+ * @param {string} dir
+ * @returns {Promise<boolean>}
+ */
+async function fetchPixivBookmarksFixture(dir) {
+  const value = (process.env.KAMI_PIXIV_COOKIE ?? "").trim().replace(/^PHPSESSID=/i, "");
+  const uid = /^(\d{1,12})_/.exec(value)?.[1];
+  if (!uid) {
+    console.warn("[fixtures] pixiv_my_bookmarks.json ✘ 跳过：未设 KAMI_PIXIV_COOKIE（登录端点，匿名抓不到）");
+    return false;
+  }
+  const url = `https://www.pixiv.net/ajax/user/${uid}/illusts/bookmarks?tag=&offset=0&limit=48&rest=show&lang=zh`;
+  return fetchAndWrite(dir, url, { ...PIXIV_HEADERS, Cookie: `PHPSESSID=${value}` }, "pixiv_my_bookmarks.json", (json) => {
+    // works 双形态都收（数组 / 按 illust id 键的对象），但空收藏不落盘——映射测试要非空样本
+    const rec = /** @type {{error?: unknown, body?: {works?: unknown}}} */ (json);
+    if (rec.error !== false || !rec.body?.works) return false;
+    return Array.isArray(rec.body.works)
+      ? rec.body.works.length > 0
+      : Object.keys(/** @type {Record<string, unknown>} */ (rec.body.works)).length > 0;
+  });
+}
+
+/**
  * 上次落盘的 ranking fixture（本次 ranking 失败时，ajax 候选仍能拿到 id）。
  * @param {string} dir
  */
@@ -233,8 +259,10 @@ async function main() {
   }
   const ajaxOk = await fetchPixivAjaxFixture(dir, rankingJson ?? readExistingRanking(dir));
   if (ajaxOk) ok += 1;
+  const bookmarksOk = await fetchPixivBookmarksFixture(dir);
+  if (bookmarksOk) ok += 1;
 
-  const total = endpoints.length + 1;
+  const total = endpoints.length + 2;
   console.log(`[fixtures] 完成：${ok}/${total} 个端点成样 → ${dir}`);
   if (ok === 0) {
     console.warn("[fixtures] 全部端点失败：网络/上游不可达，fixtures 保持缺省（测试走内联回退）");

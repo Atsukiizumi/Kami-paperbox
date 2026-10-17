@@ -59,6 +59,12 @@ export const fetchSchema = z.intersection(
       op: z.literal("pixivMyFollowing"),
       page: z.number().int().min(1).max(40),
     }),
+    // 63 页 × 48 ≈ 3000 张，收藏夹单批硬顶（向导 BOOKMARK_MAX_PAGES 同口径）
+    z.object({
+      op: z.literal("pixivMyBookmarks"),
+      page: z.number().int().min(1).max(63),
+      restrict: z.enum(["public", "private"]).optional(),
+    }),
     z.object({
       op: z.literal("pixivRelated"),
       id: z.string().regex(/^\d{1,12}$/),

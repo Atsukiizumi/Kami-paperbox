@@ -18,6 +18,7 @@ import {
 } from "../pixiv-feed.ts";
 import { buildPixivSearchUrl, parsePixivSearchFilter, type PixivSearchFilter } from "../pixiv-search.ts";
 import { pixivIdsNewestFirst, pixivPickupItems } from "../pixiv-profile.ts";
+import { pixivUserIdFromCookie } from "../sync/browser-login.ts";
 import type { FetchOk, UserProfile, WorkCard, WorkDetail, WorkPage } from "../types.ts";
 import { asBool, asNumber, asRecord, asString, upstreamJson } from "./http.ts";
 import { pixivRankingDateParam } from "../storage/ranking-archive.ts";
@@ -285,6 +286,64 @@ export async function pixivMyFollowing(
   );
   const { items, nextPage } = mapMyFollowing(json, offset);
   return { op: "pixivMyFollowing", items, nextPage };
+}
+
+/**
+ * 收藏夹响应 → 卡片（纯映射，可测，my-following.test.ts 同款样板）。
+ * works 双形态兼容：数组本体，或按 illust id 键的对象（回退端点 A
+ * /bookmarks/artworks 的已知形状）——Object.values 保插入序，同一解析层都吃。
+ */
+export function mapMyBookmarks(
+  json: unknown,
+  offset: number,
+  limit: number,
+  safeMode = true,
+  hideAi = false,
+): { items: WorkCard[]; nextPage: number | null; total: number } {
+  const root = asRecord(json);
+  if (root.error) throw new Error(asString(root.message, "收藏夹加载失败，请确认 Cookie 仍然有效"));
+  const body = asRecord(root.body);
+  const works = Array.isArray(body.works)
+    ? body.works
+    : body.works !== null && typeof body.works === "object"
+      ? Object.values(body.works)
+      : [];
+  const items: WorkCard[] = [];
+  for (const raw of works) {
+    const rec = asRecord(raw);
+    if (safeMode && nsfwPixiv(rec)) continue;
+    // bookmarkData.id 在 → mapPixivCard 内的 socialFromPixivIllust 已带上
+    // bookmarked（收藏夹来源必然已收藏，work-actions 红心态直接正确）
+    const card = mapPixivCard(rec);
+    if (keepPixivCard(card, hideAi)) items.push(card);
+  }
+  const total = asNumber(body.total, offset + works.length);
+  // 步进按实际条数（上游可能钳 limit），total 只用于终页判定；
+  // works 空 = 无条件终页（total 漂移保险），错判最坏多打一页空请求。
+  const nextPage = works.length === 0 || offset + works.length >= total ? null : Math.floor(offset / limit) + 2;
+  return { items, nextPage, total };
+}
+
+export async function pixivMyBookmarks(
+  page: number,
+  rest: "show" | "hide" = "show",
+  cookie?: string,
+  safeMode = true,
+  hideAi = false,
+): Promise<FetchOk> {
+  // 收藏夹导入用：自己的收藏分页（每页 48，63 页 ≈ 3000 张/批上限）。
+  // user_id 从 Cookie 提取（withPixivUserId 同源），不收客户端参数。
+  if (!cookie) throw new Error("需要登录 Pixiv 才能读收藏夹。");
+  const uid = pixivUserIdFromCookie(cookie);
+  if (!uid) throw new Error("需要登录 Pixiv 才能读收藏夹。");
+  const limit = 48;
+  const offset = (page - 1) * limit;
+  const json = await upstreamJson(
+    `https://www.pixiv.net/ajax/user/${uid}/illusts/bookmarks?tag=&offset=${offset}&limit=${limit}&rest=${rest}&lang=zh`,
+    { cookie, origin: "pixiv" },
+  );
+  const { items, nextPage, total } = mapMyBookmarks(json, offset, limit, safeMode, hideAi);
+  return { op: "pixivMyBookmarks", items, nextPage, total };
 }
 
 export async function pixivRelated(id: string, cookie?: string, safeMode = true, hideAi = false): Promise<FetchOk> {

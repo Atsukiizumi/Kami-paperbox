@@ -32,6 +32,7 @@ import { formatBytes } from "@/lib/utils";
 import { collectFolderExportFiles, exportVaultItem, previewFromFolder } from "@/lib/storage/persist-files";
 import { partitionVaultExport, zipWithFolderFiles } from "@/lib/storage/vault-export-plan";
 import { isBooru } from "@/lib/sites";
+import { isPixivLoggedInSession } from "@/lib/sync/browser-login";
 import { lexiconTokens } from "@/lib/tag-lexicon";
 import { applyTagAlias } from "@/lib/vault-tag-alias";
 import { useSettings } from "@/lib/store";
@@ -40,6 +41,7 @@ import { forgetVaultKey } from "@/lib/storage/vault-index";
 import { filterVaultItems, mergeVaultItems, vaultAuthorOptions, vaultTags, vaultTotals } from "@/lib/storage/vault-query";
 import { VaultDedup } from "@/components/vault-dedup";
 import { VaultCleanWizard } from "@/components/vault-clean";
+import { VaultBookmarkImport } from "@/components/vault-bookmark-import";
 import { VaultCrossSource } from "@/components/vault-cross-source";
 import { VaultTimeline } from "@/components/vault-timeline";
 import { VaultFlipDialog } from "@/components/vault-flip";
@@ -76,6 +78,9 @@ function VaultPageInner() {
   const [dedupOpen, setDedupOpen] = useState(false);
   // 清理向导（K）：与查重同款的开合态，分区渲染在 VaultDedup 同位
   const [cleanOpen, setCleanOpen] = useState(false);
+  // 收藏夹导入（B1-B5）：同款开合态；B5 未登录守卫在按钮层（垃圾 Cookie 也禁用，比空串判定严）
+  const [importOpen, setImportOpen] = useState(false);
+  const pixivCookie = useSettings((s) => s.pixivCookie);
   const [exporting, setExporting] = useState(false);
   const [ready, setReady] = useState(false);
   const [flipOpen, setFlipOpen] = useState(false);
@@ -552,6 +557,15 @@ function VaultPageInner() {
             <Button
               size="sm"
               variant="ghost"
+              disabled={!isPixivLoggedInSession(pixivCookie)}
+              title={isPixivLoggedInSession(pixivCookie) ? undefined : "先在设置里登录 Pixiv"}
+              onClick={() => setImportOpen((v) => !v)}
+            >
+              {importOpen ? "收起导入" : "导入收藏夹"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => {
                 // 回忆流（W）：互斥三连同款；纯本地视图，不包 crossData 条件（离线可达）
                 sel.exit();
@@ -614,6 +628,18 @@ function VaultPageInner() {
             await refresh();
             void refreshTrash();
           }}
+        />
+      ) : null}
+
+      {/* 收藏夹导入（B1-B5）：onChanged 与清理向导同一条刷新链；入队只动队列，refresh 顺带回填 */}
+      {importOpen ? (
+        <VaultBookmarkImport
+          inVaultKeys={vaultKeys}
+          onChanged={async () => {
+            await refresh();
+            void refreshTrash();
+          }}
+          onClose={() => setImportOpen(false)}
         />
       ) : null}
 

@@ -109,6 +109,7 @@ export type FetchOk =
   | { op: "pixivRecommend"; items: WorkCard[]; nextPage: number | null }
   | { op: "pixivFollowing"; items: WorkCard[]; nextPage: number | null }
   | { op: "pixivMyFollowing"; items: { id: string; name: string; avatar: string }[]; nextPage: number | null }
+  | { op: "pixivMyBookmarks"; items: WorkCard[]; nextPage: number | null; total: number }
   | { op: "pixivRelated"; items: WorkCard[] }
   | { op: "pixivIllust"; work: WorkDetail }
   | { op: "pixivUgoira"; ugoira: UgoiraMeta }
@@ -161,6 +162,8 @@ export type FetchInput = {
   | { op: "pixivRecommend" }
   | { op: "pixivFollowing"; page: number }
   | { op: "pixivMyFollowing"; page: number }
+  /** restrict 语义与 pixivBookmark 的 SocialInput 口径一致，映射上游 rest=show|hide。 */
+  | { op: "pixivMyBookmarks"; page: number; restrict?: "public" | "private" }
   | { op: "pixivRelated"; id: string }
   | { op: "pixivIllust"; id: string }
   | { op: "pixivUgoira"; id: string }
