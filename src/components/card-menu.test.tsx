@@ -13,6 +13,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { useState } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { WorkCard, WorkDetail } from "@/lib/types";
+import { useTagLexicon } from "@/lib/tag-lexicon";
 import type { CardMenuPos } from "./card-menu";
 
 // 组件链静态引入样式；node:test 不认 .css（与 card-caption.test 同款垫片）
@@ -49,6 +50,16 @@ function Harness({ work, inVault }: { work: WorkCard; inVault?: boolean }) {
   return (
     <AppRouterContext.Provider value={stubRouter as never}>
       <CardMenu work={work} pos={pos} inVault={inVault} onClose={() => setPos(null)} onQueue={() => {}} />
+    </AppRouterContext.Provider>
+  );
+}
+
+/** 快译（P2-d）：quickTag 挂上才出「添加翻译」项的挂载座。 */
+function QuickTagHarness() {
+  const [pos, setPos] = useState<CardMenuPos | null>({ x: 10, y: 10 });
+  return (
+    <AppRouterContext.Provider value={stubRouter as never}>
+      <CardMenu work={work({})} pos={pos} onClose={() => setPos(null)} onQueue={() => {}} quickTag="test_prompt_tag" />
     </AppRouterContext.Provider>
   );
 }
@@ -235,5 +246,42 @@ describe("CardMenu 复制 GIF / 新标签页打开", () => {
     } finally {
       proto.click = origClick;
     }
+  });
+
+  // ── 快译 prompt 取消路径（P2-d）：空 zh 在 upsertLexiconRow 是删译文语义，绝不能误调 ──
+
+  it("prompt 取消（null）→ 不调 setZh，词表无该行", async (t) => {
+    t.mock.method(window, "prompt", () => null);
+    useTagLexicon.setState({ rows: [] });
+    render(<QuickTagHarness />);
+    fireEvent.click(screen.getByRole("menuitem", { name: "添加翻译" }));
+    assert.equal(
+      useTagLexicon.getState().rows.find((row) => row.en === "test_prompt_tag"),
+      undefined,
+      "取消即无操作",
+    );
+  });
+
+  it("prompt 纯空白 → 不调 setZh（trim 后为空同删译文语义）", async (t) => {
+    t.mock.method(window, "prompt", () => "   ");
+    useTagLexicon.setState({ rows: [] });
+    render(<QuickTagHarness />);
+    fireEvent.click(screen.getByRole("menuitem", { name: "添加翻译" }));
+    assert.equal(
+      useTagLexicon.getState().rows.find((row) => row.en === "test_prompt_tag"),
+      undefined,
+      "空白同取消",
+    );
+  });
+
+  it("正向对照：prompt 返回译名 → setZh 落库（防桩口径错）", async (t) => {
+    t.mock.method(window, "prompt", () => "中文名");
+    useTagLexicon.setState({ rows: [] });
+    render(<QuickTagHarness />);
+    fireEvent.click(screen.getByRole("menuitem", { name: "添加翻译" }));
+    assert.deepEqual(
+      useTagLexicon.getState().rows.find((row) => row.en === "test_prompt_tag"),
+      { en: "test_prompt_tag", zh: "中文名" },
+    );
   });
 });
