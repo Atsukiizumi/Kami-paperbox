@@ -6,7 +6,10 @@
  * 为什么：预览和 Docker 没有桌面，弹不出 Chrome；页面 JS 又读不到 HttpOnly Cookie。
  *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工；
  *        X 等 `.x.com` 域 auth_token+ct0 成对出现（pickXSession），无访客歧义。
+ *        relayToken（10-18 凭据竞态修复）：start 受理时签发、仅随 start 响应
+ *        外发一次；帧/凭据/输入/取消全要过 assertRelayToken——见下方模块变量注释。
  */
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -110,6 +113,45 @@ let closer: (() => Promise<void>) | null = null;
 let activePage: PageLike | null = null;
 let activeCdp: CdpSession | null = null;
 
+/**
+ * per-job relayToken（10-18 凭据竞态修复）：start 受理时签发（randomBytes(32)
+ * hex，256bit），仅随 start 响应外发一次；此后帧轮询 / ?credentials=1 /
+ * input / cancel 一律先过 assertRelayToken，缺失或不符即 401（无任何副作用）。
+ *
+ * **红线：绝不放进 LoginJobSnapshot。** 快照随每次轮询响应整体展开返回，进了
+ * 快照等于把 token 广播给每个旁观者，修复直接失效（design 关键点）。模块级
+ * 单变量与 job 单例同生命周期，语义等价且无泄漏面。终态复位全覆盖：
+ * done 消费（consumeLoginJobCredentials）/ error（runJob 两处 catch 与
+ * startBrowserLogin 的 runJob.catch）/ cancelBrowserLogin / 下一次 start 覆写。
+ */
+let relayToken = "";
+
+/**
+ * relayToken 校验（timingSafeEqual；长度不等先 false——hex 64 恒定长，长度
+ * 信息不泄 token）。无 token（未 start / 已终态复位）对一切输入返回 false：
+ * 401 优先于 consume / dispatch / 帧返回等任何副作用。
+ */
+export function assertRelayToken(provided: string | null): boolean {
+  if (!relayToken || !provided) return false;
+  const expected = Buffer.from(relayToken, "utf8");
+  const actual = Buffer.from(provided, "utf8");
+  if (actual.length !== expected.length) return false;
+  return timingSafeEqual(expected, actual);
+}
+
+/** 仅测试用：直接安装 job 快照与 relayToken（绕过 Chrome 启动），路由/服务端单测的状态植入器。 */
+export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = ""): void {
+  job = { ...snapshot };
+  relayToken = token;
+}
+
+/**
+ * startBrowserLogin 的返回形状：snapshot 永不含 token（红线），token 单独
+ * 携带、由路由只拼进 start 响应这一次。同站重入（busy 同 site）时 token
+ * 为空串——已有 job 的 token 不重复外发给第二个调用方。
+ */
+export type StartLoginResult = { snapshot: LoginJobSnapshot; relayToken: string };
+
 export function getLoginJob(includeFrame = false): LoginJobSnapshot {
   if (includeFrame) return { ...job };
   return { ...job, frame: job.frame ? "*" : null };
@@ -118,9 +160,11 @@ export function getLoginJob(includeFrame = false): LoginJobSnapshot {
 /**
  * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
  * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。x 与两站同语义。
+ * 同时清空 relayToken：凭据一旦交出，本 job 的中转交互全部失效。
  */
 export function consumeLoginJobCredentials(): LoginJobSnapshot {
   const snap = { ...job, frame: null };
+  relayToken = "";
   if (job.pixiv || job.fanbox || job.x) {
     job = { ...job, pixiv: "", fanbox: "", x: "" };
   }
@@ -607,8 +651,10 @@ async function runJob(site: LoginSite): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : "登录失败";
     if (/Cannot find module 'puppeteer-core'/.test(message)) {
+      relayToken = "";
       job = { ...job, status: "error", error: "缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。", frame: null };
     } else {
+      relayToken = "";
       job = { ...job, status: "error", error: message };
     }
   } finally {
@@ -624,16 +670,21 @@ async function runJob(site: LoginSite): Promise<void> {
   }
 }
 
-export async function startBrowserLogin(site: LoginSite): Promise<LoginJobSnapshot> {
+export async function startBrowserLogin(site: LoginSite): Promise<StartLoginResult> {
   if (loginJobBusy(job.status)) {
-    if (job.site === site) return getLoginJob();
+    // 同站重入：返回现状快照但不外发 token——token 只属于最初受理 start 的那一方，
+    // 否则第二个调用方（如抢跑的旁观者）就能拿到钥匙看帧/取凭据。
+    if (job.site === site) return { snapshot: getLoginJob(), relayToken: "" };
     throw new Error("已有登录窗口在进行，先完成或关掉那一个。");
   }
   stop = false;
   job = { ...idleJob(), status: "launching", site, relay: true };
+  // 受理即签发（覆写上一 job 残留）；launching 期间失败会走 error 复位 → 空串照实外发。
+  relayToken = randomBytes(32).toString("hex");
   void runJob(site).catch((err) => {
     const message = err instanceof Error ? err.message : "登录失败";
     if (loginJobBusy(job.status) || job.status === "launching") {
+      relayToken = "";
       job = { ...job, status: "error", error: message };
     }
   });
@@ -641,11 +692,15 @@ export async function startBrowserLogin(site: LoginSite): Promise<LoginJobSnapsh
   while (Date.now() < deadline && job.status === "launching") {
     await new Promise((r) => setTimeout(r, 150));
   }
-  return getLoginJob();
+  // token 仅在此处随返回值外发一次（路由拼进 start 响应）；取的是当前值——
+  // 等待期间若已被取消/出错复位，拿到的是空串而不是过期钥匙。
+  return { snapshot: getLoginJob(), relayToken };
 }
 
 export async function cancelBrowserLogin(): Promise<LoginJobSnapshot> {
   stop = true;
+  // 无条件清空：cancel 即终结本 job 的全部中转交互（含 done 未取凭据的残留会话）。
+  relayToken = "";
   try {
     await closer?.();
   } catch {

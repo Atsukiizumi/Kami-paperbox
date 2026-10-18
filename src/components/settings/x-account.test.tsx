@@ -127,6 +127,117 @@ describe("XAccountCard（X 设置卡）", () => {
     }
   });
 
+  // ── relayToken 绑定（10-18 凭据竞态修复，AC4）：start 捕获 → 全链路携带 ──
+
+  const RELAY_TOKEN = "ab".repeat(32);
+
+  function json200(v: unknown): Response {
+    return new Response(JSON.stringify(v), { status: 200, headers: { "content-type": "application/json" } });
+  }
+
+  /** 记录全部请求（method + url + body）并按登录中转协议应答的 fetch 桩。 */
+  function recordingRelayFetch(script: {
+    poll?: () => unknown;
+    onInput?: () => unknown;
+  }): { calls: string[] } {
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}${init?.body ? ` ${String(init.body)}` : ""}`);
+      if (url.includes("credentials=1")) return json200({ ok: true, x: X_OK });
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === "cancel") return json200({ ok: true, status: "error", error: "已取消登录窗口" });
+        if (body.action === "input") return json200(script.onInput?.() ?? { ok: true, status: "waiting" });
+        return json200({ ok: true, status: "waiting", relayToken: RELAY_TOKEN, frame: "*" });
+      }
+      return json200(script.poll?.() ?? { ok: true, status: "waiting", frame: "*" });
+    }) as typeof fetch;
+    return { calls };
+  }
+
+  it("relayToken 全链路：start 捕获 → 轮询/取凭据 query 携带，done 正常写库（AC4）", async () => {
+    const base = globalThis.fetch;
+    const { calls } = recordingRelayFetch({ poll: () => ({ ok: true, status: "done" }) });
+    try {
+      render(<XAccountCard />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /中转登录/ }));
+        await until(() => useSettings.getState().xCookie === X_OK);
+      });
+      assert.equal(useSettings.getState().xCookie, X_OK, "done 载荷的 x 照常落库");
+      assert.ok(
+        calls.some((c) => c.startsWith(`GET /api/login-browser?frame=1&relayToken=${RELAY_TOKEN}`)),
+        "轮询必须携带 relayToken",
+      );
+      assert.ok(
+        calls.some((c) => c.startsWith(`GET /api/login-browser?credentials=1&relayToken=${RELAY_TOKEN}`)),
+        "取凭据必须携带 relayToken",
+      );
+      const startCall = calls.find((c) => c.includes('"site":"x"'));
+      assert.ok(startCall, "start 请求存在");
+      assert.ok(!startCall.includes("relayToken"), "start 本身不带 token（由响应一次性下发）");
+    } finally {
+      globalThis.fetch = base;
+    }
+  });
+
+  it("relayToken 全链路：input 注入与取消的 body 携带 token（AC4 续）", async () => {
+    const base = globalThis.fetch;
+    const { calls } = recordingRelayFetch({});
+    try {
+      render(<XAccountCard />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /中转登录/ }));
+        await until(() => calls.some((c) => c.startsWith("GET /api/login-browser?frame=1")));
+      });
+      // job.status=waiting（来自 start 响应）后键盘输入才会转发
+      fireEvent.keyDown(screen.getByRole("application"), { key: "a" });
+      await until(() => calls.some((c) => c.includes('"action":"input"')));
+      const inputCall = calls.find((c) => c.includes('"action":"input"'));
+      assert.ok(inputCall?.includes(`"relayToken":"${RELAY_TOKEN}"`), "input 必须携带 relayToken");
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /取消/ }));
+      });
+      await until(() => calls.some((c) => c.includes('"action":"cancel"') && c.includes(`"relayToken":"${RELAY_TOKEN}"`)));
+      assert.equal(useSettings.getState().xCookie, "", "取消路径不写任何值");
+    } finally {
+      globalThis.fetch = base;
+    }
+  });
+
+  it("轮询 401（relayToken 失效）走既有错误态，不解读成应用账号问题（AC4）", async () => {
+    const base = globalThis.fetch;
+    const calls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { action?: string };
+        if (body.action === "cancel") return json200({ ok: true, status: "error", error: "已取消登录窗口" });
+        return json200({ ok: true, status: "waiting", relayToken: RELAY_TOKEN, frame: "*" });
+      }
+      // 轮询一律 401 固定错误体（token 已随终态失效的形态）
+      return new Response(JSON.stringify({ ok: false, status: "error", error: "登录中转校验失败" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+    try {
+      render(<XAccountCard />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /中转登录/ }));
+        await until(() => screen.queryAllByText(/登录中转不可用（401）/).length > 0);
+      });
+      assert.ok(screen.getAllByText(/登录中转不可用（401）/).length > 0, "401 要给用户看得见的错误");
+      assert.equal(screen.queryAllByText(/需要先登录应用账号/).length, 0, "relay 401 不是应用账号问题");
+      assert.ok(calls.some((c) => c.startsWith(`GET /api/login-browser?frame=1&relayToken=${RELAY_TOKEN}`)));
+      assert.equal(useSettings.getState().xCookie, "", "401 路径不写任何值");
+    } finally {
+      globalThis.fetch = base;
+    }
+  });
+
   it("手动粘贴路径保留：说明降为「或手动粘贴」且输入仍可用（AC4）", () => {
     render(<XAccountCard />);
     assert.ok(screen.getByText(/或手动粘贴/), "手动粘贴文案保留并降级为中转的兜底");
