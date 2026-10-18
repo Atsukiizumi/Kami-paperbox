@@ -4,7 +4,8 @@
  * 作用：用无头 Chrome 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
  * 用法：HTTP `/api/login-browser` 调这里的 start/poll/input；不要在浏览器里 import。
  * 为什么：预览和 Docker 没有桌面，弹不出 Chrome；页面 JS 又读不到 HttpOnly Cookie。
- *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工。
+ *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工；
+ *        X 等 `.x.com` 域 auth_token+ct0 成对出现（pickXSession），无访客歧义。
  */
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -14,9 +15,11 @@ import {
   FANBOX_LOGIN_URL,
   LOGIN_VIEW,
   PIXIV_LOGIN_URL,
+  X_LOGIN_URL,
   chromeCandidates,
   loginJobBusy,
   pickSession,
+  pickXSession,
   type LoginInputEvent,
   type LoginJobSnapshot,
   type LoginSite,
@@ -25,6 +28,7 @@ import { getActiveProxy } from "../proxy.server.ts";
 import { parseProxyUrl } from "../proxy-url.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "../site-identity.ts";
 import { resolveIdentities } from "../site-identity.server.ts";
+import { X_WEB_BEARER } from "../upstream/x.ts";
 import { getLogger } from "../log.server.ts";
 
 const log = {
@@ -32,6 +36,7 @@ const log = {
   kami: getLogger("kami"),
   pixivMe: getLogger("browser-login:pixiv-me"),
   fanboxMe: getLogger("browser-login:fanbox-me"),
+  xMe: getLogger("browser-login:x-me"),
   openPixiv: getLogger("browser-login:open-pixiv"),
   resolveIdentity: getLogger("browser-login:resolve-identity"),
   warmPixiv: getLogger("browser-login:warm-pixiv"),
@@ -94,6 +99,7 @@ const idleJob = (): LoginJobSnapshot => ({
   frame: null,
   pixiv: "",
   fanbox: "",
+  x: "",
   pixivProfile: null,
   fanboxProfile: null,
 });
@@ -111,12 +117,12 @@ export function getLoginJob(includeFrame = false): LoginJobSnapshot {
 
 /**
  * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
- * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。
+ * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。x 与两站同语义。
  */
 export function consumeLoginJobCredentials(): LoginJobSnapshot {
   const snap = { ...job, frame: null };
-  if (job.pixiv || job.fanbox) {
-    job = { ...job, pixiv: "", fanbox: "" };
+  if (job.pixiv || job.fanbox || job.x) {
+    job = { ...job, pixiv: "", fanbox: "", x: "" };
   }
   return snap;
 }
@@ -244,12 +250,40 @@ function isPixivLoginUrl(url: string): boolean {
   return /accounts\.pixiv\.net/i.test(url) || /pixiv\.net\/login/i.test(url);
 }
 
-async function readCookies(page: PageLike): Promise<ReturnType<typeof pickSession>> {
+async function readRawCookies(page: PageLike): Promise<{ name: string; value: string; domain?: string }[]> {
   const cdp = activeCdp ?? (await page.createCDPSession());
   const all = (await cdp.send("Network.getAllCookies")) as {
     cookies?: { name: string; value: string; domain?: string }[];
   };
-  return pickSession(all.cookies ?? []);
+  return all.cookies ?? [];
+}
+
+async function readCookies(page: PageLike): Promise<ReturnType<typeof pickSession>> {
+  return pickSession(await readRawCookies(page));
+}
+
+/**
+ * X 身份 best-effort：带登录 Cookie + csrf（=ct0）+ 公共 web bearer 调 legacy
+ * verify_credentials（research §9 之外的 1.1 端点，可用性未证）。非 2xx / 异常
+ * 一律静默 null——失败只少一行日志，绝不阻塞 done（身份展示不在主链上）。
+ */
+async function fetchXIdentity(session: string): Promise<{ name: string; screenName: string } | null> {
+  const ct0 = /(?:^|;\s*)ct0=([^;\s]+)/i.exec(session)?.[1];
+  if (!ct0) return null;
+  const res = await fetch("https://api.x.com/1.1/account/verify_credentials.json", {
+    headers: {
+      Authorization: `Bearer ${X_WEB_BEARER}`,
+      Cookie: session,
+      "x-csrf-token": ct0,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { screen_name?: unknown; name?: unknown };
+  const screenName = typeof data.screen_name === "string" ? data.screen_name : "";
+  const name = typeof data.name === "string" ? data.name : "";
+  return screenName ? { name, screenName } : null;
 }
 
 async function profileFromPixivPage(page: PageLike): Promise<SiteProfile | null> {
@@ -430,7 +464,7 @@ async function runJob(site: LoginSite): Promise<void> {
     }
     await startScreencast(page);
 
-    const start = site === "fanbox" ? FANBOX_LOGIN_URL : PIXIV_LOGIN_URL;
+    const start = site === "fanbox" ? FANBOX_LOGIN_URL : site === "x" ? X_LOGIN_URL : PIXIV_LOGIN_URL;
     await page.goto(start, { waitUntil: "domcontentloaded", timeout: 45_000 });
     job = { ...job, pageUrl: page.url() };
     if (!job.frame) await grabFrame(page);
@@ -438,6 +472,7 @@ async function runJob(site: LoginSite): Promise<void> {
     const deadline = Date.now() + 4 * 60 * 1000;
     let pixiv = "";
     let fanbox = "";
+    let x = "";
     let pixivProfile: SiteProfile | null = null;
     let fanboxProfile: SiteProfile | null = null;
     let pixivConfirmed = false;
@@ -455,9 +490,19 @@ async function runJob(site: LoginSite): Promise<void> {
         await grabFrame(page);
         lastShot = Date.now();
       }
-      const picked = await readCookies(page);
+      const rawCookies = await readRawCookies(page);
+      const picked = pickSession(rawCookies);
       pixiv = picked.pixiv || pixiv;
       fanbox = picked.fanbox || fanbox;
+
+      // X：auth_token+ct0 成对出现即收工（pickXSession 内已含 .x.com 域优先与
+      // 双值门槛）；不做任何访客/回转判定，也不触碰下面两站的确认流程。
+      if (site === "x") {
+        x = pickXSession(rawCookies) ?? x;
+        if (x) break;
+        await new Promise((r) => setTimeout(r, 700));
+        continue;
+      }
 
       if (site === "pixiv" && pixiv && !pixivConfirmed) {
         if (!pixivSeenAt) pixivSeenAt = Date.now();
@@ -520,9 +565,26 @@ async function runJob(site: LoginSite): Promise<void> {
     if (site === "fanbox" && !fanbox) {
       throw new Error("超时未检测到 FANBOX 登录。请从官方账号选择页登入，完成 /auth/start 回转后再等一下。");
     }
-    // 拆框：Pixiv 登录只交付 pixiv（含身份解析也只解析 pixiv），fanbox 一律不带出。
+    if (site === "x" && !x) {
+      throw new Error("超时未检测到 X 登录。请在窗口里完成登录（含可能的验证码 / 2FA），或改用手贴。");
+    }
+    // 拆框：Pixiv 登录只交付 pixiv（含身份解析也只解析 pixiv），fanbox 一律不带出；
+    // X 同理只交付 x——两站凭据与身份不跨站复制。
     if (site === "pixiv") fanbox = "";
-    if (!pixivProfile || (fanbox && !fanboxProfile)) {
+    if (site === "x") {
+      pixiv = "";
+      fanbox = "";
+    }
+    if (site === "x") {
+      // best-effort 身份：失败/超时静默跳过，不影响 done（身份只进日志）
+      try {
+        const me = await fetchXIdentity(x);
+        if (me) log.xMe.info(`X 登录身份：${me.name ? `${me.name} ` : ""}@${me.screenName}`);
+      } catch (err) {
+        log.xMe.warn("X 身份探测失败（best-effort，跳过）：", err instanceof Error ? err.message : err);
+      }
+    }
+    if ((pixiv && !pixivProfile) || (fanbox && !fanboxProfile)) {
       try {
         const profiles = await resolveIdentities({ pixiv, fanbox });
         pixivProfile = pixivProfile ?? profiles.pixiv;
@@ -537,6 +599,7 @@ async function runJob(site: LoginSite): Promise<void> {
       error: null,
       pixiv,
       fanbox,
+      x,
       pixivProfile,
       fanboxProfile,
       frame: null,

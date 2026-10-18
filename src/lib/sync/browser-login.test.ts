@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   FANBOX_LOGIN_URL,
+  X_LOGIN_URL,
   canShowLoginWindow,
   chromeCandidates,
   fanboxCookieHeader,
@@ -9,7 +10,9 @@ import {
   isPixivLoggedInSession,
   loginJobBusy,
   parseCookieDump,
+  parseLoginSite,
   pickSession,
+  pickXSession,
   pixivCookieHeader,
   pixivUserIdFromCookie,
   sanitizePixivCookie,
@@ -86,6 +89,72 @@ test("fanbox login goes through pixiv account picker and auth/start", () => {
   assert.equal(
     FANBOX_LOGIN_URL,
     "https://accounts.pixiv.net/login?prompt=select_account&return_to=https%3A%2F%2Fwww.fanbox.cc%2Fauth%2Fstart&source=fanbox",
+  );
+});
+
+test("x login url is the official flow entry", () => {
+  assert.equal(X_LOGIN_URL, "https://x.com/i/flow/login");
+});
+
+test("login site whitelist lets pixiv/fanbox/x through and rejects the rest", () => {
+  assert.equal(parseLoginSite("pixiv"), "pixiv");
+  assert.equal(parseLoginSite("fanbox"), "fanbox");
+  assert.equal(parseLoginSite("x"), "x");
+  assert.equal(parseLoginSite("twitter"), null);
+  assert.equal(parseLoginSite(""), null);
+  assert.equal(parseLoginSite(undefined), null);
+  assert.equal(parseLoginSite(1), null);
+  assert.equal(parseLoginSite({ site: "x" }), null);
+});
+
+test("pickXSession：已登录（.x.com 成对）返回规范串", () => {
+  const token = "a1b2c3d4e5f6a7b8c9d0";
+  const ct0 = "cT0vAlUe-4Me_xYz9";
+  assert.equal(
+    pickXSession([
+      { name: "auth_token", value: token, domain: ".x.com" },
+      { name: "ct0", value: ct0, domain: ".x.com" },
+      { name: "guest_id", value: "guest-noise", domain: ".x.com" },
+    ]),
+    `auth_token=${token}; ct0=${ct0}`,
+  );
+});
+
+test("pickXSession：未登录（无 auth_token）返回 null", () => {
+  assert.equal(
+    pickXSession([
+      { name: "guest_id", value: "guest-noise", domain: ".x.com" },
+      { name: "ct0", value: "cT0vAlUe-4Me_xYz9", domain: ".x.com" },
+    ]),
+    null,
+  );
+  assert.equal(pickXSession([]), null);
+});
+
+test("pickXSession：只有 auth_token 没有 ct0 返回 null（sanitize 双值门槛）", () => {
+  assert.equal(
+    pickXSession([{ name: "auth_token", value: "a1b2c3d4e5f6a7b8c9d0", domain: ".x.com" }]),
+    null,
+  );
+});
+
+test("pickXSession：多域同名取 .x.com 域优先；空值不算数", () => {
+  assert.equal(
+    pickXSession([
+      { name: "auth_token", value: "FROM-TWITTER-DOMAIN", domain: ".twitter.com" },
+      { name: "auth_token", value: "FROM-X-DOMAIN", domain: ".x.com" },
+      { name: "ct0", value: "CT0-ON-X", domain: "x.com" },
+      { name: "ct0", value: "", domain: ".x.com" },
+    ]),
+    "auth_token=FROM-X-DOMAIN; ct0=CT0-ON-X",
+  );
+  // auth_token 只在非 x 域、ct0 在 .x.com：仍成对可用（fallback 取 twitter 域值）
+  assert.equal(
+    pickXSession([
+      { name: "auth_token", value: "TW-ONLY", domain: ".twitter.com" },
+      { name: "ct0", value: "CT0-ON-X", domain: ".x.com" },
+    ]),
+    "auth_token=TW-ONLY; ct0=CT0-ON-X",
   );
 });
 

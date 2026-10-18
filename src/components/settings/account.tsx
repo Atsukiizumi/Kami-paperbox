@@ -382,7 +382,7 @@ export function AccountsPartition({
         </CardContent>
       </Card>
 
-      {/* X（Twitter）：独立卡（无登录中转；Cookie 只服务时间线接口），直接订阅 store */}
+      {/* X（Twitter）：独立卡（中转登录对话框挂卡内；Cookie 只服务时间线接口），直接订阅 store */}
       <XAccountCard />
     </div>
   );

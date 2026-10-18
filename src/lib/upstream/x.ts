@@ -45,8 +45,9 @@ const X_TITLE_MAX = 80;
 /**
  * 公共 web bearer：X 网页前端匿名请求自带的稳定常量（社区多年未轮换），
  * 不是用户凭据——用户身份只靠 Cookie（auth_token + ct0）。
+ * 导出供登录中转的 verify_credentials best-effort 身份探测共用（同为服务端侧）。
  */
-const X_WEB_BEARER =
+export const X_WEB_BEARER =
   "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
 
 export type XQueryKey = "userByScreenName" | "userMedia" | "tweetResult";

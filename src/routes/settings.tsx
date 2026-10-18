@@ -222,6 +222,7 @@ export function SettingsPage() {
   async function applyRelay(data: {
     pixiv?: string;
     fanbox?: string;
+    x?: string;
     pixivProfile?: { id: string; name: string; avatar?: string } | null;
     fanboxProfile?: { id: string; name: string; avatar?: string } | null;
   }) {
@@ -233,7 +234,7 @@ export function SettingsPage() {
     const pixivName = data.pixivProfile?.name;
     const fanboxName = data.fanboxProfile?.name;
     toast.success(
-      [pixivName ? `Pixiv ${pixivName}` : data.pixiv ? "Pixiv 已登录" : "", fanboxName ? `FANBOX ${fanboxName}` : data.fanbox && !pixivName ? "FANBOX 已登录" : ""]
+      [pixivName ? `Pixiv ${pixivName}` : data.pixiv ? "Pixiv 已登录" : "", fanboxName ? `FANBOX ${fanboxName}` : data.fanbox && !pixivName ? "FANBOX 已登录" : "", data.x && !pixivName && !fanboxName ? "X 已登录" : ""]
         .filter(Boolean)
         .join(" · ") || "已写入会话",
     );

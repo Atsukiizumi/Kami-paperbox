@@ -1,20 +1,27 @@
 "use client";
 
 /**
- * 设置「X（Twitter）」卡（X 账号关联，M4）。
+ * 设置「X（Twitter）」卡（X 账号关联，M4；中转登录，10-18）。
  *
- * 作用：X Cookie 输入（auth_token + ct0，浏览画师媒体时间线用）与 GraphQL
- *      queryId 覆盖折叠区（X 前端发版轮换 queryId 后预览失效时手工补）。
+ * 作用：X Cookie 获取双路径——「中转登录」（后端 Chrome 开 x.com 官方登录页，
+ *      画面/输入中转，CDP 自动收 auth_token/ct0，与 Pixiv/FANBOX 同款）与
+ *      手动粘贴框（中转被拦时的兜底）；GraphQL queryId 覆盖折叠区。
  * 用法：AccountsPartition 末尾渲染；直接订阅 settings store，不经设置页下传
  *      （与 Danbooru 账号卡同款）。xCookie 写进当前账号，随账号切换。
- * 为什么独立卡不进登录中转：X 无浏览器代登（不做账号密码），且图片下载免登录
- *      （pbs.twimg.com）——Cookie 只服务时间线接口，与 Pixiv/FANBOX 代登框分开。
+ * 为什么对话框挂本卡不挂设置页：X 入口与设置页级的 relaySite（pixiv/fanbox
+ *      共用那个）解耦，单 job 互斥由服务端兜底——两处同时开只会有一个跑起来。
  */
+import { useState } from "react";
+import { toast } from "sonner";
+import { LogIn } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { SessionRelayDialog } from "@/components/session-relay";
 import { useSettings } from "@/lib/store";
 import { sanitizeXCookie, X_DEFAULT_QUERY_IDS } from "@/lib/x-settings";
+import { applyLoginSession } from "@/lib/sync/apply-session";
 import type { XQueryIdKey } from "@/lib/types";
 
 const QUERY_ID_LABELS: Record<XQueryIdKey, string> = {
@@ -29,8 +36,18 @@ export function XAccountCard() {
   const syncSessions = useSettings((s) => s.syncSessions);
   const queryIds = useSettings((s) => s.xGraphQLQueryIds);
   const setQueryIds = useSettings((s) => s.setXGraphQLQueryIds);
+  const [relayOpen, setRelayOpen] = useState(false);
   // 中间态（只粘到一半）不算错——只提示，不拦截输入；清洗发生在保存/请求边界
   const incomplete = xCookie.trim() !== "" && !sanitizeXCookie(xCookie);
+
+  async function applyRelay(data: { x?: string }) {
+    const result = await applyLoginSession({ ...data });
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("X Cookie 已写入");
+  }
 
   return (
     <Card>
@@ -55,14 +72,22 @@ export function XAccountCard() {
             onBlur={() => void syncSessions().catch(() => undefined)}
           />
           <p className="mt-1 text-xs leading-relaxed text-subtle">
-            在 x.com 登录后，从浏览器 DevTools → 网络 → 任意请求的 Cookie 头里复制
-            <span className="text-fg"> auth_token </span>与<span className="text-fg"> ct0 </span>
+            或手动粘贴：在 x.com 登录后，从浏览器 DevTools → 网络 → 任意请求的 Cookie
+            头里复制<span className="text-fg"> auth_token </span>与<span className="text-fg"> ct0 </span>
             两段（整段头粘贴也行，会自动只留这两项）。只存在这台设备。
           </p>
           {incomplete ? (
             <p className="text-xs text-red-500">需要同时带 auth_token 与 ct0 两个字段，现在缺了一个。</p>
           ) : null}
         </div>
+        <Button variant="secondary" onClick={() => setRelayOpen(true)}>
+          <LogIn className="size-4" />
+          中转登录
+        </Button>
+        <p className="text-xs leading-relaxed text-subtle">
+          「中转登录」会在本页里打开 x.com 官方登录页，密码只打在 X 自己的页面上；
+          登录完成后纸匣自动收回会话（含可能的验证码 / 2FA，都在中转画面里操作）。
+        </p>
         <details className="rounded-lg border border-fg/10 p-3">
           <summary className="cursor-pointer text-sm text-muted">高级：GraphQL queryId 覆盖</summary>
           <p className="mt-2 text-xs leading-relaxed text-subtle">
@@ -86,6 +111,12 @@ export function XAccountCard() {
           </div>
         </details>
       </CardContent>
+      <SessionRelayDialog
+        site="x"
+        open={relayOpen}
+        onOpenChange={setRelayOpen}
+        onDone={applyRelay}
+      />
     </Card>
   );
 }

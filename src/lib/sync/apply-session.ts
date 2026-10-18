@@ -2,9 +2,10 @@
  * 把登录结果写进当前账号。
  *
  * 作用：设置页和首次向导共用同一套写入，避免两处各判一次访客 Cookie。
- * 用法：await applyLoginSession({ pixiv, fanbox, pixivProfile })；
+ * 用法：await applyLoginSession({ pixiv, fanbox, x, pixivProfile })；
  *      applyCookieDump(raw) 全量识别；applyCookieDump(raw, "pixiv"|"fanbox")
- *      只写指定站——设置页两个框各粘各的，互不串值。
+ *      只写指定站——设置页两个框各粘各的，互不串值。X 不走 dump 通道
+ *      （手动粘贴在 X 卡内联清洗，中转走 x 字段恒为规范形）。
  * 为什么：Pixiv / FANBOX 两站独立保存。FANBOX 框留空时由请求层
  *        fanboxCookieHeader(fanbox, pixiv) 回退复用 Pixiv 会话（同一账号体系，
  *        见 pixiv-auth.md §5），所以存储层不做任何跨站复制——复制只会让
@@ -19,11 +20,13 @@ import {
   pixivSessionValue,
   type LoginSite,
 } from "./browser-login.ts";
+import { sanitizeXCookie } from "../x-settings.ts";
 import { SESSION_SYNC_TOAST_ID, useSettings } from "../store.ts";
 
 export type LoginSessionInput = {
   pixiv?: string;
   fanbox?: string;
+  x?: string;
   pixivProfile?: { id: string; name: string; avatar?: string } | null;
   fanboxProfile?: { id: string; name: string; avatar?: string } | null;
   accountName?: string;
@@ -37,6 +40,10 @@ export async function applyLoginSession(data: LoginSessionInput): Promise<{ ok: 
   }
   if (data.pixiv) s.setPixivCookie(data.pixiv);
   if (data.fanbox) s.setFanboxCookie(data.fanbox);
+  // X 无访客态歧义（auth_token 缺失即未登录，中转 pickXSession 已挡）；这里
+  // 双保险再过一遍 sanitizeXCookie，保证入库恒为规范形——不合规串不写不清。
+  const xSession = data.x ? sanitizeXCookie(data.x) : "";
+  if (xSession) s.setXCookie(xSession);
   s.applyProfiles({ pixiv: data.pixivProfile, fanbox: data.fanboxProfile });
   if (!data.pixivProfile && !data.fanboxProfile) {
     // 身份获取失败（非 2xx / 网络异常）已在 refreshIdentities 内部弹固定 id 提示，

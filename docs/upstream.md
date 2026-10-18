@@ -219,7 +219,7 @@ JSON 也是 `{ body: … }`。投稿若 `isRestricted: true`，说明要付费 /
 
 ## 6. X（Twitter）
 
-X 是第六个数据源，但**不是浏览站**——入口挂画师页（pixiv 主页「外部リンク」自动发现 → 「X 关联」卡 → `/x/{handle}` 预览）。认证同 Pixiv 一条线：**用户自己的网页会话 Cookie**（`auth_token=…; ct0=…`，设置页粘贴），不碰账号密码。
+X 是第六个数据源，但**不是浏览站**——入口挂画师页（pixiv 主页「外部リンク」自动发现 → 「X 关联」卡 → `/x/{handle}` 预览）。认证同 Pixiv 一条线：**用户自己的网页会话 Cookie**（`auth_token=…; ct0=…`），设置页 X 卡「中转登录」自动收（与 Pixiv/FANBOX 同款：后端 Chrome 开 x.com 官方登录页，CDP 等 `.x.com` 域 auth_token+ct0 成对出现即收，含 HttpOnly），手动粘贴仍可兜底；不碰账号密码。
 
 接口走 web GraphQL（2026-10 实测基线，queryId 随 X 前端发版轮换）：
 
