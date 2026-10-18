@@ -4,6 +4,8 @@
  * 作用：把后端 Chrome 的 JPEG 帧画到 canvas 上，把鼠标/键盘/IME 送回官方页。
  * 用法：设置里「登录 Pixiv / FANBOX」打开本对话框。
  * 为什么：用户的浏览器碰不到服务器上的 Chrome 窗口，只能看转过来的画面。
+ *        relayToken（10-18）：start 响应只发一次的 per-job 令牌，后续轮询 /
+ *        取凭据 / 输入 / 取消全带上（query 或 body），401 走既有错误态。
  */
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { X } from "lucide-react";
@@ -33,25 +35,36 @@ type JobView = {
   x?: string;
   pixivProfile?: RelayDone["pixivProfile"];
   fanboxProfile?: RelayDone["fanboxProfile"];
+  /** start 响应专属：per-job 中转令牌，仅此一次下发（10-18 凭据竞态修复）。 */
+  relayToken?: string;
 };
 
 /**
- * 轮询快照已剥离会话串（SEC-02）：done 事件里经 ?credentials=1 单独取一次，
- * 取不到就按无凭据结束（保存步骤会跳过空值）。
+ * 401 = 应用账号未登录（LAN 令牌形态不会走到这）；其余按网关不可用报。
+ * 仅用于 start 请求——那是唯一没有 relayToken 可带的动作。
  */
-/** 401 = 应用账号未登录（LAN 令牌形态不会走到这）；其余按网关不可用报。 */
 function loginGateError(status: number): string {
   return status === 401 ? "需要先登录应用账号（设置 → 应用账号）" : `登录中转不可用（${status}）`;
+}
+
+/**
+ * 轮询 / 取凭据阶段的 401 = relayToken 校验失败（job 已终态或非发起方），
+ * 不再解读成应用账号问题；其余状态码同型报网关不可用。
+ */
+function relayGateError(status: number): string {
+  return `登录中转不可用（${status}）`;
 }
 
 /**
  * 轮询快照已剥离会话串（SEC-02）：done 事件里经 ?credentials=1 单独取一次，
  * 取不到就按无凭据结束（保存步骤会跳过空值）。
  */
-async function withCredentials(data: JobView): Promise<JobView> {
+async function withCredentials(data: JobView, relayToken: string): Promise<JobView> {
   if (data.pixiv || data.fanbox || data.x) return data;
   try {
-    const res = await fetch("/api/login-browser?credentials=1", { cache: "no-store" });
+    const res = await fetch(`/api/login-browser?credentials=1&relayToken=${encodeURIComponent(relayToken)}`, {
+      cache: "no-store",
+    });
     if (!res.ok) return data;
     const cred = (await res.json()) as JobView;
     return {
@@ -83,10 +96,14 @@ export function SessionRelayDialog({
   onOpenRef.current = onOpenChange;
   const lastMove = useRef(0);
   const [job, setJob] = useState<JobView>({ status: "idle" });
+  // per-job relayToken：start 响应捕获，轮询/取凭据/输入/取消共用；
+  // 存 ref 不存 state——effect 闭包与 effect 外的 send/close 都要读到最新值。
+  const relayTokenRef = useRef("");
 
   useEffect(() => {
     if (!open || !site) return;
     let stop = false;
+    relayTokenRef.current = "";
     setJob({ status: "launching" });
 
     async function run() {
@@ -104,10 +121,13 @@ export function SessionRelayDialog({
         }
         const data = (await res.json()) as JobView;
         if (stop) return;
+        // token 只随 start 响应来这一次；缺失（同站重入/启动失败）按空串存，
+        // 后续轮询会 401 走错误态——不做静默降级，让用户看见并重来。
+        relayTokenRef.current = typeof data.relayToken === "string" ? data.relayToken : "";
         setJob(data);
         if (data.status === "error") return;
         if (data.status === "done") {
-          await onDoneRef.current(await withCredentials(data));
+          await onDoneRef.current(await withCredentials(data, relayTokenRef.current));
           onOpenRef.current(false);
           return;
         }
@@ -119,17 +139,21 @@ export function SessionRelayDialog({
 
       while (!stop) {
         try {
-          const res = await fetch("/api/login-browser?frame=1", { cache: "no-store" });
+          const res = await fetch(`/api/login-browser?frame=1&relayToken=${encodeURIComponent(relayTokenRef.current)}`, {
+            cache: "no-store",
+          });
           if (!res.ok) {
             if (stop) return;
-            setJob({ status: "error", error: loginGateError(res.status) });
+            // 401 = relayToken 失效（job 终态/非发起方），与 start 的 401（应用
+            // 账号）语义不同，按网关不可用同型报，不误导用户去登应用账号。
+            setJob({ status: "error", error: relayGateError(res.status) });
             return;
           }
           const data = (await res.json()) as JobView;
           if (stop) return;
           setJob(data);
           if (data.status === "done") {
-            await onDoneRef.current(await withCredentials(data));
+            await onDoneRef.current(await withCredentials(data, relayTokenRef.current));
             onOpenRef.current(false);
             return;
           }
@@ -147,7 +171,7 @@ export function SessionRelayDialog({
       void fetch("/api/login-browser", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
+        body: JSON.stringify({ action: "cancel", relayToken: relayTokenRef.current }),
         keepalive: true,
       }).catch(() => undefined);
     };
@@ -159,7 +183,7 @@ export function SessionRelayDialog({
       await fetch("/api/login-browser", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "input", event }),
+        body: JSON.stringify({ action: "input", event, relayToken: relayTokenRef.current }),
       });
     } catch {
       /* ignore dropped input */
@@ -235,7 +259,7 @@ export function SessionRelayDialog({
       await fetch("/api/login-browser", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
+        body: JSON.stringify({ action: "cancel", relayToken: relayTokenRef.current }),
       });
     } catch {
       /* ignore */
