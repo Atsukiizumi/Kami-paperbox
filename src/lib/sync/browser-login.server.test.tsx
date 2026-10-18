@@ -102,3 +102,26 @@ test("终态复位：cancel 对已 done（凭据未取）的 job 也清空 token
   await cancelBrowserLogin();
   assert.equal(assertRelayToken(TOKEN), false, "done 后取消同样终结 token");
 });
+
+test("生产守卫：NODE_ENV=production 时 installLoginJobForTest 抛错且不触碰既有状态（R3）", () => {
+  // 判定在调用时读 env（非模块加载时），注入生产值即可覆盖守卫分支。
+  // NODE_ENV 在 next-env 类型里是 readonly 声明，写值走 Object.assign 绕过。
+  installLoginJobForTest(snap({ status: "waiting", site: "pixiv" }), TOKEN);
+  const original = process.env.NODE_ENV;
+  Object.assign(process.env, { NODE_ENV: "production" });
+  try {
+    assert.throws(
+      () => installLoginJobForTest(snap({ status: "done", site: "pixiv", pixiv: PIXIV }), "ff".repeat(32)),
+      /仅测试可用/,
+      "生产环境植入中转状态必须抛错",
+    );
+    assert.equal(assertRelayToken(TOKEN), true, "抛错路径零副作用：既有 job/token 原样");
+    assert.equal(getLoginJob().status, "waiting", "快照未被植入覆盖");
+  } finally {
+    if (original === undefined) delete (process.env as { NODE_ENV?: string }).NODE_ENV;
+    else Object.assign(process.env, { NODE_ENV: original });
+  }
+  // 还原后植入器照常可用（开发/测试环境不受守卫影响）
+  installLoginJobForTest(snap({ status: "waiting", site: "pixiv" }), "ee".repeat(32));
+  assert.equal(assertRelayToken("ee".repeat(32)), true);
+});

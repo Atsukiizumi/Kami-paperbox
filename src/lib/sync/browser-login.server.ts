@@ -29,6 +29,7 @@ import {
 } from "./browser-login.ts";
 import { getActiveProxy } from "../proxy.server.ts";
 import { parseProxyUrl } from "../proxy-url.ts";
+import { outboundFetch } from "../curl-fetch.server.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "../site-identity.ts";
 import { resolveIdentities } from "../site-identity.server.ts";
 import { X_WEB_BEARER } from "../upstream/x.ts";
@@ -139,8 +140,16 @@ export function assertRelayToken(provided: string | null): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-/** 仅测试用：直接安装 job 快照与 relayToken（绕过 Chrome 启动），路由/服务端单测的状态植入器。 */
+/**
+ * 仅测试用：直接安装 job 快照与 relayToken（绕过 Chrome 启动），路由/服务端单测的状态植入器。
+ * 生产守卫（10-18 P2）：植入器能直接操纵中转状态机（含 relayToken），生产构建
+ * 里一旦可达等于给任意调用方一把万能钥匙——NODE_ENV=production 一律抛错，
+ * 判定取调用时 env（非模块加载时），单测注入生产值即可覆盖守卫分支。
+ */
 export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = ""): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("installLoginJobForTest 仅测试可用：生产环境禁止植入中转状态");
+  }
   job = { ...snapshot };
   relayToken = token;
 }
@@ -308,13 +317,16 @@ async function readCookies(page: PageLike): Promise<ReturnType<typeof pickSessio
 
 /**
  * X 身份 best-effort：带登录 Cookie + csrf（=ct0）+ 公共 web bearer 调 legacy
- * verify_credentials（research §9 之外的 1.1 端点，可用性未证）。非 2xx / 异常
- * 一律静默 null——失败只少一行日志，绝不阻塞 done（身份展示不在主链上）。
+ * verify_credentials（research §9 之外的 1.1 端点，可用性未证）。出站走项目
+ * 通道 outboundFetch（10-18 P2：与中转 Chrome 同代理，代理环境不再泄真实出口
+ * IP；有代理时 undici 池连接复用，done 不再被慢握手拖住）。非 2xx / 异常
+ * 一律静默 null——失败只少一行日志，绝不阻塞 done（身份展示不在主链上）；
+ * 8s AbortSignal 语义保留（init.signal 优先于 outboundFetch 的 45s 兜底）。
  */
 async function fetchXIdentity(session: string): Promise<{ name: string; screenName: string } | null> {
   const ct0 = /(?:^|;\s*)ct0=([^;\s]+)/i.exec(session)?.[1];
   if (!ct0) return null;
-  const res = await fetch("https://api.x.com/1.1/account/verify_credentials.json", {
+  const res = await outboundFetch("https://api.x.com/1.1/account/verify_credentials.json", {
     headers: {
       Authorization: `Bearer ${X_WEB_BEARER}`,
       Cookie: session,
