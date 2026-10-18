@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 type RelayDone = {
   pixiv?: string;
   fanbox?: string;
+  x?: string;
   pixivProfile?: { id: string; name: string; avatar?: string } | null;
   fanboxProfile?: { id: string; name: string; avatar?: string } | null;
 };
@@ -29,6 +30,7 @@ type JobView = {
   frame?: string | null;
   pixiv?: string;
   fanbox?: string;
+  x?: string;
   pixivProfile?: RelayDone["pixivProfile"];
   fanboxProfile?: RelayDone["fanboxProfile"];
 };
@@ -47,12 +49,17 @@ function loginGateError(status: number): string {
  * 取不到就按无凭据结束（保存步骤会跳过空值）。
  */
 async function withCredentials(data: JobView): Promise<JobView> {
-  if (data.pixiv || data.fanbox) return data;
+  if (data.pixiv || data.fanbox || data.x) return data;
   try {
     const res = await fetch("/api/login-browser?credentials=1", { cache: "no-store" });
     if (!res.ok) return data;
     const cred = (await res.json()) as JobView;
-    return { ...data, pixiv: cred.pixiv || data.pixiv, fanbox: cred.fanbox || data.fanbox };
+    return {
+      ...data,
+      pixiv: cred.pixiv || data.pixiv,
+      fanbox: cred.fanbox || data.fanbox,
+      x: cred.x || data.x,
+    };
   } catch {
     return data;
   }
@@ -237,7 +244,7 @@ export function SessionRelayDialog({
   }
 
   const frame = job.frame && job.frame !== "*" ? job.frame : null;
-  const siteLabel = site === "fanbox" ? "FANBOX" : "Pixiv";
+  const siteLabel = site === "fanbox" ? "FANBOX" : site === "x" ? "X" : "Pixiv";
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : void close())}>

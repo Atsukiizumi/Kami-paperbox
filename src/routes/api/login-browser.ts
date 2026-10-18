@@ -3,7 +3,7 @@
  *
  * 作用：start / poll 帧 / 转发输入 / 取消。实现全在 browser-login.server.ts。
  * 用法：设置页 SessionRelayDialog fetch 本路由。
- * 安全：快照默认剥离 pixiv / fanbox 会话串（SEC-02）——280ms 轮询帧不带凭据；
+ * 安全：快照默认剥离 pixiv / fanbox / x 会话串（SEC-02）——280ms 轮询帧不带凭据；
  *      前端在 done 事件里用 ?credentials=1 单独取一次（本路由整体在数据面闸内）。
  */
 import {
@@ -13,7 +13,7 @@ import {
   getLoginJob,
   startBrowserLogin,
 } from "@/lib/sync/browser-login.server";
-import type { LoginInputEvent, LoginJobSnapshot } from "@/lib/sync/browser-login";
+import { parseLoginSite, type LoginInputEvent, type LoginJobSnapshot } from "@/lib/sync/browser-login";
 
 function aborted(err: unknown, signal?: AbortSignal) {
   if (signal?.aborted) return true;
@@ -32,7 +32,7 @@ function json(data: unknown, status = 200) {
 
 /** 轮询响应剥掉会话明文，只留身份展示用的 profile。 */
 function stripCredentials(snap: LoginJobSnapshot): LoginJobSnapshot {
-  return { ...snap, pixiv: "", fanbox: "" };
+  return { ...snap, pixiv: "", fanbox: "", x: "" };
 }
 
 function parseInput(raw: unknown): LoginInputEvent | null {
@@ -93,8 +93,8 @@ export async function POST(request: Request) {
             if (!event) return json({ ok: false, status: "error", error: "无效的输入" }, 400);
             return json({ ok: true, ...stripCredentials(await dispatchLoginInput(event)) });
           }
-          const site = body.site === "fanbox" ? "fanbox" : body.site === "pixiv" ? "pixiv" : null;
-          if (!site) return json({ ok: false, status: "error", error: "请指定 pixiv 或 fanbox" }, 400);
+          const site = parseLoginSite(body.site);
+          if (!site) return json({ ok: false, status: "error", error: "请指定 pixiv、fanbox 或 x" }, 400);
           const session = await startBrowserLogin(site);
           const ok = session.status !== "error";
           return json({ ok, ...stripCredentials(session) }, ok ? 200 : 400);

@@ -1,10 +1,13 @@
 /**
- * Pixiv / FANBOX 会话格式（前后端共用，不要从 accounts.ts 再引回来，会循环）。
+ * Pixiv / FANBOX / X 会话格式（前后端共用，不要从 accounts.ts 再引回来，会循环）。
  *
  * 作用：辨认已登录 Cookie、丢掉访客令牌、拼请求头、给出官方登录 URL。
- * 用法：isPixivLoggedInSession(raw)；fanboxCookieHeader(fanbox, pixivFallback)。
+ * 用法：isPixivLoggedInSession(raw)；fanboxCookieHeader(fanbox, pixivFallback)；
+ *      pickXSession(cdpCookies)。
  * 为什么：登录页一打开就会种下没有 `用户ID_` 的访客 PHPSESSID，当成登录会全 401。
  *        FANBOX 必须走 accounts.pixiv.net → /auth/start，会话常和 Pixiv 是同一串。
+ *        X 的登录态没有访客歧义：`.x.com` 域 auth_token（HttpOnly）+ ct0 成对出现
+ *        即已登录，缺 ct0 时 sanitizeXCookie 双值门槛会拒——pickXSession 直接返回 null。
  */
 export type CookieLike = {
   name: string;
@@ -17,7 +20,7 @@ export type BrowserSession = {
   fanbox: string;
 };
 
-export type LoginSite = "pixiv" | "fanbox";
+export type LoginSite = "pixiv" | "fanbox" | "x";
 
 export type LoginJobStatus = "idle" | "launching" | "waiting" | "done" | "error";
 
@@ -33,6 +36,7 @@ export type LoginJobSnapshot = {
   frame: string | null;
   pixiv: string;
   fanbox: string;
+  x: string;
   pixivProfile: { id: string; name: string; avatar?: string } | null;
   fanboxProfile: { id: string; name: string; avatar?: string } | null;
 };
@@ -68,11 +72,22 @@ export const FANBOX_LOGIN_URL =
 
 export const FANBOX_AUTH_START = "https://www.fanbox.cc/auth/start";
 
+/**
+ * Official X login flow entry. Bounce to the x.com home page and clicking
+ * "Log in" manually is also acceptable — the poll only cares about cookies.
+ */
+export const X_LOGIN_URL = "https://x.com/i/flow/login";
+
 /** Logged-in Pixiv PHPSESSID is `{memberId}_{token}`. Guest sessions are a bare token. */
 export const PIXIV_SESSION_RE = /^(\d{1,12})_([A-Za-z0-9._-]{8,})$/;
 
 export function loginJobBusy(status: LoginJobStatus): boolean {
   return status === "launching" || status === "waiting";
+}
+
+/** 登录中转 site 参数白名单解析（login-browser 路由用）：未知值返回 null → 400。 */
+export function parseLoginSite(raw: unknown): LoginSite | null {
+  return raw === "pixiv" || raw === "fanbox" || raw === "x" ? raw : null;
 }
 
 export function stripCookieName(raw: string, name: string): string {
@@ -162,6 +177,35 @@ export function pickSession(cookies: CookieLike[]): BrowserSession {
     }
   }
   return { pixiv, fanbox };
+}
+
+/** `.x.com`（含 x.com / *.x.com）域判断；X 会话 Cookie 都种在这棵域上。 */
+function isXCookieDomain(domain: string): boolean {
+  return domain === ".x.com" || domain === "x.com" || domain.endsWith(".x.com");
+}
+
+/**
+ * X 完成判定（中转轮询用，纯函数供单测）：`.x.com` 域的 `auth_token` 与 `ct0`
+ * 成对存在才算登录，返回规范串 `auth_token=…; ct0=…`；任一缺失返回 null——
+ * ct0 缺失时 sanitizeXCookie 双值门槛也会拒，这里提前挡住，done 不误触发。
+ * 多域同名（.x.com 与 .twitter.com 常并存同值）取 `.x.com` 域优先。
+ */
+export function pickXSession(cookies: CookieLike[]): string | null {
+  const pick = (want: string): string | null => {
+    let fallback: string | null = null;
+    for (const cookie of cookies) {
+      if (cookie.name.toLowerCase() !== want) continue;
+      const value = cookie.value.trim();
+      if (!value) continue;
+      if (isXCookieDomain((cookie.domain ?? "").toLowerCase())) return value;
+      if (fallback === null) fallback = value;
+    }
+    return fallback;
+  };
+  const authToken = pick("auth_token");
+  const ct0 = pick("ct0");
+  if (!authToken || !ct0) return null;
+  return `auth_token=${authToken}; ct0=${ct0}`;
 }
 
 function parseCookieJson(text: string): BrowserSession {
