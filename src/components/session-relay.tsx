@@ -49,9 +49,12 @@ function loginGateError(status: number): string {
 
 /**
  * 轮询 / 取凭据阶段的 401 = relayToken 校验失败（job 已终态或非发起方），
- * 不再解读成应用账号问题；其余状态码同型报网关不可用。
+ * 不再解读成应用账号问题。典型形态是发起方丢了 token（刷新页面 / 组件重挂）：
+ * 后台 Chrome 窗口多半还在跑（4 分钟 deadline 自愈），按孤儿 job 提示稍候重试，
+ * 而不是误报网关挂了；其余状态码同型报网关不可用。
  */
 function relayGateError(status: number): string {
+  if (status === 401) return "中转校验未通过：后台仍有登录窗口进行中，稍候自动结束后可重试";
   return `登录中转不可用（${status}）`;
 }
 
@@ -145,7 +148,8 @@ export function SessionRelayDialog({
           if (!res.ok) {
             if (stop) return;
             // 401 = relayToken 失效（job 终态/非发起方），与 start 的 401（应用
-            // 账号）语义不同，按网关不可用同型报，不误导用户去登应用账号。
+            // 账号）语义不同——按孤儿 job 提示「后台仍在跑、稍候可重试」，
+            // 不误导用户去登应用账号，也不误报网关挂了。
             setJob({ status: "error", error: relayGateError(res.status) });
             return;
           }

@@ -206,7 +206,7 @@ describe("XAccountCard（X 设置卡）", () => {
     }
   });
 
-  it("轮询 401（relayToken 失效）走既有错误态，不解读成应用账号问题（AC4）", async () => {
+  it("轮询 401（relayToken 失效）按孤儿 job 提示稍候重试，不解读成应用账号问题（AC4/R1）", async () => {
     const base = globalThis.fetch;
     const calls: string[] = [];
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -227,12 +227,40 @@ describe("XAccountCard（X 设置卡）", () => {
       render(<XAccountCard />);
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: /中转登录/ }));
-        await until(() => screen.queryAllByText(/登录中转不可用（401）/).length > 0);
+        await until(() => screen.queryAllByText(/后台仍有登录窗口进行中，稍候自动结束后可重试/).length > 0);
       });
-      assert.ok(screen.getAllByText(/登录中转不可用（401）/).length > 0, "401 要给用户看得见的错误");
+      assert.ok(
+        screen.getAllByText(/后台仍有登录窗口进行中，稍候自动结束后可重试/).length > 0,
+        "孤儿 job 文案要给用户看得见的错误（含稍候/重试要素）",
+      );
       assert.equal(screen.queryAllByText(/需要先登录应用账号/).length, 0, "relay 401 不是应用账号问题");
+      assert.equal(screen.queryAllByText(/登录中转不可用（401）/).length, 0, "不再误报网关不可用");
       assert.ok(calls.some((c) => c.startsWith(`GET /api/login-browser?frame=1&relayToken=${RELAY_TOKEN}`)));
       assert.equal(useSettings.getState().xCookie, "", "401 路径不写任何值");
+    } finally {
+      globalThis.fetch = base;
+    }
+  });
+
+  it("start 401（数据面闸）仍报应用账号文案，与 relay 401 的孤儿 job 文案区分（R1 回归）", async () => {
+    const base = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false, error: "需要登录" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+    try {
+      render(<XAccountCard />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /中转登录/ }));
+        await until(() => screen.queryAllByText(/需要先登录应用账号（设置 → 应用账号）/).length > 0);
+      });
+      assert.ok(
+        screen.getAllByText(/需要先登录应用账号（设置 → 应用账号）/).length > 0,
+        "数据面闸 401 语义不变：引导登应用账号",
+      );
+      assert.equal(screen.queryAllByText(/后台仍有登录窗口进行中/).length, 0, "start 401 不是孤儿 job 形态");
+      assert.equal(useSettings.getState().xCookie, "", "失败路径不写任何值");
     } finally {
       globalThis.fetch = base;
     }
