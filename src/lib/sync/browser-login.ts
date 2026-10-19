@@ -82,8 +82,10 @@ export const X_LOGIN_URL = "https://x.com/i/flow/login";
 
 /**
  * R3（X 中转 403）：中转页面被 X/Cloudflare 拒（HTTP 403）时的错误文案——
- * 引导手贴 Cookie 兜底。服务端 runJob 收到 403 文档响应即以本文案转错误态，
- * 前端 session-relay 按 job.error 原样展示（口径：密码只打在官方页）。
+ * 引导手贴 Cookie 兜底。服务端 runJob 收到 403 文档响应即以本文案转错误态；
+ * error 终态保留 token 供发起方单次补读（browser-login.server.ts 的
+ * readLoginJobForRelay，P1 修复），下一次 280ms 轮询送达，前端 session-relay
+ * 按 job.error 原样展示（口径：密码只打在官方页）。
  */
 export const X_RELAY_403_HINT =
   "X 拒绝了自动浏览器（HTTP 403）。请改用手贴 Cookie：设置 → 账号，粘贴 auth_token 与 ct0。";

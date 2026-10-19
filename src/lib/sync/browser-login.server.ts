@@ -142,19 +142,38 @@ let activeCdp: CdpSession | null = null;
  *
  * **红线：绝不放进 LoginJobSnapshot。** 快照随每次轮询响应整体展开返回，进了
  * 快照等于把 token 广播给每个旁观者，修复直接失效（design 关键点）。模块级
- * 单变量与 job 单例同生命周期，语义等价且无泄漏面。终态复位全覆盖：
- * done 消费（consumeLoginJobCredentials）/ error（runJob 两处 catch 与
- * startBrowserLogin 的 runJob.catch）/ cancelBrowserLogin / 下一次 start 覆写。
+ * 单变量与 job 单例同生命周期，语义等价且无泄漏面。终态复位：
+ * done 消费（consumeLoginJobCredentials）/ cancel / 下一次 start 覆写照旧立即清；
+ * **error 终态例外（P1 修复）**——立即清会让发起方的下一次 280ms 轮询 401，
+ * 前端把 401 映射成「后台仍在进行」的孤儿文案，X_RELAY_403_HINT / 超时文案
+ * 永远到不了用户眼前。error 改为「保留 token 单次补读」：readLoginJobForRelay
+ * 读到错误终态即清（防重放），60s TTL（relayTokenErrorUntil）兜底发起方不来读。
  */
 let relayToken = "";
+
+/** error 终态保留 token 的兜底窗口（毫秒）：到点发起方仍没来读就作废，防无限滞留。 */
+const RELAY_ERROR_READ_TTL_MS = 60_000;
+let relayTokenErrorUntil = 0;
+
+/** error 终态登记补读窗口（token 已空则无事可做——如 launching 前就失败）。 */
+function retainRelayTokenForErrorRead(): void {
+  if (!relayToken) return;
+  relayTokenErrorUntil = Date.now() + RELAY_ERROR_READ_TTL_MS;
+}
 
 /**
  * relayToken 校验（timingSafeEqual；长度不等先 false——hex 64 恒定长，长度
  * 信息不泄 token）。无 token（未 start / 已终态复位）对一切输入返回 false：
- * 401 优先于 consume / dispatch / 帧返回等任何副作用。
+ * 401 优先于 consume / dispatch / 帧返回等任何副作用。error 终态的补读窗口
+ * 过期也在此惰性作废（TTL 只兜底，不设定时器）。
  */
 export function assertRelayToken(provided: string | null): boolean {
   if (!relayToken || !provided) return false;
+  if (relayTokenErrorUntil && Date.now() >= relayTokenErrorUntil) {
+    relayToken = "";
+    relayTokenErrorUntil = 0;
+    return false;
+  }
   const expected = Buffer.from(relayToken, "utf8");
   const actual = Buffer.from(provided, "utf8");
   if (actual.length !== expected.length) return false;
@@ -166,13 +185,15 @@ export function assertRelayToken(provided: string | null): boolean {
  * 生产守卫（10-18 P2）：植入器能直接操纵中转状态机（含 relayToken），生产构建
  * 里一旦可达等于给任意调用方一把万能钥匙——NODE_ENV=production 一律抛错，
  * 判定取调用时 env（非模块加载时），单测注入生产值即可覆盖守卫分支。
+ * errorReadUntil 供 TTL 测试植入已过期的补读窗口。
  */
-export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = ""): void {
+export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = "", errorReadUntil = 0): void {
   if (process.env.NODE_ENV === "production") {
     throw new Error("installLoginJobForTest 仅测试可用：生产环境禁止植入中转状态");
   }
   job = { ...snapshot };
   relayToken = token;
+  relayTokenErrorUntil = errorReadUntil;
 }
 
 /**
@@ -188,13 +209,30 @@ export function getLoginJob(includeFrame = false): LoginJobSnapshot {
 }
 
 /**
+ * 轮询读取（GET 路由专用，assertRelayToken 已过闸）：error 终态属「单次补读」——
+ * 把错误文案（X_RELAY_403_HINT / 超时 / 启动失败）送达发起方的这一次即消费
+ * relayToken（此后同 token 再轮询 401，防重放）；waiting / done 不消费（done
+ * 的凭据通道 ?credentials=1 还要用 token）。这是 P1 修复的读侧：错误终态对
+ * 持正确 token 的发起方可见，对错 token / 无 token 照旧 401 三键体。
+ */
+export function readLoginJobForRelay(includeFrame = false): LoginJobSnapshot {
+  const snap = getLoginJob(includeFrame);
+  if (job.status === "error" && relayToken) {
+    relayToken = "";
+    relayTokenErrorUntil = 0;
+  }
+  return snap;
+}
+
+/**
  * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
  * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。x 与两站同语义。
- * 同时清空 relayToken：凭据一旦交出，本 job 的中转交互全部失效。
+ * 同时清空 relayToken 与补读窗口：凭据一旦交出，本 job 的中转交互全部失效。
  */
 export function consumeLoginJobCredentials(): LoginJobSnapshot {
   const snap = { ...job, frame: null };
   relayToken = "";
+  relayTokenErrorUntil = 0;
   if (job.pixiv || job.fanbox || job.x) {
     job = { ...job, pixiv: "", fanbox: "", x: "" };
   }
@@ -599,7 +637,9 @@ async function runJob(site: LoginSite): Promise<void> {
 
     // R3 X 403 侦测：在既有 screencast CDP 会话上挂 Network.responseReceived，
     // 只认 X 域 Document 403（isXRelayBlockedResponse 纯函数有单测锁，404/500/
-    // 子资源不触发）。命中后轮询循环转错误态并给手贴 Cookie 引导，不静默。
+    // 子资源不触发）。命中后轮询循环转错误态给手贴 Cookie 引导，不静默；错误
+    // 终态经 catch 保留 token 单次补读，发起方下一次 280ms 轮询即收到
+    // X_RELAY_403_HINT 并由 session-relay 的 job.error 位展示（P1 修复链路）。
     let xBlocked403 = false;
     if (site === "x" && activeCdp) {
       const watch = activeCdp;
@@ -770,12 +810,15 @@ async function runJob(site: LoginSite): Promise<void> {
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "登录失败";
+    // P1 修复：error 终态不清 token——保留给发起方单次补读（readLoginJobForRelay
+    // 读到即清，60s TTL 兜底）。立即清会让已在轮询的前端拿到 401、被孤儿文案
+    // 误导「后台仍在进行」，X_RELAY_403_HINT / 超时文案永远展示不出来。
     if (/Cannot find module 'puppeteer-core'/.test(message)) {
-      relayToken = "";
       job = { ...job, status: "error", error: "缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。", frame: null };
+      retainRelayTokenForErrorRead();
     } else {
-      relayToken = "";
       job = { ...job, status: "error", error: message };
+      retainRelayTokenForErrorRead();
     }
   } finally {
     closer = null;
@@ -799,28 +842,33 @@ export async function startBrowserLogin(site: LoginSite): Promise<StartLoginResu
   }
   stop = false;
   job = { ...idleJob(), status: "launching", site, relay: true };
-  // 受理即签发（覆写上一 job 残留）；launching 期间失败会走 error 复位 → 空串照实外发。
+  // 受理即签发（覆写上一 job 残留，含 error 终态的补读窗口）；launching 期间
+  // 失败会走 error 保留补读（见 runJob catch），start 响应侧按下式不外发钥匙。
   relayToken = randomBytes(32).toString("hex");
+  relayTokenErrorUntil = 0;
   void runJob(site).catch((err) => {
     const message = err instanceof Error ? err.message : "登录失败";
     if (loginJobBusy(job.status) || job.status === "launching") {
-      relayToken = "";
       job = { ...job, status: "error", error: message };
+      retainRelayTokenForErrorRead();
     }
   });
   const deadline = Date.now() + 25_000;
   while (Date.now() < deadline && job.status === "launching") {
     await new Promise((r) => setTimeout(r, 150));
   }
-  // token 仅在此处随返回值外发一次（路由拼进 start 响应）；取的是当前值——
-  // 等待期间若已被取消/出错复位，拿到的是空串而不是过期钥匙。
-  return { snapshot: getLoginJob(), relayToken };
+  // token 仅在此处随返回值外发一次（路由拼进 start 响应）；error 终态取空串——
+  // start 响应自带终态快照与错误文案，无需再发钥匙（保留的 token 只服务「已在
+  // 轮询的发起方补读一次」）；取消复位照旧空串。
+  return { snapshot: getLoginJob(), relayToken: job.status === "error" ? "" : relayToken };
 }
 
 export async function cancelBrowserLogin(): Promise<LoginJobSnapshot> {
   stop = true;
   // 无条件清空：cancel 即终结本 job 的全部中转交互（含 done 未取凭据的残留会话）。
+  // cancel 由发起方自己触发且对话框已关，不需要 error 补读窗口。
   relayToken = "";
+  relayTokenErrorUntil = 0;
   try {
     await closer?.();
   } catch {

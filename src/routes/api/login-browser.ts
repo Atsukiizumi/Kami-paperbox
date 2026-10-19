@@ -8,8 +8,10 @@
  *      relayToken 绑定（10-18 凭据竞态修复）：start 受理时签发 per-job token
  *      （randomBytes(32)），仅随 start 响应外发一次；此后帧轮询 / ?credentials=1 /
  *      input / cancel 一律第一步过 assertRelayToken，缺失或不符即 401 固定错误体
- *      （不消费凭据、不回帧、零副作用、不含 job 状态）。job 终态（done 消费 /
- *      error / cancel / 下一次 start）token 即失效；访客可 start 自己的 job 拿
+ *      （不消费凭据、不回帧、零副作用、不含 job 状态）。job 终态 token 失效：
+ *      done 消费 / cancel / 下一次 start 立即清；error 终态保留 token 供发起方
+ *      单次补读（readLoginJobForRelay 读到即清，60s TTL 兜底——P1 修复，403 /
+ *      超时文案不再被 401 拦断成孤儿提示）。访客可 start 自己的 job 拿
  *      自己的 token（TD-20 语义不变），但抢不走别人 job 的任何东西。
  */
 import {
@@ -18,6 +20,7 @@ import {
   consumeLoginJobCredentials,
   dispatchLoginInput,
   getLoginJob,
+  readLoginJobForRelay,
   startBrowserLogin,
   type StartLoginResult,
 } from "@/lib/sync/browser-login.server";
@@ -50,7 +53,8 @@ function relayUnauthorized() {
 
 /**
  * start 响应体：剥串快照 + relayToken 唯一一次外发（导出供路由单测锁形状）。
- * token 不在快照里（红线），只在此处显式拼一次；启动失败（error 已复位）得到空串。
+ * token 不在快照里（红线），只在此处显式拼一次；启动失败（error 终态）得到
+ * 空串——错误文案已在快照里，保留的补读 token 只给「已在轮询的发起方」。
  */
 export function startLoginResponse(
   session: StartLoginResult,
@@ -102,7 +106,10 @@ export async function GET(request: Request) {
         if (url.searchParams.get("credentials") === "1") {
           return json({ ok: true, ...consumeLoginJobCredentials() });
         }
-        return json({ ok: true, ...stripCredentials(getLoginJob(includeFrame)) });
+        // 帧轮询走 readLoginJobForRelay：error 终态对持正确 token 的发起方
+        // 单次可读（读到错误文案即消费 token，403 / 超时引导不再被 401 拦断；
+        // P1 修复），waiting / done 不消费。
+        return json({ ok: true, ...stripCredentials(readLoginJobForRelay(includeFrame)) });
 }
 
 export async function POST(request: Request) {

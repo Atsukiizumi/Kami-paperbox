@@ -333,7 +333,9 @@ test("R2 normalizeHeadlessUa：HeadlessChrome → Chrome，无 Headless 字样�
 
 // ── R3 403 侦测（AC3）：X 域 Document 403 才触发，404/500/子资源不误报 ────────
 // wiring：runJob 在 screencast CDP 会话上挂 Network.responseReceived → 命中即
-// throw X_RELAY_403_HINT → 既有 catch 置 job.error（前端 session-relay 原样展示）。
+// throw X_RELAY_403_HINT → catch 置 job.error 且保留 token 单次补读（P1 修复）→
+// 发起方下一次轮询经 readLoginJobForRelay 读到文案 → session-relay 按 job.error
+// 展示。「读到即清 / 错 token 仍 401 三键体」的路由级锁在 login-browser.test.tsx。
 
 test("R3 X 域 Document 403 触发；404 / 500 / 子资源 / 他站 / 无 URL 不触发", () => {
   assert.equal(
