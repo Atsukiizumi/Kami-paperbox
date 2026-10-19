@@ -1,7 +1,11 @@
 /**
  * 登录中转（只在服务端跑）。
  *
- * 作用：用无头 Chrome 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
+ * 作用：用 Chrome / Edge 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
+ *      浏览器选择链与按站启动策略（R1/R2）：KAMI_CHROME → Chrome → Edge → headless-shell
+ *      （orderLaunchCandidates / launchAttemptsForSite）；X 有头优先——headless UA 的
+ *      HeadlessChrome 字样会被 X/Cloudflare 拦（403），降级段用 normalizeHeadlessUa 抹掉。
+ *      X 收到 Document 403 时转错误态并引导手贴 Cookie（X_RELAY_403_HINT，R3）。
  * 用法：HTTP `/api/login-browser` 调这里的 start/poll/input；不要在浏览器里 import。
  * 为什么：预览和 Docker 没有桌面，弹不出 Chrome；页面 JS 又读不到 HttpOnly Cookie。
  *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工；
@@ -19,8 +23,13 @@ import {
   LOGIN_VIEW,
   PIXIV_LOGIN_URL,
   X_LOGIN_URL,
+  X_RELAY_403_HINT,
   chromeCandidates,
+  isXRelayBlockedResponse,
+  launchAttemptsForSite,
   loginJobBusy,
+  normalizeHeadlessUa,
+  orderLaunchCandidates,
   pickSession,
   pickXSession,
   type LoginInputEvent,
@@ -58,6 +67,8 @@ type PageLike = {
   content: () => Promise<string>;
   evaluate: (pageFunction: () => unknown) => Promise<unknown>;
   setViewport: (v: { width: number; height: number; deviceScaleFactor?: number }) => Promise<void>;
+  /** R2 无头降级时的 UA 规范化（仅 X 用；可选——测试替身可不实现）。 */
+  setUserAgent?: (ua: string) => Promise<void>;
   screenshot: (opts: { type: "jpeg"; quality: number; encoding: "base64" }) => Promise<string>;
   mouse: {
     move: (x: number, y: number) => Promise<void>;
@@ -74,8 +85,10 @@ type PageLike = {
 
 type CdpSession = {
   send: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
-  on: (event: string, listener: (params: ScreencastFrame) => void) => void;
-  off?: (event: string, listener: (params: ScreencastFrame) => void) => void;
+  /** 监听器载荷随事件各异（screencast 帧 / Network.responseReceived）：参数位取
+   *  never（反变）——任何具体事件载荷的监听器都可安装，实参形态由各监听点自负。 */
+  on: (event: string, listener: (params: never) => void) => void;
+  off?: (event: string, listener: (params: never) => void) => void;
 };
 
 type ScreencastFrame = {
@@ -84,11 +97,19 @@ type ScreencastFrame = {
   metadata?: { deviceWidth?: number; deviceHeight?: number };
 };
 
+/** CDP Network.responseReceived 事件里我们关心的两个字段（R3 403 侦测）。 */
+type CdpResponseReceived = {
+  type?: string;
+  response?: { url?: string; status?: number };
+};
+
 type BrowserLike = {
   connected?: boolean;
   close: () => Promise<void>;
   pages: () => Promise<PageLike[]>;
   newPage: () => Promise<PageLike>;
+  /** R2 UA 规范化用（可选——测试替身可不实现）。 */
+  userAgent?: () => Promise<string>;
 };
 
 const idleJob = (): LoginJobSnapshot => ({
@@ -121,19 +142,38 @@ let activeCdp: CdpSession | null = null;
  *
  * **红线：绝不放进 LoginJobSnapshot。** 快照随每次轮询响应整体展开返回，进了
  * 快照等于把 token 广播给每个旁观者，修复直接失效（design 关键点）。模块级
- * 单变量与 job 单例同生命周期，语义等价且无泄漏面。终态复位全覆盖：
- * done 消费（consumeLoginJobCredentials）/ error（runJob 两处 catch 与
- * startBrowserLogin 的 runJob.catch）/ cancelBrowserLogin / 下一次 start 覆写。
+ * 单变量与 job 单例同生命周期，语义等价且无泄漏面。终态复位：
+ * done 消费（consumeLoginJobCredentials）/ cancel / 下一次 start 覆写照旧立即清；
+ * **error 终态例外（P1 修复）**——立即清会让发起方的下一次 280ms 轮询 401，
+ * 前端把 401 映射成「后台仍在进行」的孤儿文案，X_RELAY_403_HINT / 超时文案
+ * 永远到不了用户眼前。error 改为「保留 token 单次补读」：readLoginJobForRelay
+ * 读到错误终态即清（防重放），60s TTL（relayTokenErrorUntil）兜底发起方不来读。
  */
 let relayToken = "";
+
+/** error 终态保留 token 的兜底窗口（毫秒）：到点发起方仍没来读就作废，防无限滞留。 */
+const RELAY_ERROR_READ_TTL_MS = 60_000;
+let relayTokenErrorUntil = 0;
+
+/** error 终态登记补读窗口（token 已空则无事可做——如 launching 前就失败）。 */
+function retainRelayTokenForErrorRead(): void {
+  if (!relayToken) return;
+  relayTokenErrorUntil = Date.now() + RELAY_ERROR_READ_TTL_MS;
+}
 
 /**
  * relayToken 校验（timingSafeEqual；长度不等先 false——hex 64 恒定长，长度
  * 信息不泄 token）。无 token（未 start / 已终态复位）对一切输入返回 false：
- * 401 优先于 consume / dispatch / 帧返回等任何副作用。
+ * 401 优先于 consume / dispatch / 帧返回等任何副作用。error 终态的补读窗口
+ * 过期也在此惰性作废（TTL 只兜底，不设定时器）。
  */
 export function assertRelayToken(provided: string | null): boolean {
   if (!relayToken || !provided) return false;
+  if (relayTokenErrorUntil && Date.now() >= relayTokenErrorUntil) {
+    relayToken = "";
+    relayTokenErrorUntil = 0;
+    return false;
+  }
   const expected = Buffer.from(relayToken, "utf8");
   const actual = Buffer.from(provided, "utf8");
   if (actual.length !== expected.length) return false;
@@ -145,13 +185,15 @@ export function assertRelayToken(provided: string | null): boolean {
  * 生产守卫（10-18 P2）：植入器能直接操纵中转状态机（含 relayToken），生产构建
  * 里一旦可达等于给任意调用方一把万能钥匙——NODE_ENV=production 一律抛错，
  * 判定取调用时 env（非模块加载时），单测注入生产值即可覆盖守卫分支。
+ * errorReadUntil 供 TTL 测试植入已过期的补读窗口。
  */
-export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = ""): void {
+export function installLoginJobForTest(snapshot: LoginJobSnapshot, token = "", errorReadUntil = 0): void {
   if (process.env.NODE_ENV === "production") {
     throw new Error("installLoginJobForTest 仅测试可用：生产环境禁止植入中转状态");
   }
   job = { ...snapshot };
   relayToken = token;
+  relayTokenErrorUntil = errorReadUntil;
 }
 
 /**
@@ -167,13 +209,30 @@ export function getLoginJob(includeFrame = false): LoginJobSnapshot {
 }
 
 /**
+ * 轮询读取（GET 路由专用，assertRelayToken 已过闸）：error 终态属「单次补读」——
+ * 把错误文案（X_RELAY_403_HINT / 超时 / 启动失败）送达发起方的这一次即消费
+ * relayToken（此后同 token 再轮询 401，防重放）；waiting / done 不消费（done
+ * 的凭据通道 ?credentials=1 还要用 token）。这是 P1 修复的读侧：错误终态对
+ * 持正确 token 的发起方可见，对错 token / 无 token 照旧 401 三键体。
+ */
+export function readLoginJobForRelay(includeFrame = false): LoginJobSnapshot {
+  const snap = getLoginJob(includeFrame);
+  if (job.status === "error" && relayToken) {
+    relayToken = "";
+    relayTokenErrorUntil = 0;
+  }
+  return snap;
+}
+
+/**
  * 取走登录会话串并立即从内存清空（SEC-02：done 后凭据只交出一次，
  * 之后任何过闸客户端都拿不到 —— 直至下一次 start）。x 与两站同语义。
- * 同时清空 relayToken：凭据一旦交出，本 job 的中转交互全部失效。
+ * 同时清空 relayToken 与补读窗口：凭据一旦交出，本 job 的中转交互全部失效。
  */
 export function consumeLoginJobCredentials(): LoginJobSnapshot {
   const snap = { ...job, frame: null };
   relayToken = "";
+  relayTokenErrorUntil = 0;
   if (job.pixiv || job.fanbox || job.x) {
     job = { ...job, pixiv: "", fanbox: "", x: "" };
   }
@@ -226,23 +285,49 @@ function playwrightChromeBins(): string[] {
   return found;
 }
 
-function isHeadlessShell(path: string): boolean {
-  return /headless-shell/i.test(path);
+type LaunchOutcome = {
+  browser: BrowserLike;
+  chrome: string;
+  proxy: ReturnType<typeof proxyArgs>;
+  headless: boolean | "shell";
+  normalizeUa: boolean;
+};
+
+/**
+ * R2 channel 兜底（Chrome 装在非标准位置时让 puppeteer 自己找）：与路径层
+ * 同策略——X 有头优先再无头（无头段 UA 规范化），其余站恒无头。
+ */
+type ChannelAttempt = {
+  channel: "chrome" | "chrome-beta" | "chrome-dev";
+  headless: boolean | "shell";
+  normalizeUa: boolean;
+};
+
+function channelAttempts(site: LoginSite): ChannelAttempt[] {
+  const names = ["chrome", "chrome-beta", "chrome-dev"] as const;
+  if (site === "x") {
+    return [
+      ...names.map((channel) => ({ channel, headless: false as const, normalizeUa: false })),
+      ...names.map((channel) => ({ channel, headless: true as const, normalizeUa: true })),
+    ];
+  }
+  return names.map((channel) => ({ channel, headless: true as const, normalizeUa: false }));
 }
 
-async function launchChrome(profile: string): Promise<{ browser: BrowserLike; chrome: string; proxy: ReturnType<typeof proxyArgs> }> {
+async function launchChrome(profile: string, site: LoginSite): Promise<LaunchOutcome> {
   const { default: puppeteer } = await import("puppeteer-core");
   const proxy = proxyArgs();
-  const bins = [...chromeCandidates(), ...playwrightChromeBins()];
-  const unique = [...new Set(bins.filter(Boolean))];
+  // R1：标准位置候选 + playwright 下载的构建（含 Chrome for Testing 与
+  // headless-shell）合并去重后，真浏览器一律压到 headless-shell 之前。
+  const bins = [...new Set([...chromeCandidates(), ...playwrightChromeBins()].filter(Boolean))];
+  const ordered = orderLaunchCandidates(bins, (path) => existsSync(/*turbopackIgnore: true*/ path));
+  const attempts = launchAttemptsForSite(site, ordered);
 
   const tried: string[] = [];
-  for (const executablePath of unique) {
-    if (!executablePath || !existsSync(executablePath)) continue;
-    tried.push(executablePath);
-    const headless = true;
+  for (const attempt of attempts) {
+    tried.push(attempt.executablePath);
     const common = {
-      headless,
+      headless: attempt.headless,
       userDataDir: profile,
       defaultViewport: { width: LOGIN_VIEW.width, height: LOGIN_VIEW.height, deviceScaleFactor: 1 },
       ignoreDefaultArgs: ["--enable-automation"],
@@ -262,24 +347,33 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
       ],
     };
     try {
-      const browser = (await puppeteer.launch({ ...common, executablePath })) as unknown as BrowserLike;
-      return { browser, chrome: executablePath, proxy };
+      const browser = (await puppeteer.launch({
+        ...common,
+        executablePath: attempt.executablePath,
+      })) as unknown as BrowserLike;
+      return {
+        browser,
+        chrome: attempt.executablePath,
+        proxy,
+        headless: attempt.headless,
+        normalizeUa: attempt.normalizeUa,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.kami.warn(`无法启动 ${executablePath}: ${message}`);
+      log.kami.warn(`无法启动 ${attempt.executablePath}: ${message}`);
     }
   }
 
-  for (const channel of ["chrome", "chrome-beta", "chrome-dev"] as const) {
-    tried.push(`channel:${channel}`);
+  for (const attempt of channelAttempts(site)) {
+    tried.push(`channel:${attempt.channel}`);
     try {
       const browser = (await puppeteer.launch({
-        headless: true,
+        headless: attempt.headless,
         userDataDir: profile,
         defaultViewport: { width: LOGIN_VIEW.width, height: LOGIN_VIEW.height, deviceScaleFactor: 1 },
         ignoreDefaultArgs: ["--enable-automation"],
         timeout: 60_000,
-        channel,
+        channel: attempt.channel,
         args: [
           "--disable-blink-features=AutomationControlled",
           "--no-sandbox",
@@ -287,10 +381,16 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
           ...proxy.args,
         ],
       })) as unknown as BrowserLike;
-      return { browser, chrome: channel, proxy };
+      return {
+        browser,
+        chrome: attempt.channel,
+        proxy,
+        headless: attempt.headless,
+        normalizeUa: attempt.normalizeUa,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.kami.warn(`无法启动 channel:${channel}: ${message}`);
+      log.kami.warn(`无法启动 channel:${attempt.channel}: ${message}`);
     }
   }
 
@@ -488,7 +588,7 @@ async function runJob(site: LoginSite): Promise<void> {
   const profile = mkdtempSync(join(tmpdir(), "kami-login-"));
   let browser: BrowserLike | undefined;
   try {
-    const launched = await launchChrome(profile);
+    const launched = await launchChrome(profile, site);
     if (stop) throw new Error("已取消登录窗口");
     browser = launched.browser;
     closer = async () => {
@@ -506,7 +606,11 @@ async function runJob(site: LoginSite): Promise<void> {
       error: null,
       pageUrl: "",
     };
-    log.kami.info(`登录中转已启动: ${launched.chrome}${isHeadlessShell(launched.chrome) ? " (headless)" : ""}`);
+    const modeLabel =
+      launched.headless === false ? "有头" : launched.headless === "shell" ? "无头壳" : "无头";
+    log.kami.info(
+      `登录中转已启动: ${launched.chrome}（${modeLabel}${launched.normalizeUa ? "，UA 已去 Headless" : ""}）`,
+    );
 
     const page = (await browser.pages())[0] ?? (await browser.newPage());
     activePage = page;
@@ -518,9 +622,48 @@ async function runJob(site: LoginSite): Promise<void> {
     if (launched.proxy.user) {
       await page.authenticate({ username: launched.proxy.user, password: launched.proxy.password ?? "" });
     }
+    // R2 无头降级的 UA 规范化（仅 X）：真 UA 抹掉 HeadlessChrome 字样后在导航前
+    // set 到 page 层。best-effort——拿不到/设不上不阻塞中转（有头本就不用改）。
+    if (launched.normalizeUa) {
+      try {
+        const rawUa = (await browser.userAgent?.()) ?? "";
+        const normalized = normalizeHeadlessUa(rawUa);
+        if (rawUa && normalized !== rawUa) await page.setUserAgent?.(normalized);
+      } catch (err) {
+        log.kami.warn("UA 规范化失败（继续中转）：", err instanceof Error ? err.message : err);
+      }
+    }
     await startScreencast(page);
 
-    const start = site === "fanbox" ? FANBOX_LOGIN_URL : site === "x" ? X_LOGIN_URL : PIXIV_LOGIN_URL;
+    // R3 X 403 侦测：在既有 screencast CDP 会话上挂 Network.responseReceived，
+    // 只认 X 域 Document 403（isXRelayBlockedResponse 纯函数有单测锁，404/500/
+    // 子资源不触发）。命中后轮询循环转错误态给手贴 Cookie 引导，不静默；错误
+    // 终态经 catch 保留 token 单次补读，发起方下一次 280ms 轮询即收到
+    // X_RELAY_403_HINT 并由 session-relay 的 job.error 位展示（P1 修复链路）。
+    let xBlocked403 = false;
+    if (site === "x" && activeCdp) {
+      const watch = activeCdp;
+      try {
+        await watch.send("Network.enable");
+        watch.on("Network.responseReceived", (ev) => {
+          const rec = ev as CdpResponseReceived;
+          if (
+            isXRelayBlockedResponse({
+              status: rec.response?.status,
+              type: rec.type,
+              url: rec.response?.url,
+            })
+          ) {
+            xBlocked403 = true;
+          }
+        });
+      } catch (err) {
+        log.kami.warn("403 侦测挂载失败（继续中转）：", err instanceof Error ? err.message : err);
+      }
+    }
+
+    const start =
+      site === "fanbox" ? FANBOX_LOGIN_URL : site === "x" ? X_LOGIN_URL : PIXIV_LOGIN_URL;
     await page.goto(start, { waitUntil: "domcontentloaded", timeout: 45_000 });
     job = { ...job, pageUrl: page.url() };
     if (!job.frame) await grabFrame(page);
@@ -553,9 +696,11 @@ async function runJob(site: LoginSite): Promise<void> {
 
       // X：auth_token+ct0 成对出现即收工（pickXSession 内已含 .x.com 域优先与
       // 双值门槛）；不做任何访客/回转判定，也不触碰下面两站的确认流程。
+      // 403（R3）：登录页被拒时尽快转错误态给手贴 Cookie 引导，不再空等超时。
       if (site === "x") {
         x = pickXSession(rawCookies) ?? x;
         if (x) break;
+        if (xBlocked403) throw new Error(X_RELAY_403_HINT);
         await new Promise((r) => setTimeout(r, 700));
         continue;
       }
@@ -622,7 +767,10 @@ async function runJob(site: LoginSite): Promise<void> {
       throw new Error("超时未检测到 FANBOX 登录。请从官方账号选择页登入，完成 /auth/start 回转后再等一下。");
     }
     if (site === "x" && !x) {
-      throw new Error("超时未检测到 X 登录。请在窗口里完成登录（含可能的验证码 / 2FA），或改用手贴。");
+      // 403 已命中但 deadline 先到（竞态兜底）：同样给手贴 Cookie 引导。
+      throw new Error(
+        xBlocked403 ? X_RELAY_403_HINT : "超时未检测到 X 登录。请在窗口里完成登录（含可能的验证码 / 2FA），或改用手贴。",
+      );
     }
     // 拆框：Pixiv 登录只交付 pixiv（含身份解析也只解析 pixiv），fanbox 一律不带出；
     // X 同理只交付 x——两站凭据与身份不跨站复制。
@@ -662,12 +810,15 @@ async function runJob(site: LoginSite): Promise<void> {
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "登录失败";
+    // P1 修复：error 终态不清 token——保留给发起方单次补读（readLoginJobForRelay
+    // 读到即清，60s TTL 兜底）。立即清会让已在轮询的前端拿到 401、被孤儿文案
+    // 误导「后台仍在进行」，X_RELAY_403_HINT / 超时文案永远展示不出来。
     if (/Cannot find module 'puppeteer-core'/.test(message)) {
-      relayToken = "";
       job = { ...job, status: "error", error: "缺少 puppeteer-core。请在项目目录执行 pnpm i 后再试。", frame: null };
+      retainRelayTokenForErrorRead();
     } else {
-      relayToken = "";
       job = { ...job, status: "error", error: message };
+      retainRelayTokenForErrorRead();
     }
   } finally {
     closer = null;
@@ -691,28 +842,33 @@ export async function startBrowserLogin(site: LoginSite): Promise<StartLoginResu
   }
   stop = false;
   job = { ...idleJob(), status: "launching", site, relay: true };
-  // 受理即签发（覆写上一 job 残留）；launching 期间失败会走 error 复位 → 空串照实外发。
+  // 受理即签发（覆写上一 job 残留，含 error 终态的补读窗口）；launching 期间
+  // 失败会走 error 保留补读（见 runJob catch），start 响应侧按下式不外发钥匙。
   relayToken = randomBytes(32).toString("hex");
+  relayTokenErrorUntil = 0;
   void runJob(site).catch((err) => {
     const message = err instanceof Error ? err.message : "登录失败";
     if (loginJobBusy(job.status) || job.status === "launching") {
-      relayToken = "";
       job = { ...job, status: "error", error: message };
+      retainRelayTokenForErrorRead();
     }
   });
   const deadline = Date.now() + 25_000;
   while (Date.now() < deadline && job.status === "launching") {
     await new Promise((r) => setTimeout(r, 150));
   }
-  // token 仅在此处随返回值外发一次（路由拼进 start 响应）；取的是当前值——
-  // 等待期间若已被取消/出错复位，拿到的是空串而不是过期钥匙。
-  return { snapshot: getLoginJob(), relayToken };
+  // token 仅在此处随返回值外发一次（路由拼进 start 响应）；error 终态取空串——
+  // start 响应自带终态快照与错误文案，无需再发钥匙（保留的 token 只服务「已在
+  // 轮询的发起方补读一次」）；取消复位照旧空串。
+  return { snapshot: getLoginJob(), relayToken: job.status === "error" ? "" : relayToken };
 }
 
 export async function cancelBrowserLogin(): Promise<LoginJobSnapshot> {
   stop = true;
   // 无条件清空：cancel 即终结本 job 的全部中转交互（含 done 未取凭据的残留会话）。
+  // cancel 由发起方自己触发且对话框已关，不需要 error 补读窗口。
   relayToken = "";
+  relayTokenErrorUntil = 0;
   try {
     await closer?.();
   } catch {

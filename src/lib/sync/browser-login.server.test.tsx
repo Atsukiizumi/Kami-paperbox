@@ -5,6 +5,8 @@
  *      relayToken 字段，防回退红线）；② 终态复位（done 消费 / cancel 清空，
  *      error 与下一次 start 覆写见下方代码引用注释）；③ assertRelayToken
  *      的 timing-safe 语义（等长错值、长度不等、空值一律 false）。
+ *      P1 修复再加锁：error 终态保留 token 单次补读（readLoginJobForRelay
+ *      读到即清）+ 60s TTL 兜底——403 / 超时文案对发起方可达。
  * 用法：随 pnpm test 的 tsx 段跑（.server 链需要 tsx 解析 @/ 别名；内容无 JSX，
  *      用 .tsx 后缀只为进 tsx loader 段，同 login-browser.test.tsx）。job 状态
  *      经 installLoginJobForTest 植入（仅测试用导出，同 setHostGuardInternalsForTests
@@ -25,6 +27,7 @@ const {
   consumeLoginJobCredentials,
   getLoginJob,
   installLoginJobForTest,
+  readLoginJobForRelay,
 } = await import("./browser-login.server.ts");
 const { LOGIN_VIEW } = await import("./browser-login.ts");
 
@@ -101,6 +104,32 @@ test("终态复位：cancel 对已 done（凭据未取）的 job 也清空 token
   installLoginJobForTest(snap({ status: "done", site: "pixiv", pixiv: PIXIV }), TOKEN);
   await cancelBrowserLogin();
   assert.equal(assertRelayToken(TOKEN), false, "done 后取消同样终结 token");
+});
+
+// ── P1 修复：error 终态保留 token 单次补读（403 / 超时文案可达） ────────────────
+
+test("readLoginJobForRelay：error 终态返回快照并单次消费 token；waiting / done 不消费", () => {
+  installLoginJobForTest(snap({ status: "waiting", site: "x", frame: "F" }), TOKEN);
+  const waiting = readLoginJobForRelay(true);
+  assert.equal(waiting.status, "waiting");
+  assert.equal(waiting.frame, "F");
+  assert.equal(assertRelayToken(TOKEN), true, "进行中 job 的帧轮询不消费 token");
+
+  installLoginJobForTest(snap({ status: "error", site: "x", error: "X 拒绝了自动浏览器（HTTP 403）" }), TOKEN);
+  const failed = readLoginJobForRelay(true);
+  assert.equal(failed.status, "error");
+  assert.equal(failed.error, "X 拒绝了自动浏览器（HTTP 403）");
+  assert.equal(assertRelayToken(TOKEN), false, "error 补读单次：文案送达即清 token");
+
+  installLoginJobForTest(snap({ status: "done", site: "x", x: "auth_token=a; ct0=b" }), TOKEN);
+  readLoginJobForRelay(true);
+  assert.equal(assertRelayToken(TOKEN), true, "done 的帧轮询不消费 token（凭据通道还要用）");
+});
+
+test("error 补读窗口 60s TTL：过期后正确 token 也失效（发起方一直没来读的兜底）", () => {
+  installLoginJobForTest(snap({ status: "error", site: "x", error: "boom" }), TOKEN, Date.now() - 1);
+  assert.equal(assertRelayToken(TOKEN), false, "窗口已过：惰性作废");
+  assert.equal(assertRelayToken(TOKEN), false, "token 已被作废路径清除");
 });
 
 test("生产守卫：NODE_ENV=production 时 installLoginJobForTest 抛错且不触碰既有状态（R3）", () => {
