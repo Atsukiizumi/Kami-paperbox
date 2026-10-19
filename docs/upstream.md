@@ -251,7 +251,7 @@ X 是第六个数据源，但**不是浏览站**——入口挂画师页（pixiv
 3. 设置里的代理（`kami.config.json` / `KAMI_PROXY`）对上游和登录中转都生效。
 4. 媒体 URL 白名单：`pximg.net`、`fanbox.cc`、图站、搜图站、`pbs.twimg.com`（X 静态图）。别的地址拒绝。
 
-登录中转是同一思路的另一面：官方页跑在后端的 Chrome 里，画面和点击中转到你眼前，Cookie 用 CDP 读，不经过「页面 JS 读 Cookie」这条走不通的路。中转的帧轮询、取凭据（`?credentials=1`）、输入转发和取消都要求携带 start 时一次性下发的 per-job relayToken（校验失败 401、零副作用），局域网里别的设备抢不走会话。
+登录中转是同一思路的另一面：官方页跑在后端的 Chrome 里，画面和点击中转到你眼前，Cookie 用 CDP 读，不经过「页面 JS 读 Cookie」这条走不通的路。中转的帧轮询、取凭据（`?credentials=1`）、输入转发和取消都要求携带 start 时一次性下发的 per-job relayToken（校验失败 401、零副作用），局域网里别的设备抢不走会话。浏览器按 `KAMI_CHROME` → Chrome → Edge → 容器内 headless-shell 的链子挑（Windows 没装 Chrome 也有 Edge 兜底）；X 的中转优先有头真浏览器——无头 UA 带 `HeadlessChrome`，X/Cloudflare 会 403，降级无头时要把 UA 规范成 `Chrome/…`（`launchAttemptsForSite`，browser-login.ts）。
 
 ---
 
