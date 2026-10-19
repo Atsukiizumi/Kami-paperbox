@@ -1,7 +1,11 @@
 /**
  * 登录中转（只在服务端跑）。
  *
- * 作用：用无头 Chrome 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
+ * 作用：用 Chrome / Edge 打开官方登录页，把画面和点击转到设置窗口，登完用 CDP 收 Cookie。
+ *      浏览器选择链与按站启动策略（R1/R2）：KAMI_CHROME → Chrome → Edge → headless-shell
+ *      （orderLaunchCandidates / launchAttemptsForSite）；X 有头优先——headless UA 的
+ *      HeadlessChrome 字样会被 X/Cloudflare 拦（403），降级段用 normalizeHeadlessUa 抹掉。
+ *      X 收到 Document 403 时转错误态并引导手贴 Cookie（X_RELAY_403_HINT，R3）。
  * 用法：HTTP `/api/login-browser` 调这里的 start/poll/input；不要在浏览器里 import。
  * 为什么：预览和 Docker 没有桌面，弹不出 Chrome；页面 JS 又读不到 HttpOnly Cookie。
  *        FANBOX 要等到跳过 /auth/start 且会话变成 `用户ID_令牌` 才收工；
@@ -19,8 +23,13 @@ import {
   LOGIN_VIEW,
   PIXIV_LOGIN_URL,
   X_LOGIN_URL,
+  X_RELAY_403_HINT,
   chromeCandidates,
+  isXRelayBlockedResponse,
+  launchAttemptsForSite,
   loginJobBusy,
+  normalizeHeadlessUa,
+  orderLaunchCandidates,
   pickSession,
   pickXSession,
   type LoginInputEvent,
@@ -58,6 +67,8 @@ type PageLike = {
   content: () => Promise<string>;
   evaluate: (pageFunction: () => unknown) => Promise<unknown>;
   setViewport: (v: { width: number; height: number; deviceScaleFactor?: number }) => Promise<void>;
+  /** R2 无头降级时的 UA 规范化（仅 X 用；可选——测试替身可不实现）。 */
+  setUserAgent?: (ua: string) => Promise<void>;
   screenshot: (opts: { type: "jpeg"; quality: number; encoding: "base64" }) => Promise<string>;
   mouse: {
     move: (x: number, y: number) => Promise<void>;
@@ -74,8 +85,10 @@ type PageLike = {
 
 type CdpSession = {
   send: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
-  on: (event: string, listener: (params: ScreencastFrame) => void) => void;
-  off?: (event: string, listener: (params: ScreencastFrame) => void) => void;
+  /** 监听器载荷随事件各异（screencast 帧 / Network.responseReceived）：参数位取
+   *  never（反变）——任何具体事件载荷的监听器都可安装，实参形态由各监听点自负。 */
+  on: (event: string, listener: (params: never) => void) => void;
+  off?: (event: string, listener: (params: never) => void) => void;
 };
 
 type ScreencastFrame = {
@@ -84,11 +97,19 @@ type ScreencastFrame = {
   metadata?: { deviceWidth?: number; deviceHeight?: number };
 };
 
+/** CDP Network.responseReceived 事件里我们关心的两个字段（R3 403 侦测）。 */
+type CdpResponseReceived = {
+  type?: string;
+  response?: { url?: string; status?: number };
+};
+
 type BrowserLike = {
   connected?: boolean;
   close: () => Promise<void>;
   pages: () => Promise<PageLike[]>;
   newPage: () => Promise<PageLike>;
+  /** R2 UA 规范化用（可选——测试替身可不实现）。 */
+  userAgent?: () => Promise<string>;
 };
 
 const idleJob = (): LoginJobSnapshot => ({
@@ -226,23 +247,49 @@ function playwrightChromeBins(): string[] {
   return found;
 }
 
-function isHeadlessShell(path: string): boolean {
-  return /headless-shell/i.test(path);
+type LaunchOutcome = {
+  browser: BrowserLike;
+  chrome: string;
+  proxy: ReturnType<typeof proxyArgs>;
+  headless: boolean | "shell";
+  normalizeUa: boolean;
+};
+
+/**
+ * R2 channel 兜底（Chrome 装在非标准位置时让 puppeteer 自己找）：与路径层
+ * 同策略——X 有头优先再无头（无头段 UA 规范化），其余站恒无头。
+ */
+type ChannelAttempt = {
+  channel: "chrome" | "chrome-beta" | "chrome-dev";
+  headless: boolean | "shell";
+  normalizeUa: boolean;
+};
+
+function channelAttempts(site: LoginSite): ChannelAttempt[] {
+  const names = ["chrome", "chrome-beta", "chrome-dev"] as const;
+  if (site === "x") {
+    return [
+      ...names.map((channel) => ({ channel, headless: false as const, normalizeUa: false })),
+      ...names.map((channel) => ({ channel, headless: true as const, normalizeUa: true })),
+    ];
+  }
+  return names.map((channel) => ({ channel, headless: true as const, normalizeUa: false }));
 }
 
-async function launchChrome(profile: string): Promise<{ browser: BrowserLike; chrome: string; proxy: ReturnType<typeof proxyArgs> }> {
+async function launchChrome(profile: string, site: LoginSite): Promise<LaunchOutcome> {
   const { default: puppeteer } = await import("puppeteer-core");
   const proxy = proxyArgs();
-  const bins = [...chromeCandidates(), ...playwrightChromeBins()];
-  const unique = [...new Set(bins.filter(Boolean))];
+  // R1：标准位置候选 + playwright 下载的构建（含 Chrome for Testing 与
+  // headless-shell）合并去重后，真浏览器一律压到 headless-shell 之前。
+  const bins = [...new Set([...chromeCandidates(), ...playwrightChromeBins()].filter(Boolean))];
+  const ordered = orderLaunchCandidates(bins, (path) => existsSync(/*turbopackIgnore: true*/ path));
+  const attempts = launchAttemptsForSite(site, ordered);
 
   const tried: string[] = [];
-  for (const executablePath of unique) {
-    if (!executablePath || !existsSync(executablePath)) continue;
-    tried.push(executablePath);
-    const headless = true;
+  for (const attempt of attempts) {
+    tried.push(attempt.executablePath);
     const common = {
-      headless,
+      headless: attempt.headless,
       userDataDir: profile,
       defaultViewport: { width: LOGIN_VIEW.width, height: LOGIN_VIEW.height, deviceScaleFactor: 1 },
       ignoreDefaultArgs: ["--enable-automation"],
@@ -262,24 +309,33 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
       ],
     };
     try {
-      const browser = (await puppeteer.launch({ ...common, executablePath })) as unknown as BrowserLike;
-      return { browser, chrome: executablePath, proxy };
+      const browser = (await puppeteer.launch({
+        ...common,
+        executablePath: attempt.executablePath,
+      })) as unknown as BrowserLike;
+      return {
+        browser,
+        chrome: attempt.executablePath,
+        proxy,
+        headless: attempt.headless,
+        normalizeUa: attempt.normalizeUa,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.kami.warn(`无法启动 ${executablePath}: ${message}`);
+      log.kami.warn(`无法启动 ${attempt.executablePath}: ${message}`);
     }
   }
 
-  for (const channel of ["chrome", "chrome-beta", "chrome-dev"] as const) {
-    tried.push(`channel:${channel}`);
+  for (const attempt of channelAttempts(site)) {
+    tried.push(`channel:${attempt.channel}`);
     try {
       const browser = (await puppeteer.launch({
-        headless: true,
+        headless: attempt.headless,
         userDataDir: profile,
         defaultViewport: { width: LOGIN_VIEW.width, height: LOGIN_VIEW.height, deviceScaleFactor: 1 },
         ignoreDefaultArgs: ["--enable-automation"],
         timeout: 60_000,
-        channel,
+        channel: attempt.channel,
         args: [
           "--disable-blink-features=AutomationControlled",
           "--no-sandbox",
@@ -287,10 +343,16 @@ async function launchChrome(profile: string): Promise<{ browser: BrowserLike; ch
           ...proxy.args,
         ],
       })) as unknown as BrowserLike;
-      return { browser, chrome: channel, proxy };
+      return {
+        browser,
+        chrome: attempt.channel,
+        proxy,
+        headless: attempt.headless,
+        normalizeUa: attempt.normalizeUa,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.kami.warn(`无法启动 channel:${channel}: ${message}`);
+      log.kami.warn(`无法启动 channel:${attempt.channel}: ${message}`);
     }
   }
 
@@ -488,7 +550,7 @@ async function runJob(site: LoginSite): Promise<void> {
   const profile = mkdtempSync(join(tmpdir(), "kami-login-"));
   let browser: BrowserLike | undefined;
   try {
-    const launched = await launchChrome(profile);
+    const launched = await launchChrome(profile, site);
     if (stop) throw new Error("已取消登录窗口");
     browser = launched.browser;
     closer = async () => {
@@ -506,7 +568,11 @@ async function runJob(site: LoginSite): Promise<void> {
       error: null,
       pageUrl: "",
     };
-    log.kami.info(`登录中转已启动: ${launched.chrome}${isHeadlessShell(launched.chrome) ? " (headless)" : ""}`);
+    const modeLabel =
+      launched.headless === false ? "有头" : launched.headless === "shell" ? "无头壳" : "无头";
+    log.kami.info(
+      `登录中转已启动: ${launched.chrome}（${modeLabel}${launched.normalizeUa ? "，UA 已去 Headless" : ""}）`,
+    );
 
     const page = (await browser.pages())[0] ?? (await browser.newPage());
     activePage = page;
@@ -518,9 +584,46 @@ async function runJob(site: LoginSite): Promise<void> {
     if (launched.proxy.user) {
       await page.authenticate({ username: launched.proxy.user, password: launched.proxy.password ?? "" });
     }
+    // R2 无头降级的 UA 规范化（仅 X）：真 UA 抹掉 HeadlessChrome 字样后在导航前
+    // set 到 page 层。best-effort——拿不到/设不上不阻塞中转（有头本就不用改）。
+    if (launched.normalizeUa) {
+      try {
+        const rawUa = (await browser.userAgent?.()) ?? "";
+        const normalized = normalizeHeadlessUa(rawUa);
+        if (rawUa && normalized !== rawUa) await page.setUserAgent?.(normalized);
+      } catch (err) {
+        log.kami.warn("UA 规范化失败（继续中转）：", err instanceof Error ? err.message : err);
+      }
+    }
     await startScreencast(page);
 
-    const start = site === "fanbox" ? FANBOX_LOGIN_URL : site === "x" ? X_LOGIN_URL : PIXIV_LOGIN_URL;
+    // R3 X 403 侦测：在既有 screencast CDP 会话上挂 Network.responseReceived，
+    // 只认 X 域 Document 403（isXRelayBlockedResponse 纯函数有单测锁，404/500/
+    // 子资源不触发）。命中后轮询循环转错误态并给手贴 Cookie 引导，不静默。
+    let xBlocked403 = false;
+    if (site === "x" && activeCdp) {
+      const watch = activeCdp;
+      try {
+        await watch.send("Network.enable");
+        watch.on("Network.responseReceived", (ev) => {
+          const rec = ev as CdpResponseReceived;
+          if (
+            isXRelayBlockedResponse({
+              status: rec.response?.status,
+              type: rec.type,
+              url: rec.response?.url,
+            })
+          ) {
+            xBlocked403 = true;
+          }
+        });
+      } catch (err) {
+        log.kami.warn("403 侦测挂载失败（继续中转）：", err instanceof Error ? err.message : err);
+      }
+    }
+
+    const start =
+      site === "fanbox" ? FANBOX_LOGIN_URL : site === "x" ? X_LOGIN_URL : PIXIV_LOGIN_URL;
     await page.goto(start, { waitUntil: "domcontentloaded", timeout: 45_000 });
     job = { ...job, pageUrl: page.url() };
     if (!job.frame) await grabFrame(page);
@@ -553,9 +656,11 @@ async function runJob(site: LoginSite): Promise<void> {
 
       // X：auth_token+ct0 成对出现即收工（pickXSession 内已含 .x.com 域优先与
       // 双值门槛）；不做任何访客/回转判定，也不触碰下面两站的确认流程。
+      // 403（R3）：登录页被拒时尽快转错误态给手贴 Cookie 引导，不再空等超时。
       if (site === "x") {
         x = pickXSession(rawCookies) ?? x;
         if (x) break;
+        if (xBlocked403) throw new Error(X_RELAY_403_HINT);
         await new Promise((r) => setTimeout(r, 700));
         continue;
       }
@@ -622,7 +727,10 @@ async function runJob(site: LoginSite): Promise<void> {
       throw new Error("超时未检测到 FANBOX 登录。请从官方账号选择页登入，完成 /auth/start 回转后再等一下。");
     }
     if (site === "x" && !x) {
-      throw new Error("超时未检测到 X 登录。请在窗口里完成登录（含可能的验证码 / 2FA），或改用手贴。");
+      // 403 已命中但 deadline 先到（竞态兜底）：同样给手贴 Cookie 引导。
+      throw new Error(
+        xBlocked403 ? X_RELAY_403_HINT : "超时未检测到 X 登录。请在窗口里完成登录（含可能的验证码 / 2FA），或改用手贴。",
+      );
     }
     // 拆框：Pixiv 登录只交付 pixiv（含身份解析也只解析 pixiv），fanbox 一律不带出；
     // X 同理只交付 x——两站凭据与身份不跨站复制。
