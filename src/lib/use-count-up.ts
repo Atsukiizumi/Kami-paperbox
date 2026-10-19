@@ -2,9 +2,10 @@
  * 数字滚动（动效批 C）。
  *
  * 作用：目标值变化时从旧值 rAF 缓动滚到新值，统计页数字不跳变。
- * 用法：const n = useCountUp(totals.count)。prefers-reduced-motion 直接跳终值。
+ * 用法：const n = useCountUp(totals.count)。动效总开关关闭直接跳终值。
  */
 import { useEffect, useRef, useState } from "react";
+import { useSettings } from "@/lib/store";
 
 export function useCountUp(target: number, duration = 600): number {
   const [value, setValue] = useState(target);
@@ -13,7 +14,7 @@ export function useCountUp(target: number, duration = 600): number {
   useEffect(() => {
     const from = fromRef.current;
     if (from === target) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!useSettings.getState().motionEnabled) {
       fromRef.current = target;
       setValue(target);
       return;

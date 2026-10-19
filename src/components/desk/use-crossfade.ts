@@ -10,14 +10,16 @@
  *        useCrossfade({ frames, intervalMs, urlsOf })；containerRef 挂在最外层
  *       容器上（IntersectionObserver 用），frames 请 useMemo（身份稳定才不重置节奏）。
  * 为什么：暂停条件（document.hidden / 容器滚出视口，use-viewport-active 共享；
- *      加上帧数不足两帧）任一成立就停表省电；prefers-reduced-motion 直接锁首帧
- *      不起定时器；下一帧图片用 warmMedia（ProxiedImg 同款代理 URL + 媒体车道）
+ *      帧数不足两帧；动效总开关 motionEnabled 关闭——应用内置，不读系统
+ *      prefers-reduced-motion）任一成立就停表省电，关闭期间直接锁首帧；
+ *      下一帧图片用 warmMedia（ProxiedImg 同款代理 URL + 媒体车道）
  *      预载，切换不空载。
  */
 
 import { useEffect, useState } from "react";
 import { warmMedia } from "@/components/proxied-img";
 import { needsCarousel, nextFrame } from "@/lib/desk-carousel";
+import { useSettings } from "@/lib/store";
 import { useViewportActive } from "@/components/desk/use-viewport-active";
 
 export function useCrossfade<T>({
@@ -37,29 +39,19 @@ export function useCrossfade<T>({
 } {
   const { ref: containerRef, active } = useViewportActive<HTMLElement>();
   const [frameIndex, setFrameIndex] = useState(0);
-  const [reduced, setReduced] = useState(false);
-
-  // 系统「减弱动态效果」：锁首帧、不起定时器；监听变化即时生效。
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
+  const motionEnabled = useSettings((s) => s.motionEnabled);
 
   // 数据刷新导致帧变少时收拢下标，别停在越界位置。
   useEffect(() => {
     setFrameIndex((i) => Math.min(i, Math.max(0, frames.length - 1)));
   }, [frames]);
 
-  // 减弱动态效果开启期间始终回到首帧。
+  // 动效开关关闭期间始终回到首帧。
   useEffect(() => {
-    if (reduced) setFrameIndex(0);
-  }, [reduced]);
+    if (!motionEnabled) setFrameIndex(0);
+  }, [motionEnabled]);
 
-  const paused = !needsCarousel(frames) || !active || reduced;
+  const paused = !needsCarousel(frames) || !active || !motionEnabled;
 
   // setTimeout 链：frameIndex 每推进一次重新起一拍；paused 翻转时清掉挂起的
   // 定时器，恢复后从恢复时刻重新起算整拍（不追赶暂停期间错过的帧）。

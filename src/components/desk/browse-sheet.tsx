@@ -125,7 +125,7 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     (frameIndex % 2 === parity ? frame : previousFrame) ?? [];
   const layerClass = (visible: boolean) =>
     cn(
-      "transition-opacity duration-[600ms] motion-reduce:transition-none",
+      "transition-opacity duration-[600ms] kami-xfade",
       visible ? "opacity-100" : "pointer-events-none opacity-0",
     );
 

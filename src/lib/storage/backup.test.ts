@@ -61,6 +61,7 @@ function sampleSettings() {
     theme: "shusha" as const,
     appearance: "light" as const,
     uiStyle: "hand" as const,
+    motionEnabled: false,
     onboarded: true,
   };
 }

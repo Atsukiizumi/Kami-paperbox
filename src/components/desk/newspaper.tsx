@@ -6,9 +6,10 @@
  *      平滑行进、后续节点依次跟随，透明度沿身体逐级降低成尾迹；蛇头行到
  *      右侧后从左侧无缝回卷（rAF 驱动 transform，纯合成层不掉帧）。蛇长随
  *      图片量伸缩（少了就短，多了封顶路径容量后按 slot 环换班——全部名次
- *      轮流当蛇头）。悬停 / 切后台 / 滚离视口暂停；prefers-reduced-motion
- *      下静止为单行静态行（溢出隐藏 + 右缘渐隐，无滚动条）。名次徽标 =
- *      节点当前承载作品的榜单名次。无手动控件。
+ *      轮流当蛇头）。悬停 / 切后台 / 滚离视口暂停；动效走应用内置总开关
+ *      motionEnabled（不读系统 prefers-reduced-motion），关掉或数据太少
+ *      凑不成蛇才退静态行。名次徽标 = 节点当前承载作品的榜单名次。
+ *      无手动控件。
  * 用法：DeskPage 通栏挂 <DeskNewspaper className={…} />。
  * 为什么：独立 queryKey desk-newspaper，不和保活浏览抢 home-pixiv / home-booru；
  *      整行流动比整组淡换能上场更多名次，宽度也随视口自适应。
@@ -20,7 +21,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ProxiedImg, warmMedia } from "@/components/proxied-img";
 import { useVeil, veilCoverClass } from "@/lib/veil";
 import { cn } from "@/lib/utils";
-import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { useViewportActive } from "@/components/desk/use-viewport-active";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { parseBoardDate } from "@/lib/booru";
@@ -35,10 +35,10 @@ import { credentialTag } from "@/lib/sync/cred-tag";
 import type { WorkCard } from "@/lib/types";
 import type { CSSProperties } from "react";
 
-/** 报纸蛇形：日榜全量上场，cap 30 防性能；节点定宽（96px）让步距/路径计算稳定。 */
+/** 报纸蛇形：日榜全量上场，cap 30 防性能；节点定宽（144px，须与 NodeCard 的 w-36 同步）让步距/路径计算稳定。 */
 const NEWSPAPER_SNAKE_CAP = 30;
-const NODE_W = 96;
-const NODE_GAP = 10;
+const NODE_W = 144;
+const NODE_GAP = 12;
 const NODE_STEP = NODE_W + NODE_GAP;
 const SNAKE_SPEED_PX_S = 45;
 
@@ -49,7 +49,7 @@ function NodeCard({ card, rank, style }: { card: WorkCard; rank: number; style?:
       to="/work/$source/$id"
       params={{ source: card.source, id: card.id }}
       style={style}
-      className="relative block aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-lg bg-elevated shadow-[var(--shadow-paper-1)]"
+      className="relative block aspect-[3/4] w-36 shrink-0 overflow-hidden rounded-lg bg-elevated shadow-[var(--shadow-paper-1)]"
     >
       <ProxiedImg
         src={card.thumb}
@@ -68,6 +68,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
   const hideAi = useSettings((s) => s.hideAi);
   const cookie = useSettings((s) => s.pixivCookie);
   const hydrated = useSettingsHydrated();
+  const motionEnabled = useSettings((s) => s.motionEnabled);
   const dateIso = parseBoardDate().iso;
 
   const query = useQuery({
@@ -115,9 +116,8 @@ export function DeskNewspaper({ className }: { className?: string }) {
     void rememberRanking({ site: tab, period: "daily", date: dateIso, items: page });
   }, [tab, dateIso, query.data]);
 
-  // 滚离视口 / 切后台 → 暂停；系统「减弱动态效果」→ 静止（静态分支无滚动条）。
+  // 滚离视口 / 切后台 / 悬停 → 暂停；动效总开关见文件头。
   const { ref: viewportRef, active } = useViewportActive<HTMLElement>();
-  const reduced = useMediaFlag("(prefers-reduced-motion: reduce)");
   const [hovered, setHovered] = useState(false);
 
   const rowRef = useRef<HTMLDivElement>(null);
@@ -129,7 +129,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
   // 蛇长随图片量伸缩：路径 = 容器宽 + 节点宽（蛇头出右入左的环长）。
   const path = rowW + NODE_W;
   const nodeCount = snakeNodeCount(trackItems.length, path, NODE_STEP);
-  const animated = !reduced && nodeCount >= 2;
+  const animated = motionEnabled && nodeCount >= 2;
 
   useEffect(() => {
     const el = rowRef.current;
@@ -182,9 +182,9 @@ export function DeskNewspaper({ className }: { className?: string }) {
     return (
       <section className={className}>
         <p className="text-sm text-muted">今日报纸</p>
-        <div className="mt-3 flex gap-2.5 overflow-hidden">
+        <div className="mt-3 flex gap-3 overflow-hidden">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="aspect-[3/4] w-24 shrink-0 rounded-lg bg-surface" />
+            <div key={i} className="aspect-[3/4] w-36 shrink-0 rounded-lg bg-surface" />
           ))}
         </div>
       </section>
@@ -202,7 +202,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
       </Link>
       <div
         ref={rowRef}
-        className="relative mt-3 h-32 overflow-hidden"
+        className="relative mt-3 h-48 overflow-hidden"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -224,8 +224,8 @@ export function DeskNewspaper({ className }: { className?: string }) {
             );
           })
         ) : (
-          // 静态行（减弱动效 / 数据太少）：普通排布，溢出隐藏 + 右缘渐隐，无滚动条。
-          <div className="flex h-full gap-2.5 overflow-hidden [mask-image:linear-gradient(to_right,black_68%,transparent_90%)]">
+          // 静态行（动效关闭 / 数据太少凑不成蛇）：普通排布，溢出隐藏 + 右缘渐隐，无滚动条。
+          <div className="flex h-full gap-3 overflow-hidden [mask-image:linear-gradient(to_right,black_68%,transparent_90%)]">
             {slots.map((s) => {
               const card = trackItems[s] ?? trackItems[0]!;
               return <NodeCard key={`${card.source}:${card.id}`} card={card} rank={s + 1} />;

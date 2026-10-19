@@ -15,13 +15,12 @@ import {
 import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
 
-/** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器直接切。 */
+/** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器或动效关闭时直接切。 */
 function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
   };
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!doc.startViewTransition || reduce) {
+  if (!doc.startViewTransition || !useSettings.getState().motionEnabled) {
     apply();
     return;
   }
@@ -51,6 +50,7 @@ function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
 import { cn } from "@/lib/utils";
 import { useResolvedAppearance } from "@/components/theme-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -196,6 +196,24 @@ function StyleToggle() {
   );
 }
 
+/** 动效总开关：应用内动效（轮播流动 / 翻牌 / 滚动渐入 / 主题揭示）的内置开关，不跟随系统「减弱动态效果」。 */
+function MotionToggle() {
+  const motionEnabled = useSettings((s) => s.motionEnabled);
+  const setMotionEnabled = useSettings((s) => s.setMotionEnabled);
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-bg p-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-fg">动画效果</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+          轮播流动、翻牌、滚动渐入等应用内动效的总开关；不跟随系统的「减弱动态效果」。
+        </span>
+      </span>
+      <Switch checked={motionEnabled} onCheckedChange={setMotionEnabled} aria-label="动画效果" />
+    </div>
+  );
+}
+
 export function ThemeSection() {
   return (
     <Card>
@@ -212,6 +230,13 @@ export function ThemeSection() {
           </p>
         </div>
         <StyleToggle />
+        <div>
+          <h2 className="text-sm font-medium">动效</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            应用内动效由纸匣自己的开关控制，与系统的动画设置互不影响。
+          </p>
+        </div>
+        <MotionToggle />
         <div>
           <h2 className="text-sm font-medium">主题</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
