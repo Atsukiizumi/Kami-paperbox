@@ -710,10 +710,9 @@ a:focus-visible .kami-logo .kami-logo-fold {
   background-clip: padding-box;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .kami-shimmer {
-    animation: none;
-  }
+/* 动效总开关关闭（data-motion，应用内置开关；不读系统 prefers-reduced-motion） */
+html[data-motion="off"] .kami-shimmer {
+  animation: none;
 }
 
 /* ── 动效批（2026-09-14）────────────────────────────────────────── */
@@ -773,18 +772,16 @@ html[data-theme-transitioning]::view-transition-new(root) {
   animation: kami-done-pop 0.4s var(--ease-out) both;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-packed] > * {
-    opacity: 1;
-    transform: none;
-  }
-  [data-packed] > [data-inview] {
-    transition: none;
-  }
-  .kami-float,
-  .kami-done-pop {
-    animation: none;
-  }
+html[data-motion="off"] [data-packed] > * {
+  opacity: 1;
+  transform: none;
+}
+html[data-motion="off"] [data-packed] > [data-inview] {
+  transition: none;
+}
+html[data-motion="off"] .kami-float,
+html[data-motion="off"] .kami-done-pop {
+  animation: none;
 }
 
 .kami-vault-fall {
@@ -1043,42 +1040,45 @@ html[data-kami-style="hand"] .kami-card-shell:hover {
     0 0 28px color-mix(in oklab, var(--color-accent) 6%, transparent);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html[data-kami-style="hand"] .kami-card-shell,
-  html[data-kami-style="hand"] .kami-card-shell:hover {
-    transition: none !important;
-    transform: none !important;
-  }
+/* 两个属性都挂在 html 上，须复合成一个选择器 */
+html[data-motion="off"][data-kami-style="hand"] .kami-card-shell,
+html[data-motion="off"][data-kami-style="hand"] .kami-card-shell:hover {
+  transition: none !important;
+  transform: none !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .kami-enter,
-  .kami-page,
-  .kami-chrome-down,
-  .kami-chrome-left,
-  .kami-chrome-up,
-  .kami-pop,
-  .kami-pop-heart,
-  .kami-shimmer,
-  .kami-logo-busy .kami-logo-fold,
-  .kami-vt-out,
-  .kami-vt-in,
-  .kami-layer-in,
-  .kami-layer-out,
-  .kami-drop-in,
-  .kami-veil-in,
-  .kami-veil-out {
-    animation: none !important;
-    transition: none !important;
-  }
+html[data-motion="off"] .kami-enter,
+html[data-motion="off"] .kami-page,
+html[data-motion="off"] .kami-chrome-down,
+html[data-motion="off"] .kami-chrome-left,
+html[data-motion="off"] .kami-chrome-up,
+html[data-motion="off"] .kami-pop,
+html[data-motion="off"] .kami-pop-heart,
+html[data-motion="off"] .kami-shimmer,
+html[data-motion="off"] .kami-logo-busy .kami-logo-fold,
+html[data-motion="off"] .kami-vt-out,
+html[data-motion="off"] .kami-vt-in,
+html[data-motion="off"] .kami-layer-in,
+html[data-motion="off"] .kami-layer-out,
+html[data-motion="off"] .kami-drop-in,
+html[data-motion="off"] .kami-veil-in,
+html[data-motion="off"] .kami-veil-out {
+  animation: none !important;
+  transition: none !important;
+}
 
-  .kami-card-shell,
-  .kami-card-shell:hover,
-  .kami-masonry[data-packed] > *,
-  .kami-masonry[data-packed] .kami-card-media {
-    transition: none !important;
-    transform: none !important;
-  }
+html[data-motion="off"] .kami-card-shell,
+html[data-motion="off"] .kami-card-shell:hover,
+html[data-motion="off"] .kami-masonry[data-packed] > *,
+html[data-motion="off"] .kami-masonry[data-packed] .kami-card-media {
+  transition: none !important;
+  transform: none !important;
+}
+
+/* 组件侧动效开关标记（替代 Tailwind motion-reduce 变体——本应用不跟随系统）：
+   轮播淡换 / 翻牌 / 滚动渐入的 transition 挂上它，开关一关全体静止。 */
+html[data-motion="off"] .kami-xfade {
+  transition: none !important;
 }
 
 /* ── 控件落地（纸感质感批 PR3）──────────────────────────────────── */
@@ -1165,11 +1165,9 @@ html[data-kami-style="hand"] .kami-card-shell:hover {
   background: var(--color-elevated);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .kami-calendar .rdp-day_button,
-  .kami-drawer-item {
-    transition: none !important;
-  }
+html[data-motion="off"] .kami-calendar .rdp-day_button,
+html[data-motion="off"] .kami-drawer-item {
+  transition: none !important;
 }
 
 /* ── 今日报纸 marquee（2026-09-17）──────────────────────────────── */

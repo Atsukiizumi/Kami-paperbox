@@ -84,6 +84,8 @@ export type BackupSettings = {
   theme: ThemeId;
   appearance: Appearance;
   uiStyle: UiStyle;
+  /** 动效总开关（v17 起随设置段同步；不读系统 prefers-reduced-motion）。 */
+  motionEnabled: boolean;
   onboarded: boolean;
 };
 
@@ -127,6 +129,7 @@ export const BACKUP_SETTINGS_FIELDS: readonly string[] = [
   "theme",
   "appearance",
   "uiStyle",
+  "motionEnabled",
   "onboarded",
 ];
 
@@ -284,6 +287,8 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     theme: parseThemeId(p.theme),
     appearance: parseAppearance(p.appearance),
     uiStyle: parseUiStyle(p.uiStyle),
+    // v17：旧备份缺字段回 true（默认开）；与 store migrate 同一口径
+    motionEnabled: p.motionEnabled !== false,
     onboarded: p.onboarded === true || legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
   };
 }

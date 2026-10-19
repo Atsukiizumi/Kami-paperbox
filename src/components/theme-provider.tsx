@@ -15,6 +15,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const theme = useSettings((s) => s.theme);
   const appearance = useSettings((s) => s.appearance);
   const uiStyle = useSettings((s) => s.uiStyle);
+  const motionEnabled = useSettings((s) => s.motionEnabled);
   const [resolved, setResolved] = useState<ResolvedAppearance>("dark");
 
   useLayoutEffect(() => {
@@ -30,6 +31,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // 界面风格（手绘记号层）：clean 移除属性，hand 挂上——styles.css 按属性切换。
       if (state.uiStyle === "hand") document.documentElement.setAttribute("data-kami-style", "hand");
       else document.documentElement.removeAttribute("data-kami-style");
+      // 动效总开关：styles.css 按 data-motion="off" 关停过渡/动画（不读系统设置）。
+      document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
     };
 
     const listenMedia = () => {
@@ -61,7 +64,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       unsub();
       stopMedia?.();
     };
-  }, [theme, appearance, uiStyle]);
+  }, [theme, appearance, uiStyle, motionEnabled]);
 
   return (
     <ResolvedAppearanceContext.Provider value={resolved}>

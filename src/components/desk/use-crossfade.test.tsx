@@ -2,7 +2,7 @@
  * useCrossfade 测试（dom 垫片 + node:test 假时钟）。
  *
  * 作用：锁 setTimeout 链推进、暂停三条件里的 document.hidden / 滚出视口、
- *      帧数不足两帧不起表、prefers-reduced-motion 锁首帧（含变化监听）、
+ *      帧数不足两帧不起表、动效总开关（motionEnabled）锁首帧、
  *      下一帧预载走 warmMedia 代理 URL、卸载清理观察器与监听器。
  * 环境垫片：../../test/dom.ts 必须最先引入。
  */
@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { useCrossfade } from "./use-crossfade.ts";
+import { useSettings } from "@/lib/store";
 import { mediaUrl } from "@/lib/utils";
 
 type Frame = { id: string; url: string };
@@ -55,29 +56,6 @@ class FakeIO {
   }
 }
 
-/** 可控的 matchMedia 替身（matches 动态求值，记录 change 监听器）。 */
-function stubMatchMedia(readMatches: () => boolean) {
-  const listeners = new Set<() => void>();
-  const media = (query: string) => ({
-    get matches() {
-      return readMatches() && query.includes("reduce");
-    },
-    media: query,
-    onchange: null,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    addEventListener: (_type: string, cb: () => void) => listeners.add(cb),
-    removeEventListener: (_type: string, cb: () => void) => listeners.delete(cb),
-    dispatchEvent: () => false,
-  });
-  const w = window as unknown as { matchMedia?: typeof media };
-  w.matchMedia = media;
-  return {
-    listeners,
-    notify: () => listeners.forEach((cb) => cb()),
-  };
-}
-
 describe("useCrossfade（案头交叉淡换）", () => {
   beforeEach(() => {
     cleanup();
@@ -88,8 +66,8 @@ describe("useCrossfade（案头交叉淡换）", () => {
     cleanup();
     delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
     delete (globalThis as { Image?: unknown }).Image;
-    delete (window as { matchMedia?: unknown }).matchMedia;
     delete (document as { hidden?: boolean }).hidden;
+    useSettings.setState({ motionEnabled: true });
   });
 
   it("两帧按整拍推进并环形回绕", async (t) => {
@@ -144,15 +122,13 @@ describe("useCrossfade（案头交叉淡换）", () => {
     assert.equal(slotText(), "none");
   });
 
-  it("prefers-reduced-motion 锁首帧；关掉后恢复轮播", async (t) => {
+  it("动效开关关闭锁首帧；打开后恢复轮播", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
-    let reduced = true;
-    const mq = stubMatchMedia(() => reduced);
+    useSettings.setState({ motionEnabled: false });
     render(<CrossfadeFixture frames={FRAMES2} />);
     act(() => t.mock.timers.tick(24000));
-    assert.equal(slotText(), "a#0", "减弱动态效果期间不起定时器");
-    reduced = false;
-    act(() => mq.notify());
+    assert.equal(slotText(), "a#0", "动效关闭期间不起定时器");
+    act(() => useSettings.setState({ motionEnabled: true }));
     act(() => t.mock.timers.tick(8000));
     assert.equal(slotText(), "b#1");
   });
@@ -187,7 +163,6 @@ describe("useCrossfade（案头交叉淡换）", () => {
 
   it("卸载清理定时器、观察器与监听器", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
-    const mq = stubMatchMedia(() => false);
     const docListeners = new Map<string, Set<() => void>>();
     const doc = document as unknown as {
       addEventListener: (type: string, cb: () => void) => void;
@@ -224,7 +199,6 @@ describe("useCrossfade（案头交叉淡换）", () => {
 
     assert.ok(cleared >= 1, "卸载时清掉挂起的定时器");
     assert.ok(FakeIO.instances.every((io) => io.disconnected), "IntersectionObserver 全部断开");
-    assert.equal(mq.listeners.size, 0, "matchMedia change 监听器全部移除");
     assert.equal(docListeners.get("visibilitychange")?.size ?? 0, 0, "visibilitychange 监听器全部移除");
 
     doc.addEventListener = origAdd;

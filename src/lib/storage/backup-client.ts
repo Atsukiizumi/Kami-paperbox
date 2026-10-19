@@ -72,6 +72,8 @@ export const SNAPSHOT_SETTINGS_FIELDS = [
   "theme",
   "appearance",
   "uiStyle",
+  // 动效总开关（v17）：同款陷阱位——漏采则推不进同步段，拉取还清空本地
+  "motionEnabled",
   "onboarded",
 ] as const satisfies readonly (keyof SettingsState)[];
 

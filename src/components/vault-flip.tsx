@@ -9,7 +9,8 @@
  * 用法：<VaultFlipDialog items={all} aliases={authorAliases} open={open} onOpenChange={setOpen} />。
  * 为什么：翻牌池只收 hasVaultCover 判定翻得出封面的条目，牌面取图与纸匣卡片
  *        共用 useVaultCover 同一条链，翻开永远是真图；动效只用 transform 过渡
- *        （零 keyframes、走合成线程），prefers-reduced-motion 下直接换牌不翻面。
+ *        （零 keyframes、走合成线程），动效总开关（motionEnabled，不读系统）
+ *        关闭时直接换牌不翻面。
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/kami-link";
@@ -20,6 +21,7 @@ import { PaperMark } from "@/components/paper-mark";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useVaultCover } from "@/components/vault-cover";
 import { applyAuthorAlias, normalizeAuthorName } from "@/lib/author-name";
+import { useSettings } from "@/lib/store";
 import { hasVaultCover, pickRandom } from "@/lib/storage/vault-profile";
 import type { VaultMeta } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -40,7 +42,7 @@ function FlipCard({ item, flipped }: { item: VaultMeta; flipped: boolean }) {
       <div
         style={{ aspectRatio: aspect }}
         className={cn(
-          "relative w-full transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none",
+          "relative w-full transition-transform duration-500 ease-out [transform-style:preserve-3d] kami-xfade",
           flipped && "[transform:rotateY(180deg)]",
         )}
       >
@@ -99,7 +101,7 @@ export function VaultFlipDialog({
   function handleRepick() {
     const next = drawNext();
     if (!next || next.key === current?.key) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!useSettings.getState().motionEnabled) {
       setCurrent(next);
       return;
     }

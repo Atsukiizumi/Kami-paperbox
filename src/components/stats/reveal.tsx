@@ -7,7 +7,7 @@
  * 用法：<Reveal className="grid …">…卡片…</Reveal>。
  * 为什么：masonry 的 data-inview 约定是它模块私有的（CSS 选择器也只挂在
  *        [data-packed] 容器内），这里独立复刻同一行为；只用 transform/opacity，
- *        motion-reduce 归零，不新增 keyframes（styles.css 零改动）。
+ *        动效总开关关闭时由 styles.css 的 kami-xfade 规则归零，不新增 keyframes。
  *        IO hook 不导出（react-refresh 要求客户端文件只出组件），
  *        需要复用时再抽独立文件。
  */
@@ -47,7 +47,7 @@ export function Reveal({ children, className }: { children: ReactNode; className
     <div
       ref={ref}
       className={cn(
-        "transition-[opacity,translate] duration-500 ease-out motion-reduce:transition-none",
+        "transition-[opacity,translate] duration-500 ease-out kami-xfade",
         inView ? "translate-y-0 opacity-100" : "translate-y-3.5 opacity-0",
         className,
       )}

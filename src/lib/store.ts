@@ -140,6 +140,8 @@ export type SettingsState = {
   theme: ThemeId;
   appearance: Appearance;
   uiStyle: UiStyle;
+  /** 动效总开关（轮播 / 翻牌 / 滚动渐入 / 主题圆形揭示）：不读系统 prefers-reduced-motion，随设置段同步。 */
+  motionEnabled: boolean;
   onboarded: boolean;
   /** 最近一次成功导出备份的时间（ms）。null = 从未备份；只在设置页导出成功时写。 */
   lastBackupAt: number | null;
@@ -189,6 +191,7 @@ export type SettingsState = {
   setTheme: (v: ThemeId) => void;
   setAppearance: (v: Appearance) => void;
   setUiStyle: (v: UiStyle) => void;
+  setMotionEnabled: (v: boolean) => void;
   setOnboarded: (v: boolean) => void;
   markBackedUp: () => void;
   addAccount: (name: string) => string;
@@ -280,6 +283,8 @@ export function migrateSettings(persisted: unknown, version: number) {
     xCookie: sanitizeXCookie(typeof p.xCookie === "string" ? p.xCookie : ""),
     xAssociations: parseXAssociations(p.xAssociations),
     xGraphQLQueryIds: parseXQueryIdOverrides(p.xGraphQLQueryIds),
+    // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true（默认开、不读系统）
+    motionEnabled: p.motionEnabled !== false,
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -336,6 +341,7 @@ export function partializeSettings(s: SettingsState) {
     theme: s.theme,
     appearance: s.appearance,
     uiStyle: s.uiStyle,
+    motionEnabled: s.motionEnabled,
     onboarded: s.onboarded,
     lastBackupAt: s.lastBackupAt,
   };
@@ -379,6 +385,7 @@ export const SETTINGS_PERSIST_FIELDS: readonly string[] = [
   "theme",
   "appearance",
   "uiStyle",
+  "motionEnabled",
   "onboarded",
   "lastBackupAt",
 ];
@@ -421,6 +428,7 @@ export const useSettings = create<SettingsState>()(
       theme: DEFAULT_THEME,
       appearance: DEFAULT_APPEARANCE,
       uiStyle: DEFAULT_UI_STYLE,
+      motionEnabled: true,
       onboarded: false,
       lastBackupAt: null,
       setPixivCookie: (pixivCookie) => {
@@ -704,6 +712,7 @@ export const useSettings = create<SettingsState>()(
       setTheme: (theme) => set({ theme: parseThemeId(theme) }),
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setUiStyle: (uiStyle) => set({ uiStyle: parseUiStyle(uiStyle) }),
+      setMotionEnabled: (motionEnabled) => set({ motionEnabled }),
       setOnboarded: (onboarded) => set({ onboarded }),
       markBackedUp: () => set({ lastBackupAt: Date.now() }),
       addAccount: (name) => {
@@ -799,7 +808,8 @@ export const useSettings = create<SettingsState>()(
       // v15（手工合集）：新增 collections 设置段；<15 老档缺字段补默认空表
       // v16（X 账号关联）：新增 xCookie / xAssociations / xGraphQLQueryIds；
       //   <16 老档缺字段补默认（""/{}/{}）
-      version: 16,
+      // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true
+      version: 17,
       migrate: migrateSettings,
       partialize: partializeSettings,
     },
