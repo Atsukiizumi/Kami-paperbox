@@ -1,0 +1,87 @@
+# 依赖与构建
+node_modules/
+.output/
+.next/
+.vercel/
+.nitro/
+dist/
+*.tsbuildinfo
+
+# 本机配置（含代理）。样板见 *.example.*
+kami.config.json
+.env
+.env.*
+!.env.example
+
+# 运行时（代理覆盖、纸匣旁路文件）
+.data/
+
+# 打包产物与本地截图
+artifacts/
+screenshots/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+kami-paperbox.tar.gz
+
+# 日志与系统
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+__pycache__/
+*.pyc
+
+# 沙箱 / 预览（不属于发布仓库）
+.grok/
+AGENTS.md
+AGENTS.project.md
+.playwright-cli/
+.node_modules.lock
+startup.sh
+
+.pw-cache/
+test-results
+
+# 本地工作流工具目录（Trellis 任务/日志、agent skills）——不入库
+.zcode/
+.codex/
+.trellis/
+.agents/
+
+# Next 16 生成物：dev/build 会来回改写路径前缀，提交即永久脏区
+next-env.d.ts
+
+.tmp-kami-root.txt
+coverage/
+
+# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
+.git/
+.hg/
+.svn/
+bower_components/
+jspm_packages/
+site-packages/
+venv/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+allure-results/
+allure-report/
+cdk.out/
+*.egg-info/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+# ----- ↑ 以上为 ZCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----
+# 自定义规则写在下方（本行提示可删除）

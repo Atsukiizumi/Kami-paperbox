@@ -54,5 +54,9 @@ jobs:
           build-args: |
             KAMI_VERSION=${{ github.ref_type == 'tag' && github.ref_name || format('sha-{0}', github.sha) }}
           tags: ${{ steps.image-tags.outputs.tags }}
+          # Refresh the runner base image and Debian packages on each release,
+          # while retaining the dependency/build-stage cache.
+          pull: true
+          no-cache-filters: runner
           cache-from: type=gha
           cache-to: type=gha,mode=max
