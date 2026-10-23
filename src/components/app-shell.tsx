@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, usePathname } from "@/lib/kami-link";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { SiteSwitcher } from "@/components/site-switcher";
-import { Archive, Bell, BookOpen, Clock, Compass, EyeOff, ListOrdered, PanelLeft, ScanSearch, Settings, Trophy } from "lucide-react";
+import { Archive, Bell, BookOpen, Clock, Compass, EyeOff, ListOrdered, Menu, PanelLeft, ScanSearch, Settings, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { canPickFolder, folderHealth, type FolderHealth } from "@/lib/folder-access";
 import { playEnter } from "@/lib/motion";
@@ -50,6 +50,106 @@ function LogoMark({ className }: { className?: string }) {
   return <PaperMark className={className} />;
 }
 
+/** 遮盖开关（顶栏 / 浮胶囊 / zen 面板共用一枚按钮）。 */
+function VeilToggle() {
+  const veil = useVeil((s) => s.veil);
+  return (
+    <Hint label={veil ? "关闭遮盖（Esc）" : "遮盖敏感封面"} side="bottom">
+      <button
+        type="button"
+        onClick={() => useVeil.getState().toggle()}
+        aria-label="遮盖敏感封面"
+        aria-pressed={veil}
+        className={cn(
+          "inline-flex size-9 items-center justify-center rounded-lg transition-colors",
+          veil ? "bg-accent/15 text-accent" : "text-muted hover:bg-elevated hover:text-fg",
+        )}
+      >
+        <EyeOff className="size-5" />
+      </button>
+    </Hint>
+  );
+}
+
+/** zen 无框形态的浮钮 + 导航纸面板（仅桌面；移动端走原顶栏 / 底部栏）。 */
+function ZenDock({
+  side,
+  pathname,
+  queued,
+  watchBadge,
+}: {
+  side: "left" | "right";
+  pathname: string;
+  queued: number;
+  watchBadge: number;
+}) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <>
+      {open ? (
+        <button aria-hidden className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
+      ) : null}
+      <div className={cn("kami-zen-dock hidden md:block", side === "left" ? "left-5" : "right-5")}>
+        {open ? (
+          <div className="kami-zen-panel" style={side === "left" ? { left: 0 } : { right: 0 }}>
+            {NAV.map((item) => {
+              const active = navItemActive(pathname, item.to);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  prefetch={item.to === "/browse" ? false : undefined}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
+                    active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/70 hover:text-fg",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                  {item.to === "/queue" && queued > 0 ? (
+                    <span className="ml-auto tabular-nums text-xs text-accent">{queued}</span>
+                  ) : null}
+                  {item.to === "/watch" && watchBadge > 0 ? (
+                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-medium tabular-nums text-accent-fg">
+                      {watchBadge > 99 ? "99+" : watchBadge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+            <Separator className="my-1.5" />
+            <div className="flex items-center gap-0.5 px-1 pb-0.5">
+              <SiteSwitcher />
+              <VeilToggle />
+              <ThemeMenu />
+              <AccountSwitcher />
+            </div>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="kami-zen-trigger"
+          aria-label={open ? "收起导航" : "展开导航"}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+        </button>
+      </div>
+    </>
+  );
+}
+
 /** 文件夹预检提示语：按病因给一句人话，去设置重新选即可恢复。 */
 const FOLDER_HEALTH_HINT: Record<Exclude<FolderHealth, "ok">, string> = {
   none: "这台浏览器还没有授权过文件夹（设置随账号同步，文件夹授权不跟设备）",
@@ -84,6 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const veil = useVeil((s) => s.veil);
   const veilOff = useVeil((s) => s.off);
   const [expanded, setExpanded] = useState(true);
+  const shell = useSettings((s) => s.shell);
 
   // 访客遮盖（U）：Esc 一键撤离——演示场景最常用的收尾动作
   useEffect(() => {
@@ -140,8 +241,32 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [isBrowse]);
 
   const mountBrowse = isBrowse || ((overlay || isDesk) && keepBrowse);
-  const paneWidth = expanded ? "md:w-56" : "md:w-16";
-  const contentPad = expanded ? "md:pl-56" : "md:pl-16";
+  // 外壳形态（布局引擎 P1）：desk = 现状可收展；rail = 恒图标条（宽随 iconSize 旋钮）；
+  // zen = 无框（侧栏不渲染、主区零让位、导航走浮钮面板）。移动端一律原顶栏+底部栏。
+  const form = shell.form;
+  const deskForm = form === "desk";
+  const sideExpanded = deskForm && expanded;
+  const railIcon = shell.tweaks.iconSize ?? "md";
+  const paneWidth = !deskForm
+    ? railIcon === "sm"
+      ? "md:w-12"
+      : railIcon === "lg"
+        ? "md:w-20"
+        : "md:w-16"
+    : expanded
+      ? "md:w-56"
+      : "md:w-16";
+  const contentPad = form === "zen" ? "" : !deskForm
+    ? railIcon === "sm"
+      ? "md:pl-12"
+      : railIcon === "lg"
+        ? "md:pl-20"
+        : "md:pl-16"
+    : expanded
+      ? "md:pl-56"
+      : "md:pl-16";
+  const railIconCls = railIcon === "sm" ? "size-3.5" : railIcon === "lg" ? "size-5" : "size-4";
+  const floatControls = form === "zen" || (form === "rail" && (shell.tweaks.topbar ?? "on") === "float");
   const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndex = Math.max(0, desktopRawIndex);
   const mobileRawIndex = MOBILE_NAV.findIndex((item) => navItemActive(pathname, item.to));
@@ -149,19 +274,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
-        <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="hidden size-9 md:inline-flex"
-            aria-label={expanded ? "收起导航" : "展开导航"}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <PanelLeft />
-          </Button>
-        </Hint>
+      <header className="kami-topbar kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
+        {deskForm ? (
+          <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="hidden size-9 md:inline-flex"
+              aria-label={expanded ? "收起导航" : "展开导航"}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              <PanelLeft />
+            </Button>
+          </Hint>
+        ) : null}
         <Link to="/" className="flex shrink-0 items-center gap-2 px-1">
           <LogoMark className="size-6 text-accent" />
           <span className="hidden font-display text-base tracking-tight sm:inline">Kami 纸匣</span>
@@ -183,28 +310,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : null}
             </Link>
           </Hint>
-          <Hint label={veil ? "关闭遮盖（Esc）" : "遮盖敏感封面"} side="bottom">
-            <button
-              type="button"
-              onClick={() => useVeil.getState().toggle()}
-              aria-label="遮盖敏感封面"
-              aria-pressed={veil}
-              className={cn(
-                "inline-flex size-9 items-center justify-center rounded-lg transition-colors",
-                veil ? "bg-accent/15 text-accent" : "text-muted hover:bg-elevated hover:text-fg",
-              )}
-            >
-              <EyeOff className="size-5" />
-            </button>
-          </Hint>
+          <VeilToggle />
           <ThemeMenu />
           <AccountSwitcher />
         </div>
       </header>
 
+      {form === "zen" ? null : (
       <aside
         className={cn(
-          "kami-chrome-left fixed bottom-0 left-0 top-14 z-30 hidden flex-col border-r border-border/80 bg-bg/40 md:flex",
+          "kami-aside fixed bottom-0 left-0 top-14 z-30 hidden flex-col border-r border-border/80 bg-bg/40 md:flex",
           "transition-[width] duration-200 ease-out",
           paneWidth,
         )}
@@ -226,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 to={item.to}
                 prefetch={item.to === "/browse" ? false : undefined}
-                title={expanded ? undefined : item.label}
+                title={sideExpanded ? undefined : item.label}
                 data-queue-nav={item.to === "/queue" ? "" : undefined}
                 className={cn(
                   "relative z-10 flex h-11 items-center gap-3 overflow-hidden rounded-xl px-3 text-sm transition-colors duration-200",
@@ -234,8 +349,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   active ? "text-fg" : "text-muted hover:text-fg",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
-                {expanded ? (
+                <Icon className={cn("shrink-0", railIconCls)} />
+                {sideExpanded ? (
                   <>
                     <span className="truncate">{item.label}</span>
                     {item.to === "/queue" && queued > 0 ? (
@@ -252,7 +367,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 ) : null}
               </Link>
             );
-            if (expanded) {
+            if (sideExpanded) {
               return (
                 <div key={item.to} className="contents">
                   {link}
@@ -267,18 +382,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         </ScrollArea>
-        {expanded ? (
+        {sideExpanded ? (
           <p className="mt-auto px-4 pb-4 text-xs leading-relaxed text-subtle">
             个人备份。请尊重作者版权。
           </p>
         ) : null}
       </aside>
+      )}
 
       <main className={cn(contentPad, "transition-[padding] duration-300 ease-out")}>
         <PageFrame pathname={pathname} isBrowse={isBrowse} mountBrowse={mountBrowse}>
           {children}
         </PageFrame>
       </main>
+      {floatControls ? (
+        <div className="kami-float-controls hidden md:flex">
+          <SiteSwitcher />
+          <VeilToggle />
+          <ThemeMenu />
+          <AccountSwitcher />
+        </div>
+      ) : null}
+      {form === "zen" ? (
+        <ZenDock side={shell.tweaks.triggerSide ?? "left"} pathname={pathname} queued={queued} watchBadge={watchBadge} />
+      ) : null}
       <Onboarding />
       <DropToSearch />
 
@@ -338,7 +465,7 @@ function PageFrame({
     playEnter(el);
   }, [pathname, detail]);
   return (
-    <div className="w-full px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
+    <div className="kami-pageframe w-full px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-10 md:pb-12">
       {mountBrowse ? (
         <div hidden={!isBrowse} aria-hidden={!isBrowse} className={isBrowse ? "pt-6 md:pt-8" : "hidden"}>
           <BrowsePage />

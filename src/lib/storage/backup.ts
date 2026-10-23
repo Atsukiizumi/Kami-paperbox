@@ -23,6 +23,14 @@ import { parseCollections, type Collection } from "../collection.ts";
 import { clampWatchLimit, parseWatchArtists, parseWatchTags, type WatchArtist, type WatchTag } from "../watch.ts";
 import { isSource, parseSafeModeBySite, parseSource } from "../sites.ts";
 import { parseAppearance, parseThemeId, parseUiStyle, type Appearance, type ThemeId, type UiStyle } from "../theme.ts";
+import {
+  parseDeskPresets,
+  parsePageLayout,
+  parseShell,
+  type DeskPreset,
+  type PageLayout,
+  type ShellSettings,
+} from "../desk-layout.ts";
 import type { TagCatalogEntry } from "../tag-catalog.ts";
 import { parseTagLexicon, type TagLexiconRow } from "../tag-lexicon.ts";
 import type { Source, VaultMeta } from "../types.ts";
@@ -86,6 +94,13 @@ export type BackupSettings = {
   uiStyle: UiStyle;
   /** 动效总开关（v17 起随设置段同步；不读系统 prefers-reduced-motion）。 */
   motionEnabled: boolean;
+  /** 案头版式清单（布局引擎 P1，v18 起随设置段同步）。 */
+  deskPresets: DeskPreset[];
+  activeDeskPresetId: string;
+  /** 外壳形态 + 白名单旋钮（v18 起随设置段同步）。 */
+  shell: ShellSettings;
+  /** 各页版式参数（v18 起随设置段同步）。 */
+  pageLayout: PageLayout;
   onboarded: boolean;
 };
 
@@ -130,6 +145,10 @@ export const BACKUP_SETTINGS_FIELDS: readonly string[] = [
   "appearance",
   "uiStyle",
   "motionEnabled",
+  "deskPresets",
+  "activeDeskPresetId",
+  "shell",
+  "pageLayout",
   "onboarded",
 ];
 
@@ -289,6 +308,13 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     uiStyle: parseUiStyle(p.uiStyle),
     // v17：旧备份缺字段回 true（默认开）；与 store migrate 同一口径
     motionEnabled: p.motionEnabled !== false,
+    // v18：旧备份缺字段回默认版式/书案/medium；清洗与 store migrate 同一套 parse
+    ...(() => {
+      const desk = parseDeskPresets({ presets: p.deskPresets, activePresetId: p.activeDeskPresetId });
+      return { deskPresets: desk.presets, activeDeskPresetId: desk.activePresetId };
+    })(),
+    shell: parseShell(p.shell),
+    pageLayout: parsePageLayout(p.pageLayout),
     onboarded: p.onboarded === true || legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
   };
 }

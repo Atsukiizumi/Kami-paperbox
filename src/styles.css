@@ -785,7 +785,7 @@ html[data-motion="off"] .kami-done-pop {
 }
 
 .kami-vault-fall {
-  column-width: 170px;
+  column-width: var(--kami-vault-col, 170px);
   column-gap: 0.9rem;
 }
 
@@ -1176,3 +1176,122 @@ html[data-motion="off"] .kami-drawer-item {
    一份轨道、落点即接缝，循环无缝（卡片等宽 + 尾随等距外边距保证半程对齐）。
    时长 = 张数 × 4s，由组件内联 animation-duration 给定。 */
 
+
+/* ── 布局引擎 P1：外壳形态 / 页宽 / 纸匣列宽（2026-10-20，属性驱动） ── */
+
+/* 页宽（desk/rail 旋钮；zen 天生满宽）：paper = 现状（页内 Tailwind max-w 类即默认），
+   wide/full 在属性值上覆盖。 */
+html[data-content-width="wide"] .kami-content {
+  max-width: 90rem;
+}
+html[data-content-width="full"] .kami-content {
+  max-width: 110rem;
+}
+
+/* 纸匣瀑布列宽（页参数；medium = 现状 170px，变量默认值即现状） */
+html[data-vault-col="narrow"] .kami-vault-fall {
+  --kami-vault-col: 140px;
+}
+html[data-vault-col="wide"] .kami-vault-fall {
+  --kami-vault-col: 210px;
+}
+
+/* 外壳形态（仅 md+ 生效；移动端顶栏/底部栏不变）：
+   zen = 无框（藏侧栏与顶栏，导航走浮钮面板）；
+   rail + 顶栏 float = 藏顶栏，右上浮胶囊接管站点切换/遮盖/主题/账号。 */
+@media (min-width: 768px) {
+  html[data-shell-form="zen"] .kami-topbar,
+  html[data-shell-form="zen"] .kami-aside,
+  html[data-shell-form="rail"][data-topbar="float"] .kami-topbar {
+    display: none;
+  }
+}
+
+/* 书案形态顶栏密度：compact 收一档（侧栏顶随之对齐） */
+@media (min-width: 768px) {
+  html[data-topbar-density="compact"] .kami-topbar {
+    height: 2.75rem;
+  }
+  html[data-topbar-density="compact"] .kami-aside {
+    top: 2.75rem;
+  }
+}
+
+/* 右上浮胶囊（rail·float / zen）：纸片一枚，站点切换/遮盖/主题/账号站位。
+   display 交给 JSX 的 hidden md:flex——这里声明 display 会以未分层样式压过
+   Tailwind 层内的 hidden，导致移动端泄漏。 */
+.kami-float-controls {
+  position: fixed;
+  top: 0.75rem;
+  right: 1rem;
+  z-index: 40;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-bg) 86%, transparent);
+  box-shadow: var(--shadow-paper-1);
+  backdrop-filter: blur(10px);
+}
+
+/* zen 浮钮 + 浮出导航面板（纸面板从钮上长出来） */
+.kami-zen-dock {
+  position: fixed;
+  bottom: 1.25rem;
+  z-index: 40;
+}
+.kami-zen-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-surface) 92%, transparent);
+  color: var(--color-fg);
+  box-shadow: var(--shadow-paper-2);
+  transition: transform var(--motion-quick) var(--ease-out);
+}
+.kami-zen-trigger:hover {
+  transform: translateY(-1px);
+}
+.kami-zen-panel {
+  position: absolute;
+  bottom: calc(100% + 0.625rem);
+  display: flex;
+  min-width: 14rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-paper-3);
+}
+
+/* 动效总开关关闭时浮钮过渡同步静止 */
+html[data-motion="off"] .kami-zen-trigger {
+  transition: none;
+}
+
+/* zen 形态内容边距：tight 把页面左右留白收窄一档（仅 md+） */
+@media (min-width: 768px) {
+  html[data-shell-form="zen"][data-content-margin="tight"] .kami-pageframe {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* ── 案头编排模式（布局引擎 P1）：编辑期间模块内部交互关掉 ── */
+html[data-desk-edit] [data-desk-module] {
+  pointer-events: none;
+  user-select: none;
+}
+html[data-desk-edit] [data-desk-edit-card] {
+  cursor: grab;
+}
+html[data-desk-edit] [data-desk-edit-card]:active {
+  cursor: grabbing;
+}

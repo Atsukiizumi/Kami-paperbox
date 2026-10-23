@@ -16,6 +16,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const appearance = useSettings((s) => s.appearance);
   const uiStyle = useSettings((s) => s.uiStyle);
   const motionEnabled = useSettings((s) => s.motionEnabled);
+  const shell = useSettings((s) => s.shell);
+  const pageLayout = useSettings((s) => s.pageLayout);
   const [resolved, setResolved] = useState<ResolvedAppearance>("dark");
 
   useLayoutEffect(() => {
@@ -33,6 +35,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       else document.documentElement.removeAttribute("data-kami-style");
       // 动效总开关：styles.css 按 data-motion="off" 关停过渡/动画（不读系统设置）。
       document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
+      // 外壳形态 / 页宽 / 纸匣列宽（布局引擎 P1）：属性驱动，styles.css 按值切换，
+      // 仅 md+ 生效——移动端走自己的顶栏+底部栏，属性选择器都裹在 min-width 里。
+      document.documentElement.setAttribute("data-shell-form", state.shell.form);
+      document.documentElement.setAttribute(
+        "data-content-width",
+        state.shell.form === "zen" ? "full" : (state.shell.tweaks.contentWidth ?? "paper"),
+      );
+      document.documentElement.setAttribute("data-topbar", state.shell.form === "rail" ? (state.shell.tweaks.topbar ?? "on") : "on");
+      document.documentElement.setAttribute(
+        "data-topbar-density",
+        state.shell.form === "desk" && state.shell.tweaks.topbarDensity === "compact" ? "compact" : "normal",
+      );
+      document.documentElement.setAttribute("data-vault-col", state.pageLayout.vaultCol);
+      document.documentElement.setAttribute(
+        "data-content-margin",
+        state.shell.form === "zen" && state.shell.tweaks.contentMargin === "tight" ? "tight" : "normal",
+      );
     };
 
     const listenMedia = () => {
@@ -64,7 +83,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       unsub();
       stopMedia?.();
     };
-  }, [theme, appearance, uiStyle, motionEnabled]);
+  }, [theme, appearance, uiStyle, motionEnabled, shell, pageLayout]);
 
   return (
     <ResolvedAppearanceContext.Provider value={resolved}>

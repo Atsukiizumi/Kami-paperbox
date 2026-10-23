@@ -10,7 +10,11 @@
  */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { MASONRY_CAPTION, MASONRY_MAX_COLS, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
+import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
+
+/** 浏览密度（布局引擎 P1）：目标行高乘数——medium = 现状 1.0；只影响打包几何，不动 CSS。 */
+const DENSITY_FACTOR = { loose: 1.18, medium: 1, tight: 0.85 } as const;
 
 function readGap(root: HTMLElement): number {
   const styles = getComputedStyle(root);
@@ -62,11 +66,12 @@ function packBoard(root: HTMLElement) {
   const hasCaption = children.some((el) => el.querySelector(".kami-card-media"));
   const maxCols = Number.parseInt(root.dataset.maxCols || "", 10);
   const cols = Number.isFinite(maxCols) && maxCols > 0 ? maxCols : MASONRY_MAX_COLS;
+  const density = (root.dataset.density as keyof typeof DENSITY_FACTOR) || "medium";
   const packed = packJustified({
     containerWidth: width,
     gap,
     items: children.map((el) => ({ aspect: readAspect(el) })),
-    idealHeight: masonryRowHeight(width, cols),
+    idealHeight: masonryRowHeight(width, cols) * (DENSITY_FACTOR[density] ?? 1),
     captionBand: hasCaption ? MASONRY_CAPTION : 0,
     minWidth: masonryMinCard(width, gap, cols),
   });
@@ -104,6 +109,8 @@ export function MasonryBoard({
   maxCols?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // 浏览密度直接读设置（布局引擎 P1）：所有瀑布面板共用一档，改设置即时重排。
+  const density = useSettings((s) => s.pageLayout.density);
 
   useLayoutEffect(() => {
     const root = ref.current;
@@ -145,10 +152,10 @@ export function MasonryBoard({
       ro.disconnect();
       mo.disconnect();
     };
-  }, [maxCols]);
+  }, [maxCols, density]);
 
   return (
-    <div ref={ref} data-max-cols={maxCols || undefined} className={cn("kami-masonry", className)}>
+    <div ref={ref} data-max-cols={maxCols || undefined} data-density={density} className={cn("kami-masonry", className)}>
       {children}
     </div>
   );

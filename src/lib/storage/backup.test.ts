@@ -62,6 +62,10 @@ function sampleSettings() {
     appearance: "light" as const,
     uiStyle: "hand" as const,
     motionEnabled: false,
+    deskPresets: [],
+    activeDeskPresetId: "kami-default",
+    shell: { form: "rail" as const, tweaks: { iconSize: "lg" as const } },
+    pageLayout: { density: "tight" as const, vaultCol: "wide" as const },
     onboarded: true,
   };
 }
