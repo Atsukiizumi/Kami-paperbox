@@ -36,6 +36,7 @@ import { mergeVaultItems } from "@/lib/storage/vault-query";
 import { listVault, type VaultMeta } from "@/lib/storage/vault";
 import { listServerVault } from "@/lib/storage/vault-sync";
 import { useSettings, useSettingsHydrated } from "@/lib/store";
+import { useActiveThemePack } from "@/lib/theme-pack-client";
 import { useViewHistory } from "@/lib/view-history";
 import { cn } from "@/lib/utils";
 
@@ -193,8 +194,14 @@ export function DeskPage() {
   }, [watchArtists.length, unreadCount, pixivLoggedIn]);
 
   // 激活版式 → 槽编排（数据坏了 parse 已兜底；此处再做空槽让位投影）。
+  // 两层合并（P2）：激活主题包带布局且开「跟随」→ 包布局上位；用户编辑保存
+  // 时自动关跟随——自己摆的纸不该被换个主题冲掉。
   const activePreset = deskPresets.find((p) => p.id === activeDeskPresetId) ?? deskPresets[0];
-  const layout = activePreset?.layout ?? DEFAULT_DESK_LAYOUT;
+  const userLayout = activePreset?.layout ?? DEFAULT_DESK_LAYOUT;
+  const { pack: activeThemePack } = useActiveThemePack();
+  const followThemeLayout = useSettings((s) => s.themePack.followLayout);
+  const layout =
+    activeThemePack?.manifest.layout && followThemeLayout ? activeThemePack.manifest.layout : userLayout;
   const slots = useMemo(() => reflowDeskLayout(layout.slots, available), [layout, available]);
   const dirty = editing && JSON.stringify(draft) !== JSON.stringify(layout);
 
@@ -253,11 +260,13 @@ export function DeskPage() {
       return;
     }
     // 内置稿纸不可写：改过就得存为版式（对话框接管）；用户版式直接写回。
+    // 保存的是用户自己的摆法——主题包的「跟随布局」自动让位。
     if (activePreset?.builtIn) {
       setSaveAsOpen(true);
       return;
     }
     useSettings.getState().setDeskLayout(draft);
+    useSettings.getState().setThemePackFollow({ followLayout: false });
     exitEdit();
   };
   const onSaveAsSubmit = (name: string) => {
@@ -266,6 +275,7 @@ export function DeskPage() {
       toast.error("版式已满 12 套，先在设置→外观删掉一个再存", { id: "kami-desk-preset-full" });
       return;
     }
+    useSettings.getState().setThemePackFollow({ followLayout: false });
     setSaveAsOpen(false);
     exitEdit();
   };

@@ -78,6 +78,11 @@ import {
   parsePageLayout,
   parseShell,
 } from "./desk-layout.ts";
+import {
+  DEFAULT_THEME_PACK,
+  type ThemePackSettings,
+  parseThemePackSettings,
+} from "./theme-pack.ts";
 
 type PersistApi = {
   hasHydrated?: () => boolean;
@@ -167,6 +172,8 @@ export type SettingsState = {
   shell: ShellSettings;
   /** 各页版式参数：浏览密度 / 纸匣列宽（medium = 现状数值）。 */
   pageLayout: PageLayout;
+  /** 主题包激活（P2，v19 起随设置段同步）：包本体是文件不进同步，缺包回默认。 */
+  themePack: ThemePackSettings;
   onboarded: boolean;
   /** 最近一次成功导出备份的时间（ms）。null = 从未备份；只在设置页导出成功时写。 */
   lastBackupAt: number | null;
@@ -227,6 +234,9 @@ export type SettingsState = {
   setShellForm: (form: ShellForm) => void;
   setShellTweak: (patch: Partial<ShellTweaks>) => void;
   setPageLayout: (patch: Partial<PageLayout>) => void;
+  /** 启用（id）/停用（null）主题包；缺包由渲染层回默认并提示。 */
+  setThemePackActive: (id: string | null) => void;
+  setThemePackFollow: (patch: Partial<Pick<ThemePackSettings, "followShell" | "followLayout">>) => void;
   setOnboarded: (v: boolean) => void;
   markBackedUp: () => void;
   addAccount: (name: string) => string;
@@ -327,6 +337,8 @@ export function migrateSettings(persisted: unknown, version: number) {
     })(),
     shell: parseShell(p.shell),
     pageLayout: parsePageLayout(p.pageLayout),
+    // v19（主题包 P2）：新增 themePack 激活指针 + 跟随开关；缺字段补默认（未启用）
+    themePack: parseThemePackSettings(p.themePack),
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -388,6 +400,7 @@ export function partializeSettings(s: SettingsState) {
     activeDeskPresetId: s.activeDeskPresetId,
     shell: s.shell,
     pageLayout: s.pageLayout,
+    themePack: s.themePack,
     onboarded: s.onboarded,
     lastBackupAt: s.lastBackupAt,
   };
@@ -436,6 +449,7 @@ export const SETTINGS_PERSIST_FIELDS: readonly string[] = [
   "activeDeskPresetId",
   "shell",
   "pageLayout",
+  "themePack",
   "onboarded",
   "lastBackupAt",
 ];
@@ -483,6 +497,7 @@ export const useSettings = create<SettingsState>()(
       activeDeskPresetId: DESK_DEFAULT_PRESET_ID,
       shell: DEFAULT_SHELL,
       pageLayout: DEFAULT_PAGE_LAYOUT,
+      themePack: DEFAULT_THEME_PACK,
       onboarded: false,
       lastBackupAt: null,
       setPixivCookie: (pixivCookie) => {
@@ -803,6 +818,10 @@ export const useSettings = create<SettingsState>()(
       setShellTweak: (patch) =>
         set((s) => ({ shell: parseShell({ form: s.shell.form, tweaks: { ...s.shell.tweaks, ...patch } }) })),
       setPageLayout: (patch) => set((s) => ({ pageLayout: parsePageLayout({ ...s.pageLayout, ...patch }) })),
+      setThemePackActive: (id) =>
+        set((s) => ({ themePack: { ...s.themePack, activeId: id ? id.slice(0, 80) : null } })),
+      setThemePackFollow: (patch) =>
+        set((s) => ({ themePack: { ...s.themePack, ...patch } })),
       setOnboarded: (onboarded) => set({ onboarded }),
       markBackedUp: () => set({ lastBackupAt: Date.now() }),
       addAccount: (name) => {
@@ -900,7 +919,8 @@ export const useSettings = create<SettingsState>()(
       //   <16 老档缺字段补默认（""/{}/{}）
       // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true
       // v18（布局引擎 P1）：新增 deskPresets / activeDeskPresetId / shell / pageLayout
-      version: 18,
+      // v19（主题包 P2）：新增 themePack（激活指针 + 跟随开关）
+      version: 19,
       migrate: migrateSettings,
       partialize: partializeSettings,
     },
