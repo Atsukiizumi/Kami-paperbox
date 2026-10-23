@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["@electric-sql/pglite", "puppeteer-core", "pg"],
   images: { unoptimized: true },
+  // dev 浮标（左下角 N 徽标）会截走指针事件，和 zen 外壳的左下浮钮叠位；
+  // 应用自家的角部 UI 要占四角，关掉它（仅影响 dev，产物无此物）。
+  devIndicators: false,
   env: {
     VITE_AUTH_ENABLED: process.env.VITE_AUTH_ENABLED ?? "",
     KAMI_VERSION: resolveKamiVersion(),

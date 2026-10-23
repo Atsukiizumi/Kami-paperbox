@@ -214,6 +214,191 @@ function MotionToggle() {
   );
 }
 
+/** 小段选器（外壳旋钮用）：label + 一排互斥按钮。 */
+function Segmented({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: readonly { v: string; t: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-bg p-3">
+      <span className="text-sm text-fg">{label}</span>
+      <div className="flex shrink-0 rounded-lg bg-surface p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => onChange(o.v)}
+            aria-pressed={value === o.v}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs transition-colors duration-200",
+              value === o.v ? "bg-elevated text-fg" : "text-muted hover:text-fg",
+            )}
+          >
+            {o.t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 外壳形态（布局引擎 P1）：书案（现状）↔ 窄脊图标条 ↔ 无框浮钮；旋钮按形态白名单开放。 */
+function ShellSection() {
+  const shell = useSettings((s) => s.shell);
+  const setShellForm = useSettings((s) => s.setShellForm);
+  const setShellTweak = useSettings((s) => s.setShellTweak);
+  const forms = [
+    { id: "desk", name: "书案", description: "全字侧栏 + 顶栏，默认形态" },
+    { id: "rail", name: "窄脊", description: "图标条侧栏，内容更宽" },
+    { id: "zen", name: "无框", description: "导航收进浮钮，满宽沉浸" },
+  ] as const;
+
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-2">
+        {forms.map((opt) => {
+          const active = shell.form === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setShellForm(opt.id)}
+              aria-pressed={active}
+              className={cn(
+                "rounded-xl p-3 text-left transition-colors duration-200",
+                active ? "bg-elevated ring-1 ring-accent" : "bg-bg hover:bg-elevated/70",
+              )}
+            >
+              <span className="block text-sm font-medium text-fg">{opt.name}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-muted">{opt.description}</span>
+            </button>
+          );
+        })}
+      </div>
+      {shell.form === "desk" ? (
+        <>
+          <Segmented
+            label="内容宽度"
+            value={shell.tweaks.contentWidth ?? "paper"}
+            options={[{ v: "paper", t: "纸宽" }, { v: "wide", t: "宽" }, { v: "full", t: "满" }]}
+            onChange={(v) => setShellTweak({ contentWidth: v as "paper" | "wide" | "full" })}
+          />
+          <Segmented
+            label="顶栏密度"
+            value={shell.tweaks.topbarDensity ?? "normal"}
+            options={[{ v: "normal", t: "常规" }, { v: "compact", t: "紧凑" }]}
+            onChange={(v) => setShellTweak({ topbarDensity: v as "normal" | "compact" })}
+          />
+        </>
+      ) : null}
+      {shell.form === "rail" ? (
+        <>
+          <Segmented
+            label="内容宽度"
+            value={shell.tweaks.contentWidth ?? "paper"}
+            options={[{ v: "paper", t: "纸宽" }, { v: "wide", t: "宽" }, { v: "full", t: "满" }]}
+            onChange={(v) => setShellTweak({ contentWidth: v as "paper" | "wide" | "full" })}
+          />
+          <Segmented
+            label="图标大小"
+            value={shell.tweaks.iconSize ?? "md"}
+            options={[{ v: "sm", t: "小" }, { v: "md", t: "中" }, { v: "lg", t: "大" }]}
+            onChange={(v) => setShellTweak({ iconSize: v as "sm" | "md" | "lg" })}
+          />
+          <Segmented
+            label="顶栏"
+            value={shell.tweaks.topbar ?? "on"}
+            options={[{ v: "on", t: "常驻" }, { v: "float", t: "浮胶囊" }]}
+            onChange={(v) => setShellTweak({ topbar: v as "on" | "float" })}
+          />
+        </>
+      ) : null}
+      {shell.form === "zen" ? (
+        <>
+          <Segmented
+            label="内容边距"
+            value={shell.tweaks.contentMargin ?? "normal"}
+            options={[{ v: "normal", t: "标准" }, { v: "tight", t: "贴边" }]}
+            onChange={(v) => setShellTweak({ contentMargin: v as "normal" | "tight" })}
+          />
+          <Segmented
+            label="浮钮位置"
+            value={shell.tweaks.triggerSide ?? "left"}
+            options={[{ v: "left", t: "左下" }, { v: "right", t: "右下" }]}
+            onChange={(v) => setShellTweak({ triggerSide: v as "left" | "right" })}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** 案头版式行（布局引擎 P1）：切换激活版式；用户版式可删，内置稿纸不可删。 */
+function DeskPresetRow() {
+  const deskPresets = useSettings((s) => s.deskPresets);
+  const activeDeskPresetId = useSettings((s) => s.activeDeskPresetId);
+  const activateDeskPreset = useSettings((s) => s.activateDeskPreset);
+  const removeDeskPreset = useSettings((s) => s.removeDeskPreset);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-bg p-3">
+      {deskPresets.map((p) => {
+        const active = p.id === activeDeskPresetId;
+        return (
+          <span key={p.id} className="relative">
+            <button
+              type="button"
+              onClick={() => activateDeskPreset(p.id)}
+              aria-pressed={active}
+              className={cn(
+                "rounded-lg px-2.5 py-1.5 text-xs transition-colors",
+                active ? "bg-elevated text-fg ring-1 ring-accent" : "text-muted hover:text-fg",
+              )}
+            >
+              {p.name}
+            </button>
+            {p.builtIn ? null : (
+              <button
+                type="button"
+                aria-label={`删除版式${p.name}`}
+                onClick={() => removeDeskPreset(p.id)}
+                className="absolute -right-1.5 -top-1.5 grid size-4 place-items-center rounded-full border border-border bg-bg text-[10px] leading-none text-muted transition-colors hover:text-fg"
+              >
+                ×
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 各页版式参数（布局引擎 P1）：浏览密度 / 纸匣列宽；medium = 现状。 */
+function PageLayoutSection() {
+  const pageLayout = useSettings((s) => s.pageLayout);
+  const setPageLayout = useSettings((s) => s.setPageLayout);
+
+  return (
+    <>
+      <Segmented
+        label="浏览卡片密度"
+        value={pageLayout.density}
+        options={[{ v: "loose", t: "松" }, { v: "medium", t: "中" }, { v: "tight", t: "紧" }]}
+        onChange={(v) => setPageLayout({ density: v as "loose" | "medium" | "tight" })}
+      />
+      <Segmented
+        label="纸匣瀑布列宽"
+        value={pageLayout.vaultCol}
+        options={[{ v: "narrow", t: "窄" }, { v: "medium", t: "中" }, { v: "wide", t: "宽" }]}
+        onChange={(v) => setPageLayout({ vaultCol: v as "narrow" | "medium" | "wide" })}
+      />
+    </>
+  );
+}
+
 export function ThemeSection() {
   return (
     <Card>
@@ -237,6 +422,21 @@ export function ThemeSection() {
           </p>
         </div>
         <MotionToggle />
+        <div>
+          <h2 className="text-sm font-medium">外壳</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            应用框架的形态：书案 / 窄脊 / 无框。仅桌面端生效，手机保持原样。
+          </p>
+        </div>
+        <ShellSection />
+        <div>
+          <h2 className="text-sm font-medium">版式</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            案头摆法在这几套版式间切换（细摆去案头点「编排」）；下面是各页的铺法参数，中档是默认值。
+          </p>
+        </div>
+        <DeskPresetRow />
+        <PageLayoutSection />
         <div>
           <h2 className="text-sm font-medium">主题</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">

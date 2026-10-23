@@ -61,6 +61,23 @@ import {
   parseSavedTags,
   toggleSavedTag as toggleSavedTagList,
 } from "./site-tags.ts";
+import {
+  DEFAULT_DESK_LAYOUT,
+  DEFAULT_PAGE_LAYOUT,
+  DEFAULT_SHELL,
+  DESK_DEFAULT_PRESET_ID,
+  DESK_PRESET_LIMIT,
+  type DeskLayout,
+  type DeskPreset,
+  type PageLayout,
+  type ShellForm,
+  type ShellSettings,
+  type ShellTweaks,
+  parseDeskLayout,
+  parseDeskPresets,
+  parsePageLayout,
+  parseShell,
+} from "./desk-layout.ts";
 
 type PersistApi = {
   hasHydrated?: () => boolean;
@@ -142,6 +159,14 @@ export type SettingsState = {
   uiStyle: UiStyle;
   /** 动效总开关（轮播 / 翻牌 / 滚动渐入 / 主题圆形揭示）：不读系统 prefers-reduced-motion，随设置段同步。 */
   motionEnabled: boolean;
+  /** 案头版式清单（布局引擎 P1，v18 起随设置段同步）：内置稿纸永远在场。 */
+  deskPresets: DeskPreset[];
+  /** 当前激活版式（编辑「完成」写回它；内置版式不可写）。 */
+  activeDeskPresetId: string;
+  /** 外壳形态 + 白名单旋钮（desk/rail/zen，仅 lg+ 生效，v18 起随设置段同步）。 */
+  shell: ShellSettings;
+  /** 各页版式参数：浏览密度 / 纸匣列宽（medium = 现状数值）。 */
+  pageLayout: PageLayout;
   onboarded: boolean;
   /** 最近一次成功导出备份的时间（ms）。null = 从未备份；只在设置页导出成功时写。 */
   lastBackupAt: number | null;
@@ -192,6 +217,16 @@ export type SettingsState = {
   setAppearance: (v: Appearance) => void;
   setUiStyle: (v: UiStyle) => void;
   setMotionEnabled: (v: boolean) => void;
+  /** 编辑「完成」写回激活版式（内置稿纸会被拒绝，调用方应先走 saveDeskPreset 分叉）。 */
+  setDeskLayout: (layout: DeskLayout) => void;
+  /** 另存为新版式并激活；返回新 id，超上限返回 null。 */
+  saveDeskPreset: (name: string, layout: DeskLayout) => string | null;
+  activateDeskPreset: (id: string) => void;
+  removeDeskPreset: (id: string) => void;
+  /** 换外壳形态：不在新形态白名单里的旋钮自动脱落。 */
+  setShellForm: (form: ShellForm) => void;
+  setShellTweak: (patch: Partial<ShellTweaks>) => void;
+  setPageLayout: (patch: Partial<PageLayout>) => void;
   setOnboarded: (v: boolean) => void;
   markBackedUp: () => void;
   addAccount: (name: string) => string;
@@ -285,6 +320,13 @@ export function migrateSettings(persisted: unknown, version: number) {
     xGraphQLQueryIds: parseXQueryIdOverrides(p.xGraphQLQueryIds),
     // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true（默认开、不读系统）
     motionEnabled: p.motionEnabled !== false,
+    // v18（布局引擎 P1）：新增案头版式 / 外壳形态 / 页参数；<18 老档缺字段补默认
+    ...(() => {
+      const desk = parseDeskPresets({ presets: p.deskPresets, activePresetId: p.activeDeskPresetId });
+      return { deskPresets: desk.presets, activeDeskPresetId: desk.activePresetId };
+    })(),
+    shell: parseShell(p.shell),
+    pageLayout: parsePageLayout(p.pageLayout),
     onboarded:
       p.onboarded === true ||
       legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
@@ -342,6 +384,10 @@ export function partializeSettings(s: SettingsState) {
     appearance: s.appearance,
     uiStyle: s.uiStyle,
     motionEnabled: s.motionEnabled,
+    deskPresets: s.deskPresets,
+    activeDeskPresetId: s.activeDeskPresetId,
+    shell: s.shell,
+    pageLayout: s.pageLayout,
     onboarded: s.onboarded,
     lastBackupAt: s.lastBackupAt,
   };
@@ -386,6 +432,10 @@ export const SETTINGS_PERSIST_FIELDS: readonly string[] = [
   "appearance",
   "uiStyle",
   "motionEnabled",
+  "deskPresets",
+  "activeDeskPresetId",
+  "shell",
+  "pageLayout",
   "onboarded",
   "lastBackupAt",
 ];
@@ -429,6 +479,10 @@ export const useSettings = create<SettingsState>()(
       appearance: DEFAULT_APPEARANCE,
       uiStyle: DEFAULT_UI_STYLE,
       motionEnabled: true,
+      deskPresets: [{ id: DESK_DEFAULT_PRESET_ID, name: "稿纸", layout: DEFAULT_DESK_LAYOUT, builtIn: true }],
+      activeDeskPresetId: DESK_DEFAULT_PRESET_ID,
+      shell: DEFAULT_SHELL,
+      pageLayout: DEFAULT_PAGE_LAYOUT,
       onboarded: false,
       lastBackupAt: null,
       setPixivCookie: (pixivCookie) => {
@@ -713,6 +767,42 @@ export const useSettings = create<SettingsState>()(
       setAppearance: (appearance) => set({ appearance: parseAppearance(appearance) }),
       setUiStyle: (uiStyle) => set({ uiStyle: parseUiStyle(uiStyle) }),
       setMotionEnabled: (motionEnabled) => set({ motionEnabled }),
+      setDeskLayout: (layout) =>
+        set((s) => ({
+          deskPresets: s.deskPresets.map((preset) =>
+            preset.id === s.activeDeskPresetId && !preset.builtIn
+              ? { ...preset, layout: parseDeskLayout(layout) }
+              : preset,
+          ),
+        })),
+      saveDeskPreset: (name, layout) => {
+        const clean = name.trim().slice(0, 24);
+        if (!clean) return null;
+        let id: string | null = null;
+        set((s) => {
+          if (s.deskPresets.length >= DESK_PRESET_LIMIT + 1) return s;
+          id = `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+          return {
+            deskPresets: [...s.deskPresets, { id, name: clean, layout: parseDeskLayout(layout) }],
+            activeDeskPresetId: id,
+          };
+        });
+        return id;
+      },
+      activateDeskPreset: (id) =>
+        set((s) => (s.deskPresets.some((preset) => preset.id === id) ? { activeDeskPresetId: id } : s)),
+      removeDeskPreset: (id) =>
+        set((s) => {
+          if (id === DESK_DEFAULT_PRESET_ID) return s;
+          return {
+            deskPresets: s.deskPresets.filter((preset) => preset.id !== id),
+            activeDeskPresetId: s.activeDeskPresetId === id ? DESK_DEFAULT_PRESET_ID : s.activeDeskPresetId,
+          };
+        }),
+      setShellForm: (form) => set((s) => ({ shell: parseShell({ form, tweaks: s.shell.tweaks }) })),
+      setShellTweak: (patch) =>
+        set((s) => ({ shell: parseShell({ form: s.shell.form, tweaks: { ...s.shell.tweaks, ...patch } }) })),
+      setPageLayout: (patch) => set((s) => ({ pageLayout: parsePageLayout({ ...s.pageLayout, ...patch }) })),
       setOnboarded: (onboarded) => set({ onboarded }),
       markBackedUp: () => set({ lastBackupAt: Date.now() }),
       addAccount: (name) => {
@@ -809,7 +899,8 @@ export const useSettings = create<SettingsState>()(
       // v16（X 账号关联）：新增 xCookie / xAssociations / xGraphQLQueryIds；
       //   <16 老档缺字段补默认（""/{}/{}）
       // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true
-      version: 17,
+      // v18（布局引擎 P1）：新增 deskPresets / activeDeskPresetId / shell / pageLayout
+      version: 18,
       migrate: migrateSettings,
       partialize: partializeSettings,
     },

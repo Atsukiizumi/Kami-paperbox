@@ -74,6 +74,11 @@ export const SNAPSHOT_SETTINGS_FIELDS = [
   "uiStyle",
   // 动效总开关（v17）：同款陷阱位——漏采则推不进同步段，拉取还清空本地
   "motionEnabled",
+  // 布局引擎 P1（v18）：案头版式/外壳/页参数——漏采则重启丢、拉取清空
+  "deskPresets",
+  "activeDeskPresetId",
+  "shell",
+  "pageLayout",
   "onboarded",
 ] as const satisfies readonly (keyof SettingsState)[];
 

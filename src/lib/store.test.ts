@@ -172,6 +172,108 @@ test("persist v11→v12：tagAliases 缺省补空表，老档已有字段一个�
   assert.deepEqual((migrateSettings(null, 0) as Record<string, unknown>).tagAliases, {});
 });
 
+test("persist v17→v18：案头/外壳/页参数缺省补默认，老档字段一个不丢；脏值过白名单清洗", () => {  const v17 = migrateSettings(
+    {
+      pixivCookie: PIXIV_SESSION,
+      motionEnabled: false,
+      lastBackupAt: 1_800_000_000_000,
+    },
+    17,
+  ) as Record<string, unknown>;
+  const desk = v17.deskPresets as { id: string; builtIn?: boolean }[];
+  assert.equal(desk.length, 1, "缺字段补内置稿纸");
+  assert.equal(desk[0]?.id, "kami-default");
+  assert.ok(desk[0]?.builtIn);
+  assert.equal(v17.activeDeskPresetId, "kami-default");
+  assert.deepEqual(v17.shell, { form: "desk", tweaks: {} });
+  assert.deepEqual(v17.pageLayout, { density: "medium", vaultCol: "medium" });
+  assert.equal(v17.motionEnabled, false, "v17 既有字段保留");
+  assert.equal(v17.lastBackupAt, 1_800_000_000_000);
+  // v18 新档带脏值：非法形态整段回默认、越权旋钮脱落、页参数越界回 medium
+  const v18 = migrateSettings(
+    {
+      shell: { form: "cockpit", tweaks: { iconSize: "lg" } },
+      pageLayout: { density: "spacy" },
+      deskPresets: [{ id: "p1", name: "夜读", layout: { slots: [{ span: 9, items: ["ghost"] }] } }],
+    },
+    18,
+  ) as Record<string, unknown>;
+  assert.deepEqual(v18.shell, { form: "desk", tweaks: {} }, "非法形态整段回默认");
+  assert.deepEqual(v18.pageLayout, { density: "medium", vaultCol: "medium" });
+  const cleaned = v18.deskPresets as { id: string; layout: { slots: { span: number; items: string[] }[] } }[];
+  assert.equal(cleaned.length, 2, "内置 + 清洗后的夜读");
+  // 槽里模块全未知 → 空槽剪枝 → 全空回默认稿纸槽（案头不能空）
+  assert.deepEqual(
+    cleaned[1]?.layout.slots,
+    [
+      { span: 2, items: ["browse-sheet"] },
+      { span: 1, items: ["letters", "stack", "artist-wall"] },
+      { span: 3, items: ["newspaper"] },
+    ],
+  );
+});
+
+test("案头版式 setters：内置稿纸不可写、另存即激活、满员拒、删激活回稿纸", () => {
+  const before = useSettings.getState();
+  const custom: Parameters<typeof before.setDeskLayout>[0] = {
+    slots: [
+      { span: 3, items: ["newspaper"] },
+      { span: 2, items: ["browse-sheet"] },
+    ],
+    headerSlip: false,
+  };
+  try {
+    // 内置稿纸：setDeskLayout no-op（内置条目原样）
+    before.setDeskLayout(custom);
+    assert.equal(useSettings.getState().deskPresets[0]?.layout.slots.length, 3, "内置稿纸不可被写");
+    // 另存为新版式并激活
+    const id = before.saveDeskPreset("夜读", custom);
+    assert.ok(id, "另存返回新 id");
+    const after = useSettings.getState();
+    assert.equal(after.activeDeskPresetId, id);
+    assert.equal(after.deskPresets.at(-1)?.name, "夜读");
+    // 激活用户版式后可写回
+    after.setDeskLayout({ ...custom, headerSlip: true });
+    assert.equal(useSettings.getState().deskPresets.at(-1)?.layout.headerSlip, true);
+    // 空名拒
+    assert.equal(before.saveDeskPreset("   ", custom), null);
+    // 删激活版式 → 回稿纸；删内置 no-op
+    useSettings.getState().removeDeskPreset(id!);
+    const fin = useSettings.getState();
+    assert.equal(fin.activeDeskPresetId, "kami-default");
+    assert.ok(fin.deskPresets.every((p) => p.id !== id));
+    const countBefore = fin.deskPresets.length;
+    useSettings.getState().removeDeskPreset("kami-default");
+    assert.equal(useSettings.getState().deskPresets.length, countBefore, "内置稿纸删不掉");
+  } finally {
+    useSettings.setState({
+      deskPresets: before.deskPresets,
+      activeDeskPresetId: before.activeDeskPresetId,
+    });
+  }
+});
+
+test("shell setters：换形态旋钮脱落、页参数越界回 medium", () => {
+  const before = useSettings.getState();
+  try {
+    useSettings.getState().setShellTweak({ contentWidth: "wide", topbarDensity: "compact" });
+    assert.deepEqual(useSettings.getState().shell, { form: "desk", tweaks: { contentWidth: "wide", topbarDensity: "compact" } });
+    // desk → rail：topbarDensity 不在 rail 白名单，自动脱落
+    useSettings.getState().setShellForm("rail");
+    assert.deepEqual(useSettings.getState().shell.tweaks, { contentWidth: "wide" });
+    // 越权键直接被 parse 吞掉
+    useSettings.getState().setShellTweak({ triggerSide: "right" });
+    assert.deepEqual(useSettings.getState().shell.tweaks, { contentWidth: "wide" });
+    // 页参数：越界回 medium
+    useSettings.getState().setPageLayout({ density: "tight" });
+    assert.deepEqual(useSettings.getState().pageLayout, { density: "tight", vaultCol: "medium" });
+    useSettings.getState().setPageLayout({ vaultCol: "huge" as unknown as "wide" });
+    assert.equal(useSettings.getState().pageLayout.vaultCol, "medium");
+  } finally {
+    useSettings.setState({ shell: before.shell, pageLayout: before.pageLayout });
+  }
+});
+
 test("setTagAliasCluster：整簇写入并撤以规范名为键的旧条目（防链）", () => {
   const before = useSettings.getState().tagAliases;
   try {
