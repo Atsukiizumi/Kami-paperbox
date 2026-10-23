@@ -24,6 +24,9 @@ rmSync(join(root, "migrations"), { recursive: true, force: true });
 mkdirSync(root, { recursive: true });
 cpSync(join(process.cwd(), "migrations"), join(root, "migrations"), { recursive: true });
 process.env.KAMI_ROOT = root;
+// e2e 全套件 60 秒窗内的注册/会话探测远超交互用量（末位 spec 曾被 429 误伤），
+// auth 限速放宽（auth/server.ts 认这个 env；生产不设即默认 20）。
+process.env.KAMI_AUTH_RATELIMIT_MAX = "500";
 
 const child = spawn(
   process.execPath,
