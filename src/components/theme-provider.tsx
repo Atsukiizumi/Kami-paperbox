@@ -3,12 +3,29 @@ import {
   applyDocumentTheme,
   type ResolvedAppearance,
 } from "@/lib/theme";
-import { useSettings } from "@/lib/store";
+import { useSettings, onPersisted } from "@/lib/store";
+import { useActiveThemePack } from "@/lib/theme-pack-client";
+import type { ThemePackInfo } from "@/lib/theme-pack";
 
 const ResolvedAppearanceContext = createContext<ResolvedAppearance>("dark");
 
 function themeColorMeta(): HTMLMetaElement | null {
   return document.querySelector('meta[name="theme-color"]');
+}
+
+/** palette.overrides 的 token 键 → CSS 变量名（accentFg → --color-accent-fg）。 */
+function tokenVarName(key: string): string {
+  return `--color-${key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)}`;
+}
+
+/** 主题包 css 注入位（常驻 head，内容随包换；无包时摘除节点）。 */
+function themeCssElement(): HTMLStyleElement {
+  const existing = document.querySelector<HTMLStyleElement>("style[data-kami-theme-css]");
+  if (existing) return existing;
+  const el = document.createElement("style");
+  el.setAttribute("data-kami-theme-css", "");
+  document.head.appendChild(el);
+  return el;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -18,6 +35,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const motionEnabled = useSettings((s) => s.motionEnabled);
   const shell = useSettings((s) => s.shell);
   const pageLayout = useSettings((s) => s.pageLayout);
+  const themePackSettings = useSettings((s) => s.themePack);
+  const { pack } = useActiveThemePack();
   const [resolved, setResolved] = useState<ResolvedAppearance>("dark");
 
   useLayoutEffect(() => {
@@ -25,7 +44,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const apply = () => {
       const state = useSettings.getState();
-      const next = applyDocumentTheme(state.theme, state.appearance, {
+      // 两层合并（P2）：激活包 + 跟随开关 > 用户设置 > 内置默认。
+      // palette 恒随包（配色就是主题的本体）；shell/layout 各有跟随开关。
+      const packShell: ThemePackInfo["manifest"]["shell"] | undefined =
+        state.themePack.activeId && state.themePack.followShell ? pack?.manifest.shell : undefined;
+      const effectiveShell = packShell ?? state.shell;
+      const effectiveTheme = pack?.manifest.palette?.base ?? state.theme;
+      const next = applyDocumentTheme(effectiveTheme, state.appearance, {
         root: document.documentElement,
         themeColorMeta: themeColorMeta(),
       });
@@ -37,21 +62,44 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
       // 外壳形态 / 页宽 / 纸匣列宽（布局引擎 P1）：属性驱动，styles.css 按值切换，
       // 仅 md+ 生效——移动端走自己的顶栏+底部栏，属性选择器都裹在 min-width 里。
-      document.documentElement.setAttribute("data-shell-form", state.shell.form);
+      document.documentElement.setAttribute("data-shell-form", effectiveShell.form);
       document.documentElement.setAttribute(
         "data-content-width",
-        state.shell.form === "zen" ? "full" : (state.shell.tweaks.contentWidth ?? "paper"),
+        effectiveShell.form === "zen" ? "full" : (effectiveShell.tweaks.contentWidth ?? "paper"),
       );
-      document.documentElement.setAttribute("data-topbar", state.shell.form === "rail" ? (state.shell.tweaks.topbar ?? "on") : "on");
+      document.documentElement.setAttribute(
+        "data-topbar",
+        effectiveShell.form === "rail" ? (effectiveShell.tweaks.topbar ?? "on") : "on",
+      );
       document.documentElement.setAttribute(
         "data-topbar-density",
-        state.shell.form === "desk" && state.shell.tweaks.topbarDensity === "compact" ? "compact" : "normal",
+        effectiveShell.form === "desk" && effectiveShell.tweaks.topbarDensity === "compact" ? "compact" : "normal",
       );
       document.documentElement.setAttribute("data-vault-col", state.pageLayout.vaultCol);
       document.documentElement.setAttribute(
         "data-content-margin",
-        state.shell.form === "zen" && state.shell.tweaks.contentMargin === "tight" ? "tight" : "normal",
+        effectiveShell.form === "zen" && effectiveShell.tweaks.contentMargin === "tight" ? "tight" : "normal",
       );
+
+      // 主题包（P2）：激活标记 + palette 行内覆盖 + css 注入；停用/缺包全摘干净。
+      // 行内变量先全清再设——换包时旧包独有的键不会残留成陈值。
+      const root = document.documentElement;
+      for (const key of ["bg", "surface", "elevated", "fg", "muted", "subtle", "accent", "accentFg", "danger", "ok"]) {
+        root.style.removeProperty(tokenVarName(key));
+      }
+      const overrides = pack?.manifest.palette?.overrides;
+      if (pack && state.themePack.activeId) {
+        root.setAttribute("data-kami-theme", pack.id);
+        if (overrides) {
+          for (const [key, value] of Object.entries(overrides)) {
+            root.style.setProperty(tokenVarName(key), value);
+          }
+        }
+        themeCssElement().textContent = pack.css ?? "";
+      } else {
+        root.removeAttribute("data-kami-theme");
+        document.querySelector("style[data-kami-theme-css]")?.remove();
+      }
     };
 
     const listenMedia = () => {
@@ -73,17 +121,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       });
     };
 
-    if (useSettings.persist.hasHydrated()) {
-      ready();
-      return () => stopMedia?.();
-    }
-
-    const unsub = useSettings.persist.onFinishHydration(ready);
+    // 水合门（persist 缺席/已水合都立即 apply，否则等水合完成）——语义就是
+    // store.onPersisted，不再自己摸 persist API。
+    const unsub = onPersisted(useSettings, ready);
     return () => {
       unsub();
       stopMedia?.();
     };
-  }, [theme, appearance, uiStyle, motionEnabled, shell, pageLayout]);
+  }, [theme, appearance, uiStyle, motionEnabled, shell, pageLayout, themePackSettings, pack]);
 
   return (
     <ResolvedAppearanceContext.Provider value={resolved}>

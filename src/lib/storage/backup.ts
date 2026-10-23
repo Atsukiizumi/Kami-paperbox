@@ -31,6 +31,7 @@ import {
   type PageLayout,
   type ShellSettings,
 } from "../desk-layout.ts";
+import { parseThemePackSettings, type ThemePackSettings } from "../theme-pack.ts";
 import type { TagCatalogEntry } from "../tag-catalog.ts";
 import { parseTagLexicon, type TagLexiconRow } from "../tag-lexicon.ts";
 import type { Source, VaultMeta } from "../types.ts";
@@ -101,6 +102,8 @@ export type BackupSettings = {
   shell: ShellSettings;
   /** 各页版式参数（v18 起随设置段同步）。 */
   pageLayout: PageLayout;
+  /** 主题包激活指针 + 跟随开关（v19 起随设置段同步；包本体是文件不进备份）。 */
+  themePack: ThemePackSettings;
   onboarded: boolean;
 };
 
@@ -149,6 +152,7 @@ export const BACKUP_SETTINGS_FIELDS: readonly string[] = [
   "activeDeskPresetId",
   "shell",
   "pageLayout",
+  "themePack",
   "onboarded",
 ];
 
@@ -315,6 +319,8 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
     })(),
     shell: parseShell(p.shell),
     pageLayout: parsePageLayout(p.pageLayout),
+    // v19：旧备份缺字段回「未启用 + 跟随默认开」
+    themePack: parseThemePackSettings(p.themePack),
     onboarded: p.onboarded === true || legacy.accounts.some((a) => Boolean(a.pixivCookie || a.fanboxCookie)),
   };
 }

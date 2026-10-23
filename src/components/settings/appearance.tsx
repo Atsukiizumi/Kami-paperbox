@@ -6,6 +6,9 @@
  * 为什么：切换用 View Transition 从点击点圆形揭示（动效批 B），两处共用一套过渡。
  */
 import { Check, Monitor, Moon, Palette, Sun } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   THEME_LIST,
   type Appearance,
@@ -14,6 +17,12 @@ import {
 } from "@/lib/theme";
 import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
+import { themeAssetUrl, useThemePackList } from "@/lib/theme-pack-client";
+import { composeExportManifest, type ThemePackInfo } from "@/lib/theme-pack";
+import { DEFAULT_DESK_LAYOUT } from "@/lib/desk-layout";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 /** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器或动效关闭时直接切。 */
 function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
@@ -399,6 +408,195 @@ function PageLayoutSection() {
   );
 }
 
+/** 主题包管理（P2）：列表启停 / 跟随开关 / 导出当前 / 打开文件夹 / 重新扫描。 */
+function ThemePackSection() {
+  const queryClient = useQueryClient();
+  const query = useThemePackList();
+  const list = query.data;
+  const loading = query.isPending;
+  const themePack = useSettings((s) => s.themePack);
+  const setThemePackActive = useSettings((s) => s.setThemePackActive);
+  const setThemePackFollow = useSettings((s) => s.setThemePackFollow);
+  const [exporting, setExporting] = useState(false);
+  const [exportName, setExportName] = useState("");
+
+  const refresh = async (rescan: boolean) => {
+    if (rescan) await fetch("/api/themes?rescan=1", { cache: "no-store" });
+    await queryClient.invalidateQueries({ queryKey: ["theme-packs"] });
+  };
+
+  const exportCurrent = async () => {
+    const s = useSettings.getState();
+    const activePreset = s.deskPresets.find((p) => p.id === s.activeDeskPresetId);
+    const manifest = composeExportManifest({
+      name: exportName,
+      theme: s.theme,
+      shell: s.shell,
+      layout: activePreset?.layout ?? DEFAULT_DESK_LAYOUT,
+    });
+    setExporting(false);
+    const res = await fetch("/api/themes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ op: "export", manifest }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      toast.error(`导出失败：${data.error ?? res.status}`);
+      return;
+    }
+    await refresh(true);
+    toast.success("已导出为主题包，列表里可以启用它");
+  };
+
+  const themes = list?.themes ?? [];
+  const activePack = themes.find((t) => t.id === themePack.activeId) ?? null;
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={() => setExporting(true)}>
+          导出当前为主题包
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            void fetch("/api/themes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op: "openDir" }) }).then((res) => {
+              if (!res.ok) toast.error("主题文件夹打开失败（需要登录）", { id: "kami-themes-opendir" });
+            })
+          }
+        >
+          打开主题文件夹
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => void refresh(true)}>
+          重新扫描
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted">正在读主题文件夹…</p>
+      ) : query.isError ? (
+        <p className="text-sm text-muted">主题文件夹读取失败——「重新扫描」再试一次。</p>
+      ) : themes.length === 0 ? (
+        <div className="rounded-xl bg-bg p-4 text-sm leading-relaxed text-muted">
+          还没有主题包。点「打开主题文件夹」，把别人分享的包（整个文件夹或 zip）丢进去；
+          里面的 <span className="text-fg">_template</span> 是样板，照着改就是你的第一个主题。
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {themes.map((pack) => (
+            <ThemePackRow
+              key={pack.id}
+              pack={pack}
+              active={pack.id === themePack.activeId}
+              onToggle={() => {
+                setThemePackActive(pack.id === themePack.activeId ? null : pack.id);
+              }}
+            />
+          ))}
+          {list && list.overLimit > 0 ? (
+            <li className="text-xs text-subtle">还有 {list.overLimit} 个包超出 50 上限未显示</li>
+          ) : null}
+        </ul>
+      )}
+
+      {activePack ? (
+        <div className="space-y-2 rounded-xl bg-bg p-3">
+          <p className="text-xs text-subtle">「{activePack.name}」生效中——以下开关决定它管多少：</p>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-fg">配色与 CSS</span>
+            <span className="text-xs text-muted">随包生效</span>
+          </div>
+          <FollowSwitch
+            label="外壳形态"
+            checked={themePack.followShell}
+            onChange={(v) => setThemePackFollow({ followShell: v })}
+          />
+          <FollowSwitch
+            label="案头布局"
+            checked={themePack.followLayout}
+            onChange={(v) => setThemePackFollow({ followLayout: v })}
+          />
+        </div>
+      ) : null}
+
+      <Dialog open={exporting} onOpenChange={(v) => (v ? undefined : setExporting(false))}>
+        <DialogContent className="w-[min(92vw,22rem)]">
+          <DialogTitle>导出当前为主题包</DialogTitle>
+          <DialogDescription>
+            把现在的配色、外壳、案头摆法打包成主题文件夹，放进 themes/ 可启用可分享。
+          </DialogDescription>
+          <form
+            className="mt-2 flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (exportName.trim()) void exportCurrent();
+            }}
+          >
+            <Input value={exportName} onChange={(e) => setExportName(e.target.value)} placeholder="比如：夜读" maxLength={24} autoFocus />
+            <Button type="submit" size="sm" disabled={!exportName.trim()}>
+              导出
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function FollowSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-fg">{label}</span>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={`主题跟随·${label}`} />
+    </div>
+  );
+}
+
+function ThemePackRow({ pack, active, onToggle }: { pack: ThemePackInfo; active: boolean; onToggle: () => void }) {
+  return (
+    <li
+      className={cn(
+        "flex items-center gap-3 rounded-xl p-2.5",
+        active ? "bg-elevated ring-1 ring-accent" : "bg-bg",
+      )}
+    >
+      <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface">
+        {pack.manifest.preview ? (
+          <img
+            src={themeAssetUrl(pack.id, pack.manifest.preview)}
+            alt=""
+            className="size-full object-cover"
+          />
+        ) : (
+          <span className="font-display text-lg text-subtle">{pack.name.slice(0, 1)}</span>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium text-fg">{pack.name}</span>
+          {pack.status === "degraded" ? (
+            <span
+              className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted"
+              title={pack.dropped.join("；")}
+            >
+              部分生效
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-muted">
+          {[pack.author, pack.version, pack.hasCss ? "带 CSS" : null].filter(Boolean).join(" · ") || pack.id}
+        </span>
+      </span>
+      <Button type="button" size="sm" variant={active ? "default" : "secondary"} aria-pressed={active} onClick={onToggle}>
+        {active ? "停用" : "启用"}
+      </Button>
+    </li>
+  );
+}
+
 export function ThemeSection() {
   return (
     <Card>
@@ -444,6 +642,14 @@ export function ThemeSection() {
           </p>
         </div>
         <ThemeSwatches />
+        <div>
+          <h2 className="text-sm font-medium">主题包</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            把别人分享的主题（整个文件夹或 zip）丢进 themes/ 文件夹即可选用；_template
+            是样板，里面的 agent-prompt.md 可以交给任意 AI 替你做一个。停用即回到上面的内置观感。
+          </p>
+        </div>
+        <ThemePackSection />
       </CardContent>
     </Card>
   );

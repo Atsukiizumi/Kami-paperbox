@@ -66,6 +66,7 @@ function sampleSettings() {
     activeDeskPresetId: "kami-default",
     shell: { form: "rail" as const, tweaks: { iconSize: "lg" as const } },
     pageLayout: { density: "tight" as const, vaultCol: "wide" as const },
+    themePack: { activeId: "yehang", followShell: false, followLayout: true },
     onboarded: true,
   };
 }

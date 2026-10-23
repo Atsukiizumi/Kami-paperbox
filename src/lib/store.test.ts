@@ -274,6 +274,26 @@ test("shell setters：换形态旋钮脱落、页参数越界回 medium", () => 
   }
 });
 
+test("persist v18→v19：themePack 缺省补「未启用+跟随开」，脏值清洗、v18 字段一个不丢", () => {
+  const v18 = migrateSettings(
+    {
+      pixivCookie: PIXIV_SESSION,
+      shell: { form: "rail", tweaks: { iconSize: "lg" } },
+      pageLayout: { density: "tight", vaultCol: "wide" },
+    },
+    18,
+  ) as Record<string, unknown>;
+  assert.deepEqual(v18.themePack, { activeId: null, followShell: true, followLayout: true }, "缺字段补默认");
+  assert.deepEqual(v18.shell, { form: "rail", tweaks: { iconSize: "lg" } }, "v18 字段保留");
+  assert.deepEqual(v18.pageLayout, { density: "tight", vaultCol: "wide" });
+  // v19 新档：指针清洗（空串回 null）、跟随开关缺省 true
+  const v19 = migrateSettings(
+    { themePack: { activeId: "   ", followShell: false, followLayout: "yes" } },
+    19,
+  ) as Record<string, unknown>;
+  assert.deepEqual(v19.themePack, { activeId: null, followShell: false, followLayout: true });
+});
+
 test("setTagAliasCluster：整簇写入并撤以规范名为键的旧条目（防链）", () => {
   const before = useSettings.getState().tagAliases;
   try {

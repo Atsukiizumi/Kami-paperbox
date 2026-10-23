@@ -89,6 +89,16 @@ function isDeskModuleId(v: unknown): v is DeskModuleId {
   return typeof v === "string" && (DESK_MODULE_IDS as readonly string[]).includes(v);
 }
 
+/** 槽数组里是否存在至少一个「带合法模块的有效槽」（主题包 layout 段的降级判据）。 */
+export function hasValidDeskSlot(slotsRaw: unknown): boolean {
+  if (!Array.isArray(slotsRaw)) return false;
+  return slotsRaw.some((s) => {
+    if (!s || typeof s !== "object") return false;
+    const items = (s as Record<string, unknown>).items;
+    return Array.isArray(items) && items.some((id) => isDeskModuleId(id));
+  });
+}
+
 /**
  * 布局清洗：槽/span/模块白名单全过一遍——未知模块丢、span 钳 1-3、空槽剪枝、
  * 重复上场去重（同一模块只保留首个位置）、五件套全下场时回默认（案头不能空）。

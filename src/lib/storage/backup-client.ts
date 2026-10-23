@@ -79,6 +79,8 @@ export const SNAPSHOT_SETTINGS_FIELDS = [
   "activeDeskPresetId",
   "shell",
   "pageLayout",
+  // 主题包激活指针（v19）：同款陷阱位——漏采则拉取清空本地指针（回默认观感）
+  "themePack",
   "onboarded",
 ] as const satisfies readonly (keyof SettingsState)[];
 
