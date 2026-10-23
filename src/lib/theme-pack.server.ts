@@ -28,9 +28,10 @@ import { THEME_TEMPLATE_FILES } from "./theme-pack-template.ts";
 export const THEME_PACK_SOFT_LIMIT = 50;
 const ASSET_MAX_BYTES = 2 * 1024 * 1024;
 
-/** themes/ 根目录：KAMI_ROOT/themes（PRD 的「可改路径」本期固定默认）。 */
+/** themes/ 根目录：KAMI_ROOT/.data/themes——.data 是 Docker 卷（kami-data），
+ * 放这里主题包才能在容器重建后幸存；dev 落在仓库 .data/（已 gitignore）。 */
 export function themesDir(): string {
-  return join(resolveKamiRoot(), "themes");
+  return join(resolveKamiRoot(), ".data", "themes");
 }
 
 type ScanState = { dirMtime: number; packs: ThemePackInfo[]; overLimit: number; broken: number };
