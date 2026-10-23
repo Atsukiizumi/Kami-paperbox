@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 主题包目录从 `themes/` 挪到 `.data/themes/`：`.data` 才是 Docker 的 `kami-data` 卷——原位置在容器重建后会丢掉全部主题包。
+
 ## [0.11.0] — 2026-10-24
 
 ### 新增

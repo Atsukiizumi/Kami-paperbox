@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml"><img src="https://github.com/Atsukiizumi/Kami-paperbox/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.8-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.10.8"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.11.0-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="version 0.11.0"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D22-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="Node.js >= 22">
   <img src="https://img.shields.io/badge/pnpm-10.15-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="pnpm 10.15">
   <img src="https://img.shields.io/badge/react-19-e8dfd2?style=flat-square&labelColor=0e0d0c" alt="React 19">
@@ -65,6 +65,7 @@ docker compose pull && docker compose up -d
 | 纸匣目录   | `.data/vault/`  | SQLite + 原图文件                       |
 | 封面缓存   | `.data/media/`  | pximg / 图站图，7 天                    |
 | 列表缓存   | `.data/source/` | 日榜、图站、关注、推荐、FANBOX，30 分钟 |
+| 主题包     | `.data/themes/` | 自建/导入的主题（含 _template 样板）    |
 | 用户文件夹 | 设置里选的目录  | 收入纸匣时优先写这里                    |
 
 Docker 部署时以上 `.data` 都在 `kami-data` 卷里。更细的落盘说明见 [docs/storage.md](docs/storage.md)。
