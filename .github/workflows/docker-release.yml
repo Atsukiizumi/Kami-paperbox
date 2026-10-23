@@ -22,7 +22,9 @@ permissions:
 
 jobs:
   ghcr:
-    runs-on: ubuntu-latest
+    # 钉 ubuntu-24.04：ubuntu-latest 自 2026-10-19 起随时切 Ubuntu 26，
+    # 发版流水线不吃惊喜（ci.yml 的验证性 job 保持 latest 试水，真出问题先红在那里）。
+    runs-on: ubuntu-24.04
     steps:
       # action 版本对齐 ci.yml（buildx v4 / build-push v7 = Node 24 运行时
       # 起始的大版本）；ci.yml 不 push 所以没有 login，这里补 login-action
