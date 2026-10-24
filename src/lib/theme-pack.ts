@@ -169,9 +169,58 @@ const THEME_TOKEN_KEYS: readonly (keyof ThemeTokens)[] = [
 ];
 
 /**
+ * CSS 转义归一化：`\XXXXXX␣`（1-6 位十六进制，后随可选一个空白）与 `\c`（非十六进制
+ * 字面转义）解码为明文——这正是绕过清洗字面匹配的向量（`u\72l(` 浏览器按 url() 解析），
+ * 先解码再查，所有禁令落在明文上。单遍解码与浏览器语义一致（产出物不再二次解码）：
+ * `\\` 还原成字面反斜杠后其后的字符不会再参与转义；`\`+换行 = 字符串续行，两者皆消；
+ * `\0` 按规范映射 U+FFFD；串尾孤立 `\` 原样保留（浏览器同样按字面处理，不构成绕过）。
+ */
+export function normalizeCssEscapes(css: string): string {
+  let out = "";
+  for (let i = 0; i < css.length; i += 1) {
+    const ch = css[i]!;
+    if (ch !== "\\") {
+      out += ch;
+      continue;
+    }
+    const next = css[i + 1];
+    if (next === undefined) {
+      out += "\\";
+      break;
+    }
+    if (next === "\n" || next === "\r" || next === "\f") {
+      // 续行：反斜杠与换行一起消失；CRLF 是一对续行符，两者皆消
+      // （只消 \r 留 \n 会让 u\<CRLF>rl( 在浏览器拼成 url( 而我方拼不成——缝隙）
+      i += next === "\r" && css[i + 2] === "\n" ? 2 : 1;
+      continue;
+    }
+    let j = i + 1;
+    let hex = "";
+    while (j < css.length && hex.length < 6 && /[0-9a-fA-F]/.test(css[j]!)) {
+      hex += css[j]!;
+      j += 1;
+    }
+    if (hex.length > 0) {
+      const code = Number.parseInt(hex, 16);
+      const after = css[j];
+      // 十六进制转义后的一个空白按规范消耗；CRLF 同为一对
+      if (after === "\r" && css[j + 1] === "\n") j += 2;
+      else if (after === " " || after === "\t" || after === "\n" || after === "\r" || after === "\f") j += 1;
+      out += code === 0 ? "\uFFFD" : String.fromCodePoint(code);
+      i = j - 1;
+    } else {
+      out += next;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
  * theme.css 安全清洗：返回 null = 整段拒（含原因）；否则返回清洗后的 css
  * （url() 只保留两类：声明的包内资产 → 重写为本站资产路由；小型 data: 位图。
- * 其余 url 一律换成 none）。@import / expression( / javascript: 直接整段拒。
+ * 其余 url 一律换成 none）。入口先做转义归一化——@import / image-set /
+ * expression / javascript: / 全局选择器 / url 重写全部吃明文，转义变体落网。
  */
 export function sanitizeThemeCss(
   css: string,
@@ -179,6 +228,9 @@ export function sanitizeThemeCss(
   assets: readonly { id: string; file: string }[],
 ): { css: string | null; reason?: string } {
   if (css.length > CSS_MAX_BYTES) return { css: null, reason: `css 超过 ${CSS_MAX_BYTES / 1024}KB 上限` };
+  // 转义归一化（R3）：长度按原文计（防归一化膨胀放大），其余检查全部吃明文。
+  css = normalizeCssEscapes(css);
+  if (css.includes("\u0000")) return { css: null, reason: "css 含 NUL 字符，已整段拒绝" };
   const lower = css.toLowerCase();
   if (lower.includes("@import")) return { css: null, reason: "css 含 @import，已整段拒绝" };
   if (lower.includes("expression(") || lower.includes("javascript:")) {

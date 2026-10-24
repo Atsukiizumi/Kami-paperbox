@@ -9,6 +9,7 @@ import { describe, it } from "node:test";
 import {
   composeExportManifest,
   isSafePackPath,
+  normalizeCssEscapes,
   parseThemeManifest,
   safeThemeDirName,
   sanitizeThemeCss,
@@ -123,6 +124,47 @@ describe("sanitizeThemeCss", () => {
     const r4 = parseThemeManifest({ ...GOOD, layout: { slots: [{ span: 2, items: ["browse-sheet", "ghost"] }] } });
     assert.ok(r4.ok);
     assert.ok(r4.manifest.layout, "部分合法 → 清洗保留");
+  });
+});
+
+describe("normalizeCssEscapes（转义归一化）", () => {
+  it("十六进制转义（含尾随空白消耗）与字面转义解码为明文", () => {
+    assert.equal(normalizeCssEscapes("u\\72l(x)"), "url(x)", "\\72 后随字母即结束十六进制");
+    assert.equal(normalizeCssEscapes("u\\72 l(x)"), "url(x)", "尾随空格被消耗");
+    assert.equal(normalizeCssEscapes("\\@imp\\6frt"), "@import", "字面转义 + 无空格十六进制拼接");
+    assert.equal(normalizeCssEscapes("imag\\65-set("), "image-set(", "\\e 本就是十六进制转义 U+000E——真绕过向量要写 \\65");
+    assert.equal(normalizeCssEscapes("\\43 SS"), "CSS", "\\43 + 空格消耗");
+    assert.equal(normalizeCssEscapes("\\000043 SS"), "CSS", "6 位十六进制 + 空格消耗");
+  });
+
+  it("单遍解码语义与浏览器一致；续行消解；\\0 映射 U+FFFD；串尾孤立反斜杠保留", () => {
+    assert.equal(normalizeCssEscapes("a\\\\72 b"), "a\\72 b", "\\\\ 还原字面反斜杠后 72 不再参与转义");
+    assert.equal(normalizeCssEscapes("u\\\nrl(x)"), "url(x)", "反斜杠+换行=续行，两者皆消");
+    assert.equal(normalizeCssEscapes("u\\\r\nrl(x)"), "url(x)", "CRLF 是一对续行符，整体消解");
+    assert.equal(normalizeCssEscapes("\\0 x"), "\uFFFDx", "十六进制转义后的一个空白按规范消耗");
+    assert.equal(normalizeCssEscapes("a\\"), "a\\", "串尾孤立反斜杠原样保留");
+  });
+});
+
+describe("sanitizeThemeCss 转义绕过（R3）", () => {
+  it("u\\72l( 外呼在归一化后被 url 白名单拦下（换 none，不外泄原 URL）", () => {
+    const r = sanitizeThemeCss('html[data-kami-theme] .a{background:u\\72l(https://evil.example/x.png)}', "t", []);
+    assert.ok(r.css);
+    assert.ok(!r.css!.includes("evil.example"), "原 URL 不得残留");
+    assert.match(r.css!, /background:\s*none/);
+    assert.match(r.reason ?? "", /url/);
+  });
+
+  it("imag\\65-set( 与 \\@imp\\6frt 转义变体整段拒；字面 NUL 拒", () => {
+    assert.equal(sanitizeThemeCss('html[data-kami-theme] .a{x:imag\\65-set("https://e/x" 1x)}', "t", []).css, null);
+    assert.equal(sanitizeThemeCss('\\@imp\\6frt "x";', "t", []).css, null);
+    assert.equal(sanitizeThemeCss("html[data-kami-theme] .a{x:1}\u0000", "t", []).css, null);
+  });
+
+  it("合法 css 内的常规转义（字体名字符串）不回归", () => {
+    const r = sanitizeThemeCss('html[data-kami-theme] .f{font-family:"Foo\\ Bar",serif}', "t", []);
+    assert.ok(r.css);
+    assert.match(r.css!, /"Foo Bar"/);
   });
 });
 
