@@ -793,6 +793,11 @@ export const useSettings = create<SettingsState>()(
               ? { ...preset, layout: parseDeskLayout(layout) }
               : preset,
           ),
+          // 微调即接管（R4）：用户写回自己的摆法，跟随主题的布局让位
+          themePack:
+            s.themePack.activeId && s.themePack.followLayout
+              ? { ...s.themePack, followLayout: false }
+              : s.themePack,
         })),
       saveDeskPreset: (name, layout) => {
         const clean = name.trim().slice(0, 24);
@@ -804,12 +809,27 @@ export const useSettings = create<SettingsState>()(
           return {
             deskPresets: [...s.deskPresets, { id, name: clean, layout: parseDeskLayout(layout) }],
             activeDeskPresetId: id,
+            // 微调即接管（R4）：存自己的版式并激活，跟随主题的布局让位
+            themePack:
+              s.themePack.activeId && s.themePack.followLayout
+                ? { ...s.themePack, followLayout: false }
+                : s.themePack,
           };
         });
         return id;
       },
       activateDeskPreset: (id) =>
-        set((s) => (s.deskPresets.some((preset) => preset.id === id) ? { activeDeskPresetId: id } : s)),
+        set((s) => {
+          if (!s.deskPresets.some((preset) => preset.id === id)) return s;
+          // 微调即接管（健壮二批 R4）：跟随主题的布局在用户显式切版式时让位
+          return {
+            activeDeskPresetId: id,
+            themePack:
+              s.themePack.activeId && s.themePack.followLayout
+                ? { ...s.themePack, followLayout: false }
+                : s.themePack,
+          };
+        }),
       removeDeskPreset: (id) =>
         set((s) => {
           if (id === DESK_DEFAULT_PRESET_ID) return s;
@@ -823,10 +843,23 @@ export const useSettings = create<SettingsState>()(
           const parsed = parseShell({ form, tweaks: s.shell.tweaks, custom: s.shell.custom });
           // custom 参数骑行保留：parseShell 对预设形态会剥掉 custom 段——用户在
           // 形态卡之间来回切 shouldn 丢掉已调好的自定义参数（预设渲染不读它）。
-          return { shell: { ...parsed, custom: form === "custom" ? parsed.custom : s.shell.custom } };
+          // 微调即接管（R4）：跟随主题的外壳在用户显式改形态时让位。
+          return {
+            shell: { ...parsed, custom: form === "custom" ? parsed.custom : s.shell.custom },
+            themePack:
+              s.themePack.activeId && s.themePack.followShell
+                ? { ...s.themePack, followShell: false }
+                : s.themePack,
+          };
         }),
       setShellTweak: (patch) =>
-        set((s) => ({ shell: parseShell({ form: s.shell.form, tweaks: { ...s.shell.tweaks, ...patch } }) })),
+        set((s) => ({
+          shell: parseShell({ form: s.shell.form, tweaks: { ...s.shell.tweaks, ...patch } }),
+          themePack:
+            s.themePack.activeId && s.themePack.followShell
+              ? { ...s.themePack, followShell: false }
+              : s.themePack,
+        })),
       setShellCustom: (patch) =>
         set((s) => {
           const base = s.shell.custom ?? parseShellCustom(undefined).custom;
@@ -835,7 +868,13 @@ export const useSettings = create<SettingsState>()(
             topbar: { ...base.topbar, ...patch.topbar },
             content: { ...base.content, ...patch.content },
           }).custom;
-          return { shell: { form: "custom", tweaks: {}, custom: merged } };
+          return {
+            shell: { form: "custom", tweaks: {}, custom: merged },
+            themePack:
+              s.themePack.activeId && s.themePack.followShell
+                ? { ...s.themePack, followShell: false }
+                : s.themePack,
+          };
         }),
       setPageLayout: (patch) => set((s) => ({ pageLayout: parsePageLayout({ ...s.pageLayout, ...patch }) })),
       setThemePackActive: (id) =>

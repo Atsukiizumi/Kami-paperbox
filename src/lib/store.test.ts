@@ -756,3 +756,38 @@ test("persist v19→v20：shell.custom 缺省无感；setShellCustom 深合并�
     useSettings.setState({ shell: before.shell });
   }
 });
+
+test("微调即接管（健壮二批 R4）：跟随主题时改本地外壳/版式自动关跟随", () => {
+  const before = useSettings.getState();
+  const custom = { slots: [{ span: 3 as const, items: ["newspaper" as const] }], headerSlip: false };
+  try {
+    useSettings.setState({ themePack: { activeId: "yehang", followShell: true, followLayout: true } });
+    // 外壳：setShellForm / setShellTweak 关 followShell（不动 followLayout）
+    useSettings.getState().setShellForm("rail");
+    assert.equal(useSettings.getState().themePack.followShell, false, "改形态自动停跟随外壳");
+    assert.equal(useSettings.getState().themePack.followLayout, true, "布局跟随不受牵连");
+    assert.equal(useSettings.getState().shell.form, "rail", "本地外壳照常写入");
+    useSettings.getState().setThemePackFollow({ followShell: true });
+    useSettings.getState().setShellTweak({ iconSize: "lg" });
+    assert.equal(useSettings.getState().themePack.followShell, false, "改旋钮自动停跟随外壳");
+    // 版式：activateDeskPreset / saveDeskPreset / setDeskLayout 关 followLayout
+    useSettings.getState().setThemePackFollow({ followShell: true, followLayout: true });
+    const id = useSettings.getState().saveDeskPreset("接管测试", custom);
+    assert.ok(id);
+    assert.equal(useSettings.getState().themePack.followLayout, false, "存版式自动停跟随布局");
+    useSettings.getState().setThemePackFollow({ followLayout: true });
+    useSettings.getState().activateDeskPreset("kami-default");
+    assert.equal(useSettings.getState().themePack.followLayout, false, "切版式自动停跟随布局");
+    // 无激活包 / 跟随已关：行为不变（不误置）
+    useSettings.setState({ themePack: { activeId: null, followShell: true, followLayout: true } });
+    useSettings.getState().setShellTweak({ topbarDensity: "compact" });
+    assert.equal(useSettings.getState().themePack.followShell, true, "无激活包时跟随开关不动");
+  } finally {
+    useSettings.setState({
+      themePack: before.themePack,
+      shell: before.shell,
+      deskPresets: before.deskPresets,
+      activeDeskPresetId: before.activeDeskPresetId,
+    });
+  }
+});
