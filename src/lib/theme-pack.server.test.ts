@@ -298,3 +298,58 @@ describe("读取预检与 zip 约束（健壮二批 R1/R2）", () => {
     assert.ok(scan.broken >= 3);
   });
 });
+
+describe("伪造 ZIP 头部（复核 P1：不能只信声明尺寸）", () => {
+  /** 把 zip 中心目录里首个非常规条目的 uncompressed/compressed 声明改小（真实内容远大）。 */
+  function shrinkDeclaredSizes(zip: Buffer, entryName: string): Buffer {
+    const out = Buffer.from(zip);
+    // EOCD：从尾部找 0x06054b50
+    let e = out.length - 22;
+    while (e > 0 && out.readUInt32LE(e) !== 0x06054b50) e -= 1;
+    assert.ok(e > 0, "EOCD 没找到");
+    const count = out.readUInt16LE(e + 10);
+    let p = out.readUInt32LE(e + 16);
+    for (let i = 0; i < count; i += 1) {
+      assert.equal(out.readUInt32LE(p), 0x02014b50, "中心目录签名");
+      const nameLen = out.readUInt16LE(p + 28);
+      const name = out.subarray(p + 46, p + 46 + nameLen).toString("latin1");
+      if (name === entryName) {
+        out.writeUInt32LE(1024, p + 20); // 声明 compressed = 1KB
+        out.writeUInt32LE(1024, p + 24); // 声明 uncompressed = 1KB
+        return out;
+      }
+      p += 46 + nameLen + out.readUInt16LE(p + 30) + out.readUInt16LE(p + 32);
+    }
+    throw new Error(`条目 ${entryName} 没找到`);
+  }
+
+  it("声明 1KB / 实际 3MB 的伪头部条目：扫描快速返回且包判坏，无内存放大", () => {
+    const enc = new TextEncoder();
+    const real = new Uint8Array(3 * 1024 * 1024); // 全零：压缩后极小、解压 3MB
+    const honest = Buffer.from(
+      zipSync({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "pad.bin": real }),
+    );
+    writeFileSync(join(themesDir(), "lying.zip"), shrinkDeclaredSizes(honest, "pad.bin"));
+    const t0 = Date.now();
+    const r = scanThemePacks(true);
+    const ms = Date.now() - t0;
+    assert.ok(!r.packs.some((p) => p.id === "lying"), "伪头部包不列出（manifest 经截断/错位必然解析失败）");
+    assert.ok(r.broken >= 1);
+    assert.ok(ms < 5_000, `快速返回（实测 ${ms}ms）——预置 out 不扩容 + 声明压缩尺寸钉死，无放大面`);
+  });
+
+  it("声明压缩尺寸超 2MB 的条目在 filter 阶段拒（不进解码）", () => {
+    const enc = new TextEncoder();
+    const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
+    const honest = toZip({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "pad.bin": new Uint8Array(1536 * 1024) });
+    writeFileSync(join(themesDir(), "fat-sc.zip"), shrinkDeclaredSizes(honest, "pad.bin"));
+    // honest pad 1.5MB 存储块压缩后 ≈1.5MB > 2MB？零数据 deflate 会很小——改用随机不可压数据逼出大压缩尺寸
+    const rnd = new Uint8Array(3 * 1024 * 1024);
+    for (let i = 0; i < rnd.length; i += 1) rnd[i] = (i * 7 + 13) & 0xff;
+    const honestBig = toZip({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "rnd.bin": rnd });
+    writeFileSync(join(themesDir(), "fat-sc.zip"), honestBig); // 真实压缩尺寸 ≈3MB（不可压）
+    const r = scanThemePacks(true);
+    assert.ok(!r.packs.some((p) => p.id === "fat-sc"), "声明压缩尺寸 >2MB 拒");
+    assert.ok(r.broken >= 1);
+  });
+});

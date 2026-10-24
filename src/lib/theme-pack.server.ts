@@ -89,6 +89,11 @@ function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
     // 不解压（zip 炸弹进不了内存；GET /api/themes 缓存未命中即触发扫描，guest
     // 可达，所以必须前置）。originalSize 缺失的极端构造按压缩比上界 400 估。
     // 健壮二批 R2 追加：条目数 ≤512（海量空条目的解析/对象开销）、单条目 ≤2MB。
+    // 复核 P1 追加：声明的**压缩**尺寸同样 ≤2MB——不能只信 originalSize：fflate
+    // 预置 out 缓冲在同步态下永不扩容（源码核实：所有 cbuf 增长都带 if(resize)
+    // 守卫，超出按 TypedArray 语义静默截断），内存有顶；但输入切片按声明的压缩
+    // 尺寸截取，声明超大时解码 CPU 与真实字节成正比——把声明压缩尺寸也钉死，
+    // 解码工作量即以「合法 2MB 素材」为上界，伪造头部无放大面。
     let declaredTotal = 0;
     let entryCount = 0;
     let overflow = false;
@@ -96,7 +101,12 @@ function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
       filter: (f) => {
         entryCount += 1;
         const size = f.originalSize ?? f.size * 400;
-        if (entryCount > ZIP_ENTRY_LIMIT || size > ZIP_ENTRY_MAX || declaredTotal + size > ZIP_TOTAL_CAP) {
+        if (
+          entryCount > ZIP_ENTRY_LIMIT ||
+          size > ZIP_ENTRY_MAX ||
+          f.size > ZIP_ENTRY_MAX ||
+          declaredTotal + size > ZIP_TOTAL_CAP
+        ) {
           overflow = true;
           return false;
         }
