@@ -19,7 +19,7 @@ import {
   pixivUgoira,
   pixivUser,
 } from "./pixiv.ts";
-import { xTweet, xUserMedia, setXMinIntervalMs } from "./x.ts";
+import { verifyXSession, xTweet, xUserMedia, setXMinIntervalMs } from "./x.ts";
 
 export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
   const pixiv = pixivCookieHeader(input.pixivCookie);
@@ -76,6 +76,10 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "xUserMedia":
       setXMinIntervalMs(getThrottle().xMinIntervalMs);
       return xUserMedia(input.handle, input.cursor, input.xCookie, input.xQueryIds);
+    case "xVerify": {
+      const r = await verifyXSession(input.xCookie, input.xQueryIds);
+      return { op: "xVerify", ok: r.ok, kind: r.ok ? "ok" : r.kind, message: r.ok ? r.note : r.reason };
+    }
     case "xTweet":
       setXMinIntervalMs(getThrottle().xMinIntervalMs);
       return xTweet(input.id, input.xCookie, input.xQueryIds);

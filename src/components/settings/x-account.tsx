@@ -12,6 +12,7 @@
  *      共用那个）解耦，单 job 互斥由服务端兜底——两处同时开只会有一个跑起来。
  */
 import { useState } from "react";
+import { PlugZap } from "lucide-react";
 import { toast } from "sonner";
 import { LogIn } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { SessionRelayDialog } from "@/components/session-relay";
-import { useSettings } from "@/lib/store";
+import { cookiesFromSettings, useSettings } from "@/lib/store";
 import { sanitizeXCookie, X_DEFAULT_QUERY_IDS } from "@/lib/x-settings";
 import { applyLoginSession } from "@/lib/sync/apply-session";
+import { fetchSource } from "@/lib/source";
 import type { XQueryIdKey } from "@/lib/types";
 
 const QUERY_ID_LABELS: Record<XQueryIdKey, string> = {
@@ -40,13 +42,36 @@ export function XAccountCard() {
   // 中间态（只粘到一半）不算错——只提示，不拦截输入；清洗发生在保存/请求边界
   const incomplete = xCookie.trim() !== "" && !sanitizeXCookie(xCookie);
 
+  const [testing, setTesting] = useState(false);
+
+  /** 凭据探针（docs/99 问题 1）：把「/x/ 报失效」拆成 凭据失效/网络/未知 三态。 */
+  async function runVerify(id = "kami-x-verify") {
+    setTesting(true);
+    try {
+      const r = await fetchSource({ data: { op: "xVerify", ...cookiesFromSettings("x") } });
+      if (r.op !== "xVerify") throw new Error("返回异常");
+      if (r.ok) toast.success(r.message, { id });
+      else if (r.kind === "expired") toast.error(r.message, { id, description: "可重新中转登录，或到 x.com 手贴新 Cookie。" });
+      else toast.message(r.message, { id });
+      return r.ok;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "测试失败", { id });
+      return false;
+    } finally {
+      setTesting(false);
+    }
+  }
+
   async function applyRelay(data: { x?: string }) {
     const result = await applyLoginSession({ ...data });
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    toast.success("X Cookie 已写入");
+    // 写入即验证：中转刚收的凭据当场打一枪——「登录完就报失效」当场见分晓。
+    const ok = await runVerify("kami-x-relay-verify");
+    if (ok) toast.success("X Cookie 已写入并验证通过", { id: "kami-x-written" });
+    else toast.message("Cookie 已写入，但验证未通过——详情见上方提示", { id: "kami-x-written" });
   }
 
   return (
@@ -80,10 +105,16 @@ export function XAccountCard() {
             <p className="text-xs text-red-500">需要同时带 auth_token 与 ct0 两个字段，现在缺了一个。</p>
           ) : null}
         </div>
-        <Button variant="secondary" onClick={() => setRelayOpen(true)}>
-          <LogIn className="size-4" />
-          中转登录
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setRelayOpen(true)}>
+            <LogIn className="size-4" />
+            中转登录
+          </Button>
+          <Button variant="ghost" disabled={testing || xCookie.trim() === ""} onClick={() => void runVerify()}>
+            <PlugZap className="size-4" />
+            {testing ? "测试中…" : "测试连接"}
+          </Button>
+        </div>
         <p className="text-xs leading-relaxed text-subtle">
           「中转登录」会在本页里打开 x.com 官方登录页，密码只打在 X 自己的页面上；
           登录完成后纸匣自动收回会话（含可能的验证码 / 2FA，都在中转画面里操作）。

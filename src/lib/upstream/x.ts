@@ -124,6 +124,56 @@ export async function runExclusive<T>(
 
 export type XSession = { authToken: string; ct0: string };
 
+/** X 上游专用 UA：比全局 UA 新两个大版本，降低「新 Cookie 也被 401」的指纹面。 */
+export const X_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+export type XVerifyResult =
+  | { ok: true; note: string }
+  | { ok: false; kind: "expired" | "network" | "unknown"; reason: string };
+
+/**
+ * 凭据探针（docs/99 问题 1）：cookie 模式打一枪稳定账号（@x）的
+ * UserByScreenName——凭据被拒在该链路恒为 401/32 → XCookieExpiredError，
+ * 据此把「/x/ 报失效」拆成 凭据失效 / 网络 / 状态未知 三态给用户。
+ * 不新增 GraphQL 端点：复用既有 queryId 与映射（@x 不存在才判 unknown）。
+ */
+export async function verifyXSession(
+  xCookie: string | undefined,
+  queryIdOverrides?: XQueryIdOverrides,
+): Promise<XVerifyResult> {
+  let session: XSession;
+  try {
+    session = requireXSession(xCookie);
+  } catch (err) {
+    return { ok: false, kind: "expired", reason: err instanceof Error ? err.message : "Cookie 缺失或不完整" };
+  }
+  const ids = resolveXQueryIds(queryIdOverrides);
+  try {
+    const user = mapXUserByScreenName(
+      await xGraphQL({
+        queryId: ids.userByScreenName,
+        opName: "UserByScreenName",
+        variables: {
+          screenName: "x",
+          __relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider: false,
+        },
+        session,
+      }),
+    );
+    return { ok: true, note: `验证通过（X 官方账号可达：${user.name || "@x"}）` };
+  } catch (err) {
+    if (err instanceof XCookieExpiredError) {
+      return { ok: false, kind: "expired", reason: "X 返回 401——凭据被拒（已失效或指纹被风控）" };
+    }
+    if (isUpstreamError(err) && (err.status === 429 || (err.status ?? 0) >= 500)) {
+      const kind = err.status === 429 ? "unknown" : "network";
+      return { ok: false, kind, reason: err.status === 429 ? "429 限速中——凭据状态未知，稍后再测" : `上游/网络错误（${err.status ?? "?"}）` };
+    }
+    return { ok: false, kind: "unknown", reason: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** 从 Cookie 头原文里抠 auth_token / ct0（名称大小写不敏感）。 */
 export function parseXCookie(raw: string): XSession {
   const out: XSession = { authToken: "", ct0: "" };
@@ -228,7 +278,12 @@ async function xGraphQLOnce(args: {
   session: XSession | null; // null = guest
   guestToken?: string;
 }): Promise<unknown> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${X_WEB_BEARER}` };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${X_WEB_BEARER}`,
+    // X 对程序化访问敏感：全局通用 UA 是 Chrome/122（2024 年），太老会被
+    // 当异常客户端拒——X 上游单独用现代版本（docs/99 问题 1 一环）。
+    "User-Agent": X_UA,
+  };
   let cookie: string | undefined;
   if (args.session) {
     // Cookie 模式三件套：auth_token + ct0 Cookie、csrf=ct0（GET 亦必带，缺则 403/353）

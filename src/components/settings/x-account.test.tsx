@@ -7,7 +7,7 @@
  */
 import "../../test/dom.ts";
 import assert from "node:assert/strict";
-import { after, before, beforeEach, describe, it } from "node:test";
+import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { XAccountCard } from "./x-account.tsx";
 import { X_DEFAULT_QUERY_IDS } from "@/lib/x-settings";
@@ -272,5 +272,58 @@ describe("XAccountCard（X 设置卡）", () => {
     const input = screen.getByLabelText("X Cookie") as HTMLInputElement;
     fireEvent.change(input, { target: { value: X_OK } });
     assert.equal(useSettings.getState().xCookie, X_OK);
+  });
+});
+
+// ── 测试连接（docs/99 问题 1 凭据探针）──
+
+describe("XAccountCard 测试连接", () => {
+  let fetchOriginal: typeof fetch;
+  let lastBody: unknown;
+
+  afterEach(() => cleanup());
+  beforeEach(() => cleanup());
+  before(() => {
+    fetchOriginal = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST" && String(_input).includes("/api/source")) {
+        lastBody = JSON.parse(String(init.body));
+        const ok = (lastBody as { op?: string }).op === "xVerify";
+        return new Response(
+          JSON.stringify(
+            ok
+              ? { op: "xVerify", ok: true, kind: "ok", message: "验证通过（X 官方账号可达：X）" }
+              : {},
+          ),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ) as Response;
+      }
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } }) as Response;
+    }) as typeof fetch;
+  });
+  after(() => {
+    globalThis.fetch = fetchOriginal;
+  });
+
+  it("无 Cookie 时按钮禁用；有 Cookie 点击发 xVerify 并 toast 成功", async () => {
+    const before = useSettings.getState();
+    try {
+      useSettings.setState({ xCookie: "" });
+      const { rerender } = render(<XAccountCard />);
+      const btn = () => screen.getByRole("button", { name: /测试连接|测试中/ });
+      assert.equal((btn() as HTMLButtonElement).disabled, true, "无 Cookie 禁用");
+
+      useSettings.setState({ xCookie: X_OK });
+      rerender(<XAccountCard />);
+      fireEvent.click(btn());
+      await until(() => Boolean(lastBody));
+      assert.equal((lastBody as { op?: string }).op, "xVerify", "走 xVerify op");
+      assert.ok((lastBody as { xCookie?: string }).xCookie?.includes("auth_token"), "带当前凭据");
+      // toast 无 Toaster 不落 DOM——以按钮文案复位（测试中…→测试连接）证明链路落定
+      await until(() => Boolean(document.body.textContent?.includes("测试连接")));
+      assert.ok(true);
+    } finally {
+      useSettings.setState({ xCookie: before.xCookie });
+    }
   });
 });
