@@ -517,20 +517,40 @@ function ThemePackSection() {
     await queryClient.invalidateQueries({ queryKey: ["theme-packs"] });
   };
 
+  const themes = list?.themes ?? [];
+  const activePack = themes.find((t) => t.id === themePack.activeId) ?? null;
+
   const exportCurrent = async () => {
     const s = useSettings.getState();
     const activePreset = s.deskPresets.find((p) => p.id === s.activeDeskPresetId);
+    // 导出保真（④）：按 effective 组装——激活包的 palette 恒随包；shell/layout 按
+    // 跟随旗取包值（R4 后用户改过即关跟随，剩下的就是所见）；css/assets 的声明
+    // 与文件本体由服务端按 from 克隆。
+    const pack = activePack;
+    const palette = pack?.manifest.palette ?? { base: s.theme };
+    const shell =
+      pack && s.themePack.followShell && pack.manifest.shell ? pack.manifest.shell : s.shell;
+    const layout =
+      pack && s.themePack.followLayout && pack.manifest.layout
+        ? pack.manifest.layout
+        : (activePreset?.layout ?? DEFAULT_DESK_LAYOUT);
     const manifest = composeExportManifest({
       name: exportName,
-      theme: s.theme,
-      shell: s.shell,
-      layout: activePreset?.layout ?? DEFAULT_DESK_LAYOUT,
+      theme: palette.base ?? s.theme,
+      shell,
+      layout,
     });
+    // 来源包的 overrides/css/assets 声明带上（css/assets 声明 + from 让服务端克隆文件）
+    if (pack) {
+      if (palette.overrides) manifest.palette = { ...manifest.palette, overrides: palette.overrides };
+      if (pack.manifest.css && pack.css !== null) manifest.css = pack.manifest.css;
+      if (pack.manifest.assets?.length) manifest.assets = pack.manifest.assets;
+    }
     setExporting(false);
     const res = await fetch("/api/themes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ op: "export", manifest }),
+      body: JSON.stringify({ op: "export", manifest, from: pack?.id }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -540,9 +560,6 @@ function ThemePackSection() {
     await refresh(true);
     toast.success("已导出为主题包，列表里可以启用它");
   };
-
-  const themes = list?.themes ?? [];
-  const activePack = themes.find((t) => t.id === themePack.activeId) ?? null;
 
   return (
     <>

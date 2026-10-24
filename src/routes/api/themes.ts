@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  let body: { op?: string; manifest?: unknown } = {};
+  let body: { op?: string; manifest?: unknown; from?: string } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -34,7 +34,8 @@ export async function POST(request: Request) {
       return Response.json({ themes: packs, overLimit, broken });
     }
     case "export": {
-      const result = exportThemePack(body.manifest);
+      // from = 激活包 id（导出保真 ④）：服务端从该包克隆 css/assets
+      const result = exportThemePack(body.manifest, body.from);
       if (!result.ok) return Response.json({ error: result.error }, { status: 400 });
       return Response.json(result);
     }

@@ -419,3 +419,47 @@ describe("ZIP 实际输出判决（三批终裁：不能只信声明尺寸）", 
     assert.equal(r.packs.find((p) => p.id === "exact-2m")?.manifest.meta.name, "压线合法");
   });
 });
+
+describe("导出保真（④：from 克隆 css/assets）", () => {
+  it("from 指向带 css+资产的包：导出包含 theme.css 与资产字节，往返启用观感一致", () => {
+    const src = writePack(
+      "fidelity-src",
+      { ...GOOD_MANIFEST, meta: { name: "保真源" }, css: "theme.css", assets: [{ id: "tex", file: "assets/tex.png" }] },
+      { "theme.css": "html[data-kami-theme] .a{color:var(--color-accent)}", "assets/tex.png": "PNGDATA" },
+    );
+    void src;
+    const manifest = {
+      kamitheme: 1,
+      meta: { name: "保真导出", author: "Kami 纸匣导出" },
+      palette: { base: "washi", overrides: { accent: "#d8c9a8" } },
+      css: "theme.css",
+      assets: [{ id: "tex", file: "assets/tex.png" }],
+    };
+    const r = exportThemePack(manifest, "fidelity-src");
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const outDir = r.dir;
+    assert.equal(readFileSync(join(outDir, "theme.css"), "utf8"), "html[data-kami-theme] .a{color:var(--color-accent)}");
+    assert.equal(readFileSync(join(outDir, "assets", "tex.png"), "utf8"), "PNGDATA");
+    // 回扫：导出包被列为 degraded=false 且 css 在场（内容同源）
+    const scan = scanThemePacks(true);
+    const pack = scan.packs.find((p) => p.id === r.id);
+    assert.equal(pack?.status, "ok", "克隆的 css/资产齐全，导出包完整可用");
+    assert.ok(pack?.css?.includes("--color-accent"));
+  });
+
+  it("from 的 css 读取失败（声明的 css 不在来源包里）→ 导出报错不落半包", () => {
+    writePack("fidelity-broken", { ...GOOD_MANIFEST, meta: { name: "断链源" } }, {});
+    const manifest = { kamitheme: 1, meta: { name: "断链导出" }, css: "theme.css" };
+    const r = exportThemePack(manifest, "fidelity-broken");
+    assert.equal(r.ok, false);
+  });
+
+  it("无 from：行为与旧路径完全一致（纯 manifest 落盘）", () => {
+    const r = exportThemePack({ kamitheme: 1, meta: { name: "无源导出" }, palette: { base: "washi" } });
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const scan = scanThemePacks(true);
+    assert.ok(scan.packs.some((p) => p.id === r.id), "导出包可被扫描列出");
+  });
+});

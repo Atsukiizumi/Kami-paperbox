@@ -374,8 +374,16 @@ export function readThemeAsset(
   return { ok: true, bytes, mime: MIME_BY_EXT[ext] ?? "application/octet-stream" };
 }
 
-/** 「导出当前为主题包」：服务端复验 manifest，安全目录名落盘，失效扫描缓存。 */
-export function exportThemePack(manifestRaw: unknown): { ok: true; id: string; dir: string } | { ok: false; error: string } {
+/**
+ * 「导出当前为主题包」：服务端复验 manifest，安全目录名落盘，失效扫描缓存。
+ * 导出保真（④）：fromPack 给定时（客户端激活包 id）从该包目录克隆 theme.css 与
+ * 声明的 assets（走 safeReadPackFile 同一套防越界与限额）——「导出当前」= 导出所见，
+ * 激活包的 overrides 已由客户端组装进 manifest，css/字体/纸纹由这里带过来。
+ */
+export function exportThemePack(
+  manifestRaw: unknown,
+  fromPack?: string,
+): { ok: true; id: string; dir: string } | { ok: false; error: string } {
   const result = parseThemeManifest(manifestRaw);
   if (!result.ok) return { ok: false, error: result.reason };
   const dir = themesDir();
@@ -387,13 +395,38 @@ export function exportThemePack(manifestRaw: unknown): { ok: true; id: string; d
     name = uniquifyThemeDirName(base, existing);
     const packDir = join(dir, name);
     mkdirSync(packDir, { recursive: true });
+    // 克隆来源包的 css 与 assets（保真）：只复制新 manifest 声明引用的文件
+    const copied = clonePackMedia(fromPack, packDir, result.manifest);
     writeFileSync(join(packDir, "kami-theme.json"), JSON.stringify(result.manifest, null, 2), "utf8");
+    if (copied.css === false) {
+      return { ok: false, error: "来源包的 css 文件读取失败，无法保真导出" };
+    }
   } catch (err) {
     return { ok: false, error: `写入失败：${err instanceof Error ? err.message : String(err)}` };
   }
   scanState = null;
   zipCache.clear();
   return { ok: true, id: name, dir: join(dir, name) };
+}
+
+/** 从来源包克隆 css 与 assets 到导出目录（导出保真 ④）。css 失败必须报错（观感断链）；单个 asset 失败跳过（导出的包降级但不阻断）。 */
+function clonePackMedia(fromPack: string | undefined, targetDir: string, manifest: import("./theme-pack.ts").ThemePackManifest): { css: boolean } {
+  if (!fromPack) return { css: true };
+  const src = join(themesDir(), fromPack);
+  if (!existsSync(src)) return { css: !manifest.css }; // 来源不在（zip/已删）：有 css 声明即报，无声明无事
+  if (manifest.css) {
+    const bytes = safeReadPackFile(src, manifest.css, CSS_READ_MAX_BYTES);
+    if (bytes === null) return { css: false };
+    writeFileSync(join(targetDir, manifest.css), bytes);
+  }
+  for (const asset of manifest.assets ?? []) {
+    const bytes = safeReadPackFile(src, asset.file, ASSET_MAX_BYTES);
+    if (bytes === null) continue; // 单资产失败：导出包该资产降级（清洗时会标注），不阻断导出
+    const target = join(targetDir, asset.file);
+    mkdirSync(join(target, ".."), { recursive: true });
+    writeFileSync(target, bytes);
+  }
+  return { css: true };
 }
 
 /** 打开主题文件夹（系统文件管理器）；目录不存在则先建。 */
