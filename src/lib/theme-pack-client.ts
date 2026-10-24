@@ -19,14 +19,14 @@ import type { ThemePackInfo } from "./theme-pack.ts";
 
 export type ThemesResponse = { themes: ThemePackInfo[]; overLimit: number; broken: number };
 
-async function fetchThemes(rescan: boolean): Promise<ThemesResponse> {
-  const res = await fetch(rescan ? "/api/themes?rescan=1" : "/api/themes", { cache: "no-store" });
+async function fetchThemes(): Promise<ThemesResponse> {
+  const res = await fetch("/api/themes", { cache: "no-store" });
   if (!res.ok) throw new Error("主题包列表拉取失败");
   return (await res.json()) as ThemesResponse;
 }
 
 export function useThemePackList() {
-  return useQuery({ queryKey: ["theme-packs"], queryFn: () => fetchThemes(false), staleTime: 30_000 });
+  return useQuery({ queryKey: ["theme-packs"], queryFn: () => fetchThemes(), staleTime: 30_000 });
 }
 
 /** 包内资产的本站 URL（css 里被重写后的目标、管理页缩略图都用它）。 */

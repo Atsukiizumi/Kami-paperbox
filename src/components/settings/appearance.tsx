@@ -506,7 +506,14 @@ function ThemePackSection() {
   const [exportName, setExportName] = useState("");
 
   const refresh = async (rescan: boolean) => {
-    if (rescan) await fetch("/api/themes?rescan=1", { cache: "no-store" });
+    // 强扫走 POST op:rescan（要会话）——GET 已不带 ?rescan=1（guest 触发面归零）
+    if (rescan) {
+      await fetch("/api/themes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "rescan" }),
+      }).catch(() => undefined);
+    }
     await queryClient.invalidateQueries({ queryKey: ["theme-packs"] });
   };
 
