@@ -234,17 +234,67 @@ describe("ZIP 前置限额（安全批 R2）", () => {
     assert.ok(Date.now() - t0 < 5_000, "无需解压即拒（快速返回）");
   });
 
-  it("32MB 以内的大包行为不变（20MB 单条目正常列出）", () => {
+  it("单条目 1.5MB 的大包行为不变（健壮二批起单条目上限 2MB，旧 20MB 夹具随新规失效）", () => {
     const enc = new TextEncoder();
     const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
     writeFileSync(
       join(themesDir(), "big-ok.zip"),
       toZip({
         "kami-theme.json": enc.encode(JSON.stringify({ ...GOOD_MANIFEST, meta: { name: "大而合法" } })),
-        "pad.bin": new Uint8Array(20 * 1024 * 1024),
+        "pad.bin": new Uint8Array(1536 * 1024),
       }),
     );
     const r = scanThemePacks(true);
     assert.equal(r.packs.find((p) => p.id === "big-ok")?.manifest.meta.name, "大而合法");
+  });
+});
+
+describe("读取预检与 zip 约束（健壮二批 R1/R2）", () => {
+  it("3MB 文件夹资产在 statSync 阶段拒读；扫描不受影响", () => {
+    const dir = writePack("fat-asset", { ...GOOD_MANIFEST, meta: { name: "胖资产" }, assets: [{ id: "big", file: "big.png" }] }, {});
+    writeFileSync(join(dir, "big.png"), Buffer.alloc(3 * 1024 * 1024, 1));
+    const scan = scanThemePacks(true);
+    assert.ok(scan.packs.some((p) => p.id === "fat-asset"), "包本体（manifest 合法）仍列出");
+    assert.equal(readThemeAsset("fat-asset", "big.png").ok, false, "超大资产预检拒");
+  });
+
+  it("130KB css 预检拒（css 段缺失降级）；70KB css 仍由 sanitize 报真实 64KB 上限", () => {
+    const fatDir = writePack("fat-css", { ...GOOD_MANIFEST, meta: { name: "胖样式" }, css: "theme.css" }, {});
+    writeFileSync(join(fatDir, "theme.css"), "html[data-kami-theme] .a{x:1}\n".repeat(7000), "utf8");
+    const midDir = writePack("mid-css", { ...GOOD_MANIFEST, meta: { name: "中样式" }, css: "theme.css" }, {});
+    writeFileSync(join(midDir, "theme.css"), `html[data-kami-theme] .a{content:"${"a".repeat(70_000)}"}`, "utf8");
+    const scan = scanThemePacks(true);
+    const fat = scan.packs.find((p) => p.id === "fat-css");
+    assert.equal(fat?.css, null, "130KB 预检拒");
+    assert.match(fat?.dropped.join("|") ?? "", /css 文件缺失/);
+    const mid = scan.packs.find((p) => p.id === "mid-css");
+    assert.equal(mid?.css, null, "70KB 交给 sanitize");
+    assert.match(mid?.dropped.join("|") ?? "", /超过 64KB/, "真实上限原因透出");
+  });
+
+  it("超大 manifest（>256KB）整包判坏不进内存", () => {
+    writePack("fat-manifest", { ...GOOD_MANIFEST, meta: { name: "胖清单" } }, {});
+    writeFileSync(join(themesDir(), "fat-manifest", "kami-theme.json"), Buffer.alloc(300 * 1024, 32), "utf8");
+    const scan = scanThemePacks(true);
+    assert.ok(!scan.packs.some((p) => p.id === "fat-manifest"), "不列出");
+    assert.ok(scan.broken >= 1);
+  });
+
+  it("盘上 70MB zip 判坏不读取；600 空条目 zip 判坏；3MB 单条目 zip 判坏", () => {
+    writeFileSync(join(themesDir(), "disk-fat.zip"), Buffer.alloc(70 * 1024 * 1024, 0));
+    const enc = new TextEncoder();
+    const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
+    const many: Record<string, Uint8Array> = { "kami-theme.json": enc.encode("{}") };
+    for (let i = 0; i < 600; i += 1) many[`e${i}`] = enc.encode("");
+    writeFileSync(join(themesDir(), "many-entries.zip"), toZip(many));
+    writeFileSync(
+      join(themesDir(), "fat-entry.zip"),
+      toZip({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "big.bin": new Uint8Array(3 * 1024 * 1024) }),
+    );
+    const scan = scanThemePacks(true);
+    for (const id of ["disk-fat", "many-entries", "fat-entry"]) {
+      assert.ok(!scan.packs.some((p) => p.id === id), `${id} 不列出`);
+    }
+    assert.ok(scan.broken >= 3);
   });
 });

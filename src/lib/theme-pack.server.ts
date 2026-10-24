@@ -27,6 +27,14 @@ import { THEME_TEMPLATE_FILES } from "./theme-pack-template.ts";
 
 export const THEME_PACK_SOFT_LIMIT = 50;
 const ASSET_MAX_BYTES = 2 * 1024 * 1024;
+/** 各类包内文件的读取预检上限（健壮二批 R1）：statSync 阶段拒，不进 readFileSync。 */
+const MANIFEST_MAX_BYTES = 256 * 1024;
+// css 给 sanitize 的 64KB 真实拒因留余量：64~128KB 仍由 sanitize 报「超过 64KB」
+const CSS_READ_MAX_BYTES = 128 * 1024;
+/** zip 约束（R2）：盘上 64MB（读都不读）、条目 512、单条目解压量 2MB。 */
+const ZIP_DISK_MAX = 64 * 1024 * 1024;
+const ZIP_ENTRY_LIMIT = 512;
+const ZIP_ENTRY_MAX = 2 * 1024 * 1024;
 
 /**
  * 包内文件安全读取（安全批 R1）：realpath 双端归一后再前缀比对，防符号链接越界
@@ -37,7 +45,7 @@ const ASSET_MAX_BYTES = 2 * 1024 * 1024;
  * （调用方按各自语义降级：资产 404、css 记缺失、manifest 整包坏）。
  * 已知边界：TOCTOU（比对与读取之间链接被换）——本机单用户威胁模型下接受。
  */
-function safeReadPackFile(packDir: string, rel: string): Buffer | null {
+function safeReadPackFile(packDir: string, rel: string, maxBytes: number): Buffer | null {
   let realTarget: string;
   let realRoot: string;
   try {
@@ -48,6 +56,8 @@ function safeReadPackFile(packDir: string, rel: string): Buffer | null {
   }
   if (realTarget !== realRoot && !realTarget.startsWith(realRoot + sep)) return null;
   try {
+    // 读取预检（R1）：超限在 statSync 阶段拒——超大 manifest/css/资产不再整读进内存
+    if (statSync(realTarget).size > maxBytes) return null;
     return readFileSync(realTarget);
   } catch {
     return null;
@@ -72,19 +82,21 @@ const zipCache = new Map<string, { mtime: number; size: number; files: Record<st
 function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
   try {
     const st = statSync(zipPath);
-    const hit = zipCache.get(zipPath);
-    if (hit && hit.mtime === st.mtimeMs && hit.size === st.size) return hit.files;
+    if (hitStale(zipPath, st)) return zipCache.get(zipPath)!.files;
+    // R2：盘上超 64MB 直接判坏——readFileSync 都不进（一个 zip 本不该比解压上限的两倍还大）
+    if (st.size > ZIP_DISK_MAX) return null;
     // 安全批 R2：filter 在每条目 inflate 之前跑——按 originalSize 累计，超限条目
     // 不解压（zip 炸弹进不了内存；GET /api/themes 缓存未命中即触发扫描，guest
     // 可达，所以必须前置）。originalSize 缺失的极端构造按压缩比上界 400 估。
+    // 健壮二批 R2 追加：条目数 ≤512（海量空条目的解析/对象开销）、单条目 ≤2MB。
     let declaredTotal = 0;
+    let entryCount = 0;
     let overflow = false;
     const files = unzipSync(new Uint8Array(readFileSync(zipPath)), {
       filter: (f) => {
-        // fflate 0.8：filter 在 inflate 之前逐条目回调（源码核实），
-        // originalSize 即解压后大小（zip 头字段）；缺失的极端构造按压缩比上界 400 估。
+        entryCount += 1;
         const size = f.originalSize ?? f.size * 400;
-        if (declaredTotal + size > ZIP_TOTAL_CAP) {
+        if (entryCount > ZIP_ENTRY_LIMIT || size > ZIP_ENTRY_MAX || declaredTotal + size > ZIP_TOTAL_CAP) {
           overflow = true;
           return false;
         }
@@ -102,6 +114,11 @@ function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
   } catch {
     return null;
   }
+}
+
+function hitStale(zipPath: string, st: { mtimeMs: number; size: number }): boolean {
+  const hit = zipCache.get(zipPath);
+  return Boolean(hit) && hit!.mtime === st.mtimeMs && hit!.size === st.size;
 }
 
 /** _template 自材料化：没有就写一份（已有则绝不覆盖用户的修改）。 */
@@ -127,11 +144,16 @@ type PackCandidate = {
   rawCss: string | null;
 };
 
-function buildCandidate(baseId: string, readText: (rel: string) => string | null): PackCandidate | null {
-  const rawWithBom = readText("kami-theme.json");
-  if (rawWithBom === null) return null;
+/** 包内文本统一解码：folder 分支是 Buffer、zip 分支是 fflate 的裸 Uint8Array——
+ * 后者 toString("utf8") 不是解码而是逗号数字串（TypedArray.toString 忽略参数），
+ * 必须走 TextDecoder。 */
+const packTextDecoder = new TextDecoder();
+
+function buildCandidate(baseId: string, readFile: (rel: string, maxBytes: number) => Uint8Array | null): PackCandidate | null {
+  const manifestBytes = readFile("kami-theme.json", MANIFEST_MAX_BYTES);
+  if (manifestBytes === null) return null;
   // 记事本另存的 utf8-sig（BOM 头）会让 JSON.parse 失败——剥掉再解（AI 产物常见）
-  const rawManifest = rawWithBom.replace(/^\uFEFF/, "");
+  const rawManifest = packTextDecoder.decode(manifestBytes).replace(/^\uFEFF/, "");
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawManifest);
@@ -141,7 +163,10 @@ function buildCandidate(baseId: string, readText: (rel: string) => string | null
   const result = parseThemeManifest(parsed);
   if (!result.ok) return null;
   let rawCss: string | null = null;
-  if (result.manifest.css) rawCss = readText(result.manifest.css);
+  if (result.manifest.css) {
+    const cssBytes = readFile(result.manifest.css, CSS_READ_MAX_BYTES);
+    rawCss = cssBytes === null ? null : packTextDecoder.decode(cssBytes);
+  }
   return { baseId, manifest: result.manifest, dropped: [...result.dropped], rawCss };
 }
 
@@ -189,19 +214,17 @@ export function scanThemePacks(force = false): { dir: string; packs: ThemePackIn
     let cand: PackCandidate | null = null;
     try {
       if (isDir) {
-        cand = buildCandidate(stem, (rel) => {
-          const bytes = safeReadPackFile(full, rel);
-          return bytes ? bytes.toString("utf8") : null;
-        });
+        cand = buildCandidate(stem, (rel, maxBytes) => safeReadPackFile(full, rel, maxBytes));
       } else {
         const files = readZipFiles(full);
         if (!files) {
           broken += 1;
           continue;
         }
-        cand = buildCandidate(stem, (rel) => {
+        // zip 条目已整体在内存且经 filter 约束；单条目上限在此复检（缓存条目同语义）
+        cand = buildCandidate(stem, (rel, maxBytes) => {
           const bytes = files[rel];
-          return bytes ? new TextDecoder().decode(bytes) : null;
+          return bytes && bytes.byteLength <= maxBytes ? bytes : null;
         });
       }
     } catch {
@@ -221,11 +244,16 @@ export function scanThemePacks(force = false): { dir: string; packs: ThemePackIn
     if (cand.manifest.css) {
       if (cand.rawCss === null) notes.push(`css 文件缺失：${cand.manifest.css}`);
       else {
-        const clean = sanitizeThemeCss(cand.rawCss, stem, cand.manifest.assets ?? []);
-        if (clean.css === null) notes.push(clean.reason ?? "css 清洗失败");
-        else {
-          css = clean.css;
-          if (clean.reason) notes.push(clean.reason);
+        // 兜底 try（R3 纵深）：净化器未来任何异常都降级为丢段，绝不外溢成列表 500
+        try {
+          const clean = sanitizeThemeCss(cand.rawCss, stem, cand.manifest.assets ?? []);
+          if (clean.css === null) notes.push(clean.reason ?? "css 清洗失败");
+          else {
+            css = clean.css;
+            if (clean.reason) notes.push(clean.reason);
+          }
+        } catch (err) {
+          notes.push(`css 清洗异常：${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }
@@ -288,8 +316,9 @@ export function readThemeAsset(
   const dir = themesDir();
   const folder = join(dir, packId);
   if (existsSync(folder)) {
-    // R1：词法前缀检查换 safeReadPackFile（realpath 归一）——符号链接不再越界
-    bytes = safeReadPackFile(folder, file);
+    // R1：词法前缀检查换 safeReadPackFile（realpath 归一）——符号链接不再越界；
+    // 读取预检同函数内（2MB 超限 statSync 阶段拒）
+    bytes = safeReadPackFile(folder, file, ASSET_MAX_BYTES);
   } else {
     bytes = readZipFiles(join(dir, `${packId}.zip`))?.[file] ?? null;
   }

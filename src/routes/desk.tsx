@@ -260,13 +260,12 @@ export function DeskPage() {
       return;
     }
     // 内置稿纸不可写：改过就得存为版式（对话框接管）；用户版式直接写回。
-    // 保存的是用户自己的摆法——主题包的「跟随布局」自动让位。
+    // 主题包「跟随布局」的让位已内置在 setDeskLayout / saveDeskPreset（微调即接管）。
     if (activePreset?.builtIn) {
       setSaveAsOpen(true);
       return;
     }
     useSettings.getState().setDeskLayout(draft);
-    useSettings.getState().setThemePackFollow({ followLayout: false });
     exitEdit();
   };
   const onSaveAsSubmit = (name: string) => {
@@ -275,7 +274,6 @@ export function DeskPage() {
       toast.error("版式已满 12 套，先在设置→外观删掉一个再存", { id: "kami-desk-preset-full" });
       return;
     }
-    useSettings.getState().setThemePackFollow({ followLayout: false });
     setSaveAsOpen(false);
     exitEdit();
   };

@@ -238,3 +238,17 @@ describe("P3：主题包 custom 外壳段", () => {
     assert.match(r.dropped.join("|"), /shell/);
   });
 });
+
+describe("转义码点规范化（健壮二批 R3）", () => {
+  it("\\FFFFFF / \\D800 超界码点回 U+FFFD（不再抛 RangeError）；\\10FFFF 保留真码点", () => {
+    assert.equal(normalizeCssEscapes("\\FFFFFF x"), "\uFFFDx", "超 Unicode 上限（尾空白照常消耗）");
+    assert.equal(normalizeCssEscapes("\\D800 x"), "\uFFFDx", "代理区下半");
+    assert.equal(normalizeCssEscapes("\\DFFF x"), "\uFFFDx", "代理区上半");
+    assert.equal(normalizeCssEscapes("\\10FFFF x"), "\u{10FFFF}x", "上限内保留");
+  });
+
+  it("含 \\FFFFFF 的整段 css 清洗不再抛异常（列表 500 修复）", () => {
+    const r = sanitizeThemeCss('html[data-kami-theme] .a{content:"\\FFFFFF"}', "t", []);
+    assert.ok(r.css, "清洗正常返回");
+  });
+});

@@ -210,7 +210,10 @@ export function normalizeCssEscapes(css: string): string {
       // 十六进制转义后的一个空白按规范消耗；CRLF 同为一对
       if (after === "\r" && css[j + 1] === "\n") j += 2;
       else if (after === " " || after === "\t" || after === "\n" || after === "\r" || after === "\f") j += 1;
-      out += code === 0 ? "\uFFFD" : String.fromCodePoint(code);
+      // CSS Syntax §4.3.2 consume-escaped：0、代理区、超出 Unicode 上限（如 \FFFFFF）
+      // 一律替换 U+FFFD——直接 fromCodePoint 会抛 RangeError 并把列表打成 500
+      const badCode = code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff);
+      out += badCode ? "\uFFFD" : String.fromCodePoint(code);
       i = j - 1;
     } else {
       out += next;
