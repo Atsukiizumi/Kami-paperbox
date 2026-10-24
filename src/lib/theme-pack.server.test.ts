@@ -458,7 +458,8 @@ describe("导出保真（④：from 克隆 css/assets）", () => {
   it("无 from：行为与旧路径完全一致（纯 manifest 落盘）", () => {
     const r = exportThemePack({ kamitheme: 1, meta: { name: "无源导出" }, palette: { base: "washi" } });
     assert.ok(r.ok);
+    if (!r.ok) return;
     const scan = scanThemePacks(true);
-    assert.ok(scan.packs.some((p) => p.id === r.ok && r.id || p.id === (r as { id: string }).id));
+    assert.ok(scan.packs.some((p) => p.id === r.id), "导出包可被扫描列出");
   });
 });
