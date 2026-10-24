@@ -142,6 +142,10 @@ export const fetchSchema = z.intersection(
       op: z.literal("xTweet"),
       id: z.string().regex(/^\d{1,20}$/),
     }),
+    // 凭据探针（docs/99 问题 1）：设置卡「测试连接」/ 中转回收后的即时验证。
+    z.object({
+      op: z.literal("xVerify"),
+    }),
   ]),
 );
 

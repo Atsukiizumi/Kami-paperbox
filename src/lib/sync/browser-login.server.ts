@@ -39,6 +39,7 @@ import {
 import { getActiveProxy } from "../proxy.server.ts";
 import { parseProxyUrl } from "../proxy-url.ts";
 import { outboundFetch } from "../curl-fetch.server.ts";
+import { verifyXSession } from "../upstream/x.ts";
 import { parseFanboxMe, parsePixivMe, type SiteProfile } from "../site-identity.ts";
 import { resolveIdentities } from "../site-identity.server.ts";
 import { X_WEB_BEARER } from "../upstream/x.ts";
@@ -343,6 +344,16 @@ async function launchChrome(profile: string, site: LoginSite): Promise<LaunchOut
         "--disable-dev-shm-usage",
         "--disable-gpu",
         `--window-size=${LOGIN_VIEW.width},${LOGIN_VIEW.height}`,
+        ...(attempt.headless === false
+          ? [
+              // 有头档（X 的 Cloudflare 合规需要真窗口）把窗口移到屏外：
+              // 应用内已有中转画面，桌面上再亮一个真 Chrome 窗口只会吓人
+              // （docs/99 问题 2「额外黑色窗口」）。遮挡降频必须一并关掉，
+              // 否则移出屏后被 Windows 判遮挡、渲染节流、中转画面冻结。
+              "--window-position=-32000,-32000",
+              "--disable-backgrounding-occluded-windows",
+            ]
+          : []),
         ...proxy.args,
       ],
     };
@@ -378,6 +389,9 @@ async function launchChrome(profile: string, site: LoginSite): Promise<LaunchOut
           "--disable-blink-features=AutomationControlled",
           "--no-sandbox",
           "--disable-dev-shm-usage",
+          ...(attempt.headless === false
+            ? ["--window-position=-32000,-32000", "--disable-backgrounding-occluded-windows"]
+            : []),
           ...proxy.args,
         ],
       })) as unknown as BrowserLike;
@@ -699,7 +713,18 @@ async function runJob(site: LoginSite): Promise<void> {
       // 403（R3）：登录页被拒时尽快转错误态给手贴 Cookie 引导，不再空等超时。
       if (site === "x") {
         x = pickXSession(rawCookies) ?? x;
-        if (x) break;
+        if (x) {
+          // docs/99 问题 1 观测点：回收当场用同一凭据打服务端探针——成功/失败
+          // 都落日志，用户报「登录完 /x/ 就说失效」时有据可查（前端另有按钮）。
+          try {
+            const verify = await verifyXSession(x);
+            if (verify.ok) log.kami.info("X 中转回收凭据服务端验证通过");
+            else log.kami.warn(`X 中转回收凭据验证失败（${verify.kind}）：${verify.reason}`);
+          } catch {
+            /* 探针自身异常不影响回收 */
+          }
+          break;
+        }
         if (xBlocked403) throw new Error(X_RELAY_403_HINT);
         await new Promise((r) => setTimeout(r, 700));
         continue;

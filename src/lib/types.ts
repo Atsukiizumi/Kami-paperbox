@@ -178,7 +178,8 @@ export type FetchOk =
       nextCursor?: string;
       user: { restId: string; name: string; avatar: string };
     }
-  | { op: "xTweet"; work: WorkDetail };
+  | { op: "xTweet"; work: WorkDetail }
+  | { op: "xVerify"; ok: boolean; kind: "ok" | "expired" | "network" | "unknown"; message: string };
 
 export type FetchInput = {
   pixivCookie?: string;
@@ -217,6 +218,7 @@ export type FetchInput = {
   | { op: "tagSuggest"; source: Source; word: string }
   | { op: "xUserMedia"; handle: string; cursor?: string }
   | { op: "xTweet"; id: string }
+  | { op: "xVerify" }
 );
 
 export type SocialInput = {
