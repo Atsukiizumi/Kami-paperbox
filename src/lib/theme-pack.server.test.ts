@@ -6,7 +6,7 @@
  * 环境注意：KAMI_ROOT 指到 mkdtemp 临时目录必须在 import 主题包服务端**之前**。
  */
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -151,5 +151,100 @@ describe("exportThemePack（导出落盘）", () => {
     assert.ok(scanned.packs.some((p) => p.id === "我的-夜-航-特别版"));
     const written = JSON.parse(readFileSync(join(themesDir(), "我的-夜-航-特别版", "kami-theme.json"), "utf8")) as { kamitheme: number };
     assert.equal(written.kamitheme, 1);
+  });
+});
+
+describe("符号链接越界（安全批 R1）", () => {
+  const canSymlink = (() => {
+    try {
+      const probe = join(ROOT, "symprobe");
+      writeFileSync(probe, "x", "utf8");
+      const link = join(ROOT, "symprobe-link");
+      try {
+        symlinkSync(probe, link);
+        return existsSync(link);
+      } finally {
+        rmSync(link, { force: true });
+        rmSync(probe, { force: true });
+      }
+    } catch {
+      return false;
+    }
+  })();
+
+  it("包外密件 + 包内符号链接资产 → 资产路由拒读不回字节", { skip: !canSymlink && "此环境无符号链接权限（CI ubuntu 覆盖）" }, () => {
+    const secretPath = join(ROOT, "secret-outside.png");
+    writeFileSync(secretPath, "SECRETPNG", "utf8");
+    const dir = writePack("link-asset", { ...GOOD_MANIFEST, meta: { name: "链资产" }, assets: [{ id: "tex", file: "assets/tex.png" }] }, {});
+    mkdirSync(join(dir, "assets"), { recursive: true });
+    symlinkSync(secretPath, join(dir, "assets", "tex.png"));
+    scanThemePacks(true);
+    const r = readThemeAsset("link-asset", "assets/tex.png");
+    assert.equal(r.ok, false, "符号链接指向包外必须拒");
+    if (r.ok) return;
+    assert.ok(r.status === 404 || r.status === 400 || r.status === 403);
+  });
+
+  it("css 经符号链接指向包外密件 → 包降级且内容不随列表外泄", { skip: !canSymlink && "此环境无符号链接权限（CI ubuntu 覆盖）" }, () => {
+    const secretCss = join(ROOT, "secret.css");
+    writeFileSync(secretCss, "SECRET-TOKEN{color:red}", "utf8");
+    const dir = writePack("link-css", { ...GOOD_MANIFEST, meta: { name: "链样式" }, css: "theme.css" }, {});
+    symlinkSync(secretCss, join(dir, "theme.css"));
+    const r = scanThemePacks(true);
+    const pack = r.packs.find((p) => p.id === "link-css");
+    assert.ok(pack, "包本体（manifest 合法）仍列出");
+    assert.equal(pack?.css, null, "链接 css 不外泄");
+    assert.match(pack?.dropped.join("|") ?? "", /css 文件缺失/);
+    assert.ok(!JSON.stringify(r).includes("SECRET-TOKEN"), "列表载荷不得含密件内容");
+  });
+
+  it("包目录本身是链接：按真实路径界内读取（用户自挂目录等同直放，行为锁定）", { skip: !canSymlink && "此环境无符号链接权限（CI ubuntu 覆盖）" }, () => {
+    const real = join(ROOT, "real-pack-outside");
+    rmSync(real, { recursive: true, force: true });
+    mkdirSync(real, { recursive: true });
+    writeFileSync(
+      join(real, "kami-theme.json"),
+      JSON.stringify({ ...GOOD_MANIFEST, meta: { name: "目录链接" }, assets: [{ id: "tex", file: "tex.png" }] }),
+      "utf8",
+    );
+    writeFileSync(join(real, "tex.png"), "PNG", "utf8");
+    symlinkSync(real, join(themesDir(), "link-dir"));
+    const r = scanThemePacks(true);
+    assert.ok(r.packs.some((p) => p.id === "link-dir"), "目录链接包照常列出");
+    const a = readThemeAsset("link-dir", "tex.png");
+    assert.ok(a.ok, "界内声明资产可读（realpath 归一到真实根后 containment 成立）");
+  });
+});
+
+describe("ZIP 前置限额（安全批 R2）", () => {
+  it("解压量超 32MB 的炸弹在 filter 阶段拒绝，不进内存、整包记坏", () => {
+    const enc = new TextEncoder();
+    const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
+    writeFileSync(
+      join(themesDir(), "bomb.zip"),
+      toZip({
+        "kami-theme.json": enc.encode(JSON.stringify({ ...GOOD_MANIFEST, meta: { name: "炸弹" } })),
+        "big.bin": new Uint8Array(40 * 1024 * 1024),
+      }),
+    );
+    const t0 = Date.now();
+    const r = scanThemePacks(true);
+    assert.ok(!r.packs.some((p) => p.id === "bomb"), "炸弹包不列出");
+    assert.ok(r.broken >= 1, "计入 broken");
+    assert.ok(Date.now() - t0 < 5_000, "无需解压即拒（快速返回）");
+  });
+
+  it("32MB 以内的大包行为不变（20MB 单条目正常列出）", () => {
+    const enc = new TextEncoder();
+    const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
+    writeFileSync(
+      join(themesDir(), "big-ok.zip"),
+      toZip({
+        "kami-theme.json": enc.encode(JSON.stringify({ ...GOOD_MANIFEST, meta: { name: "大而合法" } })),
+        "pad.bin": new Uint8Array(20 * 1024 * 1024),
+      }),
+    );
+    const r = scanThemePacks(true);
+    assert.equal(r.packs.find((p) => p.id === "big-ok")?.manifest.meta.name, "大而合法");
   });
 });

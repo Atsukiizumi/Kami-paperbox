@@ -10,8 +10,8 @@
  *        坏包降级坏段跳过、坏包不列出，永不连坐默认观感。
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join, resolve as pathResolve, sep } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { extname, join, sep } from "node:path";
 import { unzipSync } from "fflate";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import {
@@ -27,6 +27,32 @@ import { THEME_TEMPLATE_FILES } from "./theme-pack-template.ts";
 
 export const THEME_PACK_SOFT_LIMIT = 50;
 const ASSET_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * 包内文件安全读取（安全批 R1）：realpath 双端归一后再前缀比对，防符号链接越界
+ * ——pathResolve 是纯词法拼接（不解链接），readFileSync 却跟随链接，包内一个预制
+ * 符号链接（或包目录本身是链接的路径段）即可读到包外本机文件；资产路由直接回
+ * 字节、css 内容随 GET /api/themes 下发，都是外泄通道。manifest/css/资产三个
+ * 读点全部走这里。zip 分支是内存键查找，无此面。返回 null = 越界/不存在/不可读
+ * （调用方按各自语义降级：资产 404、css 记缺失、manifest 整包坏）。
+ * 已知边界：TOCTOU（比对与读取之间链接被换）——本机单用户威胁模型下接受。
+ */
+function safeReadPackFile(packDir: string, rel: string): Buffer | null {
+  let realTarget: string;
+  let realRoot: string;
+  try {
+    realTarget = realpathSync(join(packDir, rel));
+    realRoot = realpathSync(packDir);
+  } catch {
+    return null;
+  }
+  if (realTarget !== realRoot && !realTarget.startsWith(realRoot + sep)) return null;
+  try {
+    return readFileSync(realTarget);
+  } catch {
+    return null;
+  }
+}
 
 /** themes/ 根目录：KAMI_ROOT/.data/themes——.data 是 Docker 卷（kami-data），
  * 放这里主题包才能在容器重建后幸存；dev 落在仓库 .data/（已 gitignore）。 */
@@ -48,12 +74,25 @@ function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
     const st = statSync(zipPath);
     const hit = zipCache.get(zipPath);
     if (hit && hit.mtime === st.mtimeMs && hit.size === st.size) return hit.files;
-    const files = unzipSync(new Uint8Array(readFileSync(zipPath)));
-    let total = 0;
-    for (const bytes of Object.values(files)) {
-      total += bytes.byteLength;
-      if (total > ZIP_TOTAL_CAP) return null; // 解压总量超 32MB 视为坏包
-    }
+    // 安全批 R2：filter 在每条目 inflate 之前跑——按 originalSize 累计，超限条目
+    // 不解压（zip 炸弹进不了内存；GET /api/themes 缓存未命中即触发扫描，guest
+    // 可达，所以必须前置）。originalSize 缺失的极端构造按压缩比上界 400 估。
+    let declaredTotal = 0;
+    let overflow = false;
+    const files = unzipSync(new Uint8Array(readFileSync(zipPath)), {
+      filter: (f) => {
+        // fflate 0.8：filter 在 inflate 之前逐条目回调（源码核实），
+        // originalSize 即解压后大小（zip 头字段）；缺失的极端构造按压缩比上界 400 估。
+        const size = f.originalSize ?? f.size * 400;
+        if (declaredTotal + size > ZIP_TOTAL_CAP) {
+          overflow = true;
+          return false;
+        }
+        declaredTotal += size;
+        return true;
+      },
+    });
+    if (overflow) return null;
     if (zipCache.size >= ZIP_CACHE_LIMIT) {
       const oldest = zipCache.keys().next().value;
       if (oldest !== undefined) zipCache.delete(oldest);
@@ -151,11 +190,8 @@ export function scanThemePacks(force = false): { dir: string; packs: ThemePackIn
     try {
       if (isDir) {
         cand = buildCandidate(stem, (rel) => {
-          try {
-            return readFileSync(join(full, rel), "utf8");
-          } catch {
-            return null;
-          }
+          const bytes = safeReadPackFile(full, rel);
+          return bytes ? bytes.toString("utf8") : null;
         });
       } else {
         const files = readZipFiles(full);
@@ -252,15 +288,8 @@ export function readThemeAsset(
   const dir = themesDir();
   const folder = join(dir, packId);
   if (existsSync(folder)) {
-    const resolved = pathResolve(folder, file);
-    if (!resolved.startsWith(pathResolve(folder) + sep)) {
-      return { ok: false, error: "路径越界", status: 400 };
-    }
-    try {
-      bytes = new Uint8Array(readFileSync(resolved));
-    } catch {
-      bytes = null;
-    }
+    // R1：词法前缀检查换 safeReadPackFile（realpath 归一）——符号链接不再越界
+    bytes = safeReadPackFile(folder, file);
   } else {
     bytes = readZipFiles(join(dir, `${packId}.zip`))?.[file] ?? null;
   }
