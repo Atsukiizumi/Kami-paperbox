@@ -12,7 +12,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, sep } from "node:path";
-import { unzipSync } from "fflate";
+import { Unzip, UnzipInflate, UnzipPassThrough } from "fflate";
 import { resolveKamiRoot } from "./proxy.server.ts";
 import {
   isSafePackPath,
@@ -77,6 +77,9 @@ let scanState: ScanState | null = null;
 /** zip 包的解压缓存：mtime+size 变了才重解；总量封顶防 zip 炸弹、条目超限逐出最旧。 */
 const ZIP_TOTAL_CAP = 32 * 1024 * 1024;
 const ZIP_CACHE_LIMIT = 8;
+/** 流式喂入粒度：单块最坏展开 = 64KB × deflate 最大膨胀比 1032 ≈ 66MB，
+ * 即「停止喂入」的判决粒度——中止成本恒定在亚秒级，与文件大小无关。 */
+const ZIP_FEED_CHUNK = 64 * 1024;
 const zipCache = new Map<string, { mtime: number; size: number; files: Record<string, Uint8Array> }>();
 
 function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
@@ -85,36 +88,65 @@ function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
     if (hitStale(zipPath, st)) return zipCache.get(zipPath)!.files;
     // R2：盘上超 64MB 直接判坏——readFileSync 都不进（一个 zip 本不该比解压上限的两倍还大）
     if (st.size > ZIP_DISK_MAX) return null;
-    // 安全批 R2：filter 在每条目 inflate 之前跑——按 originalSize 累计，超限条目
-    // 不解压（zip 炸弹进不了内存；GET /api/themes 缓存未命中即触发扫描，guest
-    // 可达，所以必须前置）。originalSize 缺失的极端构造按压缩比上界 400 估。
-    // 健壮二批 R2 追加：条目数 ≤512（海量空条目的解析/对象开销）、单条目 ≤2MB。
-    // 复核 P1 追加：声明的**压缩**尺寸同样 ≤2MB——不能只信 originalSize：fflate
-    // 预置 out 缓冲在同步态下永不扩容（源码核实：所有 cbuf 增长都带 if(resize)
-    // 守卫，超出按 TypedArray 语义静默截断），内存有顶；但输入切片按声明的压缩
-    // 尺寸截取，声明超大时解码 CPU 与真实字节成正比——把声明压缩尺寸也钉死，
-    // 解码工作量即以「合法 2MB 素材」为上界，伪造头部无放大面。
-    let declaredTotal = 0;
+    // 三批终裁（zip-actual-output-cap）：声明尺寸三件套（sc/su/条目数）只是便宜
+    // 的快速预检，**安全责任全部交给实际输出判决**——同步 inflate 的截断只丢
+    // 字节不停工，「诚实压缩流 + 伪造小 originalSize」会解码到流尾，CPU ∝ 输入
+    // ×1032 膨胀比。改用 fflate 流式 Unzip 分块喂入：ondata 拿到的是**实际**
+    // 解压字节，超限即停止喂入——中止粒度 = 一个输入块（64KB→≤66MB 展开），
+    // 攻击成本从「分钟级」缩到「亚秒级一次性」。
+    const buf = new Uint8Array(readFileSync(zipPath));
+    const files: Record<string, Uint8Array> = {};
+    const parts = new Map<string, Uint8Array[]>();
+    let actualTotal = 0;
     let entryCount = 0;
-    let overflow = false;
-    const files = unzipSync(new Uint8Array(readFileSync(zipPath)), {
-      filter: (f) => {
-        entryCount += 1;
-        const size = f.originalSize ?? f.size * 400;
-        if (
-          entryCount > ZIP_ENTRY_LIMIT ||
-          size > ZIP_ENTRY_MAX ||
-          f.size > ZIP_ENTRY_MAX ||
-          declaredTotal + size > ZIP_TOTAL_CAP
-        ) {
-          overflow = true;
-          return false;
+    let over = false;
+    const uz = new Unzip();
+    uz.register(UnzipInflate); // compression=8（zip 条目是 raw deflate）
+    uz.register(UnzipPassThrough); // compression=0（stored）
+    uz.onfile = (file) => {
+      entryCount += 1;
+      if (entryCount > ZIP_ENTRY_LIMIT) {
+        over = true;
+        return;
+      }
+      const chunks: Uint8Array[] = [];
+      let fileLen = 0; // 本条目实际输出累计（O(1) 增量，勿在回调里 reduce）
+      parts.set(file.name, chunks);
+      file.ondata = (err, data) => {
+        if (err) {
+          over = true;
+          return;
         }
-        declaredTotal += size;
-        return true;
-      },
-    });
-    if (overflow) return null;
+        chunks.push(data);
+        fileLen += data.length;
+        actualTotal += data.length;
+        // 病态碎回调（字节未超但回调数爆炸）与真实超限同判
+        if (chunks.length > 4096 || fileLen > ZIP_ENTRY_MAX || actualTotal > ZIP_TOTAL_CAP) {
+          over = true;
+          return;
+        }
+      };
+      try {
+        file.start();
+      } catch {
+        over = true; // 不支持的压缩方法（start() 对未注册方法抛错）
+      }
+    };
+    for (let o = 0; o < buf.length && !over; o += ZIP_FEED_CHUNK) {
+      const end = Math.min(o + ZIP_FEED_CHUNK, buf.length);
+      uz.push(buf.subarray(o, end), end === buf.length);
+    }
+    if (over) return null;
+    for (const [name, chunks] of parts) {
+      const total = chunks.reduce((a, c) => a + c.length, 0);
+      const out = new Uint8Array(total);
+      let p = 0;
+      for (const c of chunks) {
+        out.set(c, p);
+        p += c.length;
+      }
+      files[name] = out;
+    }
     if (zipCache.size >= ZIP_CACHE_LIMIT) {
       const oldest = zipCache.keys().next().value;
       if (oldest !== undefined) zipCache.delete(oldest);
