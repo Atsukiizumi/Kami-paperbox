@@ -47,9 +47,10 @@ test("编排：键盘流下场/上场 → 存为版式 → 刷新持久", async 
   await page.getByRole("button", { name: "编排" }).click();
   await expect(page.getByRole("button", { name: /完成/ })).toBeVisible();
 
-  // 键盘流：选中报纸卡 → ← 跨槽搬进右栏槽（真实改动；下场/托盘回场由组件测试覆盖）
+  // 键盘流（⑤ 焦点即选中）：聚焦报纸卡即选中（同步断言消除竞态）→ ← 跨槽搬进右栏槽
   const paperCard = page.locator('[data-desk-edit-card]', { hasText: "今日报纸" }).first();
-  await paperCard.click();
+  await paperCard.focus();
+  await expect(paperCard).toBeFocused();
   await page.keyboard.press("ArrowLeft");
 
   // 存为版式：命名保存 → 自动退出编辑（内置稿纸不可写 → 存为是唯一出路）
@@ -131,4 +132,36 @@ test("移动端红线：zen 形态下手机观感与现状一致（顶栏/底部
   await expect(page.locator("header.kami-topbar")).toBeVisible();
   await expect(page.locator(".kami-float-controls")).toBeHidden();
   await expect(page.locator("nav.kami-chrome-up")).toBeVisible();
+});
+
+test("⑤ 纯键盘编排：Tab 选中卡片 → 方向键搬移 → Delete 收起 → 托盘回场 → 存为版式（全程不碰鼠标）", async ({ page }) => {
+  await seedSettings(page, { onboarded: true, tab: "pixiv" }, 18);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('[data-desk-module="browse-sheet"]')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole("button", { name: "编排" }).click();
+  await expect(page.getByRole("button", { name: /完成/ })).toBeVisible();
+
+  // 纯键盘：Tab 流转到第一张卡片（role=button 的焦点卡）——不点鼠标
+  const firstCard = page.locator('[data-desk-edit-card][role="button"]').first();
+  await firstCard.focus();
+  await expect(firstCard).toBeFocused();
+
+  // 方向键左移（报纸在槽 2 → 槽 1）后 Delete 收起、托盘 Tab+Enter 回场
+  const paperCard = page.locator('[data-desk-edit-card][role="button"]', { hasText: "今日报纸" }).first();
+  await paperCard.focus();
+  await expect(paperCard).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Delete");
+  await expect(page.getByRole("button", { name: "今日报纸", exact: true })).toBeVisible();
+
+  // 托盘回场（Tab 到托盘按钮 + Enter——不点）
+  const trayChip = page.getByRole("button", { name: "今日报纸", exact: true });
+  await trayChip.focus();
+  await trayChip.press("Enter");
+
+  await page.getByRole("button", { name: "存为版式" }).click();
+  await page.getByPlaceholder("比如：夜读版式").fill("键盘版式");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByRole("button", { name: "编排" })).toBeVisible({ timeout: 15_000 });
 });

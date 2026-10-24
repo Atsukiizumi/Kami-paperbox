@@ -4,7 +4,8 @@
  * 案头编排模式的编辑部件（布局引擎 P1）。
  *
  * 作用：编辑态的三件套 UI——槽位框（占宽切换 + 拖放目标）、模块卡（把手/
- *      下场/键盘选中）、底部编排条（版式架 + 托盘 + 存为版式/恢复默认/完成）。
+ *      下场/键盘选中——⑤ 焦点即选中：卡片 tabIndex+role=button，Tab 聚焦即选中、
+ *      方向键搬移/Delete 收起，纯键盘可完成全部编排）、底部编排条（版式架 + 托盘 + 存为版式/恢复默认/完成）。
  * 用法：desk.tsx 持 draft 状态并接线；本文件只出不认 store 的展示组件。
  * 为什么：真实页面即画布（所见即所得），编辑件全部受控无副作用，
  *        DnD 用原生 HTML5（鼠标优先），键盘方向键做兜底。
@@ -102,9 +103,14 @@ export function DeskEditCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onSelect}
+      onFocus={onSelect}
+      tabIndex={0}
+      role="button"
       aria-pressed={selected}
+      aria-label={`编排卡片：${DESK_MODULE_LABELS[moduleId]}（方向键搬移，Delete 收起）`}
       className={cn(
         "group relative min-h-24 cursor-grab rounded-xl transition-shadow",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         selected && "ring-2 ring-accent ring-offset-2 ring-offset-bg",
       )}
     >
@@ -182,6 +188,9 @@ export function DeskEditBar({
             <Plus className="mr-0.5 inline size-3.5" aria-hidden />槽
           </button>
         </div>
+        <span className="hidden shrink-0 text-[11px] text-subtle lg:inline">
+          键盘：Tab 选卡片 · ←→↑↓ 搬移 · Delete 收起
+        </span>
         {tray.length > 0 ? (
           <div className="flex items-center gap-1.5 border-l border-border/60 pl-2">
             <span className="text-[11px] text-subtle">不上场</span>
