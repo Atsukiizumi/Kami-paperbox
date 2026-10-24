@@ -463,8 +463,9 @@ export function DeskPage() {
         </div>
       )}
 
-      {/* 页脚（编辑式版式专属）：概念稿的收尾文案——稿纸版式无页脚 */}
-      {!editing && layout.headerSeal ? (
+      {/* 页脚（编辑式版式专属）：概念稿的收尾文案——稿纸版式无页脚。
+          与页眉同用严格 === true 判：手改存储的脏值不得只让页脚单独上场 */}
+      {!editing && layout.headerSeal === true ? (
         <footer className="flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-xs text-muted">
           <span>把喜欢的作品，慢慢收进来。</span>
           <span className="font-display">今日也请多指教。</span>

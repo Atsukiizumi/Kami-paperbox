@@ -62,10 +62,10 @@ import {
   toggleSavedTag as toggleSavedTagList,
 } from "./site-tags.ts";
 import {
-  DEFAULT_DESK_LAYOUT,
   DEFAULT_PAGE_LAYOUT,
   DEFAULT_SHELL,
   DESK_DEFAULT_PRESET_ID,
+  DESK_EDITORIAL_PRESET_ID,
   DESK_PRESET_LIMIT,
   type DeskLayout,
   type DeskPreset,
@@ -835,7 +835,8 @@ export const useSettings = create<SettingsState>()(
         }),
       removeDeskPreset: (id) =>
         set((s) => {
-          if (id === DESK_DEFAULT_PRESET_ID) return s;
+          // 双内置都不可删（UI 侧已靠 builtIn 标记免删，这里守 store 动作面）
+          if (id === DESK_DEFAULT_PRESET_ID || id === DESK_EDITORIAL_PRESET_ID) return s;
           return {
             deskPresets: s.deskPresets.filter((preset) => preset.id !== id),
             activeDeskPresetId: s.activeDeskPresetId === id ? DESK_DEFAULT_PRESET_ID : s.activeDeskPresetId,

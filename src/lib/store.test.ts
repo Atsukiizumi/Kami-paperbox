@@ -245,7 +245,8 @@ test("案头版式 setters：内置稿纸不可写、另存即激活、满员拒
     assert.ok(fin.deskPresets.every((p) => p.id !== id));
     const countBefore = fin.deskPresets.length;
     useSettings.getState().removeDeskPreset("kami-default");
-    assert.equal(useSettings.getState().deskPresets.length, countBefore, "内置稿纸删不掉");
+    useSettings.getState().removeDeskPreset("kami-editorial");
+    assert.equal(useSettings.getState().deskPresets.length, countBefore, "双内置（稿纸/编辑式）都删不掉");
   } finally {
     useSettings.setState({
       deskPresets: before.deskPresets,
