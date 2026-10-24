@@ -77,9 +77,12 @@ let scanState: ScanState | null = null;
 /** zip 包的解压缓存：mtime+size 变了才重解；总量封顶防 zip 炸弹、条目超限逐出最旧。 */
 const ZIP_TOTAL_CAP = 32 * 1024 * 1024;
 const ZIP_CACHE_LIMIT = 8;
-/** 流式喂入粒度：单块最坏展开 = 64KB × deflate 最大膨胀比 1032 ≈ 66MB，
- * 即「停止喂入」的判决粒度——中止成本恒定在亚秒级，与文件大小无关。 */
-const ZIP_FEED_CHUNK = 64 * 1024;
+/** 流式喂入粒度（评审 P2 收敛 64KB→8KB）：判决在 ondata、即整块同步解压完之后，
+ * 所以块大小 = 瞬时峰值单位——流式分支 resize=true 内部缓冲动态翻倍，64KB 块最坏
+ * 展开 66MB 实际瞬时分配可达 ~128MB 且每次强扫重付。8KB 块把峰值压到 ≤8MB、
+ * 解码亚十毫秒；诚实包代价 = 32MB 极值 ≈4000 次 push ≈ 数十 ms，可忽略。
+ * 碎回调守卫 4096 对单条 ≤2MB（8KB×256 块）仍有 16 倍余量。 */
+const ZIP_FEED_CHUNK = 8 * 1024;
 const zipCache = new Map<string, { mtime: number; size: number; files: Record<string, Uint8Array> }>();
 
 function readZipFiles(zipPath: string): Record<string, Uint8Array> | null {
