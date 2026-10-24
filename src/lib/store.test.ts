@@ -719,3 +719,40 @@ test("partialize 白名单键清单与实际输出一致，X 三段在册（结�
     assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `${field} 必须持久化`);
   }
 });
+
+test("persist v19→v20：shell.custom 缺省无感；setShellCustom 深合并钳制并切到 custom 形态", () => {
+  const before = useSettings.getState();
+  try {
+    const v19 = migrateSettings({ shell: { form: "rail", tweaks: { iconSize: "lg" } } }, 19) as {
+      shell?: { form?: string; tweaks?: Record<string, string>; custom?: unknown };
+    };
+    assert.equal(v19.shell?.form, "rail", "预设档零感知");
+    assert.deepEqual(v19.shell?.tweaks, { iconSize: "lg" });
+    assert.equal(v19.shell?.custom, undefined, "预设档不带 custom 键");
+    // 深合并 + 钳制：icons 999 → 88；未给的段用默认
+    useSettings.getState().setShellCustom({ sidebar: { mode: "icons", side: "left", width: 999 } });
+    const after = useSettings.getState().shell;
+    assert.equal(after.form, "custom");
+    assert.deepEqual(after.tweaks, {});
+    assert.equal(after.custom?.sidebar.width, 88);
+    assert.deepEqual(after.custom?.topbar, { visible: true, density: "normal" });
+    // 二次 patch 只动给定字段
+    useSettings.getState().setShellCustom({ topbar: { visible: false, density: "compact" } });
+    const fin = useSettings.getState().shell.custom;
+    assert.equal(fin?.sidebar.mode, "icons", "前次 custom 保留");
+    assert.deepEqual(fin?.topbar, { visible: false, density: "compact" });
+    // 切走再切回 custom：参数保留（setShellForm 透传 custom）
+    useSettings.getState().setShellForm("rail");
+    assert.equal(useSettings.getState().shell.form, "rail");
+    useSettings.getState().setShellForm("custom");
+    const back = useSettings.getState().shell;
+    assert.equal(back.form, "custom");
+    assert.equal(back.custom?.sidebar.mode, "icons", "切回 custom 保留此前参数");
+    assert.equal(back.custom?.topbar.visible, false);
+    // v20 老档带 custom 原样过洗（越界仍钳）
+    const v20 = migrateSettings({ shell: { form: "custom", custom: { sidebar: { mode: "full", width: 100 } } } }, 20) as { shell: { custom?: { sidebar: { width: number } } } };
+    assert.equal(v20.shell.custom?.sidebar.width, 200, "full 100 钳到下限");
+  } finally {
+    useSettings.setState({ shell: before.shell });
+  }
+});

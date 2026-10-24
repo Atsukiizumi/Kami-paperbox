@@ -19,7 +19,7 @@ import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
 import { themeAssetUrl, useThemePackList } from "@/lib/theme-pack-client";
 import { composeExportManifest, type ThemePackInfo } from "@/lib/theme-pack";
-import { DEFAULT_DESK_LAYOUT } from "@/lib/desk-layout";
+import { DEFAULT_DESK_LAYOUT, DEFAULT_SHELL_CUSTOM, SHELL_WIDTH_RANGE } from "@/lib/desk-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -262,6 +262,7 @@ function ShellSection() {
     { id: "desk", name: "书案", description: "全字侧栏 + 顶栏，默认形态" },
     { id: "rail", name: "窄脊", description: "图标条侧栏，内容更宽" },
     { id: "zen", name: "无框", description: "导航收进浮钮，满宽沉浸" },
+    { id: "custom", name: "自定义", description: "侧栏/顶栏/宽度自由组合" },
   ] as const;
 
   return (
@@ -340,6 +341,90 @@ function ShellSection() {
           />
         </>
       ) : null}
+      {shell.form === "custom" ? <ShellCustomPanel /> : null}
+    </>
+  );
+}
+
+/** custom 形态参数面板（P3）：侧栏形态/宽度/位置 + 顶栏 + 内容宽，改即生效。 */
+function ShellCustomPanel() {
+  const shell = useSettings((s) => s.shell);
+  const setShellCustom = useSettings((s) => s.setShellCustom);
+  const c = shell.custom ?? DEFAULT_SHELL_CUSTOM;
+  const [min, max] = SHELL_WIDTH_RANGE[c.sidebar.mode === "icons" ? "icons" : "full"];
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-4 rounded-xl bg-bg p-3">
+        <span className="text-sm text-fg">侧栏形态</span>
+        <div className="flex shrink-0 rounded-lg bg-surface p-0.5">
+          {([["full", "全字"], ["icons", "图标"], ["hidden", "隐藏"]] as const).map(([v, t]) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={c.sidebar.mode === v}
+              onClick={() => setShellCustom({ sidebar: { mode: v, side: c.sidebar.side, width: v === "hidden" ? 0 : c.sidebar.width || (v === "icons" ? 64 : 224) } })}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs transition-colors duration-200",
+                c.sidebar.mode === v ? "bg-elevated text-fg" : "text-muted hover:text-fg",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+      {c.sidebar.mode === "hidden" ? null : (
+        <div className="flex items-center justify-between gap-4 rounded-xl bg-bg p-3">
+          <span className="text-sm text-fg">
+            侧栏宽度<span className="ml-1.5 text-xs tabular-nums text-muted">{c.sidebar.width}px</span>
+          </span>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={4}
+            value={c.sidebar.width}
+            aria-label="侧栏宽度"
+            onChange={(e) => setShellCustom({ sidebar: { mode: c.sidebar.mode, side: c.sidebar.side, width: Number(e.target.value) } })}
+            className="h-1.5 w-40 shrink-0 cursor-pointer appearance-none rounded-full bg-surface accent-[var(--color-accent)]"
+          />
+        </div>
+      )}
+      <Segmented
+        label="侧栏位置"
+        value={c.sidebar.side}
+        options={[{ v: "left", t: "左侧" }, { v: "right", t: "右侧" }]}
+        onChange={(v) => setShellCustom({ sidebar: { mode: c.sidebar.mode, side: v as "left" | "right", width: c.sidebar.width } })}
+      />
+      <div className="flex items-center justify-between gap-4 rounded-xl bg-bg p-3">
+        <span className="text-sm text-fg">顶栏</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex rounded-lg bg-surface p-0.5">
+            {([["normal", "常规"], ["compact", "紧凑"]] as const).map(([v, t]) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={c.topbar.density === v}
+                onClick={() => setShellCustom({ topbar: { visible: c.topbar.visible, density: v } })}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs transition-colors duration-200",
+                  c.topbar.density === v ? "bg-elevated text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <Switch checked={c.topbar.visible} onCheckedChange={(v) => setShellCustom({ topbar: { visible: v, density: c.topbar.density } })} aria-label="顶栏显示" />
+        </div>
+      </div>
+      <Segmented
+        label="内容宽度"
+        value={c.content.width}
+        options={[{ v: "paper", t: "纸宽" }, { v: "wide", t: "宽" }, { v: "full", t: "满" }]}
+        onChange={(v) => setShellCustom({ content: { width: v as "paper" | "wide" | "full" } })}
+      />
     </>
   );
 }

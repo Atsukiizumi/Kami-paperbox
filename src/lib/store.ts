@@ -70,10 +70,12 @@ import {
   type DeskLayout,
   type DeskPreset,
   type PageLayout,
+  type ShellCustom,
   type ShellForm,
   type ShellSettings,
   type ShellTweaks,
   parseDeskLayout,
+  parseShellCustom,
   parseDeskPresets,
   parsePageLayout,
   parseShell,
@@ -233,6 +235,8 @@ export type SettingsState = {
   /** 换外壳形态：不在新形态白名单里的旋钮自动脱落。 */
   setShellForm: (form: ShellForm) => void;
   setShellTweak: (patch: Partial<ShellTweaks>) => void;
+  /** custom 形态参数（深合并后整段过 parseShellCustom 钳制；仅 form=custom 时有意义）。 */
+  setShellCustom: (patch: Partial<ShellCustom>) => void;
   setPageLayout: (patch: Partial<PageLayout>) => void;
   /** 启用（id）/停用（null）主题包；缺包由渲染层回默认并提示。 */
   setThemePackActive: (id: string | null) => void;
@@ -814,9 +818,25 @@ export const useSettings = create<SettingsState>()(
             activeDeskPresetId: s.activeDeskPresetId === id ? DESK_DEFAULT_PRESET_ID : s.activeDeskPresetId,
           };
         }),
-      setShellForm: (form) => set((s) => ({ shell: parseShell({ form, tweaks: s.shell.tweaks }) })),
+      setShellForm: (form) =>
+        set((s) => {
+          const parsed = parseShell({ form, tweaks: s.shell.tweaks, custom: s.shell.custom });
+          // custom 参数骑行保留：parseShell 对预设形态会剥掉 custom 段——用户在
+          // 形态卡之间来回切 shouldn 丢掉已调好的自定义参数（预设渲染不读它）。
+          return { shell: { ...parsed, custom: form === "custom" ? parsed.custom : s.shell.custom } };
+        }),
       setShellTweak: (patch) =>
         set((s) => ({ shell: parseShell({ form: s.shell.form, tweaks: { ...s.shell.tweaks, ...patch } }) })),
+      setShellCustom: (patch) =>
+        set((s) => {
+          const base = s.shell.custom ?? parseShellCustom(undefined).custom;
+          const merged = parseShellCustom({
+            sidebar: { ...base.sidebar, ...patch.sidebar },
+            topbar: { ...base.topbar, ...patch.topbar },
+            content: { ...base.content, ...patch.content },
+          }).custom;
+          return { shell: { form: "custom", tweaks: {}, custom: merged } };
+        }),
       setPageLayout: (patch) => set((s) => ({ pageLayout: parsePageLayout({ ...s.pageLayout, ...patch }) })),
       setThemePackActive: (id) =>
         set((s) => ({ themePack: { ...s.themePack, activeId: id ? id.slice(0, 80) : null } })),
@@ -920,7 +940,8 @@ export const useSettings = create<SettingsState>()(
       // v17（动效内置开关）：新增 motionEnabled；<17 老档缺字段补默认 true
       // v18（布局引擎 P1）：新增 deskPresets / activeDeskPresetId / shell / pageLayout
       // v19（主题包 P2）：新增 themePack（激活指针 + 跟随开关）
-      version: 19,
+      // v20（外壳全参数 P3）：shell 增加可选 custom 段（老档缺省即无，parseShell 天然兼容）
+      version: 20,
       migrate: migrateSettings,
       partialize: partializeSettings,
     },

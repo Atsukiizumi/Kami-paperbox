@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useSettings } from "./store.ts";
+import type { ShellSettings } from "./desk-layout.ts";
 import type { ThemePackInfo } from "./theme-pack.ts";
 
 export type ThemesResponse = { themes: ThemePackInfo[]; overLimit: number; broken: number };
@@ -59,4 +60,18 @@ export function useActiveThemePack(): { list: ThemesResponse | undefined; pack: 
   }, [activeId, themes]);
 
   return { list: query.data, pack, loading: query.isPending };
+}
+
+/**
+ * 合并壳层（P3 修 P2 潜伏缺陷）：激活主题包带 shell 且开「跟随」→ 包壳上位。
+ * P2 只在 ThemeProvider 属性层合并，AppShell 结构读的是本地设置——zen 包会
+ * 藏掉侧栏/顶栏却不给浮钮（导航不可达）。P3 起 AppShell 与 ThemeProvider
+ * 共用此 hook，结构/属性一个真相源。
+ */
+export function useEffectiveShell(): ShellSettings {
+  const local = useSettings((s) => s.shell);
+  const themePack = useSettings((s) => s.themePack);
+  const { pack } = useActiveThemePack();
+  if (themePack.activeId && themePack.followShell && pack?.manifest.shell) return pack.manifest.shell;
+  return local;
 }
