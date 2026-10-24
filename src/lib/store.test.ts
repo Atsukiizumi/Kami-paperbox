@@ -783,6 +783,15 @@ test("persist v20→v21：内置「编辑式」注入为第二版式，v20 字�
   assert.notEqual(dirty.deskPresets.at(-1)?.layout.headerSeal, true, "脏值不视为编辑式头");
 });
 
+test("全新安装初始档即含双内置（新装不走 migrate，手抄初始曾漏编辑式）", () => {
+  const fresh = useSettings.getState().deskPresets as { id: string; builtIn?: boolean }[];
+  const ids = fresh.map((p) => p.id);
+  assert.equal(ids[0], "kami-default", "初始第一条恒为内置稿纸");
+  assert.ok(fresh[0]?.builtIn);
+  assert.ok(ids.includes("kami-editorial"), "新装用户也能在版式架见到编辑式");
+  assert.equal(useSettings.getState().activeDeskPresetId, "kami-default", "新装默认仍是稿纸");
+});
+
 test("微调即接管（健壮二批 R4）：跟随主题时改本地外壳/版式自动关跟随", () => {
   const before = useSettings.getState();
   const custom = { slots: [{ span: 3 as const, items: ["newspaper" as const] }], headerSlip: false };
