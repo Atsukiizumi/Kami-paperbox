@@ -9,7 +9,7 @@
  * 为什么：校验必须是纯函数三方共用（扫描 / 导出 / 将来 Agent 模板文档），
  *        降级矩阵的口径只有一份。
  */
-import { hasValidDeskSlot, parseDeskLayout, parseShell, type DeskLayout, type ShellSettings } from "./desk-layout.ts";
+import { hasValidDeskSlot, parseDeskLayout, parseShell, parseShellCustom, type DeskLayout, type ShellSettings } from "./desk-layout.ts";
 import { THEME_LIST, type ThemeId, type ThemeTokens } from "./theme.ts";
 
 export const THEME_PACK_SCHEMA_VERSION = 1;
@@ -117,8 +117,12 @@ export function parseThemeManifest(raw: unknown): ThemePackParseResult {
     const s = rec.shell && typeof rec.shell === "object" ? (rec.shell as Record<string, unknown>) : null;
     const parsed = parseShell(s);
     // parseShell 对非法形态静默回 desk——包语义要求形态必须显式合法才算这段有效
-    if (s && typeof s.form === "string" && parsed.form === s.form) manifest.shell = parsed;
-    else dropped.push("shell 形态不合法，已跳过");
+    if (s && typeof s.form === "string" && parsed.form === s.form) {
+      manifest.shell = parsed;
+      // P3：custom 形态的宽度钳制是「修复动作」——settings 层静默用钳制值，
+      // manifest 层记入 dropped（管理页「部分生效」+ 原因）。
+      if (parsed.form === "custom") dropped.push(...parseShellCustom(s.custom).clamped);
+    } else dropped.push("shell 形态不合法，已跳过");
   }
 
   if (rec.layout !== undefined) {

@@ -201,3 +201,40 @@ describe("导出与目录名", () => {
     assert.equal(isSafePackPath("a/" .repeat(60) + "x.png"), false);
   });
 });
+
+describe("P3：主题包 custom 外壳段", () => {
+  it("custom 形态过校验；宽度越界被钳制并记入 dropped（部分生效）", () => {
+    const r = parseThemeManifest({
+      ...GOOD,
+      shell: { form: "custom", custom: { sidebar: { mode: "icons", width: 999, side: "right" }, topbar: { visible: false, density: "compact" }, content: { width: "full" } } },
+    });
+    assert.ok(r.ok);
+    assert.equal(r.manifest.shell?.form, "custom");
+    assert.equal(r.manifest.shell?.custom?.sidebar.width, 88, "icons 999 钳到 88");
+    assert.equal(r.manifest.shell?.custom?.sidebar.side, "right");
+    assert.match(r.dropped.join("|"), /999 钳制到 88/);
+  });
+
+  it("composeExportManifest：custom 设置原样带走（含 custom 段）", () => {
+    const shell: import("./desk-layout.ts").ShellSettings = {
+      form: "custom",
+      tweaks: {},
+      custom: {
+        sidebar: { mode: "hidden", width: 0, side: "right" },
+        topbar: { visible: false, density: "normal" },
+        content: { width: "wide" },
+      },
+    };
+    const m = composeExportManifest({ name: "右栏夜读", theme: "washi", shell, layout: DEFAULT_DESK_LAYOUT });
+    assert.deepEqual(m.shell, shell);
+  });
+
+  it("旧口径兼容：非法形态（含旧版读不懂的 custom，由 parseShell 白名单兜底）跳段", () => {
+    // 模拟旧版应用读 custom 包：parseShell 收到 form:"custom" 时旧 SHELL_FORMS 不含它 → 整段回 desk
+    // （此处验证新版行为对照——form 合法即收，非法即跳）
+    const r = parseThemeManifest({ ...GOOD, shell: { form: "cockpit" } });
+    assert.ok(r.ok);
+    assert.equal(r.manifest.shell, undefined);
+    assert.match(r.dropped.join("|"), /shell/);
+  });
+});

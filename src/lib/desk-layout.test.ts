@@ -9,13 +9,16 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   DEFAULT_DESK_LAYOUT,
+  DEFAULT_SHELL_CUSTOM,
   DESK_DEFAULT_PRESET_ID,
   DESK_PRESET_LIMIT,
   parseDeskLayout,
   parseDeskPresets,
   parsePageLayout,
   parseShell,
+  parseShellCustom,
   reflowDeskLayout,
+  shellRenderPlan,
 } from "./desk-layout.ts";
 
 describe("parseDeskLayout（槽模型清洗）", () => {
@@ -155,5 +158,66 @@ describe("reflowDeskLayout（渲染期空槽让位）", () => {
       { span: 3, items: ["browse-sheet"] },
       { span: 3, items: ["newspaper"] },
     ]);
+  });
+});
+
+describe("parseShellCustom（P3 全参数清洗与钳制）", () => {
+  it("宽度越界按形态钳制并给原因；hidden 宽度归零", () => {
+    const full = parseShellCustom({ sidebar: { mode: "full", width: 320, side: "left" } });
+    assert.equal(full.custom.sidebar.width, 280);
+    assert.match(full.clamped.join("|"), /320 钳制到 280/);
+    const icons = parseShellCustom({ sidebar: { mode: "icons", width: 30, side: "right" } });
+    assert.equal(icons.custom.sidebar.width, 48);
+    const hidden = parseShellCustom({ sidebar: { mode: "hidden", width: 999, side: "left" } });
+    assert.equal(hidden.custom.sidebar.width, 0);
+    assert.deepEqual(hidden.clamped, []);
+  });
+
+  it("非法字段逐项回默认；整段坏回 DEFAULT", () => {
+    const r = parseShellCustom({ sidebar: { mode: "ghost", width: "x" }, topbar: { visible: "no", density: "tiny" }, content: { width: "huge" } });
+    assert.deepEqual(r.custom, DEFAULT_SHELL_CUSTOM);
+    assert.deepEqual(parseShellCustom(null).custom, DEFAULT_SHELL_CUSTOM);
+    const ok = parseShellCustom({ topbar: { visible: false } });
+    assert.deepEqual(ok.custom, { ...DEFAULT_SHELL_CUSTOM, topbar: { visible: false, density: "normal" } });
+  });
+
+  it("parseShell：form=custom 吃 custom 段、tweaks 恒空；预设形态忽略 custom；非法形态仍整段回 desk", () => {
+    const c = parseShell({ form: "custom", tweaks: { iconSize: "lg" }, custom: { sidebar: { mode: "icons", width: 100, side: "right" } } });
+    assert.equal(c.form, "custom");
+    assert.deepEqual(c.tweaks, {});
+    assert.equal(c.custom?.sidebar.width, 88, "icons 100 钳到 88");
+    const p = parseShell({ form: "desk", tweaks: { contentWidth: "wide" }, custom: { sidebar: { mode: "hidden", width: 0, side: "right" } } });
+    assert.equal(p.custom, undefined, "预设形态忽略 custom");
+    assert.deepEqual(p.tweaks, { contentWidth: "wide" });
+    assert.deepEqual(parseShell({ form: "cockpit" }), { form: "desk", tweaks: {} });
+  });
+});
+
+describe("shellRenderPlan（结构守卫）", () => {
+  it("custom：侧栏隐藏 ⇒ dock + 胶囊；顶栏隐藏 ⇒ 胶囊；右置侧栏 ⇒ 胶囊翻左", () => {
+    const hiddenLeft = shellRenderPlan({ form: "custom", tweaks: {}, custom: { ...DEFAULT_SHELL_CUSTOM, sidebar: { mode: "hidden", width: 0, side: "left" }, topbar: { visible: true, density: "normal" } } });
+    assert.equal(hiddenLeft.dock, true);
+    assert.equal(hiddenLeft.capsule, "right", "侧栏隐藏即需胶囊（顶栏虽在，控制胶囊兜底）");
+    const topbarOff = shellRenderPlan({ form: "custom", tweaks: {}, custom: { ...DEFAULT_SHELL_CUSTOM, topbar: { visible: false, density: "normal" } } });
+    assert.equal(topbarOff.capsule, "right");
+    assert.equal(topbarOff.dock, false);
+    const right = shellRenderPlan({ form: "custom", tweaks: {}, custom: { sidebar: { mode: "icons", width: 64, side: "right" }, topbar: { visible: false, density: "normal" }, content: { width: "wide" } } });
+    assert.equal(right.capsule, "left", "右置侧栏碰撞避让");
+    assert.equal(right.dockSide, "right");
+    assert.equal(right.sidebarSide, "right");
+    assert.equal(right.contentWidth, "wide");
+  });
+
+  it("预设三形态映射与 P1 行为等价", () => {
+    assert.deepEqual(shellRenderPlan({ form: "desk", tweaks: {} }), { sidebarMode: "full", sidebarW: null, sidebarSide: "left", topbarVisible: true, topbarCompact: false, capsule: "none", dock: false, dockSide: "left", contentWidth: "paper", custom: false });
+    const rail = shellRenderPlan({ form: "rail", tweaks: { iconSize: "lg", topbar: "float" } });
+    assert.equal(rail.sidebarMode, "icons");
+    assert.equal(rail.sidebarW, 80);
+    assert.equal(rail.topbarVisible, false);
+    assert.equal(rail.capsule, "right");
+    const zen = shellRenderPlan({ form: "zen", tweaks: { triggerSide: "right" } });
+    assert.equal(zen.dock, true);
+    assert.equal(zen.dockSide, "right");
+    assert.equal(zen.contentWidth, "full");
   });
 });

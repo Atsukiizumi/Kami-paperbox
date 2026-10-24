@@ -6,6 +6,7 @@ import {
 import { useSettings, onPersisted } from "@/lib/store";
 import { useActiveThemePack } from "@/lib/theme-pack-client";
 import type { ThemePackInfo } from "@/lib/theme-pack";
+import { shellRenderPlan } from "@/lib/desk-layout";
 
 const ResolvedAppearanceContext = createContext<ResolvedAppearance>("dark");
 
@@ -62,19 +63,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
       // 外壳形态 / 页宽 / 纸匣列宽（布局引擎 P1）：属性驱动，styles.css 按值切换，
       // 仅 md+ 生效——移动端走自己的顶栏+底部栏，属性选择器都裹在 min-width 里。
-      document.documentElement.setAttribute("data-shell-form", effectiveShell.form);
-      document.documentElement.setAttribute(
-        "data-content-width",
-        effectiveShell.form === "zen" ? "full" : (effectiveShell.tweaks.contentWidth ?? "paper"),
-      );
-      document.documentElement.setAttribute(
-        "data-topbar",
-        effectiveShell.form === "rail" ? (effectiveShell.tweaks.topbar ?? "on") : "on",
-      );
-      document.documentElement.setAttribute(
-        "data-topbar-density",
-        effectiveShell.form === "desk" && effectiveShell.tweaks.topbarDensity === "compact" ? "compact" : "normal",
-      );
+      // 外壳属性统一由渲染计划给出（P3）：结构守卫（导航可达/胶囊避让）集中在
+      // shellRenderPlan，此处与 AppShell 消费同一份决策。
+      const plan = shellRenderPlan(effectiveShell);
+      document.documentElement.setAttribute("data-shell-form", plan.custom ? "custom" : effectiveShell.form);
+      document.documentElement.setAttribute("data-content-width", plan.contentWidth);
+      document.documentElement.setAttribute("data-topbar", plan.topbarVisible ? "on" : "off");
+      document.documentElement.setAttribute("data-topbar-density", plan.topbarCompact ? "compact" : "normal");
+      document.documentElement.setAttribute("data-shell-side", plan.sidebarSide);
+      if (plan.custom) {
+        document.documentElement.style.setProperty("--kami-sidebar-w", `${plan.sidebarW ?? 0}px`);
+        document.documentElement.style.setProperty(
+          "--kami-content-pad",
+          plan.sidebarMode === "hidden" ? "0px" : `${plan.sidebarW ?? 224}px`,
+        );
+      } else {
+        document.documentElement.style.removeProperty("--kami-sidebar-w");
+        document.documentElement.style.removeProperty("--kami-content-pad");
+      }
       document.documentElement.setAttribute("data-vault-col", state.pageLayout.vaultCol);
       document.documentElement.setAttribute(
         "data-content-margin",

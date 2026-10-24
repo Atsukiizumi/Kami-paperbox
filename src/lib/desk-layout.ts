@@ -27,7 +27,7 @@ export type DeskLayout = {
 
 export type DeskPreset = { id: string; name: string; layout: DeskLayout; builtIn?: boolean };
 
-export type ShellForm = "desk" | "rail" | "zen";
+export type ShellForm = "desk" | "rail" | "zen" | "custom";
 
 /**
  * 外壳旋钮（按形态白名单生效，越权键直接丢弃）：
@@ -43,7 +43,89 @@ export type ShellTweaks = Partial<{
   triggerSide: "left" | "right";
 }>;
 
-export type ShellSettings = { form: ShellForm; tweaks: ShellTweaks };
+export type ShellSettings = { form: ShellForm; tweaks: ShellTweaks; custom?: ShellCustom };
+
+/**
+ * 外壳自定义形态（P3 全参数 B 模式）：侧栏/顶栏/内容宽独立可调任意组合。
+ * 宽度区间随侧栏形态（SHELL_WIDTH_RANGE），越界由 parseShellCustom 钳制；
+ * 结构守卫（导航可达、浮胶囊避让）集中在 shellRenderPlan。
+ */
+export type ShellCustom = {
+  sidebar: { mode: "full" | "icons" | "hidden"; width: number; side: "left" | "right" };
+  topbar: { visible: boolean; density: "normal" | "compact" };
+  content: { width: "paper" | "wide" | "full" };
+};
+
+export const DEFAULT_SHELL_CUSTOM: ShellCustom = {
+  sidebar: { mode: "full", width: 224, side: "left" },
+  topbar: { visible: true, density: "normal" },
+  content: { width: "paper" },
+};
+
+/** 侧栏宽度区间（px）随形态：full 200–280、icons 48–88（hidden 无意义）。 */
+export const SHELL_WIDTH_RANGE = { full: [200, 280] as const, icons: [48, 88] as const };
+
+/** 渲染计划：任意 ShellSettings 折成扁平决策，结构守卫全在此（AppShell/ThemeProvider 只消费不判）。 */
+export type ShellRenderPlan = {
+  /** 侧栏渲染形态；hidden = 不渲染侧栏，导航走浮钮面板。 */
+  sidebarMode: "full" | "icons" | "hidden";
+  /** 侧栏像素宽（hidden 为 null）；预设形态由形态/图标档推出等价值。 */
+  sidebarW: number | null;
+  sidebarSide: "left" | "right";
+  topbarVisible: boolean;
+  topbarCompact: boolean;
+  /** 右上控制胶囊：none=不出；left/right=摆位（side=right 侧栏时避让翻左）。 */
+  capsule: "none" | "left" | "right";
+  /** 浮钮导航面板（ZenDock）：侧栏隐藏时的导航兜底。 */
+  dock: boolean;
+  /** 浮钮面板摆位（dock=true 时有效）。 */
+  dockSide: "left" | "right";
+  contentWidth: "paper" | "wide" | "full";
+  /** 渲染路径：preset 走 P1 类名管线，custom 走 CSS 变量管线。 */
+  custom: boolean;
+};
+
+function clampWidth(mode: "full" | "icons", w: number): number {
+  const [min, max] = SHELL_WIDTH_RANGE[mode];
+  return Math.min(Math.max(Math.round(w), min), max);
+}
+
+/**
+ * custom 段清洗：逐字段校验+宽度按 mode 钳制，整段坏回默认。
+ * 返回 { custom, clamped }——settings 层静默用钳制值；主题包层把 clamped
+ * 记为降级原因（「部分生效」）。
+ */
+export function parseShellCustom(raw: unknown): { custom: ShellCustom; clamped: string[] } {
+  const rec = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  if (!rec) return { custom: { ...DEFAULT_SHELL_CUSTOM }, clamped: [] };
+  const d = DEFAULT_SHELL_CUSTOM;
+  const clamped: string[] = [];
+  const sb = rec.sidebar && typeof rec.sidebar === "object" ? (rec.sidebar as Record<string, unknown>) : {};
+  const mode = sb.mode === "icons" || sb.mode === "hidden" ? sb.mode : "full";
+  const side = sb.side === "right" ? "right" : "left";
+  const widthRaw = Number(sb.width);
+  let width = Number.isFinite(widthRaw) ? widthRaw : d.sidebar.width;
+  if (mode === "hidden") {
+    width = 0;
+  } else {
+    const clampedW = clampWidth(mode, width);
+    if (clampedW !== width) clamped.push(`侧栏宽度 ${width} 钳制到 ${clampedW}`);
+    width = clampedW;
+  }
+  const tb = rec.topbar && typeof rec.topbar === "object" ? (rec.topbar as Record<string, unknown>) : {};
+  const ct = rec.content && typeof rec.content === "object" ? (rec.content as Record<string, unknown>) : {};
+  return {
+    custom: {
+      sidebar: { mode, width, side },
+      topbar: {
+        visible: tb.visible !== false,
+        density: tb.density === "compact" ? "compact" : "normal",
+      },
+      content: { width: ct.width === "wide" || ct.width === "full" ? ct.width : "paper" },
+    },
+    clamped,
+  };
+}
 
 /** 各页版式参数：浏览密度 / 纸匣列宽。medium = 现状数值。 */
 export type PageLayout = { density: "loose" | "medium" | "tight"; vaultCol: "narrow" | "medium" | "wide" };
@@ -141,13 +223,14 @@ export function parseDeskPresets(raw: unknown): { presets: DeskPreset[]; activeP
   return { presets: out, activePresetId: active };
 }
 
-const SHELL_FORMS: readonly ShellForm[] = ["desk", "rail", "zen"];
+const SHELL_FORMS: readonly ShellForm[] = ["desk", "rail", "zen", "custom"];
 
 /** 各形态开放的旋钮白名单——C 模式的核心：越权键在清洗阶段就消失。 */
 export const SHELL_TWEAK_KEYS: Record<ShellForm, readonly (keyof ShellTweaks)[]> = {
   desk: ["contentWidth", "topbarDensity"],
   rail: ["contentWidth", "iconSize", "topbar"],
   zen: ["contentMargin", "triggerSide"],
+  custom: [],
 };
 
 const TWEAK_VALUES: Record<keyof ShellTweaks, readonly string[]> = {
@@ -164,6 +247,10 @@ export function parseShell(raw: unknown): ShellSettings {
   const rec = (raw ?? {}) as Record<string, unknown>;
   if (!SHELL_FORMS.includes(rec.form as ShellForm)) return { form: "desk", tweaks: {} };
   const form = rec.form as ShellForm;
+  // custom 形态吃 custom 段（内部钳制），tweaks 恒空；预设形态忽略 custom 段。
+  if (form === "custom") {
+    return { form: "custom", tweaks: {}, custom: parseShellCustom(rec.custom).custom };
+  }
   const tweaksRaw = (rec.tweaks ?? {}) as Record<string, unknown>;
   const tweaks: ShellTweaks = {};
   for (const key of SHELL_TWEAK_KEYS[form]) {
@@ -173,6 +260,61 @@ export function parseShell(raw: unknown): ShellSettings {
     }
   }
   return { form, tweaks };
+}
+
+/**
+ * 渲染计划（P3）：把任意外壳设置折成扁平决策，结构守卫集中于此——
+ * ① 导航可达：侧栏隐藏 ⇒ 浮钮面板兜底；顶栏隐藏或侧栏隐藏 ⇒ 控制胶囊在场；
+ * ② 碰撞避让：custom 侧栏在右 ⇒ 胶囊翻左上；
+ * 预设三形态的映射与 P1 行为逐项等价（desk 侧栏宽 null = 运行时收展态走类名）。
+ */
+export function shellRenderPlan(shell: ShellSettings): ShellRenderPlan {
+  if (shell.form === "custom") {
+    const c = shell.custom ?? DEFAULT_SHELL_CUSTOM;
+    const hidden = c.sidebar.mode === "hidden";
+    const capsuleNeeded = !c.topbar.visible || hidden;
+    return {
+      sidebarMode: c.sidebar.mode,
+      sidebarW: hidden ? null : c.sidebar.width,
+      sidebarSide: c.sidebar.side,
+      topbarVisible: c.topbar.visible,
+      topbarCompact: c.topbar.density === "compact",
+      capsule: capsuleNeeded ? (c.sidebar.side === "right" ? "left" : "right") : "none",
+      dock: hidden,
+      dockSide: c.sidebar.side,
+      contentWidth: c.content.width,
+      custom: true,
+    };
+  }
+  if (shell.form === "zen") {
+    return {
+      sidebarMode: "hidden",
+      sidebarW: null,
+      sidebarSide: "left",
+      topbarVisible: false,
+      topbarCompact: false,
+      capsule: "right",
+      dock: true,
+      dockSide: shell.tweaks.triggerSide ?? "left",
+      contentWidth: "full",
+      custom: false,
+    };
+  }
+  // desk / rail：顶栏常驻；rail 的 float 旋钮 = 顶栏隐藏 + 右上胶囊
+  const railFloat = shell.form === "rail" && shell.tweaks.topbar === "float";
+  const iconW = shell.form === "rail" ? (shell.tweaks.iconSize === "sm" ? 48 : shell.tweaks.iconSize === "lg" ? 80 : 64) : null;
+  return {
+    sidebarMode: shell.form === "rail" ? "icons" : "full",
+    sidebarW: iconW,
+    sidebarSide: "left",
+    topbarVisible: !railFloat,
+    topbarCompact: shell.form === "desk" && shell.tweaks.topbarDensity === "compact",
+    capsule: railFloat ? "right" : "none",
+    dock: false,
+    dockSide: "left",
+    contentWidth: shell.tweaks.contentWidth ?? "paper",
+    custom: false,
+  };
 }
 
 /** 各页参数清洗：越界值回 medium（= 现状）。 */

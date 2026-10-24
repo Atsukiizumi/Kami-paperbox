@@ -1295,3 +1295,38 @@ html[data-desk-edit] [data-desk-edit-card] {
 html[data-desk-edit] [data-desk-edit-card]:active {
   cursor: grabbing;
 }
+
+/* ── 外壳全参数（P3 custom 形态）：CSS 变量驱动，仅 md+ ── */
+@media (min-width: 768px) {
+  /* 顶栏隐藏统一口径：off = rail·float / zen / custom 顶栏关（旧 zen/rail-float 规则保留兼容） */
+  html[data-topbar="off"] .kami-topbar {
+    display: none;
+  }
+  html[data-topbar="off"] .kami-aside {
+    top: 0;
+  }
+  /* custom：侧栏宽/内容让位走变量；右置侧栏翻边框与让位方向 */
+  html[data-shell-form="custom"] .kami-aside {
+    width: var(--kami-sidebar-w, 14rem);
+    border-right: 1px solid color-mix(in oklab, var(--color-fg) 8%, transparent);
+  }
+  html[data-shell-form="custom"] .kami-pagepad {
+    padding-left: var(--kami-content-pad, 14rem);
+  }
+  html[data-shell-form="custom"][data-shell-side="right"] .kami-aside {
+    left: auto;
+    right: 0;
+    border-right: none;
+    border-left: 1px solid color-mix(in oklab, var(--color-fg) 8%, transparent);
+  }
+  html[data-shell-form="custom"][data-shell-side="right"] .kami-pagepad {
+    padding-left: 0;
+    padding-right: var(--kami-content-pad, 14rem);
+  }
+}
+
+/* 浮胶囊左摆位（custom 右置侧栏的碰撞避让；默认规则在 .kami-float-controls） */
+.kami-float-controls.kami-float-left {
+  right: auto;
+  left: 1rem;
+}

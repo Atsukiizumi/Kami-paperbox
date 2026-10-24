@@ -14,6 +14,8 @@ import { useVaultIndex } from "@/lib/storage/vault-index";
 import { useWatchBadge } from "@/lib/watch-badge";
 import { cn } from "@/lib/utils";
 import { onPersisted, useQueue, useSettings } from "@/lib/store";
+import { shellRenderPlan } from "@/lib/desk-layout";
+import { useEffectiveShell } from "@/lib/theme-pack-client";
 import { useVeil } from "@/lib/veil";
 import { warmPixivCsrf } from "@/lib/source";
 import { ThemeMenu } from "@/components/settings/appearance";
@@ -184,7 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const veil = useVeil((s) => s.veil);
   const veilOff = useVeil((s) => s.off);
   const [expanded, setExpanded] = useState(true);
-  const shell = useSettings((s) => s.shell);
+  const shellEff = useEffectiveShell();
 
   // 访客遮盖（U）：Esc 一键撤离——演示场景最常用的收尾动作
   useEffect(() => {
@@ -241,32 +243,31 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [isBrowse]);
 
   const mountBrowse = isBrowse || ((overlay || isDesk) && keepBrowse);
-  // 外壳形态（布局引擎 P1）：desk = 现状可收展；rail = 恒图标条（宽随 iconSize 旋钮）；
-  // zen = 无框（侧栏不渲染、主区零让位、导航走浮钮面板）。移动端一律原顶栏+底部栏。
-  const form = shell.form;
-  const deskForm = form === "desk";
-  const sideExpanded = deskForm && expanded;
-  const railIcon = shell.tweaks.iconSize ?? "md";
-  const paneWidth = !deskForm
-    ? railIcon === "sm"
-      ? "md:w-12"
-      : railIcon === "lg"
-        ? "md:w-20"
+  // 外壳（P1 三形态 + P3 custom 全参数）：结构决策统一来自 shellRenderPlan
+  // （守卫：隐藏侧栏⇒浮钮面板、顶栏隐藏/侧栏隐藏⇒胶囊、右置侧栏⇒胶囊翻左），
+  // 并吃合并壳层（主题包跟随）。移动端一律原顶栏+底部栏。
+  const plan = shellRenderPlan(shellEff);
+  const deskForm = !plan.custom && shellEff.form === "desk";
+  const sideExpanded = plan.sidebarMode === "full" && (deskForm ? expanded : true);
+  const W_BY_PX = { 48: "md:w-12", 64: "md:w-16", 80: "md:w-20" } as const;
+  const PAD_BY_PX = { 48: "md:pl-12", 64: "md:pl-16", 80: "md:pl-20" } as const;
+  const paneWidth = plan.custom
+    ? ""
+    : deskForm
+      ? expanded
+        ? "md:w-56"
         : "md:w-16"
-    : expanded
-      ? "md:w-56"
-      : "md:w-16";
-  const contentPad = form === "zen" ? "" : !deskForm
-    ? railIcon === "sm"
-      ? "md:pl-12"
-      : railIcon === "lg"
-        ? "md:pl-20"
-        : "md:pl-16"
-    : expanded
-      ? "md:pl-56"
-      : "md:pl-16";
-  const railIconCls = railIcon === "sm" ? "size-3.5" : railIcon === "lg" ? "size-5" : "size-4";
-  const floatControls = form === "zen" || (form === "rail" && (shell.tweaks.topbar ?? "on") === "float");
+      : (plan.sidebarW && W_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:w-16";
+  const contentPad = plan.custom
+    ? "kami-pagepad"
+    : shellEff.form === "zen"
+      ? ""
+      : deskForm
+        ? expanded
+          ? "md:pl-56"
+          : "md:pl-16"
+        : (plan.sidebarW && PAD_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:pl-16";
+  const railIconCls = plan.sidebarW === 48 ? "size-3.5" : plan.sidebarW === 80 ? "size-5" : "size-4";
   const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndex = Math.max(0, desktopRawIndex);
   const mobileRawIndex = MOBILE_NAV.findIndex((item) => navItemActive(pathname, item.to));
@@ -316,11 +317,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {form === "zen" ? null : (
+      {plan.sidebarMode === "hidden" ? null : (
       <aside
         className={cn(
-          "kami-aside fixed bottom-0 left-0 top-14 z-30 hidden flex-col border-r border-border/80 bg-bg/40 md:flex",
+          "kami-aside fixed bottom-0 left-0 top-14 z-30 hidden flex-col bg-bg/40 md:flex",
           "transition-[width] duration-200 ease-out",
+          // 预设形态带右边框（custom 的边框随左右位置由 CSS 给）
+          !plan.custom && "border-r border-border/80",
           paneWidth,
         )}
       >
@@ -395,16 +398,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </PageFrame>
       </main>
-      {floatControls ? (
-        <div className="kami-float-controls hidden md:flex">
+      {plan.capsule !== "none" ? (
+        <div className={cn("kami-float-controls hidden md:flex", plan.capsule === "left" && "kami-float-left")}>
           <SiteSwitcher />
           <VeilToggle />
           <ThemeMenu />
           <AccountSwitcher />
         </div>
       ) : null}
-      {form === "zen" ? (
-        <ZenDock side={shell.tweaks.triggerSide ?? "left"} pathname={pathname} queued={queued} watchBadge={watchBadge} />
+      {plan.dock ? (
+        <ZenDock side={plan.dockSide} pathname={pathname} queued={queued} watchBadge={watchBadge} />
       ) : null}
       <Onboarding />
       <DropToSearch />
