@@ -353,3 +353,69 @@ describe("伪造 ZIP 头部（复核 P1：不能只信声明尺寸）", () => {
     assert.ok(r.broken >= 1);
   });
 });
+
+describe("ZIP 实际输出判决（三批终裁：不能只信声明尺寸）", () => {
+  /** 只伪造声明解压尺寸（+24 uncompressed），压缩尺寸（+20）保持真实——评审指出的真向量：
+   *  完整压缩流 + 伪小 originalSize，同步解码到流尾靠截断丢字节不停工。 */
+  function shrinkDeclaredSuOnly(zip: Buffer, entryName: string): Buffer {
+    const out = Buffer.from(zip);
+    let e = out.length - 22;
+    while (e > 0 && out.readUInt32LE(e) !== 0x06054b50) e -= 1;
+    assert.ok(e > 0, "EOCD 没找到");
+    const count = out.readUInt16LE(e + 10);
+    let p = out.readUInt32LE(e + 16);
+    for (let i = 0; i < count; i += 1) {
+      assert.equal(out.readUInt32LE(p), 0x02014b50, "中心目录签名");
+      const nameLen = out.readUInt16LE(p + 28);
+      const name = out.subarray(p + 46, p + 46 + nameLen).toString("latin1");
+      if (name === entryName) {
+        out.writeUInt32LE(1024, p + 24); // 仅伪理解压尺寸 = 1KB
+        return out;
+      }
+      p += 46 + nameLen + out.readUInt16LE(p + 30) + out.readUInt16LE(p + 32);
+    }
+    throw new Error(`条目 ${entryName} 没找到`);
+  }
+
+  it("诚实压缩流 + 仅伪 originalSize=1KB（实际 3MB）：实际判决中止，亚秒返回", () => {
+    const enc = new TextEncoder();
+    const honest = Buffer.from(
+      zipSync({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "pad.bin": new Uint8Array(3 * 1024 * 1024) }),
+    );
+    writeFileSync(join(themesDir(), "lying-su.zip"), shrinkDeclaredSuOnly(honest, "pad.bin"));
+    const t0 = Date.now();
+    const r = scanThemePacks(true);
+    const ms = Date.now() - t0;
+    assert.ok(!r.packs.some((p) => p.id === "lying-su"), "伪理解压尺寸包判坏（实际输出超单条上限）");
+    assert.ok(r.broken >= 1);
+    assert.ok(ms < 2_000, `亚秒返回（实测 ${ms}ms）——流式喂入在实际输出超限时停止解码`);
+  });
+
+  it("极限膨胀流（4MB 全零压缩≈4KB、声明 1KB）：首块内中止，无分钟级阻塞", () => {
+    const enc = new TextEncoder();
+    // 4MB = 单条上限 2MB 的两倍（2MB 恰好压线合法，别踩边界）
+    const honest = Buffer.from(
+      zipSync({ "kami-theme.json": enc.encode(JSON.stringify(GOOD_MANIFEST)), "bomb.bin": new Uint8Array(4 * 1024 * 1024) }),
+    );
+    writeFileSync(join(themesDir(), "mega-su.zip"), shrinkDeclaredSuOnly(honest, "bomb.bin"));
+    const t0 = Date.now();
+    const r = scanThemePacks(true);
+    const ms = Date.now() - t0;
+    assert.ok(!r.packs.some((p) => p.id === "mega-su"), "实际 4MB > 单条 2MB 上限，判坏");
+    assert.ok(ms < 2_000, `首块中止（实测 ${ms}ms）`);
+  });
+
+  it("恰好 2MB 的合法单条目仍正常列出（上限边界不误伤）", () => {
+    const enc = new TextEncoder();
+    const toZip = (o: Record<string, Uint8Array>) => Buffer.from(zipSync(o));
+    writeFileSync(
+      join(themesDir(), "exact-2m.zip"),
+      toZip({
+        "kami-theme.json": enc.encode(JSON.stringify({ ...GOOD_MANIFEST, meta: { name: "压线合法" } })),
+        "pad.bin": new Uint8Array(2 * 1024 * 1024),
+      }),
+    );
+    const r = scanThemePacks(true);
+    assert.equal(r.packs.find((p) => p.id === "exact-2m")?.manifest.meta.name, "压线合法");
+  });
+});
