@@ -324,24 +324,49 @@ export function DeskPage() {
   // 已水合且非 Pixiv：案头不亮相，重定向期间画 null（不闪内容）
   if (hydrated && tab !== "pixiv") return null;
 
+  const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
+
   return (
     <div className="kami-content mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
-      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
-        <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
-        <p className="text-sm text-muted">{date}</p>
-        <div className="ml-auto flex items-center gap-2">
-          {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
-            <Link to="/vault?recall=1" className="kami-slip">
-              {slipLine}
-            </Link>
-          ) : null}
-          {editing ? null : (
-            <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
-              编排
-            </Button>
-          )}
-        </div>
-      </header>
+      {showSeal ? (
+        // 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期章，下边一条墨线
+        <header className="flex items-end justify-between gap-3 border-b border-border/70 pb-2.5">
+          <h1 className="font-display text-3xl tracking-tight md:text-4xl">
+            今日的纸
+            <span className="ml-3 text-sm font-normal tracking-normal text-muted">{date}</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
+              <Link to="/vault?recall=1" className="kami-slip">
+                {slipLine}
+              </Link>
+            ) : null}
+            <DeskEditorialSeal date={date} />
+            {editing ? null : (
+              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
+                编排
+              </Button>
+            )}
+          </div>
+        </header>
+      ) : (
+        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
+          <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
+          <p className="text-sm text-muted">{date}</p>
+          <div className="ml-auto flex items-center gap-2">
+            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
+              <Link to="/vault?recall=1" className="kami-slip">
+                {slipLine}
+              </Link>
+            ) : null}
+            {editing ? null : (
+              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
+                编排
+              </Button>
+            )}
+          </div>
+        </header>
+      )}
 
       {editing ? (
         <>
@@ -437,6 +462,51 @@ export function DeskPage() {
           ))}
         </div>
       )}
+
+      {/* 页脚（编辑式版式专属）：概念稿的收尾文案——稿纸版式无页脚 */}
+      {!editing && layout.headerSeal ? (
+        <footer className="flex items-center justify-between gap-3 border-t border-border/60 pt-3 text-xs text-subtle">
+          <span>把喜欢的作品，慢慢收进来。</span>
+          <span className="font-display">今日也请多指教。</span>
+        </footer>
+      ) : null}
     </div>
   );
+}
+
+/** 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期印章（夏历式月日）。 */
+function DeskEditorialSeal({ date }: { date: string }) {
+  // date 形如「2026 年 10 月 24 日 星期六」——提月/日两段做印章（夏历不可得，用公历月日）
+  const m = /(\d{1,2})\s*月\s*(\d{1,2})\s*日/.exec(date);
+  const month = m?.[1] ?? "";
+  const day = m?.[2] ?? "";
+  return (
+    <span
+      aria-hidden
+      className="grid size-9 shrink-0 rotate-[-6deg] place-items-center rounded-sm border border-[#9e4938] px-1 text-center font-display text-[10px] leading-tight text-[#9e4938] kami-editorial-seal hover:rotate-0 print:hidden"
+    >
+      {month ? (
+        <>
+          {numberToCn(month)}月
+          <br />
+          {numberToCn(day)}
+        </>
+      ) : (
+        "今日"
+      )}
+    </span>
+  );
+}
+
+/** 数字→中文（印章用，10→十、21→廿一、24→廿四）。 */
+function numberToCn(n: string): string {
+  const digits = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const v = Number.parseInt(n, 10);
+  if (!Number.isFinite(v) || v < 1 || v > 31) return n;
+  if (v <= 10) return v === 10 ? "十" : (digits[v] ?? n);
+  if (v < 20) return `十${digits[v - 10] ?? ""}`;
+  const tens = Math.floor(v / 10);
+  const ones = v % 10;
+  const tensCn = tens === 2 ? "廿" : tens === 3 ? "卅" : `${digits[tens]}十`;
+  return ones === 0 ? tensCn : `${tensCn}${digits[ones] ?? ""}`;
 }
