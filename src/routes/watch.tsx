@@ -15,6 +15,7 @@ import { Link, useNavigate } from "@/lib/kami-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmptySheet } from "@/components/empty-sheet";
 import { toast } from "sonner";
 import { Bell, Hash, Sparkles, UserPlus } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -320,10 +321,10 @@ export function WatchPage() {
         />
       ) : view === "artists" ? (
         watchArtists.length === 0 ? (
-          <Alert>
-            <AlertTitle>还没有追踪的画师</AlertTitle>
-            <AlertDescription>去画师页点「追踪」，或用上面的按钮一键导入 Pixiv 关注。</AlertDescription>
-          </Alert>
+          <EmptySheet
+            title="还没有追踪的画师"
+            hint="去画师页点「追踪」，或用上面的按钮一键导入 Pixiv 关注。"
+          />
         ) : (
           <ul className="space-y-2">
             {watchArtists.map((artist) => {
@@ -349,12 +350,10 @@ export function WatchPage() {
           </ul>
         )
       ) : watchTags.length === 0 ? (
-        <Alert>
-          <AlertTitle>还没有订阅的标签</AlertTitle>
-          <AlertDescription>
-            上面选站点输入标签订阅，或在浏览页搜索时点「订阅」按钮订阅当前关键词。
-          </AlertDescription>
-        </Alert>
+        <EmptySheet
+          title="还没有订阅的标签"
+          hint="上面选站点输入标签订阅，或在浏览页搜索时点「订阅」按钮订阅当前关键词。"
+        />
       ) : (
         <ul className="space-y-2">
           {watchTags.map((w) => {
@@ -570,26 +569,23 @@ function WatchFeed({
   }
   if (artists.length === 0 && tags.length === 0) {
     return (
-      <Alert>
-        <AlertTitle>还没有追踪或订阅</AlertTitle>
-        <AlertDescription>先在画师页点「追踪」、浏览页搜词点「订阅」，更新会汇到这里。</AlertDescription>
-      </Alert>
+      <EmptySheet
+        title="还没有追踪或订阅"
+        hint="先在画师页点「追踪」、浏览页搜词点「订阅」，更新会汇到这里。"
+      />
     );
   }
   if (!checked) {
     return (
-      <Alert>
-        <AlertTitle>还没检查过</AlertTitle>
-        <AlertDescription>点上面的「检查更新」拉一次最新页，更新就会铺在这里。</AlertDescription>
-      </Alert>
+      <EmptySheet title="还没检查过" hint="点上面的「检查更新」拉一次最新页，更新就会铺在这里。" />
     );
   }
   if (groups.length === 0) {
     return (
-      <Alert>
-        <AlertTitle>暂没有可展示的更新</AlertTitle>
-        <AlertDescription>各条目还没有检查结果（或都失败了）——先点「检查更新」。</AlertDescription>
-      </Alert>
+      <EmptySheet
+        title="暂没有可展示的更新"
+        hint="各条目还没有检查结果（或都失败了）——先点「检查更新」。"
+      />
     );
   }
   return (
