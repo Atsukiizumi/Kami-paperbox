@@ -1076,7 +1076,16 @@ html[data-motion="off"] .kami-masonry[data-packed] .kami-card-media {
 }
 
 /* 组件侧动效开关标记（替代 Tailwind motion-reduce 变体——本应用不跟随系统）：
-   轮播淡换 / 翻牌 / 滚动渐入的 transition 挂上它，开关一关全体静止。 */
+   轮播淡换 / 翻牌 / 滚动渐入自带 transition 工具类 + 挂此类做关停标记。
+   注意：不要给 .kami-xfade 写基础 transition——它是未分层样式，会压过分层的
+   duration 工具类，把画师墙/铺纸的 600ms 淡换悄悄改快（浮胶囊 hidden 同款机制）。 */
+/* 编辑式日期印章：悬停回正的旋转过渡（专属类，勿复用 .kami-xfade） */
+.kami-editorial-seal {
+  transition: transform var(--motion-quick) var(--ease-out);
+}
+html[data-motion="off"] .kami-editorial-seal {
+  transition: none;
+}
 html[data-motion="off"] .kami-xfade {
   transition: none !important;
 }

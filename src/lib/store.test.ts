@@ -181,9 +181,10 @@ test("persist v17→v18：案头/外壳/页参数缺省补默认，老档字段�
     17,
   ) as Record<string, unknown>;
   const desk = v17.deskPresets as { id: string; builtIn?: boolean }[];
-  assert.equal(desk.length, 1, "缺字段补内置稿纸");
+  assert.equal(desk.length, 2, "缺字段补内置稿纸+编辑式");
   assert.equal(desk[0]?.id, "kami-default");
   assert.ok(desk[0]?.builtIn);
+  assert.equal(desk[1]?.id, "kami-editorial", "编辑式内置第二");
   assert.equal(v17.activeDeskPresetId, "kami-default");
   assert.deepEqual(v17.shell, { form: "desk", tweaks: {} });
   assert.deepEqual(v17.pageLayout, { density: "medium", vaultCol: "medium" });
@@ -201,10 +202,10 @@ test("persist v17→v18：案头/外壳/页参数缺省补默认，老档字段�
   assert.deepEqual(v18.shell, { form: "desk", tweaks: {} }, "非法形态整段回默认");
   assert.deepEqual(v18.pageLayout, { density: "medium", vaultCol: "medium" });
   const cleaned = v18.deskPresets as { id: string; layout: { slots: { span: number; items: string[] }[] } }[];
-  assert.equal(cleaned.length, 2, "内置 + 清洗后的夜读");
-  // 槽里模块全未知 → 空槽剪枝 → 全空回默认稿纸槽（案头不能空）
+  assert.equal(cleaned.length, 3, "内置两条 + 清洗后的夜读");
+  // 槽里模块全未知 → 空槽剪枝 → 全空回默认稿纸槽（案头不能空）；夜读排第三（内置稿纸/编辑式在前）
   assert.deepEqual(
-    cleaned[1]?.layout.slots,
+    cleaned[2]?.layout.slots,
     [
       { span: 2, items: ["browse-sheet"] },
       { span: 1, items: ["letters", "stack", "artist-wall"] },
@@ -755,6 +756,40 @@ test("persist v19→v20：shell.custom 缺省无感；setShellCustom 深合并�
   } finally {
     useSettings.setState({ shell: before.shell });
   }
+});
+
+test("persist v20→v21：内置「编辑式」注入为第二版式，v20 字段一个不丢、激活指针不动", () => {
+  const v20 = migrateSettings(
+    {
+      pixivCookie: PIXIV_SESSION,
+      deskPresets: [{ id: "p1", name: "夜读", layout: { slots: [{ span: 2, items: ["browse-sheet"] }] } }],
+      activeDeskPresetId: "p1",
+      shell: { form: "rail", tweaks: { iconSize: "lg" } },
+    },
+    20,
+  ) as Record<string, unknown>;
+  const desk = v20.deskPresets as { id: string; builtIn?: boolean; layout: { headerSeal?: boolean } }[];
+  assert.equal(desk.length, 3, "稿纸+编辑式+夜读");
+  assert.equal(desk[1]?.id, "kami-editorial", "编辑式恒为内置第二");
+  assert.ok(desk[1]?.builtIn);
+  assert.equal(desk[1]?.layout.headerSeal, true, "编辑式带印章头");
+  assert.equal(desk[2]?.id, "p1", "用户版式跟在两条内置后");
+  assert.equal(v20.activeDeskPresetId, "p1", "激活指针不动（不因注入换版式）");
+  assert.deepEqual(v20.shell, { form: "rail", tweaks: { iconSize: "lg" } }, "v20 字段保留");
+  // 用户档手写 headerSeal 脏值不透传（parseDeskLayout 只认 true）
+  const dirty = migrateSettings({ deskPresets: [{ id: "d1", name: "脏", layout: { slots: [{ span: 1, items: ["letters"] }], headerSeal: "yes" } }] }, 21) as {
+    deskPresets: { layout: { headerSeal?: unknown } }[];
+  };
+  assert.notEqual(dirty.deskPresets.at(-1)?.layout.headerSeal, true, "脏值不视为编辑式头");
+});
+
+test("全新安装初始档即含双内置（新装不走 migrate，手抄初始曾漏编辑式）", () => {
+  const fresh = useSettings.getState().deskPresets as { id: string; builtIn?: boolean }[];
+  const ids = fresh.map((p) => p.id);
+  assert.equal(ids[0], "kami-default", "初始第一条恒为内置稿纸");
+  assert.ok(fresh[0]?.builtIn);
+  assert.ok(ids.includes("kami-editorial"), "新装用户也能在版式架见到编辑式");
+  assert.equal(useSettings.getState().activeDeskPresetId, "kami-default", "新装默认仍是稿纸");
 });
 
 test("微调即接管（健壮二批 R4）：跟随主题时改本地外壳/版式自动关跟随", () => {

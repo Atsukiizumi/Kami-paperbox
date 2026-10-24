@@ -11,6 +11,7 @@ import {
   DEFAULT_DESK_LAYOUT,
   DEFAULT_SHELL_CUSTOM,
   DESK_DEFAULT_PRESET_ID,
+  DESK_EDITORIAL_PRESET_ID,
   DESK_PRESET_LIMIT,
   parseDeskLayout,
   parseDeskPresets,
@@ -64,15 +65,18 @@ describe("parseDeskLayout（槽模型清洗）", () => {
 });
 
 describe("parseDeskPresets（版式清单）", () => {
-  it("内置稿纸永远在场且排第一；垃圾行跳过", () => {
+  it("内置稿纸/编辑式永远在场且排前二；垃圾行跳过", () => {
     const { presets, activePresetId } = parseDeskPresets({
       presets: [{ id: "", name: "无名" }, { id: "p1", name: "夜读", layout: { slots: [] } }, "junk"],
       activePresetId: "p1",
     });
     assert.equal(presets[0]?.id, DESK_DEFAULT_PRESET_ID);
     assert.ok(presets[0]?.builtIn);
-    assert.equal(presets.length, 2);
-    assert.equal(presets[1]?.name, "夜读");
+    assert.equal(presets[1]?.id, DESK_EDITORIAL_PRESET_ID, "编辑式内置第二");
+    assert.ok(presets[1]?.builtIn);
+    assert.equal(presets[1]?.layout.headerSeal, true, "编辑式带印章头");
+    assert.equal(presets.length, 3);
+    assert.equal(presets[2]?.name, "夜读");
     assert.equal(activePresetId, "p1");
   });
 
@@ -80,7 +84,7 @@ describe("parseDeskPresets（版式清单）", () => {
     const many = Array.from({ length: 20 }, (_, i) => ({ id: `p${i}`, name: `版式${i}` }));
     const dup = [...many, { id: "p1", name: "重复" }];
     const { presets } = parseDeskPresets({ presets: dup });
-    assert.equal(presets.length, DESK_PRESET_LIMIT + 1);
+    assert.equal(presets.length, DESK_PRESET_LIMIT + 2);
     assert.equal(new Set(presets.map((p) => p.id)).size, presets.length);
   });
 

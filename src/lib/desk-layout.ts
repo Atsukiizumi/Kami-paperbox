@@ -23,6 +23,8 @@ export type DeskLayout = {
   slots: DeskSlot[];
   /** 去年今日笺（页眉）是否上场；默认 true。 */
   headerSlip: boolean;
+  /** 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期印章；仅内置编辑式版式使用，缺省 false。 */
+  headerSeal?: boolean;
 };
 
 export type DeskPreset = { id: string; name: string; layout: DeskLayout; builtIn?: boolean };
@@ -160,6 +162,24 @@ export const DEFAULT_DESK_LAYOUT: DeskLayout = {
   headerSlip: true,
 };
 
+/**
+ * 内置版式「编辑式」（概念稿 P1，2026-10-24 落地）：像每天摊开的私人画报——
+ * 报纸为主栏头版（span2），画师墙为副栏整列（span1），纸叠/信夹在主栏下方；
+ * 页眉走「编辑式头」特例（今日的纸 + 日期印章），去年今日笺并入页脚。
+ * 内置第二版式：默认仍是稿纸（出厂红线不动），用户在版式架一键切换。
+ */
+export const DESK_EDITORIAL_PRESET_ID = "kami-editorial";
+
+export const EDITORIAL_DESK_LAYOUT: DeskLayout = {
+  slots: [
+    { span: 2, items: ["newspaper", "stack", "letters"] },
+    { span: 1, items: ["artist-wall"] },
+  ],
+  headerSlip: false,
+  /** 编辑式头：今日的纸主标题 + 右旋朱红日期印章（渲染层特例，稿纸版式无此字段语义）。 */
+  headerSeal: true,
+};
+
 export const DEFAULT_SHELL: ShellSettings = { form: "desk", tweaks: {} };
 
 export const DEFAULT_PAGE_LAYOUT: PageLayout = { density: "medium", vaultCol: "medium" };
@@ -200,16 +220,21 @@ export function parseDeskLayout(raw: unknown): DeskLayout {
     if (items.length > 0) slots.push({ span, items });
   }
   const headerSlip = rec.headerSlip !== false;
+  // headerSeal：仅透传布尔（编辑式头特例；用户档/主题包写脏值一律视为无）
+  const headerSeal = rec.headerSeal === true ? true : undefined;
   if (slots.length === 0) return { ...DEFAULT_DESK_LAYOUT, headerSlip };
-  return { slots, headerSlip };
+  return headerSeal ? { slots, headerSlip, headerSeal } : { slots, headerSlip };
 }
 
-/** 版式清单清洗：去重 id、上限截断、内置稿纸永远在场且不可被用户条目顶替。 */
+/** 版式清单清洗：去重 id、上限截断、内置「稿纸」「编辑式」永远在场且不可被用户条目顶替。 */
 export function parseDeskPresets(raw: unknown): { presets: DeskPreset[]; activePresetId: string } {
   const rec = (raw ?? {}) as Record<string, unknown>;
   const rawList = Array.isArray(rec.presets) ? rec.presets : [];
-  const out: DeskPreset[] = [{ id: DESK_DEFAULT_PRESET_ID, name: "稿纸", layout: DEFAULT_DESK_LAYOUT, builtIn: true }];
-  const ids = new Set([DESK_DEFAULT_PRESET_ID]);
+  const out: DeskPreset[] = [
+    { id: DESK_DEFAULT_PRESET_ID, name: "稿纸", layout: DEFAULT_DESK_LAYOUT, builtIn: true },
+    { id: DESK_EDITORIAL_PRESET_ID, name: "编辑式", layout: EDITORIAL_DESK_LAYOUT, builtIn: true },
+  ];
+  const ids = new Set([DESK_DEFAULT_PRESET_ID, DESK_EDITORIAL_PRESET_ID]);
   for (const p of rawList) {
     const item = (p ?? {}) as Record<string, unknown>;
     const id = typeof item.id === "string" && item.id.trim() ? item.id.trim().slice(0, 64) : "";
@@ -217,7 +242,8 @@ export function parseDeskPresets(raw: unknown): { presets: DeskPreset[]; activeP
     if (!id || !name || ids.has(id)) continue;
     ids.add(id);
     out.push({ id, name, layout: parseDeskLayout(item.layout) });
-    if (out.length >= DESK_PRESET_LIMIT + 1) break;
+    // 上限按用户条目计（内置稿纸/编辑式不占额）
+    if (out.length >= DESK_PRESET_LIMIT + 2) break;
   }
   const active = typeof rec.activePresetId === "string" && ids.has(rec.activePresetId) ? rec.activePresetId : DESK_DEFAULT_PRESET_ID;
   return { presets: out, activePresetId: active };

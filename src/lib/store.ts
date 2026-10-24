@@ -497,7 +497,9 @@ export const useSettings = create<SettingsState>()(
       appearance: DEFAULT_APPEARANCE,
       uiStyle: DEFAULT_UI_STYLE,
       motionEnabled: true,
-      deskPresets: [{ id: DESK_DEFAULT_PRESET_ID, name: "稿纸", layout: DEFAULT_DESK_LAYOUT, builtIn: true }],
+      // 初始档从 parseDeskPresets 派生（单一事实源）——全新安装无 migrate 可跑，
+      // 手抄单条曾导致内置「编辑式」只经 v21 迁移注入、新装用户永远见不到。
+      deskPresets: parseDeskPresets({ presets: [] }).presets,
       activeDeskPresetId: DESK_DEFAULT_PRESET_ID,
       shell: DEFAULT_SHELL,
       pageLayout: DEFAULT_PAGE_LAYOUT,
@@ -804,7 +806,8 @@ export const useSettings = create<SettingsState>()(
         if (!clean) return null;
         let id: string | null = null;
         set((s) => {
-          if (s.deskPresets.length >= DESK_PRESET_LIMIT + 1) return s;
+          // 上限按用户条目计（内置稿纸/编辑式两条不占额）
+          if (s.deskPresets.length >= DESK_PRESET_LIMIT + 2) return s;
           id = `preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
           return {
             deskPresets: [...s.deskPresets, { id, name: clean, layout: parseDeskLayout(layout) }],
@@ -980,7 +983,9 @@ export const useSettings = create<SettingsState>()(
       // v18（布局引擎 P1）：新增 deskPresets / activeDeskPresetId / shell / pageLayout
       // v19（主题包 P2）：新增 themePack（激活指针 + 跟随开关）
       // v20（外壳全参数 P3）：shell 增加可选 custom 段（老档缺省即无，parseShell 天然兼容）
-      version: 20,
+      // v21（概念稿 P1）：内置版式新增「编辑式」——parseDeskPresets 注入（v20 档版本匹配
+      //     不走 migrate，bump 才能注入到既有档案）
+      version: 21,
       migrate: migrateSettings,
       partialize: partializeSettings,
     },
