@@ -53,6 +53,16 @@
   inherits: true;
   initial-value: #e8a09a;
 }
+@property --color-tag-red {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgb(169 77 61 / 22%);
+}
+@property --color-tag-red-fg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #d99a89;
+}
 @property --color-ok {
   syntax: "<color>";
   inherits: true;
@@ -72,6 +82,10 @@
   --color-accent-fg: #1a1714;
   --color-danger: #e8a09a;
   --color-ok: #9cba9a;
+  /* 朱红笺签（工房批 ⑥ P2）：R-18 等警示标签——红染纸底 + 朱红字（概念稿 .tag.red）。
+     从各主题的 danger 派生，四主题×双外观自动适配，无需逐块覆盖。 */
+  --color-tag-red: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  --color-tag-red-fg: var(--color-danger);
   --color-overlay: color-mix(in oklab, var(--color-bg) 78%, transparent);
 
   --radius-xs: 6px;
@@ -84,17 +98,18 @@
   --font-display: "Newsreader", "Noto Serif SC", "Noto Sans SC", serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --shadow-border: 0 0 0 1px color-mix(in oklab, var(--color-fg) 8%, transparent);
-  --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 12%, transparent),
-    0 12px 32px color-mix(in oklab, #000 35%, transparent);
-  --shadow-float: 0 18px 40px color-mix(in oklab, #000 40%, transparent);
+  --shadow-border: 0 0 0 1px color-mix(in oklab, var(--color-fg) 10%, transparent);
+  --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 14%, transparent),
+    0 10px 28px color-mix(in oklab, #000 26%, transparent);
+  --shadow-float: 0 14px 32px color-mix(in oklab, #000 30%, transparent);
 
-  /* 三级纸影（纸感质感批 PR1）：暖墨投影 + 顶部一线纸边高光，弹层家族分级用。 */
-  --shadow-paper-1: 0 1px 2px rgb(0 0 0 / 20%), 0 2px 6px color-mix(in oklab, #000 18%, transparent),
+  /* 三级纸影（纸感质感批 PR1）：暖墨投影 + 顶部一线纸边高光，弹层家族分级用。
+     工房批（概念稿 ⑥ P2）校准：投影降约 1/3（纸影轻一点），边界 token 提浓（边界清楚一点）。 */
+  --shadow-paper-1: 0 1px 2px rgb(0 0 0 / 14%), 0 2px 4px color-mix(in oklab, #000 12%, transparent),
     inset 0 1px 0 color-mix(in oklab, var(--color-fg) 5%, transparent);
-  --shadow-paper-2: 0 2px 6px rgb(0 0 0 / 26%), 0 10px 24px color-mix(in oklab, #000 30%, transparent),
+  --shadow-paper-2: 0 2px 5px rgb(0 0 0 / 18%), 0 8px 18px color-mix(in oklab, #000 20%, transparent),
     inset 0 1px 0 color-mix(in oklab, var(--color-fg) 7%, transparent);
-  --shadow-paper-3: 0 6px 16px rgb(0 0 0 / 32%), 0 24px 56px color-mix(in oklab, #000 40%, transparent),
+  --shadow-paper-3: 0 4px 10px rgb(0 0 0 / 22%), 0 16px 36px color-mix(in oklab, #000 27%, transparent),
     inset 0 1px 0 color-mix(in oklab, var(--color-fg) 9%, transparent);
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -243,19 +258,19 @@ html[data-appearance="dark"] {
 
 html[data-appearance="light"] {
   color-scheme: light;
-  --shadow-border: 0 0 0 1px color-mix(in oklab, var(--color-fg) 8%, transparent);
-  --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 10%, transparent),
-    0 12px 32px color-mix(in oklab, var(--color-fg) 10%, transparent);
-  --shadow-float: 0 18px 40px color-mix(in oklab, var(--color-fg) 12%, transparent);
-  /* 纸影浅色形态：投影改由墨色派生并降浓度，纸边高光转白。 */
-  --shadow-paper-1: 0 1px 2px color-mix(in oklab, var(--color-fg) 10%, transparent),
-    0 2px 6px color-mix(in oklab, var(--color-fg) 8%, transparent),
+  --shadow-border: 0 0 0 1px color-mix(in oklab, var(--color-fg) 10%, transparent);
+  --shadow-border-hover: 0 1px 0 color-mix(in oklab, var(--color-fg) 12%, transparent),
+    0 10px 28px color-mix(in oklab, var(--color-fg) 8%, transparent);
+  --shadow-float: 0 14px 32px color-mix(in oklab, var(--color-fg) 9%, transparent);
+  /* 纸影浅色形态：投影改由墨色派生并降浓度，纸边高光转白（工房批同幅降约 1/3）。 */
+  --shadow-paper-1: 0 1px 2px color-mix(in oklab, var(--color-fg) 7%, transparent),
+    0 2px 4px color-mix(in oklab, var(--color-fg) 5%, transparent),
     inset 0 1px 0 rgb(255 255 255 / 60%);
-  --shadow-paper-2: 0 2px 6px color-mix(in oklab, var(--color-fg) 12%, transparent),
-    0 10px 24px color-mix(in oklab, var(--color-fg) 10%, transparent),
+  --shadow-paper-2: 0 2px 5px color-mix(in oklab, var(--color-fg) 8%, transparent),
+    0 8px 18px color-mix(in oklab, var(--color-fg) 7%, transparent),
     inset 0 1px 0 rgb(255 255 255 / 70%);
-  --shadow-paper-3: 0 6px 16px color-mix(in oklab, var(--color-fg) 14%, transparent),
-    0 24px 56px color-mix(in oklab, var(--color-fg) 12%, transparent),
+  --shadow-paper-3: 0 4px 10px color-mix(in oklab, var(--color-fg) 10%, transparent),
+    0 16px 36px color-mix(in oklab, var(--color-fg) 8%, transparent),
     inset 0 1px 0 rgb(255 255 255 / 80%);
 }
 

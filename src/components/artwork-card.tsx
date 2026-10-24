@@ -324,7 +324,7 @@ export function ArtworkCard({
             {work.feeRequired || showR18 ? (
               <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
                 {work.feeRequired ? <Badge className="bg-bg/80 text-fg">¥{work.feeRequired}</Badge> : null}
-                {showR18 ? <Badge className="bg-bg/80 text-fg">{r18Label}</Badge> : null}
+                {showR18 ? <Badge tone="red" className="bg-bg/75">{r18Label}</Badge> : null}
               </div>
             ) : null}
           </div>
