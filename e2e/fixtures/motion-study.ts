@@ -61,9 +61,11 @@ function studyDetail(card: StudyCard) {
   return { ...card, rating: "s", description: "", pages: [page] };
 }
 
-/** 4:3 的极小 SVG——媒体请求统一以它应答，解码成本可忽略。 */
+/** 4:3 的极小 SVG——媒体请求统一以它应答，解码成本可忽略。
+ * width/height 必须显式给出：只有 viewBox 时灯箱（object-contain、仅 max 约束）
+ * 会把它当无内在尺寸的纵横比图，塌缩成 0×0。 */
 const SVG_BODY =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#2a2723"/><circle cx="200" cy="150" r="80" fill="#d8cfc0"/></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="400" height="300" fill="#2a2723"/><circle cx="200" cy="150" r="80" fill="#d8cfc0"/></svg>';
 
 /** 默认形态下数据面要会话：本进程首个用例注册唯一账号并缓存会话 cookie，
  * 后续用例直接带 cookie——不再每个用例都走登录/注册（隔离库上稳定且省时）。 */

@@ -175,7 +175,7 @@ assert.equal(document.querySelectorAll(".kami-fly-sheet").length, 0);
 
 **Interfaces:** ImageLightbox 的 `items/index/open/onClose/onIndex/originUrl/footer` 接口不变；消费 Task 2 的 `seedMotionStudy`，补齐多 P 图像/错误响应，保持相同的无真实网络夹具。
 
-- [ ] **Step 1: 扩展灯箱行为测试。** 保留旧的换页旧图立刻消失/加载失败测试。新增 `open=false closes synchronously while motion is off`、`disable during enter keeps open=true visible`、`close-open ignores old exit`、`disable during close removes interception layer`、`pinch and drag have no interpolation`、`single pointer continues after pinch`、`strip scroll is instant when disabled`、`unmount restores body overflow`。
+- [x] **Step 1: 扩展灯箱行为测试。** 保留旧的换页旧图立刻消失/加载失败测试。新增 `open=false closes synchronously while motion is off`、`disable during enter keeps open=true visible`、`close-open ignores old exit`、`disable during close removes interception layer`、`pinch and drag have no interpolation`、`single pointer continues after pinch`、`strip scroll is instant when disabled`、`unmount restores body overflow`。
 
 ```ts
 assert.equal(document.querySelector('[aria-label="大图预览"]'), null);
@@ -185,13 +185,13 @@ assert.equal(lastStripScrollOptions.behavior, "instant");
 
 手势断言模拟 pointerId 与坐标，验证位图变换即时到达位置；光标/双指锚点缩放语义沿用现有逻辑，不新增滑动换页功能。
 
-- [ ] **Step 2: 跑红灯。** `node --import tsx --test src/components/image-lightbox.test.tsx`；新增 off 同步退出和旧退出竞态用例应失败，旧加载行为仍通过。
-- [ ] **Step 3: 拆开外层进退和内层手势。** 展开 fast 250ms、收起 quick 150ms；pointer 手势期间 transform 无 transition，离散缩放可短过渡。退出依赖托管结束与 generation 闸，不用固定 300ms 作为卸载权威；动效关闭时同步落到当前 open 的目标态（true 保持可见，false 才卸载），重新打开不能被旧回调关闭。没有 rAF 驱动的透明可见性死锁。
-- [ ] **Step 4: 接通焦点、滚动与缩略条。** 关闭和卸载清理 pointer/pinch、退出回调和滚动锁；返回打开前焦点（可用且仍挂载时）。关动效时缩略条即时定位；保留既有键盘、预热、切页加载与错误文案。
-- [ ] **Step 5: 写组合 E2E。** 使用 fixture 断言 200 张卡片可见、追加 40 张后前部节点不重播；浏览→详情→返回位置误差不超过 2px；连续预览开关与灯箱开关各 30 次没有残余 UI 临时节点；入队反馈次数与业务 enqueue 数对应；on/off/off→on 覆盖 CSS 与 JS。对真实上游关键路径回归单独运行并单独报告环境失败，不把它当动效证据。
-- [ ] **Step 6: 执行全局验收。** `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm test:e2e e2e/motion-polish.spec.ts`、`pnpm test:e2e e2e/critical-path.spec.ts e2e/browse-cache.spec.ts`。构建可能执行既有迁移，使用隔离 KAMI_ROOT，准备 migrations 后按现有 e2e-server 合同验证，不对真实数据目录执行测试迁移。
-- [ ] **Step 7: 检查真实渲染与性能。** 1280px / 390px、浅深主题、clean/hand、desk/rail/zen 抽样；Chrome、Firefox、可获得的 Safari/iOS Safari，WebKit 模拟结果注明。用相同设备/数据/操作录制基线与修改版，确认重排动画稳定段没有自定义代码逐帧 Layout、没有新增 >50ms 长任务；60Hz 接近 60fps 是目标，不做未经录制的保证。截图不能证明动态连续性。
-- [ ] **Step 8: 完成第四批和全分支复核。** 更新 CHANGELOG，建议消息 `feat: 灯箱开合与缩放拖拽分层`；请求一次独立整体复核，再按仓库要求发 PR。出现回归先停用应用动效，按第四批→第三批→第二批→第一批逆序撤回，不改存储版本与业务数据。
+- [x] **Step 2: 跑红灯。** `node --import tsx --test src/components/image-lightbox.test.tsx`；新增 off 同步退出和旧退出竞态用例应失败，旧加载行为仍通过。
+- [x] **Step 3: 拆开外层进退和内层手势。** 展开 fast 250ms、收起 quick 150ms；pointer 手势期间 transform 无 transition，离散缩放可短过渡。退出依赖托管结束与 generation 闸，不用固定 300ms 作为卸载权威；动效关闭时同步落到当前 open 的目标态（true 保持可见，false 才卸载），重新打开不能被旧回调关闭。没有 rAF 驱动的透明可见性死锁。
+- [x] **Step 4: 接通焦点、滚动与缩略条。** 关闭和卸载清理 pointer/pinch、退出回调和滚动锁；返回打开前焦点（可用且仍挂载时）。关动效时缩略条即时定位；保留既有键盘、预热、切页加载与错误文案。
+- [x] **Step 5: 写组合 E2E。** 使用 fixture 断言 200 张卡片可见、追加 40 张后前部节点不重播；浏览→详情→返回位置误差不超过 2px；连续预览开关与灯箱开关各 30 次没有残余 UI 临时节点；入队反馈次数与业务 enqueue 数对应；on/off/off→on 覆盖 CSS 与 JS。对真实上游关键路径回归单独运行并单独报告环境失败，不把它当动效证据。
+- [x] **Step 6: 执行全局验收。** `pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm test:e2e e2e/motion-polish.spec.ts`、`pnpm test:e2e e2e/critical-path.spec.ts e2e/browse-cache.spec.ts`。构建可能执行既有迁移，使用隔离 KAMI_ROOT，准备 migrations 后按现有 e2e-server 合同验证，不对真实数据目录执行测试迁移。
+- [x] **Step 7: 检查真实渲染与性能。** 1280px / 390px、浅深主题、clean/hand、desk/rail/zen 抽样；Chrome、Firefox、可获得的 Safari/iOS Safari，WebKit 模拟结果注明。用相同设备/数据/操作录制基线与修改版，确认重排动画稳定段没有自定义代码逐帧 Layout、没有新增 >50ms 长任务；60Hz 接近 60fps 是目标，不做未经录制的保证。截图不能证明动态连续性。
+- [x] **Step 8: 完成第四批和全分支复核。** 更新 CHANGELOG，建议消息 `feat: 灯箱开合与缩放拖拽分层`；请求一次独立整体复核，再按仓库要求发 PR。出现回归先停用应用动效，按第四批→第三批→第二批→第一批逆序撤回，不改存储版本与业务数据。
 
 ## 当前交付状态与实施入口
 

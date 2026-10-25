@@ -1,10 +1,17 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { UgoiraFrame } from "@/lib/ugoira-meta";
 import { cn } from "@/lib/utils";
 import { UgoiraPlayer } from "./ugoira-player";
 import { warmMedia } from "./proxied-img";
+import {
+  canAnimateUi,
+  cancelOwnedAnimations,
+  commitOwnedMotion,
+  playOwnedMotion,
+  readMotionTiming,
+} from "@/lib/motion-runtime";
 
 export type LightboxItem = {
   /** 主图：优先原图——灯箱就是用来看细节的（媒体代理带 Referer，原图可达）。 */
@@ -18,7 +25,7 @@ export type LightboxItem = {
 
 /**
  * 灯箱主图：按 src 重挂（换页立即清掉旧位图，不再「停留在上一张」），
- * 加载中转圈、失败给文案，onLoad 后淡入——下载过程可感知。
+ * 加载中转圈、失败给文案，onLoad 后 150ms 淡入——下载过程可感知。
  */
 function LightboxImage({ src, alt }: { src: string; alt: string }) {
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
@@ -39,7 +46,7 @@ function LightboxImage({ src, alt }: { src: string; alt: string }) {
         onLoad={() => setState("loaded")}
         onError={() => setState("error")}
         className={cn(
-          "max-h-[92vh] max-w-[94vw] object-contain transition-opacity duration-200",
+          "kami-img-reveal max-h-[92vh] max-w-[94vw] object-contain",
           state === "loaded" ? "opacity-100" : "opacity-0",
         )}
         draggable={false}
@@ -65,10 +72,11 @@ export function ImageLightbox({
   originUrl?: string;
   footer?: ReactNode;
 }) {
-  const [shown, setShown] = useState(open);
-  const [visible, setVisible] = useState(open);
+  const [shown, setShown] = useState(false);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  /** 手势进行中：内层 transform 不做时间补间（拖拽/捏合直接跟手）。 */
+  const [gestureLive, setGestureLive] = useState(false);
   const drag = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(
     null,
   );
@@ -81,9 +89,16 @@ export function ImageLightbox({
     baseDist: number;
     baseMid: { x: number; y: number };
   } | null>(null);
+  /** 内层舞台（图像区）：缩放/捏合的锚点矩形来源。 */
   const stageRef = useRef<HTMLDivElement | null>(null);
+  /** 外层对话框：开合动画的宿主。 */
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const view = useRef({ scale, offset });
   view.current = { scale, offset };
+  // 退出代际闸：退出动画完成后只有最新一代有权卸载——中途重开不会被旧收尾关掉
+  const exitGen = useRef(0);
+  /** 本次挂载是否还没播过首轮进场（挂载后的首轮 effect 从隐藏态展开）。 */
+  const firstEnter = useRef(false);
 
   /** 以屏幕坐标 (sx,sy) 为锚点缩放到 next：光标/双指中点下的内容点保持不动。 */
   function zoomAt(sx: number, sy: number, next: number) {
@@ -106,23 +121,79 @@ export function ImageLightbox({
     if (clamped === 1) setOffset({ x: 0, y: 0 });
   }
 
-  useEffect(() => {
+  // ── 开合生命周期（动效批 Task 5）────────────────────────────────────
+  // 外层进出走运行时托管：进场 fast 250ms、收起 quick 150ms；关停/无 WAAPI
+  // 时同步落终态（open=true 保持可见，open=false 才卸载）；退出以 generation
+  // 闸识别，旧收尾永远关不掉新灯箱。没有 rAF / 固定卸载定时器——后台标签页
+  // 也不会冻结在透明层。首轮挂载从隐藏态展开；中途重开从当前视觉续播；
+  // 退出前先截当前视觉——进场未完就关，不先跳回 1 再淡出。
+  useLayoutEffect(() => {
+    const stage = dialogRef.current;
     if (open) {
-      setShown(true);
-      // 进场可见性闸：只隔一拍翻转 opacity 触发过渡。不用 rAF——隐藏标签页里
-      // rAF 会被无限推迟，灯箱会冻结在 opacity-0（后台开图/恢复会话即踩）；
-      // setTimeout 在后台页也保证触发（被节流也就慢一拍）。
-      const id = window.setTimeout(() => setVisible(true), 30);
-      return () => window.clearTimeout(id);
+      exitGen.current += 1;
+      if (!shown) {
+        firstEnter.current = true; // 挂载后的下一轮 effect 播首轮进场
+        setShown(true);
+        return;
+      }
+      const initial = firstEnter.current;
+      firstEnter.current = false;
+      if (!stage || !canAnimateUi(stage)) return;
+      const { duration, easing } = readMotionTiming(stage, "fast");
+      const from = initial
+        ? { opacity: "0", transform: "scale(0.97)" }
+        : ((now) => ({ opacity: String(now.opacity), transform: now.transform }))(commitOwnedMotion(stage));
+      playOwnedMotion(
+        stage,
+        [from, { opacity: "1", transform: "scale(1)" }],
+        { duration, easing, fill: "both" },
+      );
+      return;
     }
-    setVisible(false);
-    const t = window.setTimeout(() => setShown(false), 300);
-    return () => window.clearTimeout(t);
-  }, [open]);
+    if (!shown) return;
+    const gen = ++exitGen.current;
+    if (!stage || !canAnimateUi(stage)) {
+      setShown(false); // 关停：同步卸载，不留透明拦截层
+      return;
+    }
+    const now = commitOwnedMotion(stage);
+    const { duration, easing } = readMotionTiming(stage, "quick");
+    const exit = playOwnedMotion(
+      stage,
+      [
+        { opacity: String(now.opacity), transform: now.transform },
+        { opacity: "0", transform: "scale(0.985)" },
+      ],
+      { duration, easing, fill: "both" },
+    );
+    void exit.finished.then((end) => {
+      if (exitGen.current !== gen || end === "cancelled") return;
+      setShown(false);
+    });
+  }, [open, shown]);
+
+  // 卸载时收掉外层在播动画（登记项不滞留）——cleanup 里现读 ref，
+  // 常态以 open=false 挂载时捕获到的会是 null。
+  useEffect(() => {
+    return () => {
+      const dialog = dialogRef.current;
+      if (dialog) cancelOwnedAnimations(dialog);
+    };
+  }, []);
+
+  // 打开前焦点：关闭后还给仍然挂载的触发元素
+  useEffect(() => {
+    if (!shown) return;
+    const prevFocus = document.activeElement;
+    return () => {
+      if (prevFocus instanceof HTMLElement && prevFocus.isConnected) prevFocus.focus();
+    };
+  }, [shown]);
 
   useEffect(() => {
     setScale(1);
     setOffset({ x: 0, y: 0 });
+    setGestureLive(false);
     pointers.current.clear();
     pinch.current = null;
     drag.current = null;
@@ -131,7 +202,9 @@ export function ImageLightbox({
   useEffect(() => {
     if (!shown || items.length < 2) return;
     const el = document.querySelector<HTMLElement>(`[data-strip="${index}"]`);
-    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    // 动效关闭：缩略条即时定位，不做平滑滚动
+    const behavior: ScrollBehavior = canAnimateUi() ? "smooth" : "instant";
+    el?.scrollIntoView({ inline: "center", block: "nearest", behavior });
   }, [index, shown, items.length]);
 
   // 相邻页预热：前后各两页走 warmMedia（媒体车道限流 + warmThumbs 去重 + 低优先级），
@@ -172,8 +245,15 @@ export function ImageLightbox({
   if (!item) return null;
 
   function onPointerDown(e: React.PointerEvent) {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // 指针捕获让移出窗口也能收到 up/cancel；环境里没有活动指针时（老浏览器/
+    // 测试垫片）会抛 NotFoundError——捕获是优化不是前提，吞掉继续手势。
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* 无活动指针可捕获 */
+    }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    setGestureLive(true);
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = {
@@ -225,10 +305,12 @@ export function ImageLightbox({
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 1) {
+      // 捏合回落到单指：以剩余指为新的拖拽基准（继续跟手，不跳变）
       const [rest] = [...pointers.current.values()];
       drag.current = { x: rest.x, y: rest.y, ox: offset.x, oy: offset.y, moved: true };
       return;
     }
+    if (pointers.current.size === 0) setGestureLive(false);
     const d = drag.current;
     drag.current = null;
     if (!d || d.moved) return;
@@ -241,10 +323,8 @@ export function ImageLightbox({
 
   return createPortal(
     <div
-      className={cn(
-        "kami-lightbox-stage fixed inset-0 z-50 flex flex-col transition-opacity duration-300 ease-out",
-        visible ? "opacity-100" : "opacity-0",
-      )}
+      ref={dialogRef}
+      className="kami-lightbox-stage fixed inset-0 z-50 flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="大图预览"
@@ -351,13 +431,12 @@ export function ImageLightbox({
             } else zoomAt(e.clientX, e.clientY, 2);
           }}
         >
+          {/* 内层变换：手势进行中零补间（直接跟手）；离散操作（按钮/双击/键盘）
+              才走 150ms 短过渡。 */}
           <div
-            className={cn(
-              "max-h-full max-w-full transition-[opacity,transform] duration-300 ease-out",
-              visible ? "opacity-100" : "opacity-0",
-            )}
+            className={cn("max-h-full max-w-full", gestureLive ? undefined : "kami-zoom-smooth")}
             style={{
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${visible ? scale : Math.max(0.96, scale * 0.96)})`,
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
             }}
           >
             {item.ugoira ? (

@@ -64,6 +64,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // JS 侧同一开关同步进运行时——水合后策略才明确，之前一律不起播。
       document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
       setUiMotionEnabled(state.motionEnabled);
+      // 本页关过动效：页面骨架的入场类不再重播（animation:none 恢复会从头来）
+      if (!state.motionEnabled) document.documentElement.setAttribute("data-motion-stopped", "");
       // 外壳形态 / 页宽 / 纸匣列宽（布局引擎 P1）：属性驱动，styles.css 按值切换，
       // 仅 md+ 生效——移动端走自己的顶栏+底部栏，属性选择器都裹在 min-width 里。
       // 外壳属性统一由渲染计划给出（P3）：结构守卫（导航可达/胶囊避让）集中在

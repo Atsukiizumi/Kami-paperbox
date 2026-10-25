@@ -439,27 +439,30 @@ html.kami-motion[data-motion="on"] {
   }
 }
 
+/* 页面骨架的入场（一页一次，挂在常驻骨架元素上）：一旦本页关过动效就不再
+   重播——animation:none 杀掉的在恢复时会从头再来（动效批 Task 5）。
+   内容级 .kami-enter（每次挂载的新元素）不受此闸：新元素播入场是正当的。 */
 .kami-enter {
   animation: kami-enter var(--motion-slow) var(--ease-out) backwards;
 }
 
-.kami-page {
+html:not([data-motion-stopped]) .kami-page {
   animation: kami-page var(--motion-slow) var(--ease-out) backwards;
 }
 
-.kami-chrome-down {
+html:not([data-motion-stopped]) .kami-chrome-down {
   animation: kami-chrome-down var(--motion-slow) var(--ease-out) backwards;
 }
 
-.kami-chrome-left {
+html:not([data-motion-stopped]) .kami-chrome-left {
   animation: kami-chrome-left var(--motion-slow) var(--ease-out) backwards;
 }
 
-.kami-chrome-up {
+html:not([data-motion-stopped]) .kami-chrome-up {
   animation: kami-chrome-up var(--motion-fast) var(--ease-out) backwards;
 }
 
-.kami-pop {
+html:not([data-motion-stopped]) .kami-pop {
   animation: kami-pop 300ms var(--ease-out) backwards;
 }
 
@@ -701,7 +704,7 @@ a:focus-visible .kami-logo .kami-logo-fold {
   }
 }
 
-.kami-pop-heart {
+html:not([data-motion-stopped]) .kami-pop-heart {
   animation: kami-pop-heart 420ms var(--ease-out);
 }
 
@@ -782,6 +785,16 @@ html[data-motion="off"] .kami-img-reveal {
   transition: none;
 }
 
+/* 灯箱内层变换（动效批 Task 5）：手势进行中零补间（组件摘掉本类），
+   离散缩放（按钮/双击/键盘/滚轮步进）走 150ms 短过渡。 */
+.kami-zoom-smooth {
+  transition: transform var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-zoom-smooth {
+  transition: none;
+}
+
 /* ── 动效批（2026-09-14）────────────────────────────────────────── */
 
 /* B 主题圆形揭示：切换期间禁用默认交叉淡入，让 clip-path 圆形扩撒接管。 */
@@ -831,7 +844,7 @@ html[data-theme-transitioning]::view-transition-new(root) {
     opacity: 1;
   }
 }
-.kami-done-pop {
+html:not([data-motion-stopped]) .kami-done-pop {
   display: inline-block;
   animation: kami-done-pop 0.4s var(--ease-out) both;
 }

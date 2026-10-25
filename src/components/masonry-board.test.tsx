@@ -95,7 +95,8 @@ function Board({ children }: { children: ReactNode }) {
   return <MasonryBoard>{children}</MasonryBoard>;
 }
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 60));
+// 150ms：jsdom 的 rAF 名义 16ms，重载下会拖——留足余量避免时序抖动
+const tick = () => new Promise((resolve) => setTimeout(resolve, 150));
 const setDensity = (density: "loose" | "medium" | "tight") =>
   act(() => {
     useSettings.setState((s) => ({ pageLayout: { ...s.pageLayout, density } }));
