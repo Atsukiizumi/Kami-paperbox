@@ -10,6 +10,127 @@
 import { expect, test } from "@playwright/test";
 import { seedMotionStudy } from "./fixtures/motion-study";
 
+test.describe("动效 · 组合与回归", () => {
+  test("浏览→详情→返回：滚动位置误差 ≤2px", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    await seedMotionStudy(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
+
+    // 先把目标卡滚进视口并等滚动完全收敛，再读基线——之后 click 不再自动滚
+    const card = page.locator("article").nth(12);
+    await card.scrollIntoViewIfNeeded();
+    for (let i = 0; i < 20; i += 1) {
+      const a = await page.evaluate(() => window.scrollY);
+      await page.waitForTimeout(120);
+      const b = await page.evaluate(() => window.scrollY);
+      if (a === b) break;
+    }
+    const before = await page.evaluate(() => window.scrollY);
+    await card.locator('a[href^="/work/"]').first().click();
+    await page.waitForURL(/\/work\/yande\//, { timeout: 30_000 });
+    await expect(page.locator("button.cursor-zoom-in").first()).toBeVisible({ timeout: 30_000 });
+
+    await page.goBack();
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 30_000 });
+    await page.waitForTimeout(800);
+    const after = await page.evaluate(() => window.scrollY);
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
+    expect(errors).toEqual([]);
+  });
+
+  test("悬停预览快速开关 30 次：无残余节点与动画", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    page.on("console", (m) => {
+      if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(m.text().slice(0, 200));
+    });
+    await seedMotionStudy(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
+
+    const card = page.locator("article").first();
+    for (let i = 0; i < 30; i += 1) {
+      await card.hover();
+      await page.waitForTimeout(620);
+      await page.mouse.move(8, 8);
+      await page.waitForTimeout(360);
+    }
+    const leftovers = await page.evaluate(() => ({
+      previewNodes: document.querySelectorAll('div[class*="z-[55]"]').length,
+      animations: document.getAnimations().filter((a) => {
+        const el = (a.effect as KeyframeEffect | null)?.target;
+        return el instanceof Element && String((el as HTMLElement).className).includes("z-[55]");
+      }).length,
+    }));
+    expect(leftovers.previewNodes).toBe(0);
+    expect(leftovers.animations).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("灯箱快速开关 30 次：无透明拦截层，滚动锁与焦点恢复", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    await seedMotionStudy(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
+    const card = page.locator("article").first();
+    await card.locator('a[href^="/work/"]').first().click();
+    await page.waitForURL(/\/work\/yande\//, { timeout: 30_000 });
+    const zoom = page.locator("button.cursor-zoom-in").first();
+    await expect(zoom).toBeVisible({ timeout: 30_000 });
+
+    let maxDialogs = 0;
+    for (let i = 0; i < 30; i += 1) {
+      await zoom.click();
+      maxDialogs = Math.max(maxDialogs, await page.locator('[aria-label="大图预览"]').count());
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(60);
+    }
+    await page.waitForTimeout(600);
+    expect(maxDialogs).toBeLessThanOrEqual(1);
+    expect(await page.locator('[aria-label="大图预览"]').count()).toBe(0);
+    expect(await page.locator(".kami-lightbox-stage").count()).toBe(0);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
+    expect(errors).toEqual([]);
+  });
+
+  test("动画开关矩阵：on→off→on，CSS 与 JS 均落终态且不重播历史", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    await seedMotionStudy(page);
+    await page.goto("/settings", { waitUntil: "domcontentloaded" });
+    const toggle = page.getByRole("switch", { name: "动画效果" });
+    await expect(toggle).toBeVisible({ timeout: 30_000 });
+    // data-motion 由 ThemeProvider 水合后落——先等它就绪再断言
+    await page.waitForFunction(
+      () => document.documentElement.getAttribute("data-motion") !== null,
+      undefined,
+      { timeout: 15_000 },
+    );
+
+    const readState = () =>
+      page.evaluate(() => ({
+        motion: document.documentElement.getAttribute("data-motion"),
+        animations: document.getAnimations().length,
+      }));
+
+    expect((await readState()).motion).toBe("on");
+    await toggle.click();
+    await page.waitForTimeout(300);
+    const off = await readState();
+    expect(off.motion).toBe("off");
+    expect(off.animations).toBe(0);
+    await toggle.click();
+    await page.waitForTimeout(300);
+    const on = await readState();
+    expect(on.motion).toBe("on");
+    expect(on.animations).toBe(0, "重新开启不重播历史动作");
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe("动效 · 控件与入队", () => {
   test("榜单滑块几何对齐；入队飞纸可见、队列计数随之上升", async ({ page }) => {
     const errors: string[] = [];
