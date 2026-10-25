@@ -122,6 +122,16 @@ describe("ImageLightbox 开合生命周期（动效批 Task 5）", () => {
     HTMLElement.prototype.scrollIntoView = function scrollIntoViewStub(opts?: ScrollIntoViewOptions) {
       (document as unknown as { __lastScroll?: ScrollIntoViewOptions }).__lastScroll = opts;
     };
+    // 缩略条定位走无参 canAnimateUi()（探测 documentElement.animate）——
+    // jsdom 没有原生实现，给 html 元素装实例桩让全局探测为真
+    document.documentElement.animate = function animateStub() {
+      return {
+        finished: Promise.resolve(),
+        cancel() {},
+        finish() {},
+        commitStyles() {},
+      } as unknown as Animation;
+    };
   });
 
   it("open=false 在动效关闭时同步关闭（无透明拦截层残留）", async () => {
@@ -271,13 +281,34 @@ describe("ImageLightbox 开合生命周期（动效批 Task 5）", () => {
     assert.match(layer.className, /kami-zoom-smooth/, "抬指后恢复离散短过渡");
   });
 
-  it("缩略条定位：动效关闭时用 instant", async () => {
-    setUiMotionEnabled(false);
-    render(<ImageLightbox items={ITEMS} index={1} open onClose={() => {}} onIndex={() => {}} />);
+  it("缩略条定位：只滚缩略条自身，不动页面滚动", async () => {
+    setUiMotionEnabled(true);
+    const { rerender } = render(
+      <ImageLightbox items={ITEMS} index={1} open onClose={() => {}} onIndex={() => {}} />,
+    );
     await act(async () => {});
-    const last = (document as unknown as { __lastScroll?: ScrollIntoViewOptions }).__lastScroll;
-    assert.ok(last, "缩略条滚动已调用");
-    assert.equal(last?.behavior, "instant");
+    const strip = document.querySelector(".kami-lightbox-strip") as HTMLElement;
+    assert.ok(strip, "缩略条在位");
+    const calls: ScrollToOptions[] = [];
+    strip.scrollTo = ((opts?: ScrollToOptions) => {
+      if (opts) calls.push(opts);
+    }) as typeof strip.scrollTo;
+    // 换页（index 由父组件控制）触发定位
+    rerender(<ImageLightbox items={ITEMS} index={0} open onClose={() => {}} onIndex={() => {}} />);
+    await act(async () => {});
+    assert.equal(
+      (document as unknown as { __lastScroll?: ScrollIntoViewOptions }).__lastScroll,
+      undefined,
+      "不再用 scrollIntoView（会沿祖先链滚 window）",
+    );
+    assert.equal(calls.length, 1, "缩略条自身平滑定位一次");
+    assert.equal(calls[0]?.behavior, "smooth", "动效开：平滑滚动");
+
+    // 动效关闭：直接落位（scrollLeft 赋值），不走 scrollTo
+    setUiMotionEnabled(false);
+    rerender(<ImageLightbox items={ITEMS} index={1} open onClose={() => {}} onIndex={() => {}} />);
+    await act(async () => {});
+    assert.equal(calls.length, 1, "关停后不再平滑滚动");
   });
 
   it("unmount 恢复 body overflow", async () => {

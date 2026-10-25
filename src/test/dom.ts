@@ -39,6 +39,11 @@ if (typeof g.HTMLElement !== "undefined" && !g.HTMLElement.prototype.scrollIntoV
   g.HTMLElement.prototype.scrollIntoView = function scrollIntoView() {};
 }
 
+// jsdom 的 Element 上没有 scrollTo（灯箱缩略条定位用）；空实现
+if (typeof g.Element !== "undefined" && typeof g.Element.prototype.scrollTo !== "function") {
+  g.Element.prototype.scrollTo = function scrollTo() {};
+}
+
 // jsdom 没有实现 matchMedia / ResizeObserver，Radix 系组件会探测它们
 if (typeof g.matchMedia !== "function") {
   (g as Record<string, unknown>).matchMedia = () => ({
