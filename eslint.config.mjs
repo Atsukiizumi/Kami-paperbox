@@ -72,6 +72,7 @@ export default tseslint.config(
       "src/components/proxied-img.tsx",
       "src/components/hover-preview.tsx",
       "src/components/ugoira-player.tsx",
+      "src/components/ui/sliding-pill.tsx",
     ],
     rules: { "react-refresh/only-export-components": "off" },
   },

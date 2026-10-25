@@ -8,7 +8,7 @@
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/utils";
-import { pillStyle, useSlidingPill } from "./sliding-pill";
+import { SlidingPill, useSlidingPill } from "./sliding-pill";
 
 export const ToggleGroup = React.forwardRef<
   React.ComponentRef<typeof ToggleGroupPrimitive.Root>,
@@ -25,11 +25,7 @@ export const ToggleGroup = React.forwardRef<
       className={cn("relative flex flex-wrap items-center gap-1.5", className)}
       {...props}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 rounded-full bg-accent transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-        style={pillStyle(pill)}
-      />
+      <SlidingPill box={pill} className="rounded-full bg-accent" />
       {children}
     </ToggleGroupPrimitive.Root>
   );

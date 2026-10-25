@@ -10,6 +10,53 @@
 import { expect, test } from "@playwright/test";
 import { seedMotionStudy } from "./fixtures/motion-study";
 
+test.describe("动效 · 控件与入队", () => {
+  test("榜单滑块几何对齐；入队飞纸可见、队列计数随之上升", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    page.on("console", (m) => {
+      if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(m.text().slice(0, 200));
+    });
+
+    await seedMotionStudy(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
+
+    // 切榜单：滑块 FLIP 落位后与选中项几何对齐（≤1px），文字按钮不受影响
+    await page.getByRole("radio", { name: "近期热门" }).click();
+    await page.waitForTimeout(500);
+    const aligned = await page.evaluate(() => {
+      const on = document.querySelector('[role="radiogroup"] [data-state="on"]');
+      const pill = document.querySelector('[role="radiogroup"] span[aria-hidden]');
+      if (!on || !pill) return null;
+      const a = on.getBoundingClientRect();
+      const b = pill.getBoundingClientRect();
+      return { dx: Math.abs(a.left - b.left), dw: Math.abs(a.width - b.width), dh: Math.abs(a.height - b.height) };
+    });
+    expect(aligned).not.toBeNull();
+    expect(aligned!.dx).toBeLessThanOrEqual(1);
+    expect(aligned!.dw).toBeLessThanOrEqual(1);
+    expect(aligned!.dh).toBeLessThanOrEqual(1);
+
+    // 回「最新」，hover 首卡入队：飞纸出现又消失，队列徽标计数上升（业务 enqueue 真实发生）
+    await page.getByRole("radio", { name: "最新" }).click();
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 30_000 });
+    const card = page.locator("article").first();
+    await card.hover();
+    await card.getByRole("button", { name: "加入队列" }).click();
+    // 业务口径：enqueue 真实发生（toast），装饰口径：飞纸出现又清场
+    await expect(page.getByText("已加入队列：下载")).toBeVisible({ timeout: 5_000 });
+    const sawSheet = await page
+      .waitForFunction(() => document.querySelectorAll(".kami-fly-sheet").length >= 1, undefined, { timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    expect(sawSheet).toBe(true);
+    await expect(page.locator(".kami-fly-sheet")).toHaveCount(0, { timeout: 5_000 });
+
+    expect(errors, `页面错误：${errors.join(" | ")}`).toEqual([]);
+  });
+});
+
 test.describe("动效 · 悬停预览", () => {
   test("悬停打开、移出收起播放、滚动安全关闭", async ({ page }) => {
     const errors: string[] = [];

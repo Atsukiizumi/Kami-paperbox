@@ -152,7 +152,7 @@ assert.equal(remainingPreviewNodesAfterUnmount, 0);
 
 **Interfaces:** `useSlidingPill` / `PillBox` 外部用途保持；在同一文件新增 `SlidingPill({ box, className }: { box: PillBox; className?: string }): React.ReactNode` 作为纯背景，不包裹文字。`flyPaperToQueue(from?: DOMRect | null): void` 和 `rectFromEvent` 不变；新增 `visibleQueueTarget(root: ParentNode = document): HTMLElement | null`，只从现有 `[data-queue-nav]` 入口选择尺寸有效、未隐藏且在视口内的目标。
 
-- [ ] **Step 1: 写控件与队列测试。** 覆盖不同宽度/换行项选中、首挂载不入场、连续 A→B→A、隐藏桌面导航与可见移动导航共存、完全没有目标、20 次连续入队后最多三张在途纸片、关停和卸载后的节点释放。
+- [x] **Step 1: 写控件与队列测试。** 覆盖不同宽度/换行项选中、首挂载不入场、连续 A→B→A、隐藏桌面导航与可见移动导航共存、完全没有目标、20 次连续入队后最多三张在途纸片、关停和卸载后的节点释放。
 
 ```ts
 assert.equal(visibleQueueTarget(), mobileQueueLink);
@@ -163,11 +163,11 @@ assert.equal(document.querySelectorAll(".kami-fly-sheet").length, 0);
 
 滑块测试断言文字容器不带缩放，最终背景矩形对应选中项；位移/缩放播放交给真浏览器看。业务 enqueue 调用与 toast 文案在集成用例断言，不能仅用飞纸数量证明入队成功。
 
-- [ ] **Step 2: 跑红灯。** `node --import tsx --test src/components/ui/sliding-pill.test.tsx src/lib/paper-fly.test.ts`，旧的隐藏目标选择和无上限临时纸片应失败。
-- [ ] **Step 3: 实现背景层和纸感反馈。** 滑块的目标宽高一次落位，transform 在独立背景层补间，不拉伸 label；导航只调整现有选中标记的节奏与关停。卡片 clean hover 降至 2–3px；hand 维持微歪；按钮适合处按 80/150ms 做 0.97 按压，输入与拖柄保持稳定。
-- [ ] **Step 4: 实现可见目标、合并视觉与浮层节奏。** 飞纸 fast/slow 取 slow 400ms；三张上限之后跳过额外纸片，业务队列/计数/toast 照常。无目标或无 WAAPI 直接结束视觉函数；finish/cancel/off 都移除临时节点并处理 finished 拒绝。已有浮层展开 layer 220ms、收起 quick 150ms，保留 Radix 焦点与 Escape 行为。
-- [ ] **Step 5: 验证。** 定向测试和 `pnpm typecheck` 通过；向已有动效 E2E 加入选中条、可见队列目标和真实业务入队次数断言。触屏无 hover 仍可操作；四类目标形态下飞纸不会飞向隐藏的零尺寸节点。未完成任务不出现收入完成折角。
-- [ ] **Step 6: 提交第三批。** 建议消息 `feat: 统一控件动效与可见队列入队反馈`；与 Task 3 合为第三批 PR。
+- [x] **Step 2: 跑红灯。** `node --import tsx --test src/components/ui/sliding-pill.test.tsx src/lib/paper-fly.test.ts`，旧的隐藏目标选择和无上限临时纸片应失败。
+- [x] **Step 3: 实现背景层和纸感反馈。** 滑块的目标宽高一次落位，transform 在独立背景层补间，不拉伸 label；导航只调整现有选中标记的节奏与关停。卡片 clean hover 降至 2–3px；hand 维持微歪；按钮适合处按 80/150ms 做 0.97 按压，输入与拖柄保持稳定。
+- [x] **Step 4: 实现可见目标、合并视觉与浮层节奏。** 飞纸 fast/slow 取 slow 400ms；三张上限之后跳过额外纸片，业务队列/计数/toast 照常。无目标或无 WAAPI 直接结束视觉函数；finish/cancel/off 都移除临时节点并处理 finished 拒绝。已有浮层展开 layer 220ms、收起 quick 150ms，保留 Radix 焦点与 Escape 行为。
+- [x] **Step 5: 验证。** 定向测试和 `pnpm typecheck` 通过；向已有动效 E2E 加入选中条、可见队列目标和真实业务入队次数断言。触屏无 hover 仍可操作；四类目标形态下飞纸不会飞向隐藏的零尺寸节点。未完成任务不出现收入完成折角。
+- [x] **Step 6: 提交第三批。** 建议消息 `feat: 统一控件动效与可见队列入队反馈`；与 Task 3 合为第三批 PR。
 
 ### Task 5: 灯箱手势与整体验收（第四批，依赖 Task 1–4）
 
