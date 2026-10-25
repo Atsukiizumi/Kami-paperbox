@@ -30,7 +30,9 @@ export type LightboxItem = {
 function LightboxImage({ src, alt }: { src: string; alt: string }) {
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   return (
-    <div className="relative flex max-h-[92vh] max-w-[94vw] items-center justify-center">
+    // 尺寸链走 stage 实际可用区（size-full 逐层 definite）：92vh 硬编码不扣
+    // 工具条/缩略条高度，多 P 作品图会伸进缩略条区被 overflow-hidden 裁掉。
+    <div className="relative flex size-full items-center justify-center">
       {state !== "loaded" ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           {state === "loading" ? (
@@ -46,7 +48,7 @@ function LightboxImage({ src, alt }: { src: string; alt: string }) {
         onLoad={() => setState("loaded")}
         onError={() => setState("error")}
         className={cn(
-          "kami-img-reveal max-h-[92vh] max-w-[94vw] object-contain",
+          "kami-img-reveal max-h-full max-w-full object-contain",
           state === "loaded" ? "opacity-100" : "opacity-0",
         )}
         draggable={false}
@@ -202,9 +204,13 @@ export function ImageLightbox({
   useEffect(() => {
     if (!shown || items.length < 2) return;
     const el = document.querySelector<HTMLElement>(`[data-strip="${index}"]`);
-    // 动效关闭：缩略条即时定位，不做平滑滚动
-    const behavior: ScrollBehavior = canAnimateUi() ? "smooth" : "instant";
-    el?.scrollIntoView({ inline: "center", block: "nearest", behavior });
+    const strip = el?.closest<HTMLElement>(".kami-lightbox-strip");
+    if (!el || !strip) return;
+    // 只滚缩略条自身：scrollIntoView 会沿祖先链滚到 window（body 锁滚也能
+    // 程序滚动），灯箱开着时页面在背后被拽动。动效关闭时直接落位不平滑。
+    const left = el.offsetLeft - (strip.clientWidth - el.clientWidth) / 2;
+    if (canAnimateUi()) strip.scrollTo({ left, behavior: "smooth" });
+    else strip.scrollLeft = left;
   }, [index, shown, items.length]);
 
   // 相邻页预热：前后各两页走 warmMedia（媒体车道限流 + warmThumbs 去重 + 低优先级），
@@ -434,7 +440,7 @@ export function ImageLightbox({
           {/* 内层变换：手势进行中零补间（直接跟手）；离散操作（按钮/双击/键盘）
               才走 150ms 短过渡。 */}
           <div
-            className={cn("max-h-full max-w-full", gestureLive ? undefined : "kami-zoom-smooth")}
+            className={cn("size-full", gestureLive ? undefined : "kami-zoom-smooth")}
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
             }}
@@ -444,7 +450,7 @@ export function ImageLightbox({
                 zipUrl={item.ugoira.zipUrl}
                 frames={item.ugoira.frames}
                 alt={item.alt}
-                className="max-h-[80vh] max-w-[92vw]"
+                className="max-h-full max-w-full"
               />
             ) : (
               <LightboxImage key={item.src} src={item.src} alt={item.alt} />
