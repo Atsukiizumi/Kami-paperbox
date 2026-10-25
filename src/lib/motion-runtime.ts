@@ -87,8 +87,10 @@ export function readMotionTiming(el: Element, preset: MotionPreset): { duration:
   return { duration, easing };
 }
 
-export function canAnimateUi(): boolean {
+/** 传 el 时按该元素探测 WAAPI（调用方常在元素上桩 animate）；不传时探测环境。 */
+export function canAnimateUi(el?: Element): boolean {
   if (policy !== "on") return false;
+  if (el) return typeof (el as { animate?: unknown }).animate === "function";
   return typeof document !== "undefined" && typeof document.documentElement?.animate === "function";
 }
 

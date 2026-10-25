@@ -111,7 +111,7 @@ assert.equal(completed, 1);
 
 fixture 导出 `seedMotionStudy(page: import("@playwright/test").Page): Promise<void>`，在既有隔离 e2e server 上预置 onboarded / 固定非敏感偏好，拦截 `/api/source` 和媒体请求，按现有 `FetchOk` / `WorkCard` 类型返回 200 张静态图卡、40 张后续页及详情所需响应；只复用隔离的测试认证机制，不访问真实图站/账号/.data，不新增正式演示路由。Task 3–5 逐步扩展同一个 spec。
 
-- [ ] **Step 1: 写行为测试。** 局部桩测量矩形与 ResizeObserver / IntersectionObserver，锁定 `same geometry after repack`、`append does not replay existing cards`、`rapid resize uses current visual rect`、`offscreen and motion off skip playback`、`unmount cancels pending frame and owned animations`。用可观察的几何变量、播放调用和节点身份断言，不断言私有函数调用次数以外的实现顺序细枝。
+- [x] **Step 1: 写行为测试。** 局部桩测量矩形与 ResizeObserver / IntersectionObserver，锁定 `same geometry after repack`、`append does not replay existing cards`、`rapid resize uses current visual rect`、`offscreen and motion off skip playback`、`unmount cancels pending frame and owned animations`。用可观察的几何变量、播放调用和节点身份断言，不断言私有函数调用次数以外的实现顺序细枝。
 
 ```ts
 assert.equal(existingCard.isSameNode(cardAfterAppend), true);
@@ -120,11 +120,11 @@ assert.equal(existingCard.style.getPropertyValue("--masonry-w"), expectedWidth);
 assert.equal(replayedExistingCards.length, 0);
 ```
 
-- [ ] **Step 2: 跑红灯。** `node --import tsx --test src/components/masonry-board.test.tsx`；预期旧实现无法满足可中断 transform FLIP 与不重播的断言。
-- [ ] **Step 3: 在 packBoard 接入 First / Last。** 批量读旧视觉矩形 → 一次写最终几何 → 批量读新矩形 → 可见区域 ±120px 内存量卡片播放 250ms FLIP；复用既有合帧调度，不在逐卡写后立即读引发强制布局循环。无有效尺寸/离屏/新增卡片直接落位。
-- [ ] **Step 4: 分离冲突并删掉布局补间。** article 的位置 transform 只归 FLIP；`.kami-card-shell` 保留 hover、可一次性淡显；图片只做 opacity 揭示。删除 packed settled 的 left/top/width/height 过渡，容器高度一次更新。保留 article 的 ref、data-aspect、稳定 key、键盘焦点和事件接线；vault variant 不改算法。
-- [ ] **Step 5: 验证结果。** 建立上述 fixture 和首批重排/追加 E2E，跑新组件测试、`node --experimental-strip-types --test src/lib/masonry-flow.test.ts`、`pnpm typecheck`、`pnpm test:e2e e2e/motion-polish.spec.ts`；用同一 fixture 在真实浏览器录制 200 张卡片重排/追加/返回，核对几何、滚动锚点和动画稳定段没有本次代码造成的逐帧 Layout。
-- [ ] **Step 6: 记录并提交第二批。** CHANGELOG 写明重排与连续操作体验；建议消息 `perf: 浏览网格改用可中断的 FLIP 重排`。
+- [x] **Step 2: 跑红灯。** `node --import tsx --test src/components/masonry-board.test.tsx`；预期旧实现无法满足可中断 transform FLIP 与不重播的断言。
+- [x] **Step 3: 在 packBoard 接入 First / Last。** 批量读旧视觉矩形 → 一次写最终几何 → 批量读新矩形 → 可见区域 ±120px 内存量卡片播放 250ms FLIP；复用既有合帧调度，不在逐卡写后立即读引发强制布局循环。无有效尺寸/离屏/新增卡片直接落位。
+- [x] **Step 4: 分离冲突并删掉布局补间。** article 的位置 transform 只归 FLIP；`.kami-card-shell` 保留 hover、可一次性淡显；图片只做 opacity 揭示。删除 packed settled 的 left/top/width/height 过渡，容器高度一次更新。保留 article 的 ref、data-aspect、稳定 key、键盘焦点和事件接线；vault variant 不改算法。
+- [x] **Step 5: 验证结果。** 建立上述 fixture 和首批重排/追加 E2E，跑新组件测试、`node --experimental-strip-types --test src/lib/masonry-flow.test.ts`、`pnpm typecheck`、`pnpm test:e2e e2e/motion-polish.spec.ts`；用同一 fixture 在真实浏览器录制 200 张卡片重排/追加/返回，核对几何、滚动锚点和动画稳定段没有本次代码造成的逐帧 Layout。
+- [x] **Step 6: 记录并提交第二批。** CHANGELOG 写明重排与连续操作体验；建议消息 `perf: 浏览网格改用可中断的 FLIP 重排`。
 
 ### Task 3: 图片揭示与悬停预览（第三批上半，依赖 Task 1/2）
 
