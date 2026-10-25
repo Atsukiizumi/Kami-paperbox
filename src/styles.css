@@ -274,7 +274,8 @@ html[data-appearance="light"] {
     inset 0 1px 0 rgb(255 255 255 / 80%);
 }
 
-html.kami-motion {
+/* 主题 token 交叉淡入只在动效开启时生效（动效批 2026-10-25：开关覆盖 CSS） */
+html.kami-motion[data-motion="on"] {
   transition:
     --color-bg var(--motion-slow) var(--ease-out),
     --color-surface var(--motion-slow) var(--ease-out),
@@ -728,6 +729,44 @@ a:focus-visible .kami-logo .kami-logo-fold {
 /* 动效总开关关闭（data-motion，应用内置开关；不读系统 prefers-reduced-motion） */
 html[data-motion="off"] .kami-shimmer {
   animation: none;
+}
+
+/* 关停覆盖（动效批 2026-10-25）：body 颜色过渡、View Transition 伪元素、
+   一次性入场/弹层类全部立即落终态——关掉动画不是换一种更慢的动画。 */
+html[data-motion="off"] body {
+  transition: none;
+}
+
+html[data-motion="off"]::view-transition-old(root),
+html[data-motion="off"]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html[data-motion="off"] .kami-enter,
+html[data-motion="off"] .kami-page,
+html[data-motion="off"] .kami-chrome-down,
+html[data-motion="off"] .kami-chrome-left,
+html[data-motion="off"] .kami-chrome-up,
+html[data-motion="off"] .kami-pop,
+html[data-motion="off"] .kami-pop-heart,
+html[data-motion="off"] .kami-layer-in,
+html[data-motion="off"] .kami-layer-out,
+html[data-motion="off"] .kami-drop-in,
+html[data-motion="off"] .kami-veil-in,
+html[data-motion="off"] .kami-veil-out,
+html[data-motion="off"] .kami-logo-busy .kami-logo-fold {
+  animation: none;
+}
+
+/* 短揭示登记类（动效批 2026-10-25）：新增的淡入过渡统一挂这里，
+   与 html[data-motion="off"] 规则集配套——关停时立即到终点。 */
+.kami-xfade {
+  transition: opacity var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-xfade {
+  transition: none;
 }
 
 /* ── 动效批（2026-09-14）────────────────────────────────────────── */
