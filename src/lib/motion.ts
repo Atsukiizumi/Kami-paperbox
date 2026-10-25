@@ -52,7 +52,7 @@ export function flipProgress(from: MotionRect, to: MotionRect, visual: MotionRec
 }
 
 export function playEnter(el: HTMLElement, delay = 0): OwnedMotion {
-  if (!canAnimateUi()) return disabledMotion();
+  if (!canAnimateUi(el)) return disabledMotion();
   cancelOwnedAnimations(el);
   return playOwnedMotion(
     el,
@@ -70,7 +70,7 @@ export function animateFlip(
   to: MotionRect,
   opts?: { duration?: number; reverse?: boolean; opacityFrom?: number; opacityTo?: number },
 ): OwnedMotion {
-  if (!canAnimateUi()) return disabledMotion();
+  if (!canAnimateUi(el)) return disabledMotion();
   const invert = flipMatrix(from, to);
   const full = opts?.duration ?? 480;
   const endTransform = opts?.reverse ? invert : IDENTITY_MATRIX;
@@ -114,7 +114,7 @@ export function animateFlip(
 }
 
 export function animateDrift(el: HTMLElement, px = 8): OwnedMotion {
-  if (!canAnimateUi()) return disabledMotion();
+  if (!canAnimateUi(el)) return disabledMotion();
   cancelOwnedAnimations(el);
   el.style.willChange = "transform";
   return playOwnedMotion(

@@ -757,6 +757,18 @@ html[data-motion="off"] .kami-xfade {
   transition: none;
 }
 
+/* 图片揭示（动效批 Task 3）：opacity 150ms 纯淡入，transform 归悬停缩放；
+   同一条声明覆盖两个属性，避免与调用方 transition 工具类互相覆盖。 */
+.kami-img-reveal {
+  transition:
+    opacity var(--motion-quick) var(--ease-out),
+    transform var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-img-reveal {
+  transition: none;
+}
+
 /* ── 动效批（2026-09-14）────────────────────────────────────────── */
 
 /* B 主题圆形揭示：切换期间禁用默认交叉淡入，让 clip-path 圆形扩撒接管。 */

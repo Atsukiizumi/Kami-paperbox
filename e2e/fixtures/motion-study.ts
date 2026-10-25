@@ -65,6 +65,10 @@ function studyDetail(card: StudyCard) {
 const SVG_BODY =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#2a2723"/><circle cx="200" cy="150" r="80" fill="#d8cfc0"/></svg>';
 
+/** 固定测试账号：复用 e2e server 时先登录，没注册过才注册——避免反复注册触发 better-auth 限流。 */
+const STUDY_EMAIL = "kami-e2e-motion@example.com";
+const STUDY_PASSWORD = "kami-e2e-pass-123";
+
 /** 默认形态下数据面要会话：注册一个临时账号（复用关键路径 spec 的做法；账号形态关闭时跳过）。 */
 async function registerIfNeeded(page: Page) {
   await page.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
@@ -79,8 +83,17 @@ async function registerIfNeeded(page: Page) {
     return input instanceof HTMLInputElement && !input.disabled;
   }, undefined, { timeout: 60_000, polling: 500 });
   if (await page.getByText("已登录").count()) return;
-  await email.fill(`kami-e2e-${Date.now()}@example.com`);
-  await page.locator("#app-account-password").fill("kami-e2e-pass-123");
+  await email.fill(STUDY_EMAIL);
+  await page.locator("#app-account-password").fill(STUDY_PASSWORD);
+  // 老服务器上账号多半已存在：先登录，不行（新库）再注册
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  const loggedIn = await page
+    .getByText("已登录")
+    .first()
+    .waitFor({ timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (loggedIn) return;
   await page.getByRole("button", { name: "注册", exact: true }).click();
   await page.getByText("已登录").first().waitFor({ timeout: 30_000 });
 }

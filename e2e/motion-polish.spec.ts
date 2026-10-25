@@ -10,6 +10,46 @@
 import { expect, test } from "@playwright/test";
 import { seedMotionStudy } from "./fixtures/motion-study";
 
+test.describe("动效 · 悬停预览", () => {
+  test("悬停打开、移出收起播放、滚动安全关闭", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)));
+    page.on("console", (m) => {
+      if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(m.text().slice(0, 200));
+    });
+
+    await seedMotionStudy(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
+
+    const shell = page.locator('div[class*="z-[55]"]');
+    const card = page.locator("article").first();
+
+    // 悬停 520ms 触发预览：同一封面长大
+    await card.hover();
+    await expect(shell).toBeVisible({ timeout: 5_000 });
+    await expect(shell.locator("img").first()).toBeVisible();
+
+    // 移出：150ms 收回 FLIP 在播，随后浮层卸载
+    await page.mouse.move(8, 8);
+    await expect
+      .poll(() => shell.evaluate((el) => el.getAnimations().length), { timeout: 1_500 })
+      .toBeGreaterThan(0);
+    await expect(shell).toHaveCount(0, { timeout: 2_000 });
+
+    // 再悬停重新打开；整个往返无页面错误、无叠加节点
+    await card.hover();
+    await expect(shell).toBeVisible({ timeout: 5_000 });
+    expect(await shell.count()).toBe(1);
+
+    // 滚动导致锚点失效：预览安全收起
+    await page.mouse.wheel(0, 900);
+    await expect(shell).toHaveCount(0, { timeout: 2_000 });
+
+    expect(errors, `页面错误：${errors.join(" | ")}`).toEqual([]);
+  });
+});
+
 test.describe("动效 · 浏览网格重排", () => {
   test("固定图卡上屏、尾部追加不重播前部卡片", async ({ page }) => {
     const errors: string[] = [];

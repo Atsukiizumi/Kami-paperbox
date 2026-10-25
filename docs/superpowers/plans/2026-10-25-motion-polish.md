@@ -132,7 +132,7 @@ assert.equal(replayedExistingCards.length, 0);
 
 **Interfaces:** ProxiedImg 的既有 props 保持兼容；新增可选 `fallbackSrc?: string` 用于高清未就绪时保持缩略图，默认为 undefined，不改其他调用者。HoverPreview 的外部 props 不变，使用 Task 1 的 `OwnedMotion` 和 `animateFlip`。
 
-- [ ] **Step 1: 写有意义的回归。** 测试名锁定 `warm image is visible without replay`、`source changes before previous load completes`、`fallback remains visible when hd fails`、`veil also covers fallback`、`preview open-close-open ignores obsolete finish`、`scroll/unmount removes preview and owned playback`。不改共享 DOM 垫片；需要更真实 IO/WAAPI 的测试在本文件安装并恢复桩。
+- [x] **Step 1: 写有意义的回归。** 测试名锁定 `warm image is visible without replay`、`source changes before previous load completes`、`fallback remains visible when hd fails`、`veil also covers fallback`、`preview open-close-open ignores obsolete finish`、`scroll/unmount removes preview and owned playback`。不改共享 DOM 垫片；需要更真实 IO/WAAPI 的测试在本文件安装并恢复桩。
 
 ```ts
 assert.equal(shownImage.getAttribute("src"), expectedCurrentSrc);
@@ -140,11 +140,11 @@ assert.equal(obsoleteCloseRemovedCurrentPreview, false);
 assert.equal(remainingPreviewNodesAfterUnmount, 0);
 ```
 
-- [ ] **Step 2: 跑红灯。** `node --import tsx --test src/components/proxied-img.test.tsx src/components/hover-preview.test.tsx`；高清失败衔接与新生命周期断言应暴露旧行为缺口。
-- [ ] **Step 3: 实现短揭示和预览衔接。** 用 quick token 的 150ms opacity 揭示替换 500ms 缩放；缓存命中立即显示。预览先展示已加载封面，高清成功后短淡换；维持原图裁切、访客遮盖、车道和重试。新 fallback 不触发另一条绕过媒体车道的请求。
-- [ ] **Step 4: 统一预览进退和清理。** 按 fast token 250ms 展开、quick 150ms 收回；中断取当前视觉，不跳回 from；修复浮层渐隐的硬编码与总开关登记，滚动/卸载解除残余动画。静态预览仍可在 off 时打开，关闭补间不等于禁止预览功能。
-- [ ] **Step 5: 复验。** 新测试和 `pnpm typecheck` 通过；向已有动效 E2E 加入缓存命中、高清失败和滚动收起用例。浏览器快速掠过卡片、滚动收起、高清失败时没有空白放大框或未遮盖 fallback。
-- [ ] **Step 6: 提交。** 建议消息 `feat: 图片揭示与悬停预览统一纸感节奏`。
+- [x] **Step 2: 跑红灯。** `node --import tsx --test src/components/proxied-img.test.tsx src/components/hover-preview.test.tsx`；高清失败衔接与新生命周期断言应暴露旧行为缺口。
+- [x] **Step 3: 实现短揭示和预览衔接。** 用 quick token 的 150ms opacity 揭示替换 500ms 缩放；缓存命中立即显示。预览先展示已加载封面，高清成功后短淡换；维持原图裁切、访客遮盖、车道和重试。新 fallback 不触发另一条绕过媒体车道的请求。
+- [x] **Step 4: 统一预览进退和清理。** 按 fast token 250ms 展开、quick 150ms 收回；中断取当前视觉，不跳回 from；修复浮层渐隐的硬编码与总开关登记，滚动/卸载解除残余动画。静态预览仍可在 off 时打开，关闭补间不等于禁止预览功能。
+- [x] **Step 5: 复验。** 新测试和 `pnpm typecheck` 通过；向已有动效 E2E 加入缓存命中、高清失败和滚动收起用例。浏览器快速掠过卡片、滚动收起、高清失败时没有空白放大框或未遮盖 fallback。
+- [x] **Step 6: 提交。** 建议消息 `feat: 图片揭示与悬停预览统一纸感节奏`。
 
 ### Task 4: 控件反馈与飞纸入队（第三批下半，依赖 Task 1/3）
 

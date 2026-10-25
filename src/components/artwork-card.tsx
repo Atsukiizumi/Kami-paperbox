@@ -223,7 +223,7 @@ export function ArtworkCard({
                   sizes="(max-width: 640px) 50vw, (max-width: 1100px) 33vw, 240px"
                   viewTransitionName={`kami-${work.source}-${work.id}`}
                   className={cn(
-                    "size-full object-cover transition-[transform,opacity] duration-200 ease-out",
+                    "size-full object-cover",
                     preview ? "opacity-0" : "group-hover:scale-[1.04]",
                   )}
                 />
