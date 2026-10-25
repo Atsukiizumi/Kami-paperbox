@@ -651,9 +651,8 @@ a:focus-visible .kami-logo .kami-logo-fold {
   gap: var(--masonry-gap);
 }
 
-.kami-masonry[data-packed][data-settled] {
-  transition: height 480ms var(--ease-out);
-}
+/* 几何（left/top/width/height）一次写最终值，不逐帧补间（动效批 Task 2）；
+   重排的连续感由 masonry-motion 的 transform FLIP 负责。 */
 
 .kami-masonry[data-packed] > * {
   position: absolute;
@@ -661,13 +660,6 @@ a:focus-visible .kami-logo .kami-logo-fold {
   top: var(--masonry-y, 0px);
   width: var(--masonry-w, 100%);
   margin: 0;
-}
-
-.kami-masonry[data-packed][data-settled] > * {
-  transition:
-    left 480ms var(--ease-out),
-    top 480ms var(--ease-out),
-    width 480ms var(--ease-out);
 }
 
 .kami-card-media {
@@ -678,10 +670,6 @@ a:focus-visible .kami-logo .kami-logo-fold {
   aspect-ratio: auto;
   width: 100%;
   height: var(--masonry-media-h);
-}
-
-.kami-masonry[data-packed][data-settled] .kami-card-media {
-  transition: height 480ms var(--ease-out);
 }
 
 .kami-masonry[data-packed] > :not(:has(.kami-card-media)) {
@@ -778,20 +766,17 @@ html[data-theme-transitioning]::view-transition-new(root) {
   mix-blend-mode: normal;
 }
 
-/* D 滚动渐入：masonry 子卡进视口才显形（transform/opacity only）。 */
+/* D 滚动渐入：子卡进视口才显形。article 的 transform 只归重排 FLIP（Task 2），
+   揭示收敛为纯 opacity 的短淡入（150ms）。 */
 [data-packed] > * {
   opacity: 0;
-  transform: translate3d(0, 14px, 0);
 }
 [data-packed] > .kami-enter {
   animation: none;
 }
 [data-packed] > [data-inview] {
   opacity: 1;
-  transform: none;
-  transition:
-    opacity 0.4s var(--ease-out),
-    transform 0.4s var(--ease-out);
+  transition: opacity var(--motion-quick) var(--ease-out);
 }
 
 /* C-空态：纸标轻微漂浮。 */
@@ -828,7 +813,6 @@ html[data-theme-transitioning]::view-transition-new(root) {
 
 html[data-motion="off"] [data-packed] > * {
   opacity: 1;
-  transform: none;
 }
 html[data-motion="off"] [data-packed] > [data-inview] {
   transition: none;

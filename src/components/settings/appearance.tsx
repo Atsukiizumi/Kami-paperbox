@@ -43,7 +43,7 @@ function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
   document.documentElement.setAttribute("data-theme-transitioning", "");
   void transition.ready
     .then(() => {
-      if (!canAnimateUi()) return;
+      if (!canAnimateUi(document.documentElement)) return;
       const radius = Math.hypot(
         Math.max(point.x, window.innerWidth - point.x),
         Math.max(point.y, window.innerHeight - point.y),

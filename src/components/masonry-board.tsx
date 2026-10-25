@@ -12,6 +12,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { MASONRY_CAPTION, MASONRY_MAX_COLS, masonryMinCard, masonryRowHeight, packJustified } from "@/lib/masonry-flow";
 import { useSettings } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { clearMasonryMotion, playMasonryReflow, snapshotMasonry } from "@/lib/masonry-motion";
 
 /** 浏览密度（布局引擎 P1）：目标行高乘数——medium = 现状 1.0；只影响打包几何，不动 CSS。 */
 const DENSITY_FACTOR = { loose: 1.18, medium: 1, tight: 0.85 } as const;
@@ -62,6 +63,10 @@ function packBoard(root: HTMLElement) {
     return;
   }
 
+  // FLIP 前：整批读旧视觉矩形（含在播 transform）。几何写完后 playMasonryReflow
+  // 只给存量可见卡片播 transform 补间；left/top/width 不再逐帧过渡（动效批 Task 2）。
+  const before = snapshotMasonry(root);
+
   const gap = readGap(root);
   const hasCaption = children.some((el) => el.querySelector(".kami-card-media"));
   const maxCols = Number.parseInt(root.dataset.maxCols || "", 10);
@@ -77,26 +82,19 @@ function packBoard(root: HTMLElement) {
   });
 
   root.setAttribute("data-packed", "");
-  const settled = root.hasAttribute("data-settled");
   children.forEach((el, i) => {
     const place = packed.placements[i];
     if (!place) return;
-    const fresh = !el.hasAttribute("data-placed");
-    if (fresh) el.style.transition = "none";
     el.style.setProperty("--masonry-x", `${place.x}px`);
     el.style.setProperty("--masonry-y", `${place.y}px`);
     el.style.setProperty("--masonry-w", `${place.width}px`);
     el.style.setProperty("--masonry-media-h", `${place.height}px`);
     el.setAttribute("data-placed", "");
     if (inviewObserver && !el.hasAttribute("data-inview")) inviewObserver.observe(el);
-    if (fresh && settled) {
-      requestAnimationFrame(() => el.style.removeProperty("transition"));
-    }
   });
+  // 容器高度一次落位（不补间），滚动锚点交给浏览器默认行为
   root.style.setProperty("--masonry-h", `${packed.height}px`);
-  if (!settled) {
-    requestAnimationFrame(() => root.setAttribute("data-settled", ""));
-  }
+  playMasonryReflow(root, before);
 }
 
 export function MasonryBoard({
@@ -149,6 +147,7 @@ export function MasonryBoard({
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
+      clearMasonryMotion(root);
       ro.disconnect();
       mo.disconnect();
     };
