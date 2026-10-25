@@ -332,7 +332,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated transition-transform duration-300 ease-out",
+              "kami-nav-marker pointer-events-none absolute inset-x-2 top-2 h-11 rounded-xl bg-elevated",
               desktopRawIndex < 0 && "opacity-0",
             )}
             style={{ transform: `translateY(${activeIndex * 3}rem)` }}
@@ -417,7 +417,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute top-1 left-0 flex w-1/6 justify-center transition-transform duration-200 ease-out",
+              "kami-nav-marker pointer-events-none absolute top-1 left-0 flex w-1/6 justify-center",
               mobileRawIndex < 0 && "opacity-0",
             )}
             style={{ transform: `translateX(${activeIndexMobile * 100}%)` }}

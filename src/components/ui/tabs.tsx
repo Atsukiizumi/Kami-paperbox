@@ -8,7 +8,7 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
-import { pillStyle, useSlidingPill } from "./sliding-pill";
+import { SlidingPill, useSlidingPill } from "./sliding-pill";
 
 export const Tabs = TabsPrimitive.Root;
 
@@ -27,11 +27,7 @@ export const TabsList = React.forwardRef<
       className={cn("relative inline-flex h-11 w-full items-center rounded-xl bg-surface p-1", className)}
       {...props}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 rounded-lg bg-accent shadow-[var(--shadow-border)] transition-[transform,width,height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-        style={pillStyle(pill)}
-      />
+      <SlidingPill box={pill} className="rounded-lg bg-accent shadow-[var(--shadow-border)]" />
       {children}
     </TabsPrimitive.List>
   );

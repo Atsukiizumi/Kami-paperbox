@@ -65,24 +65,37 @@ function studyDetail(card: StudyCard) {
 const SVG_BODY =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#2a2723"/><circle cx="200" cy="150" r="80" fill="#d8cfc0"/></svg>';
 
-/** 默认形态下数据面要会话：注册一个临时账号（复用关键路径 spec 的做法；账号形态关闭时跳过）。 */
-async function registerIfNeeded(page: Page) {
+/** 默认形态下数据面要会话：本进程首个用例注册唯一账号并缓存会话 cookie，
+ * 后续用例直接带 cookie——不再每个用例都走登录/注册（隔离库上稳定且省时）。 */
+const STUDY_PASSWORD = "kami-e2e-pass-123";
+let sessionCookies: { name: string; value: string; domain: string; path: string }[] | null = null;
+
+async function ensureSession(page: Page) {
+  if (sessionCookies?.length) {
+    await page.context().addCookies(sessionCookies);
+    return;
+  }
   await page.goto("/settings#accounts", { waitUntil: "domcontentloaded" });
   const email = page.locator("#app-account-email");
   try {
     await email.waitFor({ state: "visible", timeout: 20_000 });
   } catch {
-    return;
+    return; // 账号关闭形态——数据面走 LAN 令牌，不在本夹具范围
   }
   await page.waitForFunction(() => {
     const input = document.querySelector("#app-account-email");
     return input instanceof HTMLInputElement && !input.disabled;
   }, undefined, { timeout: 60_000, polling: 500 });
-  if (await page.getByText("已登录").count()) return;
-  await email.fill(`kami-e2e-${Date.now()}@example.com`);
-  await page.locator("#app-account-password").fill("kami-e2e-pass-123");
+  if (await page.getByText("已登录").count()) {
+    sessionCookies = (await page.context().storageState()).cookies.map(({ name, value, domain, path }) => ({ name, value, domain, path }));
+    return;
+  }
+  const emailAddr = `kami-e2e-motion-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  await email.fill(emailAddr);
+  await page.locator("#app-account-password").fill(STUDY_PASSWORD);
   await page.getByRole("button", { name: "注册", exact: true }).click();
   await page.getByText("已登录").first().waitFor({ timeout: 30_000 });
+  sessionCookies = (await page.context().storageState()).cookies.map(({ name, value, domain, path }) => ({ name, value, domain, path }));
 }
 
 export async function seedMotionStudy(page: Page, opts?: { motionEnabled?: boolean }) {
@@ -131,5 +144,5 @@ export async function seedMotionStudy(page: Page, opts?: { motionEnabled?: boole
     await route.fulfill({ contentType: "image/svg+xml", body: SVG_BODY });
   });
 
-  await registerIfNeeded(page);
+  await ensureSession(page);
 }

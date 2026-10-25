@@ -511,8 +511,12 @@ html.kami-motion[data-motion="on"] {
   background: var(--color-surface);
   box-shadow: var(--shadow-border);
   transition:
-    transform 400ms var(--ease-out),
-    box-shadow 400ms var(--ease-out);
+    transform var(--motion-quick) var(--ease-out),
+    box-shadow var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-card-shell {
+  transition: none;
 }
 
 .kami-card-caption {
@@ -605,13 +609,22 @@ html.kami-motion[data-motion="on"] {
 
 @media (hover: hover) and (pointer: fine) {
   .kami-card-shell:hover {
-    transform: translate3d(0, -10px, 0);
+    transform: translate3d(0, -3px, 0);
     box-shadow: var(--shadow-float);
   }
 
   .kami-card-shell:active {
-    transform: translate3d(0, -3px, 0);
+    transform: translate3d(0, -1px, 0);
   }
+}
+
+/* 导航选中标记（动效批 Task 4）：transform 直移，quick 节奏；关停即落位 */
+.kami-nav-marker {
+  transition: transform var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-nav-marker {
+  transition: none;
 }
 
 .kami-logo .kami-logo-fold {
@@ -754,6 +767,18 @@ html[data-motion="off"] .kami-logo-busy .kami-logo-fold {
 }
 
 html[data-motion="off"] .kami-xfade {
+  transition: none;
+}
+
+/* 图片揭示（动效批 Task 3）：opacity 150ms 纯淡入，transform 归悬停缩放；
+   同一条声明覆盖两个属性，避免与调用方 transition 工具类互相覆盖。 */
+.kami-img-reveal {
+  transition:
+    opacity var(--motion-quick) var(--ease-out),
+    transform var(--motion-quick) var(--ease-out);
+}
+
+html[data-motion="off"] .kami-img-reveal {
   transition: none;
 }
 
