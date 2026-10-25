@@ -17,6 +17,8 @@ import {
 } from "@/lib/theme";
 import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
+import { EASE_OUT } from "@/lib/motion";
+import { canAnimateUi, playOwnedMotion } from "@/lib/motion-runtime";
 import { themeAssetUrl, useThemePackList } from "@/lib/theme-pack-client";
 import { composeExportManifest, type ThemePackInfo } from "@/lib/theme-pack";
 import { DEFAULT_DESK_LAYOUT, DEFAULT_SHELL_CUSTOM, SHELL_WIDTH_RANGE } from "@/lib/desk-layout";
@@ -24,7 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-/** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器或动效关闭时直接切。 */
+/** 主题切换圆形揭示（动效批 B）：View Transition 从点击点扩散；不支持的浏览器或动效关闭时直接切。
+ *  圆形扩撒的关键帧动画交给 motion-runtime 托管——等待 ready 期间开关可能被关掉，托管后统一收尾。 */
 function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
   const doc = document as Document & {
     startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
@@ -38,23 +41,29 @@ function transitionTheme(apply: () => void, point?: { x: number; y: number }) {
   });
   if (!point) return;
   document.documentElement.setAttribute("data-theme-transitioning", "");
-  void transition.ready.then(() => {
-    const radius = Math.hypot(
-      Math.max(point.x, window.innerWidth - point.x),
-      Math.max(point.y, window.innerHeight - point.y),
-    );
-    document.documentElement.animate(
-      {
-        clipPath: [
-          `circle(0px at ${point.x}px ${point.y}px)`,
-          `circle(${radius}px at ${point.x}px ${point.y}px)`,
+  void transition.ready
+    .then(() => {
+      if (!canAnimateUi()) return;
+      const radius = Math.hypot(
+        Math.max(point.x, window.innerWidth - point.x),
+        Math.max(point.y, window.innerHeight - point.y),
+      );
+      playOwnedMotion(
+        document.documentElement,
+        [
+          { clipPath: `circle(0px at ${point.x}px ${point.y}px)` },
+          { clipPath: `circle(${radius}px at ${point.x}px ${point.y}px)` },
         ],
-      },
-      { duration: 420, easing: "cubic-bezier(0.22, 1, 0.36, 1)", pseudoElement: "::view-transition-new(root)" },
-    );
-  }).finally(() => {
-    void transition.finished.finally(() => document.documentElement.removeAttribute("data-theme-transitioning"));
-  });
+        { duration: 420, easing: EASE_OUT, pseudoElement: "::view-transition-new(root)" },
+      );
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      // ready / finished 在 View Transition 被跳过时会 reject，两处都吞掉再摘标记
+      void transition.finished
+        .catch(() => undefined)
+        .then(() => document.documentElement.removeAttribute("data-theme-transitioning"));
+    });
 }
 import { cn } from "@/lib/utils";
 import { useResolvedAppearance } from "@/components/theme-provider";

@@ -7,6 +7,7 @@ import { useSettings, onPersisted } from "@/lib/store";
 import { useActiveThemePack } from "@/lib/theme-pack-client";
 import type { ThemePackInfo } from "@/lib/theme-pack";
 import { shellRenderPlan } from "@/lib/desk-layout";
+import { setUiMotionEnabled } from "@/lib/motion-runtime";
 
 const ResolvedAppearanceContext = createContext<ResolvedAppearance>("dark");
 
@@ -59,8 +60,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // 界面风格（手绘记号层）：clean 移除属性，hand 挂上——styles.css 按属性切换。
       if (state.uiStyle === "hand") document.documentElement.setAttribute("data-kami-style", "hand");
       else document.documentElement.removeAttribute("data-kami-style");
-      // 动效总开关：styles.css 按 data-motion="off" 关停过渡/动画（不读系统设置）。
+      // 动效总开关：styles.css 按 data-motion="off" 关停过渡/动画（不读系统设置）；
+      // JS 侧同一开关同步进运行时——水合后策略才明确，之前一律不起播。
       document.documentElement.setAttribute("data-motion", state.motionEnabled ? "on" : "off");
+      setUiMotionEnabled(state.motionEnabled);
       // 外壳形态 / 页宽 / 纸匣列宽（布局引擎 P1）：属性驱动，styles.css 按值切换，
       // 仅 md+ 生效——移动端走自己的顶栏+底部栏，属性选择器都裹在 min-width 里。
       // 外壳属性统一由渲染计划给出（P3）：结构守卫（导航可达/胶囊避让）集中在
