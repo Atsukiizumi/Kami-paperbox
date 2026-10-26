@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DESK_MODULE_NODES } from "@/components/desk/desk-registry";
@@ -110,6 +110,9 @@ export function DeskPage() {
 
   // ── 编辑态（draft 只在编辑期间存在；完成/存为才落 store） ──
   const [editing, setEditing] = useState(false);
+  // BINDERY 皮肤：退出编排盖「整理済」章；timer 存 ref 防快速进出编排的竞态。
+  const [tidied, setTidied] = useState(false);
+  const tidyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draft, setDraft] = useState<DeskLayout>(DEFAULT_DESK_LAYOUT);
   const [selected, setSelected] = useState<DeskModuleId | null>(null);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
@@ -240,7 +243,16 @@ export function DeskPage() {
   const exitEdit = () => {
     setEditing(false);
     setSelected(null);
+    if (tidyTimer.current) clearTimeout(tidyTimer.current);
+    setTidied(true);
+    tidyTimer.current = setTimeout(() => setTidied(false), 1800);
   };
+  useEffect(
+    () => () => {
+      if (tidyTimer.current) clearTimeout(tidyTimer.current);
+    },
+    [],
+  );
   const removeFromDraft = (id: DeskModuleId) =>
     setDraft((prev) => ({
       ...prev,
@@ -327,7 +339,7 @@ export function DeskPage() {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div className="kami-content mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
+    <div data-desk-skin="bindery" className="kami-content mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
       {showSeal ? (
         // 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期章，下边一条墨线
         <header className="flex items-end justify-between gap-3 border-b border-border/70 pb-2.5">
@@ -471,6 +483,16 @@ export function DeskPage() {
           <span className="font-display">今日也请多指教。</span>
         </footer>
       ) : null}
+      {/* BINDERY 页脚元数据行（稿纸版式专属；编辑式保留自带温情页脚，避免双页脚） */}
+      {!editing && layout.headerSeal !== true ? (
+        <footer className="kami-dk-meta border-t border-border/60 pt-2">
+          <span>{deskDateCn(date)} · 纸匣未读 {unreadCount} 点</span>
+          <span>Kami Paperbox</span>
+        </footer>
+      ) : null}
+      <span aria-hidden className={cn("kami-dk-stamp", tidied && !editing && "show")}>
+        整理済
+      </span>
     </div>
   );
 }
@@ -497,6 +519,13 @@ function DeskEditorialSeal({ date }: { date: string }) {
       )}
     </span>
   );
+}
+
+/** 日期→中文数字一行（页脚元数据用，如 十月廿六日）。 */
+function deskDateCn(date: string): string {
+  const m = /(\d{1,2})\s*月\s*(\d{1,2})\s*日/.exec(date);
+  if (!m) return date;
+  return `${numberToCn(m[1])}月${numberToCn(m[2])}日`;
 }
 
 /** 数字→中文（印章用，10→十、21→廿一、24→廿四）。 */

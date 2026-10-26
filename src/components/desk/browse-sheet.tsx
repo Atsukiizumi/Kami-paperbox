@@ -11,7 +11,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useCrossfade } from "@/components/desk/use-crossfade";
@@ -43,7 +43,7 @@ function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className
           key={`${card.source}:${card.id}`}
           to="/work/$source/$id"
           params={{ source: card.source, id: card.id }}
-          className="relative block aspect-[3/4] overflow-hidden rounded-md bg-elevated"
+          className="kami-dk-tile relative block aspect-[3/4] overflow-hidden rounded-md bg-elevated"
         >
           <ProxiedImg
             src={card.thumb}
@@ -57,6 +57,12 @@ function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className
 }
 
 export function DeskBrowseSheet({ className }: { className?: string }) {
+  // BINDERY 铺开只属首进场：1.6s 后摘 kami-dk-layin，轮播每 8s 换批的新 tile 不再重播。
+  const [layIn, setLayIn] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLayIn(false), 1600);
+    return () => clearTimeout(t);
+  }, []);
   const tab = useSettings((s) => s.tab);
   const safeModeBySite = useSettings((s) => s.safeModeBySite);
   const safeMode = safeModeBySite[tab];
@@ -133,14 +139,15 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     <section
       ref={containerRef}
       className={cn(
-        "kami-card-folded relative overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-paper-1)]",
+        "kami-card-folded kami-dk-mod relative overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-paper-1)]",
+        layIn && "kami-dk-layin",
         className,
       )}
     >
       {pending ? (
         <div className="grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6">
           {Array.from({ length: batch }, (_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-md bg-elevated" />
+            <div key={i} className="kami-dk-tile aspect-[3/4] rounded-md bg-elevated" />
           ))}
         </div>
       ) : needsCarousel(carouselFrames) && frame ? (
@@ -156,7 +163,7 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       )}
       <div className="flex items-end justify-between gap-3 px-5 py-4">
         <div>
-          <p className="text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
+          <p className="kami-dk-label text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
           <Link
             to="/browse"
             prefetch={false}

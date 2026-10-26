@@ -59,7 +59,7 @@ export function DeskStack({ count, items }: { count: number; items: VaultMeta[] 
   return (
     <Link
       to="/vault?unread=1"
-      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-paper-1)]"
+      className="kami-dk-mod block rounded-xl bg-surface p-4 shadow-[var(--shadow-paper-1)]"
     >
       <div className="relative h-40" aria-hidden>
         {shown.length === 0 ? (
@@ -68,7 +68,8 @@ export function DeskStack({ count, items }: { count: number; items: VaultMeta[] 
           shown.map((item, i) => <StackLeaf key={item.key} item={item} place={LEAF_PLACE[i] ?? "left-0"} />)
         )}
       </div>
-      <p className="mt-3 font-display text-3xl tracking-tight tabular-nums">{count}</p>
+      <p className="kami-dk-label mt-3">纸叠</p>
+      <p className="font-display text-3xl tracking-tight tabular-nums">{count}</p>
       <p className="text-sm text-muted">未读</p>
     </Link>
   );
