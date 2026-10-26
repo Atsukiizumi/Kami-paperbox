@@ -17,6 +17,7 @@ import {
 } from "@/lib/theme";
 import { flushSync } from "react-dom";
 import { useSettings } from "@/lib/store";
+import { Link } from "@/lib/kami-link";
 import { EASE_OUT } from "@/lib/motion";
 import { canAnimateUi, playOwnedMotion } from "@/lib/motion-runtime";
 import { themeAssetUrl, useThemePackList } from "@/lib/theme-pack-client";
@@ -498,6 +499,14 @@ function PageLayoutSection() {
         options={[{ v: "narrow", t: "窄" }, { v: "medium", t: "中" }, { v: "wide", t: "宽" }]}
         onChange={(v) => setPageLayout({ vaultCol: v as "narrow" | "medium" | "wide" })}
       />
+      {/* BINDERY 演示间入口（批二）：风格基准页，设置里可达 */}
+      <Link
+        to="/bindery"
+        className="mt-2 inline-flex items-baseline gap-2 self-start border-b border-dashed border-border/70 pb-0.5 text-xs text-muted transition-colors hover:text-fg"
+      >
+        BINDERY 装帧演示间
+        <span className="font-mono text-[10px] tracking-[0.2em]">/BINDERY</span>
+      </Link>
     </>
   );
 }

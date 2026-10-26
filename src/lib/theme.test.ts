@@ -20,7 +20,7 @@ import {
 
 describe("theme catalog", () => {
   it("ships five named palettes with light and dark hex tokens", () => {
-    assert.equal(THEME_IDS.length, 5);
+    assert.equal(THEME_IDS.length, 6);
     assert.equal(DEFAULT_THEME, "washi");
     assert.equal(DEFAULT_APPEARANCE, "dark");
     for (const id of THEME_IDS) {
