@@ -37,7 +37,7 @@ const sheetFrameUrls = (frame: readonly WorkCard[]) => frame.map((card) => card.
 function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className?: string }) {
   const veil = useVeil((s) => s.veil);
   return (
-    <div className={cn("grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6", className)}>
+    <div className={cn("kami-dk-sheetgrid grid gap-1 p-1.5", className)}>
       {cards.map((card) => (
         <Link
           key={`${card.source}:${card.id}`}
@@ -106,9 +106,12 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     },
   });
 
-  // 大屏适配：2xl（≥1536px）6 列 ×2 行批 12、池 36；默认 4 列批 8、池 24。
+  // 密度四档（与 sheetTier 断点一致）：4×2 / 6×3 / 8×3(2K+) / 10×3(4K+)；池深恒 3 批。
   const is2xl = useMediaFlag("(min-width: 1536px)");
-  const batch = sheetBatch(is2xl);
+  const is2k = useMediaFlag("(min-width: 2200px)");
+  const is4k = useMediaFlag("(min-width: 3200px)");
+  const tier = is4k ? 3 : is2k ? 2 : is2xl ? 1 : 0;
+  const batch = sheetBatch(tier);
   const poolLimit = batch * 3;
 
   // query.data 引用稳定（react-query 缓存对象），frames 顺势稳定，节奏不被无关渲染重置。
@@ -145,7 +148,7 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       )}
     >
       {pending ? (
-        <div className="grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6">
+        <div className="kami-dk-sheetgrid grid gap-1 p-1.5">
           {Array.from({ length: batch }, (_, i) => (
             <div key={i} className="kami-dk-tile aspect-[3/4] rounded-md bg-elevated" />
           ))}

@@ -3149,6 +3149,26 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   color: var(--color-subtle);
 }
 
+/* 铺纸列数四档（与 sheetTier 断点同步；不用 Tailwind 任意变体——排序会被 2xl 压住） */
+[data-desk-skin="bindery"] .kami-dk-sheetgrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (min-width: 1536px) {
+  [data-desk-skin="bindery"] .kami-dk-sheetgrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (min-width: 2200px) {
+  [data-desk-skin="bindery"] .kami-dk-sheetgrid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+@media (min-width: 3200px) {
+  [data-desk-skin="bindery"] .kami-dk-sheetgrid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+
 /* ── 案头对齐引擎 v1：槽底自动对齐 ──────────────────────────────────────────
    可伸缩模块（kami-dk-flex，清单见 desk.tsx ALIGN_STRETCH）在槽 flex 列里吸收
    行高差；模块卡与内部図版网格联动伸缩（行改 fr 等分、tile height:100%——
