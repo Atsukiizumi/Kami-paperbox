@@ -166,13 +166,15 @@ test("⑤ 纯键盘编排：Tab 选中卡片 → 方向键搬移 → Delete 收�
   await expect(page.getByRole("button", { name: "编排" })).toBeVisible({ timeout: 15_000 });
 });
 
-test("⑥ 编辑式版式：内置第二版式切换即生效（印章头+页脚+主副栏），默认稿纸零变化", async ({ page }) => {
+test("⑥ 编辑式版式：内置第二版式切换即生效（左栏日期章+页脚+主副栏），默认稿纸零变化", async ({ page }) => {
   await seedSettings(page, { onboarded: true, tab: "pixiv" }, 18);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator('[data-desk-module="browse-sheet"]')).toBeVisible({ timeout: 30_000 });
 
-  // 默认稿纸：无印章头、无页脚（出厂红线不动的旁证）
+  // 默认稿纸：无「今日的纸」文案、无日期章、无页脚（出厂红线不动的旁证；
+  // 2026-10-26 起页眉统一并入左栏，日期章移至左栏底部且仅编辑式渲染）
   await expect(page.getByText("今日的纸")).toHaveCount(0);
+  await expect(page.locator(".kami-dk-rail .kami-editorial-seal")).toHaveCount(0);
   await expect(page.getByText("今日也请多指教。")).toHaveCount(0);
 
   // 进编排切「编辑式」
@@ -180,19 +182,18 @@ test("⑥ 编辑式版式：内置第二版式切换即生效（印章头+页脚
   await page.getByRole("button", { name: "编辑式" }).click();
   await expect(page.getByRole("button", { name: "完成" })).toBeVisible();
 
-  // 印章头在编辑态即出现；页脚刻意只在非编辑态渲染（断言放到完成后）
-  await expect(page.getByText("今日的纸")).toBeVisible();
-  await expect(page.locator("header [aria-hidden].font-display")).toBeVisible();
+  // 编辑态左栏即出现日期章；页脚刻意只在非编辑态渲染（断言放到完成后）
+  await expect(page.locator(".kami-dk-rail .kami-editorial-seal")).toBeVisible();
 
-  // 完成退出：非编辑态仍有印章头与页脚；报纸在主栏（span2 槽首位）
+  // 完成退出：非编辑态仍有日期章与页脚；报纸在主栏（span2 槽首位）
   await page.getByRole("button", { name: "完成" }).click();
   await expect(page.getByRole("button", { name: "编排" })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText("今日的纸")).toBeVisible();
+  await expect(page.locator(".kami-dk-rail .kami-editorial-seal")).toBeVisible();
   await expect(page.getByText("今日也请多指教。")).toBeVisible();
   const firstSlot = page.locator('[data-desk-slot="0"]');
   await expect(firstSlot.locator('[data-desk-module="newspaper"]')).toBeAttached();
 
   // 刷新持久：编辑式仍是激活版式
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("今日的纸")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".kami-dk-rail .kami-editorial-seal")).toBeVisible({ timeout: 30_000 });
 });

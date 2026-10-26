@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildFrames, needsCarousel, nextFrame, sheetBatch, snakeNodeCount, snakeOpacity } from "./desk-carousel.ts";
+import { buildFrames, needsCarousel, nextFrame, sheetBatch, sheetCols, sheetTier, snakeNodeCount, snakeOpacity } from "./desk-carousel.ts";
 
 /** 32 位输出 [0,1) 的确定性 LCG；同一 seed 全程可复现。 */
 function lcg(seed: number): () => number {
@@ -101,16 +101,25 @@ test("nextFrame 环形推进，len 异常兜底 0", () => {
   assert.equal(nextFrame(0, 0), 0);
 });
 
-test("sheetBatch：默认 8 格（4×2），2xl 18 格（6×3）；池深恒 3 批", () => {
-  assert.equal(sheetBatch(false), 8);
-  assert.equal(sheetBatch(true), 18);
-  // 池 = 3 批：24 / 54
-  assert.equal(sheetBatch(false) * 3, 24);
-  assert.equal(sheetBatch(true) * 3, 54);
+test("sheetBatch：四档密度（4×2 / 6×3 / 8×3 / 10×3），池深恒 3 批", () => {
+  // 档位边界：1535|1536 | 2199|2200 | 3199|3200
+  assert.equal(sheetTier(1535), 0);
+  assert.equal(sheetTier(1536), 1);
+  assert.equal(sheetTier(2199), 1);
+  assert.equal(sheetTier(2200), 2);
+  assert.equal(sheetTier(3199), 2);
+  assert.equal(sheetTier(3200), 3);
+  // 列与批档档对应：基础 2 行、其余 3 行
+  assert.deepEqual([0, 1, 2, 3].map((t) => sheetCols(t as 0 | 1 | 2 | 3)), [4, 6, 8, 10]);
+  assert.deepEqual([0, 1, 2, 3].map((t) => sheetBatch(t as 0 | 1 | 2 | 3)), [8, 18, 24, 30]);
+  // 池 = 3 批：24 / 54 / 72 / 90
+  assert.equal(sheetBatch(0) * 3, 24);
+  assert.equal(sheetBatch(1) * 3, 54);
+  assert.equal(sheetBatch(3) * 3, 90);
   // 2xl 下凑不满两批（<36）仍回落静态
-  const thin = buildFrames(Array.from({ length: 35 }, (_, i) => i), sheetBatch(true));
+  const thin = buildFrames(Array.from({ length: 35 }, (_, i) => i), sheetBatch(1));
   assert.equal(needsCarousel(thin), false);
-  const full = buildFrames(Array.from({ length: 36 }, (_, i) => i), sheetBatch(true));
+  const full = buildFrames(Array.from({ length: 36 }, (_, i) => i), sheetBatch(1));
   assert.equal(needsCarousel(full), true);
 });
 

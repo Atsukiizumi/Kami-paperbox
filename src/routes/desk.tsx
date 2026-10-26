@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DESK_MODULE_NODES } from "@/components/desk/desk-registry";
@@ -110,6 +110,9 @@ export function DeskPage() {
 
   // ── 编辑态（draft 只在编辑期间存在；完成/存为才落 store） ──
   const [editing, setEditing] = useState(false);
+  // BINDERY 皮肤：退出编排盖「整理済」章；timer 存 ref 防快速进出编排的竞态。
+  const [tidied, setTidied] = useState(false);
+  const tidyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draft, setDraft] = useState<DeskLayout>(DEFAULT_DESK_LAYOUT);
   const [selected, setSelected] = useState<DeskModuleId | null>(null);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
@@ -240,7 +243,16 @@ export function DeskPage() {
   const exitEdit = () => {
     setEditing(false);
     setSelected(null);
+    if (tidyTimer.current) clearTimeout(tidyTimer.current);
+    setTidied(true);
+    tidyTimer.current = setTimeout(() => setTidied(false), 1800);
   };
+  useEffect(
+    () => () => {
+      if (tidyTimer.current) clearTimeout(tidyTimer.current);
+    },
+    [],
+  );
   const removeFromDraft = (id: DeskModuleId) =>
     setDraft((prev) => ({
       ...prev,
@@ -316,7 +328,14 @@ export function DeskPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [editing, selected, draft, saveAsOpen]);
 
-  const tray = useMemo(() => {
+  /**
+ * 案头对齐引擎 v1：可伸缩模块清单——这些「图墙」类模块在槽内吸收行高差，
+ * 図版行改 fr 等分填满，令同排槽底在任意内容区宽度下自动对齐（纸叠/报纸等保持自然高）。
+ * 纯 CSS fr/flex 驱动（见 styles.css kami-dk-flex 段），无 JS 测量。
+ */
+const ALIGN_STRETCH = new Set<DeskModuleId>(["browse-sheet", "artist-wall"]);
+
+const tray = useMemo(() => {
     const inDraft = new Set(draft.slots.flatMap((s) => s.items));
     return DESK_MODULE_IDS.filter((id) => !inDraft.has(id));
   }, [draft]);
@@ -327,46 +346,32 @@ export function DeskPage() {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div className="kami-content mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
-      {showSeal ? (
-        // 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期章，下边一条墨线
-        <header className="flex items-end justify-between gap-3 border-b border-border/70 pb-2.5">
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">
-            今日的纸
-            <span className="ml-3 text-sm font-normal tracking-normal text-muted">{date}</span>
-          </h1>
-          <div className="flex items-center gap-2">
-            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
-              <Link to="/vault?recall=1" className="kami-slip">
-                {slipLine}
-              </Link>
-            ) : null}
+    <div data-desk-skin="bindery" className="mx-0 w-full">
+      {/* 纸格左栏收纳页眉信息：今日 / 中文数字日期（含周几）/ 竖排「编排」/ 去年今日笺。
+          印章头仍只属于编辑式（出厂红线：稿纸不出现「今日的纸」）。 */}
+      <nav className="kami-dk-rail">
+        <span className="kami-dk-rail-title">今日</span>
+        <span className="kami-dk-rail-date">
+          {deskDateCn(date)}周{deskWeekday(date)}
+        </span>
+        {editing ? null : (
+          <button type="button" className="kami-dk-rail-edit" onClick={enterEdit}>
+            编排
+          </button>
+        )}
+        {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
+          <Link to="/vault?recall=1" className="kami-dk-rail-slip">
+            {slipLine}
+          </Link>
+        ) : null}
+        {/* 日期章：左栏书脊底部（标题在上、印章在下），编辑式专属（出厂红线：稿纸无章） */}
+        {showSeal ? (
+          <span className="kami-dk-rail-foot">
             <DeskEditorialSeal date={date} />
-            {editing ? null : (
-              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
-                编排
-              </Button>
-            )}
-          </div>
-        </header>
-      ) : (
-        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
-          <p className="text-sm text-muted">{date}</p>
-          <div className="ml-auto flex items-center gap-2">
-            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
-              <Link to="/vault?recall=1" className="kami-slip">
-                {slipLine}
-              </Link>
-            ) : null}
-            {editing ? null : (
-              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
-                编排
-              </Button>
-            )}
-          </div>
-        </header>
-      )}
+          </span>
+        ) : null}
+      </nav>
+      <div className="kami-dk-main space-y-4">
 
       {editing ? (
         <>
@@ -453,7 +458,7 @@ export function DeskPage() {
               {slot.items.map((id) => {
                 const Node = DESK_MODULE_NODES[id];
                 return Node ? (
-                  <div key={id} data-desk-module={id}>
+                  <div key={id} data-desk-module={id} className={cn(ALIGN_STRETCH.has(id) && "kami-dk-flex")}>
                     {Node({ unread, unreadCount })}
                   </div>
                 ) : null;
@@ -471,6 +476,17 @@ export function DeskPage() {
           <span className="font-display">今日也请多指教。</span>
         </footer>
       ) : null}
+      {/* BINDERY 页脚元数据行（稿纸版式专属；编辑式保留自带温情页脚，避免双页脚） */}
+      {!editing && layout.headerSeal !== true ? (
+        <footer className="kami-dk-meta border-t border-border/60 pt-2">
+          <span>{deskDateCn(date)} · 纸匣未读 {unreadCount} 点</span>
+          <span>Kami Paperbox</span>
+        </footer>
+      ) : null}
+      <span aria-hidden className={cn("kami-dk-stamp", tidied && !editing && "show")}>
+        整理済
+      </span>
+      </div>
     </div>
   );
 }
@@ -497,6 +513,19 @@ function DeskEditorialSeal({ date }: { date: string }) {
       )}
     </span>
   );
+}
+
+/** 日期→周几单字（左栏 十月廿六日周一 用）。 */
+function deskWeekday(date: string): string {
+  const m = /星期([一二三四五六日天])/.exec(date);
+  return m ? m[1] : "";
+}
+
+/** 日期→中文数字一行（页脚元数据用，如 十月廿六日）。 */
+function deskDateCn(date: string): string {
+  const m = /(\d{1,2})\s*月\s*(\d{1,2})\s*日/.exec(date);
+  if (!m) return date;
+  return `${numberToCn(m[1])}月${numberToCn(m[2])}日`;
 }
 
 /** 数字→中文（印章用，10→十、21→廿一、24→廿四）。 */

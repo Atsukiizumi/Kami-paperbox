@@ -15,7 +15,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useCrossfade } from "@/components/desk/use-crossfade";
@@ -46,7 +46,7 @@ function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?
           to="/work/$source/$id"
           params={{ source: card.source, id: card.id }}
           title={card.title}
-          className="relative block aspect-square overflow-hidden rounded-md bg-elevated"
+          className="kami-dk-tile relative block aspect-square overflow-hidden rounded-md bg-elevated"
         >
           <ProxiedImg
             src={card.thumb}
@@ -60,6 +60,12 @@ function WallGrid({ batch, className }: { batch: readonly WorkCard[]; className?
 }
 
 export function DeskArtistWall() {
+  // BINDERY 铺开只属首进场（与铺纸模块同口径）。
+  const [layIn, setLayIn] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLayIn(false), 1600);
+    return () => clearTimeout(t);
+  }, []);
   const pixivCookie = useSettings((s) => s.pixivCookie);
   const safeMode = useSettings((s) => s.safeModeBySite.pixiv);
   const hideAi = useSettings((s) => s.hideAi);
@@ -114,7 +120,7 @@ export function DeskArtistWall() {
     <section
       ref={containerRef}
       aria-label="关注画师墙"
-      className="rounded-xl bg-surface p-3 shadow-[var(--shadow-paper-1)]"
+      className={cn("kami-dk-mod rounded-xl bg-surface p-3 shadow-[var(--shadow-paper-1)]", layIn && "kami-dk-layin")}
     >
       {needsCarousel(frames) && frame ? (
         <div className="relative">
@@ -127,7 +133,7 @@ export function DeskArtistWall() {
       ) : (
         <WallGrid batch={frames[0] ?? []} />
       )}
-      <p className="mt-2 text-sm text-muted">画师墙 · 关注的最新更新</p>
+      <p className="kami-dk-label mt-2 text-sm text-muted">画师墙 · 关注的最新更新</p>
     </section>
   );
 }

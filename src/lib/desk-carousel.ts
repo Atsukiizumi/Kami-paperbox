@@ -4,7 +4,7 @@
  * 作用：把一份池子切成轮播帧——铺纸 / 报纸按原顺序整块切（尾块不足整块丢弃，
  *      宁可少一帧也不凑数）；画师墙先洗牌再成批，每批都是随机抽样。
  * 用法：buildFrames(pool, size, rand, mode) 切帧；needsCarousel 判定够不够两帧；
- *      nextFrame 环形推进；sheetBatch 给铺纸算断点批量；snakeNodeCount / snakeOpacity
+ *      nextFrame 环形推进；sheetBatch/sheetCols/sheetTier 给铺纸算四档断点密度（高分屏自适应）；snakeNodeCount / snakeOpacity
  *      给报纸蛇形流动算节点数与尾迹透明度。
  * 为什么：零 import、rand 可注入，node --test 里用确定性 LCG 断言洗牌与切块边界，
  *      不用把随机性放进组件测试。
@@ -52,8 +52,22 @@ export function nextFrame(index: number, len: number): number {
  * 池深恒 = 3 批，池随断点 24/54——大屏看到的是更多张数；三行把卡片下方
  * 被右栏（纸叠+墙）撑出来的留白填满。
  */
-export function sheetBatch(is2xl: boolean): 8 | 18 {
-  return is2xl ? 18 : 8;
+/** 视口宽 → 密度档：0 基础（<2xl）/ 1 2xl / 2 2K+（≥2200）/ 3 4K+（≥3200）。 */
+export function sheetTier(viewportWidth: number): 0 | 1 | 2 | 3 {
+  if (viewportWidth >= 3200) return 3;
+  if (viewportWidth >= 2200) return 2;
+  if (viewportWidth >= 1536) return 1;
+  return 0;
+}
+
+/** 档 → 铺纸列数：4 / 6 / 8 / 10（须与 SheetGrid 的断点类同步）。 */
+export function sheetCols(tier: 0 | 1 | 2 | 3): 4 | 6 | 8 | 10 {
+  return ([4, 6, 8, 10] as const)[tier];
+}
+
+/** 档 → 批量（列 × 行：基础 2 行、其余 3 行）；池深恒 = 3 批。 */
+export function sheetBatch(tier: 0 | 1 | 2 | 3): 8 | 18 | 24 | 30 {
+  return tier === 0 ? 8 : (sheetCols(tier) * 3) as 18 | 24 | 30;
 }
 
 /**

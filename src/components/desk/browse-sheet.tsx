@@ -11,7 +11,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProxiedImg } from "@/components/proxied-img";
 import { useVeil, veilCoverClass } from "@/lib/veil";
 import { useCrossfade } from "@/components/desk/use-crossfade";
@@ -37,13 +37,13 @@ const sheetFrameUrls = (frame: readonly WorkCard[]) => frame.map((card) => card.
 function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className?: string }) {
   const veil = useVeil((s) => s.veil);
   return (
-    <div className={cn("grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6", className)}>
+    <div className={cn("kami-dk-sheetgrid grid gap-1 p-1.5", className)}>
       {cards.map((card) => (
         <Link
           key={`${card.source}:${card.id}`}
           to="/work/$source/$id"
           params={{ source: card.source, id: card.id }}
-          className="relative block aspect-[3/4] overflow-hidden rounded-md bg-elevated"
+          className="kami-dk-tile relative block aspect-[3/4] overflow-hidden rounded-md bg-elevated"
         >
           <ProxiedImg
             src={card.thumb}
@@ -57,6 +57,12 @@ function SheetGrid({ cards, className }: { cards: readonly WorkCard[]; className
 }
 
 export function DeskBrowseSheet({ className }: { className?: string }) {
+  // BINDERY 铺开只属首进场：1.6s 后摘 kami-dk-layin，轮播每 8s 换批的新 tile 不再重播。
+  const [layIn, setLayIn] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLayIn(false), 1600);
+    return () => clearTimeout(t);
+  }, []);
   const tab = useSettings((s) => s.tab);
   const safeModeBySite = useSettings((s) => s.safeModeBySite);
   const safeMode = safeModeBySite[tab];
@@ -100,9 +106,12 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     },
   });
 
-  // 大屏适配：2xl（≥1536px）6 列 ×2 行批 12、池 36；默认 4 列批 8、池 24。
+  // 密度四档（与 sheetTier 断点一致）：4×2 / 6×3 / 8×3(2K+) / 10×3(4K+)；池深恒 3 批。
   const is2xl = useMediaFlag("(min-width: 1536px)");
-  const batch = sheetBatch(is2xl);
+  const is2k = useMediaFlag("(min-width: 2200px)");
+  const is4k = useMediaFlag("(min-width: 3200px)");
+  const tier = is4k ? 3 : is2k ? 2 : is2xl ? 1 : 0;
+  const batch = sheetBatch(tier);
   const poolLimit = batch * 3;
 
   // query.data 引用稳定（react-query 缓存对象），frames 顺势稳定，节奏不被无关渲染重置。
@@ -133,14 +142,15 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     <section
       ref={containerRef}
       className={cn(
-        "kami-card-folded relative overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-paper-1)]",
+        "kami-card-folded kami-dk-mod relative overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-paper-1)]",
+        layIn && "kami-dk-layin",
         className,
       )}
     >
       {pending ? (
-        <div className="grid grid-cols-4 gap-1 p-1.5 2xl:grid-cols-6">
+        <div className="kami-dk-sheetgrid grid gap-1 p-1.5">
           {Array.from({ length: batch }, (_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-md bg-elevated" />
+            <div key={i} className="kami-dk-tile aspect-[3/4] rounded-md bg-elevated" />
           ))}
         </div>
       ) : needsCarousel(carouselFrames) && frame ? (
@@ -154,18 +164,19 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       ) : (
         <SheetGrid cards={items} />
       )}
-      <div className="flex items-end justify-between gap-3 px-5 py-4">
+      {/* 脚注整行铺满：左（当前·站名 + 副句）右（去浏览），与図版网格两端对齐 */}
+      <div className="flex items-end justify-between gap-3 px-2 pb-3 pt-3.5">
         <div>
-          <p className="text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
-          <Link
-            to="/browse"
-            prefetch={false}
-            className="mt-1 block font-display text-3xl tracking-tight md:text-4xl"
-          >
-            去浏览
-          </Link>
-          <p className="mt-1 text-sm text-muted">日榜、关注、推荐都在那边</p>
+          <p className="kami-dk-label text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
+          <p className="mt-1.5 text-sm text-muted">日榜、关注、推荐都在那边</p>
         </div>
+        <Link
+          to="/browse"
+          prefetch={false}
+          className="kami-dk-title font-display text-3xl leading-none tracking-tight md:text-4xl"
+        >
+          去浏览
+        </Link>
       </div>
     </section>
   );
