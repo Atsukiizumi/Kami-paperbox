@@ -328,7 +328,14 @@ export function DeskPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [editing, selected, draft, saveAsOpen]);
 
-  const tray = useMemo(() => {
+  /**
+ * 案头对齐引擎 v1：可伸缩模块清单——这些「图墙」类模块在槽内吸收行高差，
+ * 図版行改 fr 等分填满，令同排槽底在任意内容区宽度下自动对齐（纸叠/报纸等保持自然高）。
+ * 纯 CSS fr/flex 驱动（见 styles.css kami-dk-flex 段），无 JS 测量。
+ */
+const ALIGN_STRETCH = new Set<DeskModuleId>(["browse-sheet", "artist-wall"]);
+
+const tray = useMemo(() => {
     const inDraft = new Set(draft.slots.flatMap((s) => s.items));
     return DESK_MODULE_IDS.filter((id) => !inDraft.has(id));
   }, [draft]);
@@ -462,7 +469,7 @@ export function DeskPage() {
               {slot.items.map((id) => {
                 const Node = DESK_MODULE_NODES[id];
                 return Node ? (
-                  <div key={id} data-desk-module={id}>
+                  <div key={id} data-desk-module={id} className={cn(ALIGN_STRETCH.has(id) && "kami-dk-flex")}>
                     {Node({ unread, unreadCount })}
                   </div>
                 ) : null;

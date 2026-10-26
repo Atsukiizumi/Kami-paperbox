@@ -3144,6 +3144,36 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   color: var(--color-subtle);
 }
 
+/* ── 案头对齐引擎 v1：槽底自动对齐 ──────────────────────────────────────────
+   可伸缩模块（kami-dk-flex，清单见 desk.tsx ALIGN_STRETCH）在槽 flex 列里吸收
+   行高差；模块卡与内部図版网格联动伸缩（行改 fr 等分、tile height:100%——
+   aspect 比例保留为无定高时的自然尺寸回退）。同排槽底随内容区宽度自动对齐。 */
+[data-desk-skin="bindery"] .kami-dk-flex {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+[data-desk-skin="bindery"] .kami-dk-flex > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* 轮播双缓冲：in-flow 层撑高，绝对层 inset-0 跟随；静态分支网格直接伸缩 */
+[data-desk-skin="bindery"] .kami-dk-flex .relative {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+[data-desk-skin="bindery"] .kami-dk-flex .relative > .grid {
+  height: 100%;
+}
+/* 図版行等分填满：tile 定高优先（拉伸态），aspect 比例作为自然尺寸回退 */
+[data-desk-skin="bindery"] .kami-dk-flex .grid {
+  grid-auto-rows: 1fr;
+}
+[data-desk-skin="bindery"] .kami-dk-flex .kami-dk-tile {
+  height: 100%;
+}
+
 /* 动效关停（应用内置开关）：落纸/过渡/章全部直出 */
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-tile,
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile {
