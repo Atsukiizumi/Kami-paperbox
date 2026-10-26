@@ -3012,6 +3012,11 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
 .kami-dk-rail-slip:hover {
   color: var(--color-fg);
 }
+/* 日期章钉在书脊底部：标题在上、印章在下 */
+.kami-dk-rail-foot {
+  margin-top: auto;
+  padding-top: 1rem;
+}
 
 /* 模块：纸面板 + 发丝线，圆角 0（纸的体感回来了） */
 [data-desk-skin="bindery"] .kami-dk-mod {

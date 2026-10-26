@@ -359,30 +359,19 @@ const tray = useMemo(() => {
             编排
           </button>
         )}
-        {!showSeal && slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
+        {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
           <Link to="/vault?recall=1" className="kami-dk-rail-slip">
             {slipLine}
           </Link>
         ) : null}
+        {/* 日期章：左栏书脊底部（标题在上、印章在下），编辑式专属（出厂红线：稿纸无章） */}
+        {showSeal ? (
+          <span className="kami-dk-rail-foot">
+            <DeskEditorialSeal date={date} />
+          </span>
+        ) : null}
       </nav>
       <div className="kami-dk-main space-y-4">
-      {showSeal ? (
-        // 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期章，下边一条墨线
-        <header className="flex items-end justify-between gap-3 border-b border-border/70 pb-2.5">
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">
-            今日的纸
-            <span className="ml-3 text-sm font-normal tracking-normal text-muted">{date}</span>
-          </h1>
-          <div className="flex items-center gap-2">
-            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
-              <Link to="/vault?recall=1" className="kami-slip">
-                {slipLine}
-              </Link>
-            ) : null}
-            <DeskEditorialSeal date={date} />
-          </div>
-        </header>
-      ) : null}
 
       {editing ? (
         <>
