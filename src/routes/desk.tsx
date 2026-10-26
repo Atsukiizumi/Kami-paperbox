@@ -500,7 +500,7 @@ function DeskEditorialSeal({ date }: { date: string }) {
   return (
     <span
       aria-hidden
-      className="grid size-9 shrink-0 rotate-[-6deg] place-items-center rounded-sm border border-[#9e4938] px-1 text-center font-display text-[10px] leading-tight text-[#9e4938] kami-editorial-seal hover:rotate-0 print:hidden"
+      className="grid size-[72px] shrink-0 rotate-[-8deg] place-items-center rounded-full border border-[#9e4938] px-1.5 text-center font-display text-[11px] leading-snug text-[#9e4938] kami-editorial-seal hover:rotate-0 print:hidden"
     >
       {month ? (
         <>
