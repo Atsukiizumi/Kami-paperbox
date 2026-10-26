@@ -339,11 +339,24 @@ export function DeskPage() {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div data-desk-skin="bindery" className="kami-content mx-0 max-w-6xl 2xl:max-w-[90rem]">
-      {/* 纸格左栏：房间词（案头）+ mono 中文数字日期；印章头只属于编辑式（出厂红线：稿纸零变化） */}
-      <nav className="kami-dk-rail" aria-hidden="true">
-        <span className="kami-dk-rail-title">案头</span>
-        <span className="kami-dk-rail-date">{deskDateCn(date)}</span>
+    <div data-desk-skin="bindery" className="kami-content mx-0 w-full 2xl:max-w-[90rem]">
+      {/* 纸格左栏收纳页眉信息：今日 / 中文数字日期（含周几）/ 竖排「编排」/ 去年今日笺。
+          印章头仍只属于编辑式（出厂红线：稿纸不出现「今日的纸」）。 */}
+      <nav className="kami-dk-rail">
+        <span className="kami-dk-rail-title">今日</span>
+        <span className="kami-dk-rail-date">
+          {deskDateCn(date)}周{deskWeekday(date)}
+        </span>
+        {editing ? null : (
+          <button type="button" className="kami-dk-rail-edit" onClick={enterEdit}>
+            编排
+          </button>
+        )}
+        {!showSeal && slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
+          <Link to="/vault?recall=1" className="kami-dk-rail-slip">
+            {slipLine}
+          </Link>
+        ) : null}
       </nav>
       <div className="kami-dk-main space-y-4">
       {showSeal ? (
@@ -360,31 +373,9 @@ export function DeskPage() {
               </Link>
             ) : null}
             <DeskEditorialSeal date={date} />
-            {editing ? null : (
-              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
-                编排
-              </Button>
-            )}
           </div>
         </header>
-      ) : (
-        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-3">
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">{title}</h1>
-          <p className="text-sm text-muted">{date}</p>
-          <div className="ml-auto flex items-center gap-2">
-            {slipLine && (editing ? draft.headerSlip : layout.headerSlip) ? (
-              <Link to="/vault?recall=1" className="kami-slip">
-                {slipLine}
-              </Link>
-            ) : null}
-            {editing ? null : (
-              <Button type="button" size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={enterEdit}>
-                编排
-              </Button>
-            )}
-          </div>
-        </header>
-      )}
+      ) : null}
 
       {editing ? (
         <>
@@ -526,6 +517,12 @@ function DeskEditorialSeal({ date }: { date: string }) {
       )}
     </span>
   );
+}
+
+/** 日期→周几单字（左栏 十月廿六日周一 用）。 */
+function deskWeekday(date: string): string {
+  const m = /星期([一二三四五六日天])/.exec(date);
+  return m ? m[1] : "";
 }
 
 /** 日期→中文数字一行（页脚元数据用，如 十月廿六日）。 */

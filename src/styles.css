@@ -2938,6 +2938,9 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
   gap: 0 1.25rem;
   border: 1px solid var(--color-border);
   padding: 0.5rem 0.875rem 0.625rem;
+  /* 自适应：宽度跟随外壳内容区伸缩（侧栏展开/收起、外壳形态切换即重排），
+     仅在超宽屏收进 90rem 帽防図版行列拉过长 */
+  width: 100%;
 }
 @media (max-width: 767px) {
   [data-desk-skin="bindery"] {
@@ -2978,6 +2981,36 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
   font-size: 0.625rem;
   letter-spacing: 0.34em;
   color: var(--color-muted);
+}
+/* 竖排「编排」与「去年今日笺」：文字 + 发丝线控件语言 */
+.kami-dk-rail-edit {
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--color-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+  padding: 4px 2px 6px;
+  transition: color var(--motion-quick) var(--kami-dk-ease), border-color var(--motion-quick) var(--kami-dk-ease);
+}
+.kami-dk-rail-edit:hover {
+  color: var(--color-fg);
+  border-bottom-color: var(--color-border-strong);
+}
+.kami-dk-rail-slip {
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-border);
+  padding-bottom: 4px;
+}
+.kami-dk-rail-slip:hover {
+  color: var(--color-fg);
 }
 
 /* 模块：纸面板 + 发丝线，圆角 0（纸的体感回来了） */

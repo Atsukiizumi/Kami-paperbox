@@ -161,18 +161,19 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       ) : (
         <SheetGrid cards={items} />
       )}
-      <div className="flex items-end justify-between gap-3 px-5 py-4">
+      {/* 脚注整行铺满：左（当前·站名 + 副句）右（去浏览），与図版网格两端对齐 */}
+      <div className="flex items-end justify-between gap-3 px-2 pb-3 pt-3.5">
         <div>
           <p className="kami-dk-label text-xs tracking-wide text-subtle">当前 · {siteLabel(tab)}</p>
-          <Link
-            to="/browse"
-            prefetch={false}
-            className="mt-1 block font-display text-3xl tracking-tight md:text-4xl"
-          >
-            去浏览
-          </Link>
-          <p className="mt-1 text-sm text-muted">日榜、关注、推荐都在那边</p>
+          <p className="mt-1.5 text-sm text-muted">日榜、关注、推荐都在那边</p>
         </div>
+        <Link
+          to="/browse"
+          prefetch={false}
+          className="kami-dk-title font-display text-3xl leading-none tracking-tight md:text-4xl"
+        >
+          去浏览
+        </Link>
       </div>
     </section>
   );
