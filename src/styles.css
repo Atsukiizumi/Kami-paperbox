@@ -3004,17 +3004,17 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
 }
 .kami-dk-rail-date {
   writing-mode: vertical-rl;
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.34em;
+  font-family: var(--font-sans, "Noto Sans SC", sans-serif);
+  font-size: 0.6875rem;
+  letter-spacing: 0.28em;
   color: var(--color-muted);
 }
 /* 竖排「编排」与「去年今日笺」：文字 + 发丝线控件语言 */
 .kami-dk-rail-edit {
   writing-mode: vertical-rl;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans, "Noto Sans SC", sans-serif);
   font-size: 11px;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.28em;
   color: var(--color-muted);
   background: transparent;
   border: none;
@@ -3060,10 +3060,10 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
   letter-spacing: 0.01em;
 }
 [data-desk-skin="bindery"] .kami-dk-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  /* 样张标签语法：sans 11px + 字距，无 mono 无大写变形 */
+  font-family: var(--font-sans, "Noto Sans SC", "Microsoft YaHei", sans-serif);
+  font-size: 11px;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 
@@ -3076,14 +3076,14 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
     border-color var(--motion-quick) var(--kami-dk-ease);
 }
 [data-desk-skin="bindery"] a.kami-dk-tile:hover {
-  transform: translateY(-2px);
+  transform: none;
   border-color: var(--color-border-strong);
 }
 
 /* 入场：首进场窗口内「纸落下」（~8px + 淡入）；轮播换批不重播 */
-/* backwards 填充：delay 期挂 from 态，播完回归级联——hover 的轻落不被动画锁死 */
+/* 样张签名动效：自下而上帘幕揭起（clip-path .95s，backwards 填充不锁级联） */
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile {
-  animation: kami-dk-settle 0.6s var(--kami-dk-ease) backwards;
+  animation: kami-dk-lay 0.95s var(--kami-dk-ease) backwards;
 }
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(2) { animation-delay: 0.05s; }
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(3) { animation-delay: 0.1s; }
@@ -3094,10 +3094,9 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(8) { animation-delay: 0.35s; }
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(9) { animation-delay: 0.4s; }
 [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(n + 10) { animation-delay: 0.45s; }
-@keyframes kami-dk-settle {
+@keyframes kami-dk-lay {
   from {
-    opacity: 0;
-    transform: translateY(8px);
+    clip-path: inset(100% 0 0 0);
   }
 }
 
@@ -3274,4 +3273,54 @@ html[data-theme="bindery"] .kami-topbar button,
 html[data-theme="bindery"] .kami-aside button,
 html[data-theme="bindery"] .kami-float-controls button {
   border-radius: 0;
+}
+
+/* ── 纸格主题组件层（BINDERY 批三）：図版语言铺到全站卡片 ────────────────────
+   仅 data-theme="bindery" 作用域——浏览瀑布流/纸匣列卡/队列行卡/杂项卡统一：
+   圆角归零、发丝边框、去纸影、hover 纸轻落；caption 元数据行 mono 化。
+   其他五主题与 e2e（默认 washi）零改动。 */
+html[data-theme="bindery"] .kami-card-shell {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+  transition:
+    transform var(--motion-quick) var(--kami-dk-ease),
+    border-color var(--motion-quick) var(--kami-dk-ease);
+}
+@media (hover: hover) {
+  html[data-theme="bindery"] .kami-card-shell:hover {
+    /* 样张 hover 语法：变色不变位（.45s） */
+    transform: none;
+    border-color: var(--color-border-strong);
+    box-shadow: none;
+  }
+}
+html[data-theme="bindery"] .kami-card-shell:active {
+  transform: none;
+}
+/* caption：mono 元数据行（図号·来源·尺寸 档案感） */
+html[data-theme="bindery"] .kami-card-caption {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+}
+/* 队列行卡/筛选条/缩略：直角发丝 */
+html[data-theme="bindery"] .kami-enter {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .kami-enter:hover {
+  border-color: var(--color-border-strong);
+}
+html[data-theme="bindery"] .rounded-xl.bg-surface.p-3,
+html[data-theme="bindery"] div.flex.flex-wrap.items-center.gap-2.bg-elevate {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .size-14.shrink-0.overflow-hidden.rounded-lg {
+  border-radius: 0;
+}
+/* 动效关停：hover 过渡直切 */
+html[data-motion="off"][data-theme="bindery"] .kami-card-shell {
+  transition: none;
 }
