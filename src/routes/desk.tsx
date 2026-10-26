@@ -340,11 +340,10 @@ export function DeskPage() {
 
   return (
     <div data-desk-skin="bindery" className="kami-content mx-0 max-w-6xl 2xl:max-w-[90rem]">
-      {/* 纸格左栏：纵排衬线标题 + mono 日期 + 日期章（编辑式头已带章则不重复） */}
+      {/* 纸格左栏：房间词（案头）+ mono 中文数字日期；印章头只属于编辑式（出厂红线：稿纸零变化） */}
       <nav className="kami-dk-rail" aria-hidden="true">
-        <span className="kami-dk-rail-title">今日的纸</span>
+        <span className="kami-dk-rail-title">案头</span>
         <span className="kami-dk-rail-date">{deskDateCn(date)}</span>
-        {showSeal ? null : <DeskEditorialSeal date={date} />}
       </nav>
       <div className="kami-dk-main space-y-4">
       {showSeal ? (
