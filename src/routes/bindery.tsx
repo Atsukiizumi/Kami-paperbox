@@ -514,6 +514,7 @@ function HeroDesk() {
           <label htmlFor="bd-q">检索</label>
           <input id="bd-q" placeholder="标签、链接或作品号" readOnly />
         </form>
+        <Link to="/">← 返回案头</Link>
         <Link to="/search">工序 · 檢索</Link>
         <Link to="/queue">笺 · 隊列</Link>
         <Link to="/vault">印 · 紙匣</Link>

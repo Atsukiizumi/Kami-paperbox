@@ -500,6 +500,7 @@ function DeskEditorialSeal({ date }: { date: string }) {
   return (
     <span
       aria-hidden
+      title={`日期章 · ${numberToCn(month)}月${numberToCn(day)}日（编辑式版式的日期印章，非装饰错误）`}
       className="grid size-[72px] shrink-0 rotate-[-8deg] place-items-center rounded-full border border-[#9e4938] px-1.5 text-center font-display text-[11px] leading-snug text-[#9e4938] kami-editorial-seal hover:rotate-0 print:hidden"
     >
       {month ? (
