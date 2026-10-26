@@ -83,7 +83,7 @@
   --color-danger: #e8a09a;
   --color-ok: #9cba9a;
   /* 朱红笺签（工房批 ⑥ P2）：R-18 等警示标签——红染纸底 + 朱红字（概念稿 .tag.red）。
-     从各主题的 danger 派生，四主题×双外观自动适配，无需逐块覆盖。 */
+     从各主题的 danger 派生，全部主题×双外观自动适配，无需逐块覆盖。 */
   --color-tag-red: color-mix(in srgb, var(--color-danger) 20%, transparent);
   --color-tag-red-fg: var(--color-danger);
   --color-overlay: color-mix(in oklab, var(--color-bg) 78%, transparent);
@@ -249,6 +249,33 @@ html[data-theme="koke"][data-appearance="light"] {
   --color-accent: #4a5836;
   --color-accent-fg: #f0f2e8;
   --color-danger: #b4544a;
+  --color-ok: #3d6b42;
+}
+
+/* 纸格（BINDERY，批二）：亮=三层纸色 + 印泥红；暗=夜案墨黑家族 */
+html[data-theme="bindery"][data-appearance="dark"] {
+  --color-bg: #0e0d0c;
+  --color-surface: #1b1916;
+  --color-elevated: #26231f;
+  --color-fg: #f3efe8;
+  --color-muted: #a39c93;
+  --color-subtle: #6f6a64;
+  --color-accent: #e8dfd2;
+  --color-accent-fg: #1a1714;
+  --color-danger: #e8a09a;
+  --color-ok: #9cba9a;
+}
+
+html[data-theme="bindery"][data-appearance="light"] {
+  --color-bg: #f3efe8;
+  --color-surface: #e7dfd2;
+  --color-elevated: #f7f3ec;
+  --color-fg: #141210;
+  --color-muted: #5e5954;
+  --color-subtle: #8a8378;
+  --color-accent: #141210;
+  --color-accent-fg: #f7f3ec;
+  --color-danger: #8f3d32;
   --color-ok: #3d6b42;
 }
 
@@ -3186,6 +3213,11 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   display: flex;
   flex-direction: column;
 }
+/* 脚注/标题行不参与伸缩（flex:0）——否则与图墙抢高度，空间不足时网格溢出盖住文字（遮挡 bug 根因） */
+[data-desk-skin="bindery"] .kami-dk-flex > section > p,
+[data-desk-skin="bindery"] .kami-dk-flex > section > div.flex {
+  flex: 0 0 auto;
+}
 /* 轮播双缓冲：in-flow 层撑高，绝对层 inset-0 跟随；静态/骨架分支网格直接伸缩 */
 [data-desk-skin="bindery"] .kami-dk-flex .relative {
   flex: 1 1 auto;
@@ -3200,10 +3232,12 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
 }
 /* 図版行等分填满：tile 定高优先（拉伸态），aspect 比例作为自然尺寸回退 */
 [data-desk-skin="bindery"] .kami-dk-flex .grid {
-  grid-auto-rows: 1fr;
+  /* minmax(0,1fr)：允许行缩到 aspect 自然高以下（图片 object-cover 裁切），网格不再溢出容器 */
+  grid-auto-rows: minmax(0, 1fr);
 }
 [data-desk-skin="bindery"] .kami-dk-flex .kami-dk-tile {
   height: 100%;
+  min-height: 0;
 }
 
 /* 动效关停（应用内置开关）：落纸/过渡/章全部直出 */
@@ -3217,4 +3251,27 @@ html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile 
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-stamp.show {
   animation: none;
   opacity: 1;
+}
+
+/* ── 纸格主题外壳 chrome（批二）：细线 + 直角，仅 data-theme="bindery" 作用域 ──
+   顶栏/侧栏/浮胶囊/移动底栏圆角归零、边界换发丝线；按钮同步直角。 */
+html[data-theme="bindery"] .kami-topbar {
+  border-radius: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+}
+html[data-theme="bindery"] .kami-aside {
+  border-radius: 0;
+  border-right: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+}
+html[data-theme="bindery"] .kami-float-controls {
+  border-radius: 0;
+  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+}
+html[data-theme="bindery"] .kami-chrome-up {
+  border-radius: 0;
+}
+html[data-theme="bindery"] .kami-topbar button,
+html[data-theme="bindery"] .kami-aside button,
+html[data-theme="bindery"] .kami-float-controls button {
+  border-radius: 0;
 }
