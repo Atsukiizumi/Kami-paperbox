@@ -68,8 +68,8 @@ export function DeskStack({ count, items }: { count: number; items: VaultMeta[] 
           shown.map((item, i) => <StackLeaf key={item.key} item={item} place={LEAF_PLACE[i] ?? "left-0"} />)
         )}
       </div>
-      <p className="kami-dk-label mt-3">纸叠</p>
-      <p className="font-display text-3xl tracking-tight tabular-nums">{count}</p>
+      <p className="kami-dk-title mt-3 text-sm">纸叠</p>
+      <p className="kami-dk-unread font-display text-3xl tracking-tight tabular-nums">{count}</p>
       <p className="text-sm text-muted">未读</p>
     </Link>
   );

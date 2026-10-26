@@ -339,7 +339,14 @@ export function DeskPage() {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div data-desk-skin="bindery" className="kami-content mx-0 max-w-6xl space-y-4 2xl:max-w-[90rem]">
+    <div data-desk-skin="bindery" className="kami-content mx-0 max-w-6xl 2xl:max-w-[90rem]">
+      {/* 纸格左栏：纵排衬线标题 + mono 日期 + 日期章（编辑式头已带章则不重复） */}
+      <nav className="kami-dk-rail" aria-hidden="true">
+        <span className="kami-dk-rail-title">今日的纸</span>
+        <span className="kami-dk-rail-date">{deskDateCn(date)}</span>
+        {showSeal ? null : <DeskEditorialSeal date={date} />}
+      </nav>
+      <div className="kami-dk-main space-y-4">
       {showSeal ? (
         // 编辑式头（概念稿 P1）：「今日的纸」主标题 + 右旋朱红日期章，下边一条墨线
         <header className="flex items-end justify-between gap-3 border-b border-border/70 pb-2.5">
@@ -493,6 +500,7 @@ export function DeskPage() {
       <span aria-hidden className={cn("kami-dk-stamp", tidied && !editing && "show")}>
         整理済
       </span>
+      </div>
     </div>
   );
 }

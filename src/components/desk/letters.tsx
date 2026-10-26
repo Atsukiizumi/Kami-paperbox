@@ -25,7 +25,7 @@ export function DeskLetters() {
       to="/watch"
       className="kami-dk-mod block rounded-xl bg-surface p-5 shadow-[var(--shadow-paper-1)]"
     >
-      <p className="kami-dk-label font-display text-xl tracking-tight">未拆的信</p>
+      <p className="kami-dk-title font-display text-xl tracking-tight">未拆的信</p>
       <div className="mt-3 flex -space-x-2" aria-hidden>
         {faces.map((artist) => (
           <span

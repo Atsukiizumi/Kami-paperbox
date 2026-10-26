@@ -181,7 +181,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
   if (query.isPending) {
     return (
       <section className={cn("kami-dk-mod", className)}>
-        <p className="kami-dk-label text-sm text-muted">今日报纸</p>
+        <p className="kami-dk-title text-sm text-muted">今日报纸</p>
         <div className="mt-3 flex gap-3 overflow-hidden">
           {Array.from({ length: 6 }, (_, i) => (
             <div key={i} className="aspect-[3/4] w-36 shrink-0 rounded-lg bg-surface" />
@@ -197,7 +197,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
 
   return (
     <section ref={viewportRef} className={cn("kami-dk-mod", className)}>
-      <Link to={newspaperHref(tab)} className="kami-dk-label text-sm text-muted hover:text-fg">
+      <Link to={newspaperHref(tab)} className="kami-dk-title text-sm text-muted hover:text-fg">
         今日报纸 · {siteLabel(tab)} 日榜
       </Link>
       <div

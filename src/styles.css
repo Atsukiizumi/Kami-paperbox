@@ -2925,84 +2925,155 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
   transform: rotate(7deg);
 }
 
-/* ── 案头 BINDERY 皮肤（批一）：线分纸语法，色值全走主题 token ──────────────
-   挂点 data-desk-skin="bindery"（DeskPage 根）；语法 = 一张纸细线框 / 模块线分纸 /
-   sheet-label mono 标签 / 図版卡套印错位 / tile 铺开进场 / 编排朱红虚线 / 整理済章 /
-   页脚 mono 元数据。动效关停统一挂 html[data-motion="off"]。 */
+/* ── 案头 BINDERY 皮肤批一 v2（纸格 × 现有模版）────────────────────────────
+   规格来自 Grok 会话定稿的「纸格」案（preview/kami-ia.html 同族）：
+   一张纸外框 + 左栏 88px 纵排衬线标题；模块 = 纸面板 + 发丝线（圆角 0）；
+   当前项衬线斜体；朱红只给日期章 / 未读 / 印章三处；控件 = 文字 + 发丝线；
+   动效 = 纸落下 ~8px + 交叉淡（不用帘幕），缓动 cubic-bezier(0.16,1,0.3,1)。
+   色值全走主题 token；动效关停挂 html[data-motion="off"]。 */
 [data-desk-skin="bindery"] {
-  border: 1px solid color-mix(in oklab, var(--color-fg) 12%, transparent);
-  padding: 0.75rem 0.875rem 0.625rem;
+  --kami-dk-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 0 1.25rem;
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.875rem 0.625rem;
 }
 @media (max-width: 767px) {
   [data-desk-skin="bindery"] {
-    padding: 0.5rem 0.625rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 0.375rem 0.5rem;
   }
 }
-
-/* 模块：卡片盒 → 线分纸（去底、去影、直角、顶线；折角纸记号照留） */
-[data-desk-skin="bindery"] .kami-dk-mod {
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  border-top: 1px solid color-mix(in oklab, var(--color-fg) 16%, transparent);
-  padding-top: 0.625rem;
+.kami-dk-main {
+  min-width: 0;
 }
 
-/* sheet-label：模块标签行（mono 大写字距；计数随各模块行内自带） */
+/* 左栏：纵排「今日的纸」+ mono 日期 + 日期章 */
+.kami-dk-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem 0 0.75rem;
+  border-right: 1px solid var(--color-border);
+}
+@media (max-width: 767px) {
+  .kami-dk-rail {
+    display: none;
+  }
+}
+.kami-dk-rail-title {
+  writing-mode: vertical-rl;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.3rem;
+  letter-spacing: 0.42em;
+  color: var(--color-fg);
+}
+.kami-dk-rail-date {
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.34em;
+  color: var(--color-muted);
+}
+
+/* 模块：纸面板 + 发丝线，圆角 0（纸的体感回来了） */
+[data-desk-skin="bindery"] .kami-dk-mod {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 标题（衬线）与计数（mono 小字） */
+[data-desk-skin="bindery"] .kami-dk-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 [data-desk-skin="bindery"] .kami-dk-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
-/* 図版卡：直角、细墨框、进场自下而上铺开、hover 套印错位（朱影 + 青影） */
+/* 図版 tile：直角发丝线，hover 纸轻落 */
 [data-desk-skin="bindery"] .kami-dk-tile {
   border-radius: 0;
-  border: 1px solid color-mix(in oklab, var(--color-fg) 14%, transparent);
+  border: 1px solid var(--color-border);
   transition:
-    transform var(--motion-quick) var(--ease-out),
-    box-shadow var(--motion-quick) var(--ease-out),
-    border-color var(--motion-quick) var(--ease-out);
-}
-/* 铺开只挂在首进场窗口（kami-dk-layin，1.6s 后由组件摘除）——轮播换批不重播 */
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile {
-  clip-path: inset(100% 0 0 0);
-  animation: kami-dk-lay 0.95s var(--ease-out) forwards;
-}
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(2) { animation-delay: 0.06s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(3) { animation-delay: 0.12s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(4) { animation-delay: 0.18s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(5) { animation-delay: 0.24s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(6) { animation-delay: 0.3s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(7) { animation-delay: 0.36s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(8) { animation-delay: 0.42s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(9) { animation-delay: 0.48s; }
-[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(n + 10) { animation-delay: 0.54s; }
-@keyframes kami-dk-lay {
-  to {
-    clip-path: inset(0 0 0 0);
-  }
+    transform var(--motion-quick) var(--kami-dk-ease),
+    border-color var(--motion-quick) var(--kami-dk-ease);
 }
 [data-desk-skin="bindery"] a.kami-dk-tile:hover {
-  transform: translate(-2px, -2px);
-  border-color: color-mix(in oklab, var(--color-fg) 30%, transparent);
-  box-shadow:
-    4px 4px 0 color-mix(in srgb, var(--color-danger) 42%, transparent),
-    -3px -3px 0 color-mix(in oklab, var(--color-muted) 26%, transparent);
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
 }
 
-/* 编排模式：模块朱红虚线；选中实线（编辑卡 aria-pressed） */
+/* 入场：首进场窗口内「纸落下」（~8px + 淡入）；轮播换批不重播 */
+/* backwards 填充：delay 期挂 from 态，播完回归级联——hover 的轻落不被动画锁死 */
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile {
+  animation: kami-dk-settle 0.6s var(--kami-dk-ease) backwards;
+}
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(2) { animation-delay: 0.05s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(3) { animation-delay: 0.1s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(4) { animation-delay: 0.15s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(5) { animation-delay: 0.2s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(6) { animation-delay: 0.25s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(7) { animation-delay: 0.3s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(8) { animation-delay: 0.35s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(9) { animation-delay: 0.4s; }
+[data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile:nth-child(n + 10) { animation-delay: 0.45s; }
+@keyframes kami-dk-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 未读 = 朱红三处之一（日期章 / 未读 / 印章） */
+[data-desk-skin="bindery"] .kami-dk-unread {
+  color: var(--color-danger);
+}
+
+/* 编排模式：中性虚线 + 选中实线（朱红只留给章与未读） */
 html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card] {
-  outline: 1.5px dashed color-mix(in srgb, var(--color-danger) 60%, transparent);
+  outline: 1.5px dashed color-mix(in oklab, var(--color-fg) 40%, transparent);
   outline-offset: 4px;
 }
 html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-pressed="true"] {
   outline-style: solid;
 }
 
-/* 整理済章（退出编排）：复用 /bindery 的 bd-stamp-in 关键帧；暗色下改 screen 免被 multiply 吃色 */
+/* 编辑条：文字 + 发丝线（去药丸底），当前项衬线斜体 */
+[data-desk-skin="bindery"] .kami-dk-editbar {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+[data-desk-skin="bindery"] .kami-dk-editbar button {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+[data-desk-skin="bindery"] .kami-dk-editbar button:hover {
+  color: var(--color-fg);
+}
+[data-desk-skin="bindery"] .kami-dk-editbar button[aria-pressed="true"] {
+  font-family: var(--font-display);
+  font-style: italic;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+/* 整理済章（印章族）：复用 /bindery 的 bd-stamp-in 关键帧；暗色改 screen */
 [data-desk-skin="bindery"] .kami-dk-stamp {
   position: fixed;
   top: 4.5rem;
@@ -3025,10 +3096,10 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   mix-blend-mode: screen;
 }
 [data-desk-skin="bindery"] .kami-dk-stamp.show {
-  animation: bd-stamp-in 0.5s var(--ease-out) both;
+  animation: bd-stamp-in 0.5s var(--kami-dk-ease) both;
 }
 
-/* 页脚元数据行 */
+/* 页脚元数据行（稿纸版式专属） */
 [data-desk-skin="bindery"] .kami-dk-meta {
   display: flex;
   justify-content: space-between;
@@ -3040,11 +3111,12 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   color: var(--color-subtle);
 }
 
-/* 动效关停（应用内置开关）：铺开/错位过渡/章全部直出 */
+/* 动效关停（应用内置开关）：落纸/过渡/章全部直出 */
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-tile,
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-layin .kami-dk-tile {
   animation: none;
-  clip-path: none;
+  opacity: 1;
+  transform: none;
   transition: none;
 }
 html[data-motion="off"] [data-desk-skin="bindery"] .kami-dk-stamp.show {
