@@ -346,7 +346,7 @@ const tray = useMemo(() => {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div data-desk-skin="bindery" className="kami-content mx-0 w-full 2xl:max-w-[90rem]">
+    <div data-desk-skin="bindery" className="mx-0 w-full">
       {/* 纸格左栏收纳页眉信息：今日 / 中文数字日期（含周几）/ 竖排「编排」/ 去年今日笺。
           印章头仍只属于编辑式（出厂红线：稿纸不出现「今日的纸」）。 */}
       <nav className="kami-dk-rail">
