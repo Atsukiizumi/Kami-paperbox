@@ -3275,3 +3275,52 @@ html[data-theme="bindery"] .kami-aside button,
 html[data-theme="bindery"] .kami-float-controls button {
   border-radius: 0;
 }
+
+/* ── 纸格主题组件层（BINDERY 批三）：図版语言铺到全站卡片 ────────────────────
+   仅 data-theme="bindery" 作用域——浏览瀑布流/纸匣列卡/队列行卡/杂项卡统一：
+   圆角归零、发丝边框、去纸影、hover 纸轻落；caption 元数据行 mono 化。
+   其他五主题与 e2e（默认 washi）零改动。 */
+html[data-theme="bindery"] .kami-card-shell {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+  transition:
+    transform var(--motion-quick) var(--kami-dk-ease),
+    border-color var(--motion-quick) var(--kami-dk-ease);
+}
+@media (hover: hover) {
+  html[data-theme="bindery"] .kami-card-shell:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-border-strong);
+    box-shadow: none;
+  }
+}
+html[data-theme="bindery"] .kami-card-shell:active {
+  transform: none;
+}
+/* caption：mono 元数据行（図号·来源·尺寸 档案感） */
+html[data-theme="bindery"] .kami-card-caption {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+}
+/* 队列行卡/筛选条/缩略：直角发丝 */
+html[data-theme="bindery"] .kami-enter {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .kami-enter:hover {
+  border-color: var(--color-border-strong);
+}
+html[data-theme="bindery"] .rounded-xl.bg-surface.p-3,
+html[data-theme="bindery"] div.flex.flex-wrap.items-center.gap-2.bg-elevate {
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .size-14.shrink-0.overflow-hidden.rounded-lg {
+  border-radius: 0;
+}
+/* 动效关停：hover 过渡直切 */
+html[data-motion="off"][data-theme="bindery"] .kami-card-shell {
+  transition: none;
+}
