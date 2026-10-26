@@ -3213,6 +3213,11 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   display: flex;
   flex-direction: column;
 }
+/* 脚注/标题行不参与伸缩（flex:0）——否则与图墙抢高度，空间不足时网格溢出盖住文字（遮挡 bug 根因） */
+[data-desk-skin="bindery"] .kami-dk-flex > section > p,
+[data-desk-skin="bindery"] .kami-dk-flex > section > div.flex {
+  flex: 0 0 auto;
+}
 /* 轮播双缓冲：in-flow 层撑高，绝对层 inset-0 跟随；静态/骨架分支网格直接伸缩 */
 [data-desk-skin="bindery"] .kami-dk-flex .relative {
   flex: 1 1 auto;
@@ -3227,10 +3232,12 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
 }
 /* 図版行等分填满：tile 定高优先（拉伸态），aspect 比例作为自然尺寸回退 */
 [data-desk-skin="bindery"] .kami-dk-flex .grid {
-  grid-auto-rows: 1fr;
+  /* minmax(0,1fr)：允许行缩到 aspect 自然高以下（图片 object-cover 裁切），网格不再溢出容器 */
+  grid-auto-rows: minmax(0, 1fr);
 }
 [data-desk-skin="bindery"] .kami-dk-flex .kami-dk-tile {
   height: 100%;
+  min-height: 0;
 }
 
 /* 动效关停（应用内置开关）：落纸/过渡/章全部直出 */
