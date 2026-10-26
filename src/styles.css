@@ -3154,17 +3154,24 @@ html[data-desk-edit] [data-desk-skin="bindery"] [data-desk-edit-card][aria-press
   display: flex;
   flex-direction: column;
 }
+/* 模块根变 flex 列——伸缩链第一环：卡片撑到行底后，高度要能传进网格 */
 [data-desk-skin="bindery"] .kami-dk-flex > * {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-/* 轮播双缓冲：in-flow 层撑高，绝对层 inset-0 跟随；静态分支网格直接伸缩 */
+/* 轮播双缓冲：in-flow 层撑高，绝对层 inset-0 跟随；静态/骨架分支网格直接伸缩 */
 [data-desk-skin="bindery"] .kami-dk-flex .relative {
   flex: 1 1 auto;
   min-height: 0;
 }
 [data-desk-skin="bindery"] .kami-dk-flex .relative > .grid {
   height: 100%;
+}
+[data-desk-skin="bindery"] .kami-dk-flex > section > .grid {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 /* 図版行等分填满：tile 定高优先（拉伸态），aspect 比例作为自然尺寸回退 */
 [data-desk-skin="bindery"] .kami-dk-flex .grid {
