@@ -83,7 +83,7 @@
   --color-danger: #e8a09a;
   --color-ok: #9cba9a;
   /* 朱红笺签（工房批 ⑥ P2）：R-18 等警示标签——红染纸底 + 朱红字（概念稿 .tag.red）。
-     从各主题的 danger 派生，四主题×双外观自动适配，无需逐块覆盖。 */
+     从各主题的 danger 派生，全部主题×双外观自动适配，无需逐块覆盖。 */
   --color-tag-red: color-mix(in srgb, var(--color-danger) 20%, transparent);
   --color-tag-red-fg: var(--color-danger);
   --color-overlay: color-mix(in oklab, var(--color-bg) 78%, transparent);
