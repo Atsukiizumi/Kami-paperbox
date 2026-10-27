@@ -275,7 +275,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="kami-topbar kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg/80 px-3 backdrop-blur-md md:px-4">
+      <header className="kami-topbar kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg px-3 md:px-4">
         {deskForm ? (
           <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
             <Button

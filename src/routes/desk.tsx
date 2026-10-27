@@ -346,7 +346,7 @@ const tray = useMemo(() => {
   const showSeal = editing ? draft.headerSeal === true : layout.headerSeal === true;
 
   return (
-    <div data-desk-skin="bindery" className="mx-0 w-full">
+    <div className="kami-dk-page mx-0 w-full">
       {/* 纸格左栏收纳页眉信息：今日 / 中文数字日期（含周几）/ 竖排「编排」/ 去年今日笺。
           印章头仍只属于编辑式（出厂红线：稿纸不出现「今日的纸」）。 */}
       <nav className="kami-dk-rail">
@@ -500,6 +500,7 @@ function DeskEditorialSeal({ date }: { date: string }) {
   return (
     <span
       aria-hidden
+      title={`日期章 · ${numberToCn(month)}月${numberToCn(day)}日（编辑式版式的日期印章，非装饰错误）`}
       className="grid size-[72px] shrink-0 rotate-[-8deg] place-items-center rounded-full border border-[#9e4938] px-1.5 text-center font-display text-[11px] leading-snug text-[#9e4938] kami-editorial-seal hover:rotate-0 print:hidden"
     >
       {month ? (
