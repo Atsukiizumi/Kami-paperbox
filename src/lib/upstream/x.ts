@@ -39,6 +39,10 @@ export function xGateIntervalForTest(): number {
 /** UserMedia 单页条数（M0 实证变量形态用 20）。 */
 const X_PAGE_COUNT = 20;
 
+/** handle→用户四元组短缓存（xUserMedia 用）：翻页不重打 UserByScreenName。 */
+const userRefCache = new Map<string, { at: number; ref: XUserRef }>();
+const USER_REF_TTL_MS = 10 * 60_000;
+
 /** 推文文字截断长度（卡片 title 用 ~80 字，全文进 WorkDetail.description）。 */
 const X_TITLE_MAX = 80;
 
@@ -517,7 +521,14 @@ export function mapXTweetDetail(json: unknown): WorkDetail | null {
   const wrapper =
     asRecordOrNull(asRecordOrNull(data?.tweet_result_by_rest_id)?.result) ??
     asRecordOrNull(asRecordOrNull(data?.tweetResult)?.result);
-  if (!wrapper) return null;
+  if (!wrapper) {
+    // 形状诊断（同 mapXUserMedia）：x-web 轮换期结构漂移时随错误文案暴露差异
+    const shape = JSON.stringify({
+      data: Object.keys(asRecord(data)).slice(0, 6),
+      typename: asString(asRecord(data).__typename),
+    }).slice(0, 160);
+    throw new Error(`X 推文不存在、已删除或没有静态图（响应形状 ${shape}）`);
+  }
   // 先剥 TweetWithVisibilityResults 包裹再验 rest_id（包裹层自己不带 rest_id）
   const tweet = xTweetResultOf(wrapper);
   if (!tweet || !asString(tweet.rest_id)) return null;
@@ -557,13 +568,34 @@ export function mapXUserMedia(json: unknown, fallbackUser?: XUserRef | null): {
 } {
   const data = asRecordOrNull(asRecord(json).data);
   const userResult = asRecordOrNull(asRecordOrNull(data?.user)?.result);
-  const restId = asString(userResult?.rest_id);
-  if (!userResult || !restId) throw new UpstreamError("X 用户不存在或 Cookie 已失效");
-  // 新旧客户端时间线根：timeline（x-web）/ timeline_v2（旧 responsive-web）
+  // x-web UserPhotoTimeline 的 user.result 不带 rest_id（只有 __typename+timeline，
+  // 2026-10-26 登录态实证）——restId 落到调用方 UserByScreenName 拿到的 fallback。
+  const restId = asString(userResult?.rest_id) || asString(fallbackUser?.restId);
+  if (!userResult || !restId) {
+    // 带上响应形状（data 两层 + user.result 三层键名，无内容）：x-web 端点
+    // 轮换期结构漂移时，这串形状随 WARN 日志与错误文案直接暴露差异。
+    const result = asRecordOrNull(asRecordOrNull(data?.user)?.result);
+    const shape = JSON.stringify({
+      data: Object.keys(asRecord(data)).slice(0, 6),
+      user_result: result
+        ? {
+            keys: Object.keys(result).slice(0, 10),
+            typename: asString(result.__typename),
+            rest_id: asString(result.rest_id) || null,
+            reason: asString(asRecord(result).unavailable_reason) || null,
+          }
+        : null,
+    }).slice(0, 260);
+    throw new UpstreamError(`X 用户不存在或 Cookie 已失效（响应形状 ${shape}）`);
+  }
+  // 时间线根三形态：timeline（x-web Photo/Video 新形态，instructions 直接挂）/
+  // timeline.timeline.instructions（旧 responsive-web）；timeline_v2 同理。
   const timelineWrap =
     asRecordOrNull(userResult.timeline_v2) ?? asRecordOrNull(userResult.timeline);
-  const instructions = asRecord(asRecord(timelineWrap?.timeline).instructions);
-  if (!Array.isArray(instructions)) {
+  const instructionsRaw =
+    asRecord(timelineWrap?.timeline).instructions ?? timelineWrap?.instructions;
+  const instructions = Array.isArray(instructionsRaw) ? instructionsRaw : null;
+  if (!instructions) {
     throw new UpstreamError("X 返回了无法解析的数据（缺少时间线）");
   }
   const items: WorkCard[] = [];
@@ -623,18 +655,28 @@ export async function xUserMedia(
 ): Promise<Extract<FetchOk, { op: "xUserMedia" }>> {
   const session = requireXSession(xCookie);
   const ids = resolveXQueryIds(queryIdOverrides);
-  const user = mapXUserByScreenName(
-    await xGraphQL({
-      queryId: ids.userByScreenName,
-      opName: "UserByScreenName",
-      // variables 键是 snake_case screen_name（camelCase 会 422，2026-10-26 实证）
-      variables: {
-        screen_name: handle,
-        __relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider: false,
-      },
-      session,
-    }),
-  );
+  // handle→用户 四元组短缓存（10 分钟）：翻页/重复搜索不再每页重打
+  // UserByScreenName，媒体时间线每页的上游调用从 2 次降到 1 次。失败不缓存。
+  const cacheKey = handle.toLowerCase();
+  const hit = userRefCache.get(cacheKey);
+  let user: XUserRef;
+  if (hit && Date.now() - hit.at < USER_REF_TTL_MS) {
+    user = hit.ref;
+  } else {
+    user = mapXUserByScreenName(
+      await xGraphQL({
+        queryId: ids.userByScreenName,
+        opName: "UserByScreenName",
+        // variables 键是 snake_case screen_name（camelCase 会 422，2026-10-26 实证）
+        variables: {
+          screen_name: handle,
+          __relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider: false,
+        },
+        session,
+      }),
+    );
+    userRefCache.set(cacheKey, { at: Date.now(), ref: user });
+  }
   // x-web 改版后媒体页拆成 Photo/Video 两条时间线；旧 UserMedia 端点已废（404）。
   // 这里走 UserPhotoTimeline（图片时间线，X 收图主场景）。variables 形态取自
   // 2026-10-26 登录态实链；响应按时间线家族同构解析（mapXUserMedia 容忍
