@@ -182,6 +182,16 @@ test("TweetResultByRestId 快照：扁平 data.tweetResult.result → WorkDetail
   assert.equal(mapXTweetDetail({ data: {} }), null);
 });
 
+test("TweetResultById 新根字段：data.tweet_result_by_rest_id.result 同构解析（x-web 改版 2026-10-26）", () => {
+  const work = mapXTweetDetail({
+    data: { tweet_result_by_rest_id: { result: tweet() } },
+  });
+  assert.equal(work?.id, "1111000000000000000");
+  assert.equal(work?.pages.length, 2);
+  // 旧根字段（queryId 被覆盖回旧客户端时）仍兼容
+  assert.ok(mapXTweetDetail({ data: { tweetResult: { result: tweet() } } }));
+});
+
 test("UserByScreenName 快照：user_result_by_screen_name.result → 四元组", () => {
   const user = mapXUserByScreenName(xFixture("x_user_by_screen_name.json"));
   assert.deepEqual(user, {
@@ -303,10 +313,10 @@ test("setXMinIntervalMs：配置注入生效（kami.config.json 接线），非�
 
 test("queryId 实证默认表 + resolveXQueryIds：非空覆盖优先，空白回落，不牵连其他键", () => {
   assert.deepEqual(X_QUERY_IDS, {
-    userByScreenName: "yvm61GcJCIpqEwe_3RBccw",
-    userMedia: "QWOimofaocjeRda7Tm5pNA",
-    tweetResult: "xZfFqfOmKQu_OXekGI59mg",
-  }, "2026-10-18 实证值（research §9）——X 前端发版轮换时这里最先红");
+    userByScreenName: "AMIBMjtxEEATh4z8V9GtRg",
+    userMedia: "kc23mh5ZZHOao1q8hzZ1LQ",
+    tweetResult: "UECplC_mh3SWNckOf1U3TA",
+  }, "2026-10-26 实证值（x-web 改版：UserPhotoTimeline / TweetResultById）——X 前端发版轮换时这里最先红");
   assert.deepEqual(resolveXQueryIds(), X_QUERY_IDS);
   const resolved = resolveXQueryIds({ userMedia: " OVERRIDE ", tweetResult: "" });
   assert.equal(resolved.userMedia, "OVERRIDE", "非空覆盖生效（trim）");

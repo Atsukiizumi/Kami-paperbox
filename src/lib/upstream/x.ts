@@ -53,13 +53,17 @@ export const X_WEB_BEARER =
 export type XQueryKey = "userByScreenName" | "userMedia" | "tweetResult";
 
 /**
- * GraphQL queryId 默认表——2026-10-18 实证值（research §9 浏览器实抓 + 重放验证）；
- * X 前端发版会轮换，设置段可覆盖（M4 接线，取法见 docs/reverse-engineering.md）。
+ * GraphQL queryId 默认表——2026-10-26 实证值（X 前端 x-web 架构改版后：
+ * 媒体页 UserMedia→UserPhotoTimeline、单推 TweetResultByRestId→TweetResultById；
+ * userMedia/tweetResult 两个键名沿用存储与设置结构，指向已是新端点）。
+ * 来源：登录态 Network 实链（userByScreenName / userMedia）+ 官方 bundle
+ * 模块提取（tweetResult）。X 前端发版会轮换，设置段可覆盖（M4 接线，
+ * 取法见 docs/reverse-engineering.md）。
  */
 export const X_QUERY_IDS: Record<XQueryKey, string> = {
-  userByScreenName: "yvm61GcJCIpqEwe_3RBccw",
-  userMedia: "QWOimofaocjeRda7Tm5pNA",
-  tweetResult: "xZfFqfOmKQu_OXekGI59mg",
+  userByScreenName: "AMIBMjtxEEATh4z8V9GtRg",
+  userMedia: "kc23mh5ZZHOao1q8hzZ1LQ",
+  tweetResult: "UECplC_mh3SWNckOf1U3TA",
 };
 
 export type XQueryIdOverrides = Partial<Record<XQueryKey, string>>;
@@ -154,8 +158,9 @@ export async function verifyXSession(
       await xGraphQL({
         queryId: ids.userByScreenName,
         opName: "UserByScreenName",
+        // variables 键是 snake_case screen_name（camelCase 会 422，2026-10-26 实证）
         variables: {
-          screenName: "x",
+          screen_name: "x",
           __relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider: false,
         },
         session,
@@ -502,10 +507,16 @@ function xPagesOf(photos: XPhoto[]): WorkPage[] {
   }));
 }
 
-/** TweetResultByRestId 响应（扁平 data.tweetResult.result）→ 作品详情（队列回源）。 */
+/**
+ * TweetResultById 响应（扁平 data.tweet_result_by_rest_id.result，根字段已随
+ * x-web 改版更名）→ 作品详情（队列回源）。
+ */
 export function mapXTweetDetail(json: unknown): WorkDetail | null {
   const data = asRecordOrNull(asRecord(json).data);
-  const wrapper = asRecordOrNull(asRecordOrNull(data?.tweetResult)?.result);
+  // 新 x-web 根字段 tweet_result_by_rest_id；旧客户端（queryId 被覆盖时）tweetResult
+  const wrapper =
+    asRecordOrNull(asRecordOrNull(data?.tweet_result_by_rest_id)?.result) ??
+    asRecordOrNull(asRecordOrNull(data?.tweetResult)?.result);
   if (!wrapper) return null;
   // 先剥 TweetWithVisibilityResults 包裹再验 rest_id（包裹层自己不带 rest_id）
   const tweet = xTweetResultOf(wrapper);
@@ -531,7 +542,7 @@ export function mapXUserByScreenName(json: unknown): XUserRef {
 }
 
 /**
- * UserMedia 响应 → { user, items, nextCursor }。
+ * 媒体时间线（UserPhotoTimeline）响应 → { user, items, nextCursor }。
  * - userId 无效时上游**静默**返回 `{"data":{"user":{}}}`（M0 实证）——判空抛
  *   可读错误，别把空用户当正常空页；
  * - 媒体格是 TimelineTimelineModule（一模块≈一天聚合），推文在
@@ -600,9 +611,9 @@ export function mapXUserMedia(json: unknown, fallbackUser?: XUserRef | null): {
 // ── 对外入口（dispatch 调用）───────────────────────────────────────────────
 
 /**
- * handle → 媒体时间线一页。每页两次上游调用（handle→restId + UserMedia），
- * 均过闸门；UserMedia 必须真 Cookie（guest 404），所以整 op 前置校验 Cookie。
- * user 的 name / avatar 取自 UserByScreenName（UserMedia 响应的 user 只有 restId）。
+ * handle → 媒体时间线一页。每页两次上游调用（handle→restId + UserPhotoTimeline），
+ * 均过闸门；媒体时间线必须真 Cookie（guest 404），所以整 op 前置校验 Cookie。
+ * user 的 name / avatar 取自 UserByScreenName（时间线响应的 user 只有 restId）。
  */
 export async function xUserMedia(
   handle: string,
@@ -616,24 +627,29 @@ export async function xUserMedia(
     await xGraphQL({
       queryId: ids.userByScreenName,
       opName: "UserByScreenName",
-      // provided variable 必填（缺则 422 GRAPHQL_VALIDATION_FAILED，M0 实证）
+      // variables 键是 snake_case screen_name（camelCase 会 422，2026-10-26 实证）
       variables: {
-        screenName: handle,
+        screen_name: handle,
         __relay_internal__pv__xclientsfeaturesappviewerisloggedinrelayprovider: false,
       },
       session,
     }),
   );
+  // x-web 改版后媒体页拆成 Photo/Video 两条时间线；旧 UserMedia 端点已废（404）。
+  // 这里走 UserPhotoTimeline（图片时间线，X 收图主场景）。variables 形态取自
+  // 2026-10-26 登录态实链；响应按时间线家族同构解析（mapXUserMedia 容忍
+  // Module/Item 两种 instruction 形态）。
   const page = mapXUserMedia(
     await xGraphQL({
       queryId: ids.userMedia,
-      opName: "UserMedia",
+      opName: "UserPhotoTimeline",
       variables: {
         userId: user.restId,
         count: X_PAGE_COUNT,
         includePromotedContent: false,
-        withQuickPromoteEligibility: false,
-        withVoice: false,
+        withClientEventToken: false,
+        withBirdwatchNotes: false,
+        withVoice: true,
         ...(cursor ? { cursor } : {}),
       },
       session,
@@ -648,7 +664,10 @@ export async function xUserMedia(
   };
 }
 
-/** 单推回源（队列下载）。TweetResultByRestId guest 亦可——无 Cookie 走 guest。 */
+/**
+ * 单推回源（队列下载）。x-web 改版后端点更名 TweetResultById（旧名已废），
+ * 且 guest 不可用（404）——无 Cookie 走 guest 会直接失败，装好 Cookie 才可靠。
+ */
 export async function xTweet(
   id: string,
   xCookie: string | undefined,
@@ -660,13 +679,9 @@ export async function xTweet(
   const session = raw ? requireXSession(xCookie) : null;
   const json = await xGraphQL({
     queryId: ids.tweetResult,
-    opName: "TweetResultByRestId",
-    variables: {
-      tweetId: id,
-      withCommunity: false,
-      includePromotedContent: false,
-      withVoice: false,
-    },
+    opName: "TweetResultById",
+    // variables 键是 snake_case rest_id（2026-10-26 官方模块实证）
+    variables: { rest_id: id },
     session,
   });
   const work = mapXTweetDetail(json);
