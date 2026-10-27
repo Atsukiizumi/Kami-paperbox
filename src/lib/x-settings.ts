@@ -38,14 +38,15 @@ const IGNORED_LIMIT = 50;
 const QUERY_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /**
- * queryId 内置默认表（2026-10-18 实证，research §9；X 发版后轮换）。镜像
+ * queryId 内置默认表（2026-10-26 实证：x-web 改版后 UserMedia→UserPhotoTimeline、
+ * TweetResultByRestId→TweetResultById；X 发版后轮换）。镜像
  * upstream/x.ts 的 X_QUERY_IDS——那个模块连着服务端 HTTP 层不能进客户端包，
  * 占位符/设置卡从这里读；两处一致性由 x-account.test 交叉断言锁住。
  */
 export const X_DEFAULT_QUERY_IDS: Record<XQueryIdKey, string> = {
-  userByScreenName: "yvm61GcJCIpqEwe_3RBccw",
-  userMedia: "QWOimofaocjeRda7Tm5pNA",
-  tweetResult: "xZfFqfOmKQu_OXekGI59mg",
+  userByScreenName: "AMIBMjtxEEATh4z8V9GtRg",
+  userMedia: "kc23mh5ZZHOao1q8hzZ1LQ",
+  tweetResult: "UECplC_mh3SWNckOf1U3TA",
 };
 
 function normalizeHandle(raw: unknown): string {
