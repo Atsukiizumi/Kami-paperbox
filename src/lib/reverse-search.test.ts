@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ascii2dBovwUrl, parseAscii2dHtml, parseIqdbHtml, parseSauceNaoHtml, parseSauceNaoJson, workFromUrl } from "./reverse-search.ts";
+import {
+  ascii2dBovwUrl,
+  parseAscii2dHtml,
+  parseDanbooruIqdbJson,
+  parseIqdbHtml,
+  parseSauceNaoHtml,
+  parseSauceNaoJson,
+  sauceNaoApiError,
+  parseTraceMoeJson,
+  workFromUrl,
+} from "./reverse-search.ts";
 
 const SAUCE = `
 <div class="result"><table class="resulttable"><tr><td class="resulttableimage"><div class="resultimage" ><a href="https://saucenao.com/search.php?db=999"><img src="https://img1.saucenao.com/res/pixiv/6825/68259314_p0_master1200.jpg" /></a></div></td><td class="resulttablecontent"><div class="resultmatchinfo"><div class="resultsimilarityinfo">95.34%</div></div><div class="resultcontent"><div class="resulttitle"><strong>白丝袜</strong><br /></div><div class="resultcontentcolumn"><strong>pixiv ID: </strong><a href="https://www.pixiv.net/member_illust.php?mode=medium&illust_id=68259314" class="linkify">68259314</a><br /><strong>Member: </strong><a href="https://www.pixiv.net/member.php?id=26690900" class="linkify">璽子</a></div></div></td></tr></table></div>
@@ -102,5 +112,108 @@ describe("reverse search parsers", () => {
     assert.equal(hits[0]?.author, "unamaso");
     assert.equal(hits[0]?.extra, "特征");
     assert.equal(ascii2dBovwUrl(html, "https://ascii2d.net/search/color/111"), "https://ascii2d.net/search/bovw/deadbeefcafebabe");
+  });
+
+  it("parses trace.moe scenes and drops adult hits in safe mode", () => {
+    const hits = parseTraceMoeJson(
+      {
+        error: "",
+        result: [
+          {
+            anilist: {
+              id: 21699,
+              title: { native: "リゼロ", romaji: "Re:Zero", english: "Re:Zero" },
+              isAdult: false,
+            },
+            episode: 1,
+            from: 65.2,
+            similarity: 0.956,
+            image: "https://api.trace.moe/image/21699.jpg",
+          },
+          {
+            anilist: { id: 1, title: { native: "成人向け" }, isAdult: true },
+            similarity: 0.91,
+            image: "https://api.trace.moe/image/1.jpg",
+          },
+        ],
+      },
+      true,
+    );
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0]?.engine, "tracemoe");
+    assert.equal(hits[0]?.title, "リゼロ");
+    assert.equal(hits[0]?.similarity, 95.6);
+    assert.equal(hits[0]?.sourceUrl, "https://anilist.co/anime/21699");
+    assert.match(hits[0]?.author ?? "", /Re:Zero/);
+    assert.match(hits[0]?.extra ?? "", /第 1 话 · 1:05/);
+  });
+
+  it("parses Danbooru IQDB, keeps the pixiv source, drops explicit and loli", () => {
+    const hits = parseDanbooruIqdbJson(
+      {
+        matches: [
+          {
+            score: 92.4,
+            post: {
+              id: 3091441,
+              rating: "s",
+              tag_string: "landscape sky 1girl",
+              preview_file_url: "https://cdn.donmai.us/180x180/ab/cd.jpg",
+              source: "https://www.pixiv.net/artworks/68259314",
+            },
+          },
+          {
+            post_id: 8,
+            score: 80,
+            post: { id: 8, rating: "q", tag_string: "solo" },
+          },
+          {
+            post_id: 9,
+            score: 70,
+            post: { id: 9, rating: "s", tag_string: "loli" },
+          },
+        ],
+      },
+      true,
+    );
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0]?.engine, "danbooru");
+    assert.equal(hits[0]?.site, "pixiv");
+    assert.equal(hits[0]?.workId, "68259314");
+    assert.equal(hits[0]?.similarity, 92.4);
+    assert.match(hits[0]?.thumb ?? "", /cdn\.donmai\.us/);
+    assert.match(hits[0]?.title ?? "", /landscape/);
+  });
+});
+
+describe("SauceNAO API header", () => {
+  it("reads official rate-limit replies as throttling, not a bot challenge", () => {
+    assert.match(
+      sauceNaoApiError({ status: -2, message: "rate limit exceeded" }, 200) ?? "",
+      /接口限流/,
+    );
+    assert.match(sauceNaoApiError({ status: 0, message: "" }, 429) ?? "", /接口限流/);
+    assert.match(
+      sauceNaoApiError({ status: -1, message: "Rate Limit Exceeded. Please wait" }, 200) ?? "",
+      /接口限流/,
+    );
+  });
+
+  it("separates the daily quota from the 30-second window", () => {
+    assert.match(
+      sauceNaoApiError({ status: -3, message: "Daily Search Limit Exceeded" }, 200) ?? "",
+      /今日次数用完/,
+    );
+    assert.match(sauceNaoApiError({ status: -4, message: "" }, 200) ?? "", /今日次数用完/);
+  });
+
+  it("passes through other header errors and stays quiet on success", () => {
+    assert.equal(sauceNaoApiError({ status: -6, message: "invalid image" }, 200), "invalid image");
+    assert.equal(sauceNaoApiError({ status: 0, message: "" }, 200), undefined);
+    assert.equal(sauceNaoApiError(undefined, 429), undefined);
+    assert.equal(
+      sauceNaoApiError({ status: 0, message: "anonymous account type does not permit API" }, 200),
+      undefined,
+    );
   });
 });

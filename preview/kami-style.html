@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ink="paper">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kami 纸匣 · 风格版图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,460;0,6..72,560;1,6..72,460;1,6..72,560&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe8;
+      --fg: #141210;
+      --muted: #5e5954;
+      --line: rgb(20 18 16 / 14%);
+      --line-strong: rgb(20 18 16 / 34%);
+      --paper: #e7dfd2;
+      --paper-2: #f7f3ec;
+      --seal: #8f3d32;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --serif: "Newsreader", "Noto Serif SC", "Songti SC", "PMingLiU", serif;
+      --sans: "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    html[data-ink="desk"] {
+      --bg: #0e0d0c;
+      --fg: #f3efe8;
+      --muted: #a39c93;
+      --line: rgb(243 239 232 / 14%);
+      --line-strong: rgb(243 239 232 / 32%);
+      --paper: #1b1916;
+      --paper-2: #26231f;
+      --seal: #e8a09a;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow: hidden;
+      transition: background 0.45s var(--ease), color 0.45s var(--ease);
+    }
+    button, input { font: inherit; color: inherit; background: none; border: 0; border-radius: 0; padding: 0; }
+    button { cursor: pointer; }
+    button:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+    a { color: inherit; }
+    .grain {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 20; opacity: 0.14; mix-blend-mode: multiply;
+    }
+    html[data-ink="desk"] .grain { mix-blend-mode: overlay; opacity: 0.28; }
+    .frame, .frame-col { position: fixed; pointer-events: none; z-index: 6; }
+    .frame { inset: 12px; border: 1px solid var(--line); }
+    .frame-col { top: 12px; bottom: 12px; left: 112px; width: 1px; background: var(--line); }
+    .brand {
+      position: fixed; z-index: 7; top: 22px; left: 26px; width: 76px;
+      font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); line-height: 1.4;
+    }
+    .brand strong { display: block; color: var(--fg); font-weight: 500; letter-spacing: 0.14em; }
+    .brand a { color: inherit; text-decoration: none; }
+    .app {
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 12px 28px;
+      padding: 64px 28px 18px 24px;
+      position: relative; z-index: 2;
+    }
+    .rooms { display: flex; flex-direction: column; gap: 22px; padding-top: 78px; }
+    .rooms button {
+      writing-mode: vertical-rl; letter-spacing: 0.42em; font-size: 13px;
+      color: var(--muted); align-self: start;
+    }
+    .rooms button[aria-current="true"] {
+      color: var(--fg); font-family: var(--serif); font-style: italic; letter-spacing: 0.28em;
+    }
+    .stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+    .kicker { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .stage header { display: flex; flex-direction: column; gap: 8px; }
+    h1 {
+      margin: 0; font-family: var(--serif); font-weight: 560;
+      font-size: clamp(48px, 6vw, 84px); line-height: 1; letter-spacing: -0.045em;
+    }
+    h1 em { font-style: italic; font-weight: 460; font-size: 0.38em; letter-spacing: 0; color: var(--muted); margin-left: 12px; }
+    .plate { display: none; flex: 1; min-height: 0; }
+    body[data-plate="color"] .plate-color,
+    body[data-plate="type"] .plate-type,
+    body[data-plate="grid"] .plate-grid,
+    body[data-plate="mark"] .plate-mark,
+    body[data-plate="part"] .plate-part,
+    body[data-plate="board"] .plate-board { display: flex; }
+    .plate { flex-direction: column; gap: 14px; }
+    .fill { flex: 1; min-height: 0; }
+
+    .bars { display: flex; flex-direction: column; gap: 16px; min-height: 0; flex: 1; }
+    .bar-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; min-height: 0; flex: 1; }
+    .bar-row > span { writing-mode: vertical-rl; letter-spacing: 0.28em; font-family: var(--serif); font-style: italic; align-self: center; }
+    .bar {
+      display: grid;
+      grid-template-columns: 1.7fr 1.15fr 0.95fr 1.15fr 1fr 0.72fr;
+      min-height: 0;
+    }
+    .swatch {
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 12px 12px 10px; min-width: 0; min-height: 120px;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
+    }
+    .swatch b { font-weight: 500; font-size: 13px; }
+    .swatch span { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; font-size: 12px; }
+    .meta-row { display: grid; grid-template-columns: 1.2fr 0.8fr 1fr; gap: 18px; }
+    .meta-row section { border-top: 1px solid var(--line); padding-top: 8px; }
+    .meta-row h2 { margin: 0 0 6px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .meta-row p { margin: 0; font-size: 13px; }
+    .line-sample { height: 28px; display: flex; align-items: center; }
+    .line-sample i { display: block; height: 1px; width: 100%; background: var(--line-strong); }
+    .line-sample.soft i { background: var(--line); }
+    .grain-chip {
+      height: 72px; background: var(--paper); position: relative; overflow: hidden;
+    }
+    .grain-chip svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.45; }
+
+    .type-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.75fr); gap: 28px; }
+    .giant {
+      font-family: var(--serif); font-weight: 560; font-size: clamp(80px, 10vw, 128px);
+      line-height: 1; letter-spacing: -0.05em; margin: 8px 0 0;
+    }
+    .giant em { font-style: italic; font-weight: 460; font-size: 0.28em; letter-spacing: 0; color: var(--muted); }
+    .lede { max-width: 36em; color: var(--muted); margin: 12px 0 0; }
+    .scale { border-top: 1px solid var(--line); overflow: auto; }
+    .scale div {
+      display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: baseline;
+      border-bottom: 1px solid var(--line); min-height: 42px; padding: 6px 0;
+    }
+    .scale b { font-variant-numeric: tabular-nums; font-weight: 500; }
+    .scale i { color: var(--muted); font-style: normal; font-size: 12px; }
+    .s-display { font-family: var(--serif); font-size: 28px; line-height: 1; }
+    .s-italic { font-family: var(--serif); font-style: italic; font-size: 22px; }
+    .s-body { font-size: 14px; }
+    .s-note { font-size: 12px; color: var(--muted); }
+    .s-kicker { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+
+    .grid-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.7fr); gap: 28px; }
+    .schematic {
+      border: 1px solid var(--line-strong); height: 100%; min-height: 280px;
+      display: grid; grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 36px;
+      position: relative;
+    }
+    .schematic .g-side, .schematic .g-main, .schematic .g-foot {
+      display: grid; place-items: center; color: var(--muted); font-size: 12px; letter-spacing: 0.08em;
+    }
+    .schematic .g-side { border-right: 1px solid var(--line); }
+    .schematic .g-foot { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+    .dim {
+      position: absolute; font-size: 11px; letter-spacing: 0.08em; color: var(--seal);
+    }
+    .dim-top { top: 6px; left: 8px; }
+    .dim-left { left: 8px; top: 28px; }
+    .rules { border-top: 1px solid var(--line); }
+    .rules div {
+      display: flex; justify-content: space-between; gap: 16px; align-items: baseline;
+      border-bottom: 1px solid var(--line); min-height: 40px; padding: 8px 0; font-size: 13px;
+    }
+    .rules span { color: var(--muted); text-align: right; }
+
+    .marks { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.1fr 0.8fr 1fr; grid-template-rows: 1.2fr 0.8fr; gap: 14px; }
+    .mark {
+      border: 1px solid var(--line); min-height: 0; padding: 14px; position: relative;
+      display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+    }
+    .mark h2 { margin: 0; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .fold-sheet {
+      width: min(180px, 70%); aspect-ratio: 4 / 5; background: var(--paper); position: relative; align-self: center;
+    }
+    .fold-sheet i {
+      position: absolute; top: 0; right: 0; width: 0; height: 0;
+      border-top: 36px solid var(--bg); border-left: 36px solid transparent;
+    }
+    .seal {
+      width: 120px; height: 120px; border: 1px solid var(--seal); color: var(--seal); border-radius: 50%;
+      display: grid; place-items: center; text-align: center; transform: rotate(-8deg);
+      font-family: var(--serif); font-size: 15px; line-height: 1.25; letter-spacing: 0.08em;
+      align-self: center;
+    }
+    .kinds { display: flex; gap: 10px; align-items: center; }
+    .kind { font-size: 12px; letter-spacing: 0.06em; border: 1px solid var(--line-strong); padding: 3px 7px; }
+    .kind.keep { color: var(--seal); border-color: var(--seal); }
+    .chapter { font-family: var(--serif); font-size: clamp(28px, 3vw, 42px); letter-spacing: -0.03em; }
+    .logo-row { display: flex; align-items: center; gap: 12px; font-family: var(--serif); font-size: 28px; letter-spacing: -0.03em; }
+    .logo-row svg { width: 36px; height: 36px; }
+
+    .parts { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 22px; }
+    .modes, .rows { border-top: 1px solid var(--line); }
+    .modes button, .demo-row {
+      min-height: 40px; padding: 0 12px 0 0; color: var(--muted);
+    }
+    .modes button[aria-current="true"] { color: var(--fg); font-family: var(--serif); font-style: italic; }
+    .demo-row, .modes { display: flex; align-items: center; }
+    .demo-row { width: 100%; border-bottom: 1px solid var(--line); justify-content: space-between; gap: 12px; text-align: left; }
+    .demo-row:hover { background: color-mix(in srgb, var(--paper) 65%, transparent); }
+    .idx { font-family: var(--serif); font-style: italic; color: var(--muted); width: 2em; }
+    .hot { color: var(--seal); }
+    .tiles { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 8px; min-height: 180px; flex: 1; }
+    .tile { position: relative; background: var(--paper); min-height: 140px; overflow: hidden; text-align: left; }
+    .tile footer { position: absolute; left: 10px; right: 10px; bottom: 8px; display: flex; flex-direction: column; font-size: 12px; }
+    .tile footer b, .tile footer span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile footer span { color: var(--muted); }
+    .comp { position: absolute; inset: 0; }
+    .comp i { position: absolute; display: block; }
+    .c1 i:nth-child(1) { width: 70%; aspect-ratio: 1; border: 1px solid var(--line-strong); border-radius: 50%; right: -12%; top: 8%; }
+    .c1 i:nth-child(2) { width: 1px; top: 0; bottom: 0; left: 28%; background: var(--line-strong); }
+    .c2 i:nth-child(1) { left: 12%; right: 18%; top: 34%; height: 1px; background: var(--fg); }
+    .c2 i:nth-child(2) { left: 12%; width: 36%; top: 46%; height: 6px; background: var(--fg); }
+    .find {
+      display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line-strong); min-height: 40px;
+    }
+    .find input { flex: 1; min-width: 0; min-height: 36px; }
+    .find input::placeholder { color: var(--muted); }
+    .empty-demo { display: grid; place-items: center; color: var(--muted); min-height: 120px; border-top: 1px solid var(--line); }
+    .empty-demo .paper {
+      width: 28px; height: 36px; border: 1px solid var(--line-strong); position: relative; margin: 0 auto 8px;
+    }
+    .empty-demo .paper::after {
+      content: ""; position: absolute; top: 0; right: 0;
+      border-top: 10px solid var(--bg); border-left: 10px solid transparent;
+    }
+
+    .atlas {
+      flex: 1; min-height: 0;
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 0.82fr;
+      grid-template-rows: 1fr 1fr 0.92fr;
+      gap: 12px;
+    }
+    .mini { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .mini.today { grid-column: 1; grid-row: 1 / span 2; }
+    .mini.flow { grid-column: 2; grid-row: 1; }
+    .mini.vault { grid-column: 2; grid-row: 2; }
+    .mini.detail { grid-column: 1; grid-row: 3; }
+    .mini.queue { grid-column: 3; grid-row: 1 / span 2; }
+    .mini.sealbox { grid-column: 3; grid-row: 3; }
+    .mock {
+      flex: 1; min-height: 0; border: 1px solid var(--line-strong); padding: 8px;
+      display: grid; gap: 4px; background: color-mix(in srgb, var(--paper) 35%, var(--bg));
+    }
+    .mock b { font-weight: 500; }
+    .cap { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+    .blk { background: var(--paper); min-height: 0; position: relative; }
+    .blk i.fold {
+      position: absolute; top: 0; right: 0; border-top: 10px solid var(--bg); border-left: 10px solid transparent;
+    }
+    .m-today { grid-template-columns: 1.4fr 0.7fr; grid-template-rows: auto minmax(0, 1fr); }
+    .m-today .strip { grid-column: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+    .m-today .slips { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--line); padding-left: 4px; display: flex; flex-direction: column; gap: 3px; }
+    .m-today .modes, .m-flow .modes { grid-column: 1 / -1; }
+    .hair { height: 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 9px; letter-spacing: 0.08em; }
+    .slip-line { height: 8px; border-bottom: 1px solid var(--line); }
+    .m-flow, .m-vault { grid-template-rows: auto minmax(0, 1fr); }
+    .m-flow .wall, .m-vault .wall { display: grid; grid-template-columns: 1.2fr 1fr 1fr; grid-template-rows: 1fr 0.7fr; gap: 3px; }
+    .m-flow .wall .blk:first-child, .m-vault .wall .blk:first-child { grid-row: 1 / span 2; }
+    .m-detail { grid-template-columns: 1.2fr 0.8fr; }
+    .m-detail .copy { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 10px; }
+    .m-detail .copy b { font-family: var(--serif); font-size: 16px; font-weight: 560; }
+    .m-queue { grid-template-columns: 0.45fr 1fr; }
+    .m-queue .page { opacity: 0.45; }
+    .m-seal { grid-template-rows: auto auto minmax(0, 1fr); align-content: start; }
+    .m-seal .ln { height: 8px; border-bottom: 1px solid var(--line); }
+
+    .foot {
+      grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 18px; align-items: center; min-height: 42px; border-top: 1px solid var(--line);
+      padding-top: 8px; background: var(--bg); z-index: 4;
+    }
+    .chap { letter-spacing: 0.08em; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    #line { color: var(--muted); font-size: 13px; min-width: 0; }
+    .foot-end { display: flex; gap: 12px; align-items: center; }
+    .ink button { color: var(--muted); min-height: 36px; padding: 0 4px; }
+    .ink button[aria-pressed="true"] { font-family: var(--serif); font-style: italic; color: var(--fg); }
+    .mobile-nav { display: none; }
+
+    @media (max-width: 860px) {
+      .frame-col, .rooms { display: none; }
+      .app { grid-template-columns: 1fr; padding: 56px 14px 74px; gap: 8px; }
+      h1 { font-size: 44px; }
+      .plate { overflow: auto; }
+      .bars, .bar-row, .type-grid, .grid-wrap, .marks, .parts, .atlas { flex: none; }
+      .type-grid, .grid-wrap, .parts, .marks, .meta-row, .atlas { grid-template-columns: 1fr; }
+      .marks, .atlas { grid-template-rows: none; }
+      .mini.today, .mini.flow, .mini.vault, .mini.detail, .mini.queue, .mini.sealbox { grid-column: auto; grid-row: auto; min-height: 200px; }
+      .bar { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 92px; }
+      .swatch { min-height: 0; }
+      .foot { grid-template-columns: 1fr; gap: 4px; }
+      .mobile-nav {
+        display: flex; position: fixed; z-index: 8; left: 12px; right: 12px; bottom: 12px;
+        background: var(--bg); border-top: 1px solid var(--line-strong); justify-content: space-between;
+      }
+      .mobile-nav button { flex: 1; min-height: 46px; color: var(--muted); }
+      .mobile-nav button[aria-current="true"] { color: var(--fg); font-family: var(--serif); font-style: italic; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body, .app { transition: none; }
+    }
+  </style>
+</head>
+<body data-plate="color">
+  <svg class="grain" aria-hidden="true">
+    <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+    <rect width="100%" height="100%" filter="url(#n)" />
+  </svg>
+  <div class="frame"></div>
+  <div class="frame-col"></div>
+  <div class="brand"><strong>Kami</strong>风格版图<br /><a href="kami-binding-style.html">装帧</a></div>
+
+  <div class="app">
+    <nav class="rooms" aria-label="版图">
+      <button type="button" data-plate="color">色</button>
+      <button type="button" data-plate="type">字</button>
+      <button type="button" data-plate="grid">格</button>
+      <button type="button" data-plate="mark">记</button>
+      <button type="button" data-plate="part">件</button>
+      <button type="button" data-plate="board">版</button>
+    </nav>
+    <main class="stage">
+      <header>
+        <p class="kicker" id="kicker">01 / 06</p>
+        <h1 id="title">色谱</h1>
+      </header>
+
+      <section class="plate plate-color" aria-label="色谱">
+        <div class="bars">
+          <div class="bar-row">
+            <span>纸</span>
+            <div class="bar">
+              <div class="swatch" style="background:#f3efe8;color:#141210"><b>案面</b><span>#F3EFE8</span></div>
+              <div class="swatch" style="background:#141210;color:#f3efe8"><b>墨</b><span>#141210</span></div>
+              <div class="swatch" style="background:#5e5954;color:#f3efe8"><b>次墨</b><span>#5E5954</span></div>
+              <div class="swatch" style="background:#e7dfd2;color:#141210"><b>纸</b><span>#E7DFD2</span></div>
+              <div class="swatch" style="background:#f7f3ec;color:#141210"><b>纸背</b><span>#F7F3EC</span></div>
+              <div class="swatch" style="background:#8f3d32;color:#f7f3ec"><b>朱红</b><span>#8F3D32</span></div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span>墨</span>
+            <div class="bar">
+              <div class="swatch" style="background:#0e0d0c;color:#f3efe8"><b>夜案</b><span>#0E0D0C</span></div>
+              <div class="swatch" style="background:#f3efe8;color:#141210"><b>字</b><span>#F3EFE8</span></div>
+              <div class="swatch" style="background:#a39c93;color:#141210"><b>次墨</b><span>#A39C93</span></div>
+              <div class="swatch" style="background:#1b1916;color:#f3efe8"><b>纸</b><span>#1B1916</span></div>
+              <div class="swatch" style="background:#26231f;color:#f3efe8"><b>纸背</b><span>#26231F</span></div>
+              <div class="swatch" style="background:#e8a09a;color:#141210"><b>朱红</b><span>#E8A09A</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="meta-row">
+          <section>
+            <h2>线</h2>
+            <div class="line-sample soft"><i></i></div>
+            <p>细线 14%。分栏、外框、名单。</p>
+            <div class="line-sample"><i></i></div>
+            <p>重线 34%。检索底线、打开的笺。</p>
+          </section>
+          <section>
+            <h2>颗粒</h2>
+            <div class="grain-chip" aria-hidden="true">
+              <svg><rect width="100%" height="100%" filter="url(#n)" /></svg>
+            </div>
+            <p>全页一层噪点。纸上 multiply，墨上 overlay。</p>
+          </section>
+          <section>
+            <h2>用法</h2>
+            <p>朱红只给日期章、未读、和「收入纸匣」。不拿来做大按钮，也不做渐变。</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="plate plate-type" aria-label="字体">
+        <div class="type-grid fill">
+          <div>
+            <p class="giant">今日 <em>十月二十六日</em></p>
+            <p class="lede">标题走衬线：西文 Newsreader，中文落到思源宋。正文走思源黑体。正在看的模式改成衬线斜体，其余保持黑体。</p>
+          </div>
+          <div class="scale">
+            <div><b>104</b><span class="s-display">今日</span><i>标题</i></div>
+            <div><b>48</b><span class="s-display">队列</span><i>笺 / 印</i></div>
+            <div><b>22</b><span class="s-italic">三日月</span><i>斜体状态</i></div>
+            <div><b>14</b><span class="s-body">标签、链接或作品号</span><i>正文</i></div>
+            <div><b>12</b><span class="s-note">三日月 · Pixiv</span><i>卡片注</i></div>
+            <div><b>11</b><span class="s-kicker">01 — 看</span><i>眉题 · 字距 0.18em</i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="plate plate-grid" aria-label="网格">
+        <div class="grid-wrap fill">
+          <div class="schematic" aria-hidden="true">
+            <span class="dim dim-top">外框 12</span>
+            <div class="g-side"><span class="dim dim-left">88</span>看</div>
+            <div class="g-main">内容</div>
+            <div class="g-foot">底栏 · 章节、检索、笺、印</div>
+          </div>
+          <div class="rules">
+            <div>外框 <span>距视口 12px，1px</span></div>
+            <div>左栏 <span>88px，竖排房间名</span></div>
+            <div>栏间距 <span>28px</span></div>
+            <div>页边 <span>上 64 · 右 28 · 下 18</span></div>
+            <div>间距 <span>8 / 12 / 14 / 18 / 22 / 28</span></div>
+            <div>圆角 <span>0。只有日期章是圆</span></div>
+            <div>缓动 <span>cubic-bezier(0.16, 1, 0.3, 1)</span></div>
+            <div>入场 <span>字 0.9s · 图 0.95s · 笺 0.7s</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="plate plate-mark" aria-label="记号">
+        <div class="marks fill">
+          <article class="mark">
+            <h2>折角</h2>
+            <div class="fold-sheet"><i></i></div>
+            <p>已经在纸匣里。空页和标志也用这一折。</p>
+          </article>
+          <article class="mark">
+            <h2>日期章</h2>
+            <div class="seal">二〇二六<br />十月<br />廿六</div>
+            <p>只出现在今日的右上。转 −8°。</p>
+          </article>
+          <article class="mark">
+            <h2>笺签</h2>
+            <div class="kinds">
+              <span class="kind keep">收入纸匣</span>
+              <span class="kind">下载</span>
+            </div>
+            <p class="hot">未读用朱红字，不用底色块。</p>
+          </article>
+          <article class="mark">
+            <h2>章节</h2>
+            <p class="chapter">[01 // 04] 看</p>
+            <p>看、纸匣、笺、印。永远这四个号。</p>
+          </article>
+          <article class="mark" style="grid-column: span 2">
+            <h2>标志</h2>
+            <div class="logo-row">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5.5 4.5h9L19 9v11H5.5z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+                <path d="M14.5 4.5V9H19" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+              </svg>
+              Kami Paperbox
+            </div>
+            <p>折页记号。字只用 Kami Paperbox，或 Kami 纸匣。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="plate plate-part" aria-label="构件">
+        <div class="parts fill">
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div class="modes" id="demo-modes">
+              <button type="button" data-demo="0" aria-current="true">01 今日</button>
+              <button type="button" data-demo="1">02 流</button>
+              <button type="button" data-demo="2">03 追踪</button>
+              <button type="button" data-demo="3">04 榜</button>
+              <button type="button" data-demo="4">05 走过</button>
+            </div>
+            <div>
+              <button type="button" class="demo-row"><span class="idx">01</span><span style="flex:1">三日月</span><span>Pixiv</span><span class="hot">3 张新作</span></button>
+              <button type="button" class="demo-row"><span class="idx">02</span><span style="flex:1">白井</span><span>yande.re</span><span>已读</span></button>
+              <button type="button" class="demo-row"><span class="idx">03</span><span style="flex:1">海岸线</span><span>Konachan</span><span>检查失败</span></button>
+            </div>
+            <form class="find">
+              <label for="q">检索</label>
+              <input id="q" placeholder="标签、链接或作品号" />
+              <span style="color:var(--muted)">拖入一张图</span>
+            </form>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div class="tiles">
+              <div class="tile"><div class="comp c1"><i></i><i></i></div><footer><b>窗边的猫</b><span>三日月 · Pixiv</span></footer></div>
+              <div class="tile"><div class="comp c2"><i></i><i></i></div><i class="fold" style="position:absolute;top:0;right:0;border-top:16px solid var(--bg);border-left:16px solid transparent"></i><footer><b>雨停之前</b><span>白井</span></footer></div>
+            </div>
+            <div class="empty-demo"><div><div class="paper"></div><div>这张纸是空的</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="plate plate-board" aria-label="版式">
+        <div class="atlas">
+          <article class="mini today">
+            <div class="mock m-today">
+              <div class="hair">今日</div>
+              <div class="strip"><div class="blk"></div><div class="blk"></div><div class="blk"></div></div>
+              <div class="slips"><div class="hair">信</div><div class="slip-line"></div><div class="slip-line"></div><div class="hair">纸叠</div><div class="slip-line"></div><div class="hair">画师墙</div></div>
+            </div>
+            <p class="cap">今日。铺纸在左，信、纸叠、画师墙在右。</p>
+          </article>
+          <article class="mini flow">
+            <div class="mock m-flow">
+              <div class="hair">流 · Pixiv · 日榜</div>
+              <div class="wall"><div class="blk"></div><div class="blk"></div><div class="blk"></div><div class="blk"></div><div class="blk"></div></div>
+            </div>
+            <p class="cap">流。站点是一行字，下面是墙。</p>
+          </article>
+          <article class="mini vault">
+            <div class="mock m-vault">
+              <div class="hair">纸匣 · 整理</div>
+              <div class="wall"><div class="blk"><i class="fold"></i></div><div class="blk"><i class="fold"></i></div><div class="blk"></div><div class="blk"></div><div class="blk"></div></div>
+            </div>
+            <p class="cap">纸匣。同一面墙。折角表示已经留下。</p>
+          </article>
+          <article class="mini detail">
+            <div class="mock m-detail">
+              <div class="blk"></div>
+              <div class="copy"><span>返回今日</span><b>窗边的猫</b><span>收入纸匣 · 下载</span></div>
+            </div>
+            <p class="cap">详情。大图在左，动作是两行字。</p>
+          </article>
+          <article class="mini queue">
+            <div class="mock m-queue">
+              <div class="blk page"></div>
+              <div>
+                <div class="hair">笺</div>
+                <div class="slip-line"></div>
+                <div class="slip-line"></div>
+                <div class="slip-line"></div>
+              </div>
+            </div>
+            <p class="cap">笺。从右边进来，人不离开这一页。</p>
+          </article>
+          <article class="mini sealbox">
+            <div class="mock m-seal">
+              <div class="hair">印</div>
+              <div class="hair">留在手上</div>
+              <div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>
+            </div>
+            <p class="cap">印。窄。常改的在上，很少打开的在下。</p>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="foot">
+      <div class="chap" id="chap">[01 // 06]</div>
+      <div id="line"></div>
+      <div class="foot-end">
+        <a href="kami-ia.html">样张</a>
+        <a href="kami-binding.html">装帧</a>
+        <span class="ink">
+          <button type="button" data-ink="paper" aria-pressed="true">纸</button>
+          <button type="button" data-ink="desk" aria-pressed="false">墨</button>
+        </span>
+      </div>
+    </footer>
+  </div>
+  <nav class="mobile-nav" aria-label="版图">
+    <button type="button" data-plate="color">色</button>
+    <button type="button" data-plate="type">字</button>
+    <button type="button" data-plate="grid">格</button>
+    <button type="button" data-plate="mark">记</button>
+    <button type="button" data-plate="part">件</button>
+    <button type="button" data-plate="board">版</button>
+  </nav>
+  <script>
+    const PLATES = {
+      color: ["01 / 06", "色谱", "[01 // 06]  色", "案面、墨、纸、朱红。夜案换一套色，线的比例不变。"],
+      type: ["02 / 06", "字体", "[02 // 06]  字", "标题用衬线，正文用黑体。正在看的那一项改斜体。"],
+      grid: ["03 / 06", "网格", "[03 // 06]  格", "1px 的线。圆角只留给日期章。"],
+      mark: ["04 / 06", "记号", "[04 // 06]  记", "折角、朱红、章节号。少，而且到处一样。"],
+      part: ["05 / 06", "构件", "[05 // 06]  件", "控件是字和线。"],
+      board: ["06 / 06", "版式", "[06 // 06]  版", "六块版。同一套边，同一套字。"]
+    };
+    const title = document.getElementById("title");
+    const kicker = document.getElementById("kicker");
+    const chap = document.getElementById("chap");
+    const line = document.getElementById("line");
+
+    function paint(plate) {
+      const row = PLATES[plate];
+      document.body.dataset.plate = plate;
+      kicker.textContent = row[0];
+      title.textContent = row[1];
+      chap.textContent = row[2];
+      line.textContent = row[3];
+      document.querySelectorAll("button[data-plate]").forEach((btn) => {
+        btn.setAttribute("aria-current", btn.dataset.plate === plate ? "true" : "false");
+      });
+    }
+
+    document.body.addEventListener("click", (e) => {
+      const plate = e.target.closest("button[data-plate]");
+      if (plate) {
+        paint(plate.dataset.plate);
+        return;
+      }
+      const ink = e.target.closest("button[data-ink]");
+      if (ink) {
+        document.documentElement.dataset.ink = ink.dataset.ink;
+        document.querySelectorAll("button[data-ink]").forEach((btn) => {
+          btn.setAttribute("aria-pressed", btn.dataset.ink === ink.dataset.ink ? "true" : "false");
+        });
+        return;
+      }
+      const demo = e.target.closest("[data-demo]");
+      if (demo) {
+        document.querySelectorAll("[data-demo]").forEach((btn) => {
+          btn.setAttribute("aria-current", btn === demo ? "true" : "false");
+        });
+      }
+    });
+    paint("color");
+  </script>
+</body>
+</html>

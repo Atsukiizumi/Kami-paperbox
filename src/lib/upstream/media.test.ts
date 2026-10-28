@@ -33,6 +33,8 @@ test("真实在用媒体域全部放行（mapping 固定样本 + fixture + 运�
     "https://img3.saucenao.com/res/pixiv/6825/68259314_p0_master1200.jpg",
     "https://iqdb.org/thm/aB3cD4.jpg",
     "https://ascii2d.net/thumbnail/aB3cD4.jpg",
+    "https://api.trace.moe/image/21699.jpg",
+    "https://media.trace.moe/image/21699.jpg",
     // X 静态图（x.ts 映射层产出 ?format=…&name=orig 直链；视频域有意不在白名单）
     "https://pbs.twimg.com/media/GhX1aBc.jpg?format=jpg&name=orig",
     "https://pbs.twimg.com/profile_images/1/ava_normal.jpg",

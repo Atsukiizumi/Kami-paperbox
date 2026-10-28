@@ -11,6 +11,7 @@
  *        DnD 用原生 HTML5（鼠标优先），键盘方向键做兜底。
  */
 import { useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { GripVertical, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -162,8 +163,8 @@ export function DeskEditBar({
   onReset: () => void;
   onDone: () => void;
 }) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-5">
+  const bar = (
+    <div className="kami-dk-editdock">
       <div className="kami-dk-editbar flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-border/80 bg-surface/95 p-2.5 shadow-[var(--shadow-paper-3)] backdrop-blur-md">
         <div className="flex max-w-full items-center gap-1.5 overflow-x-auto">
           {presets.map((p) => (
@@ -238,6 +239,8 @@ export function DeskEditBar({
       </div>
     </div>
   );
+  if (typeof document === "undefined") return bar;
+  return createPortal(bar, document.body);
 }
 
 /** 存为版式命名框。 */

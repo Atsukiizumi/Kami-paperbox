@@ -3,29 +3,22 @@
  *
  * 作用：浏览页的榜单、动态、最新/热门切换。
  * 用法：<ToggleGroup type="single" value={feed} onValueChange={...}>
- * 为什么：底下有一块滑块跟着走，换榜时一定看得到位移。
+ * 为什么：当前项用衬线斜体和一条发丝线，换榜时看得到字，不靠底色药丸。
  */
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/utils";
-import { SlidingPill, useSlidingPill } from "./sliding-pill";
 
 export const ToggleGroup = React.forwardRef<
   React.ComponentRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root>
 >(({ className, children, ...props }, ref) => {
-  const { rootRef, pill } = useSlidingPill('[data-state="on"]');
   return (
     <ToggleGroupPrimitive.Root
-      ref={(node) => {
-        rootRef.current = node;
-        if (typeof ref === "function") ref(node);
-        else if (ref) ref.current = node;
-      }}
-      className={cn("relative flex flex-wrap items-center gap-1.5", className)}
+      ref={ref}
+      className={cn("relative flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border pb-1", className)}
       {...props}
     >
-      <SlidingPill box={pill} className="rounded-full bg-accent" />
       {children}
     </ToggleGroupPrimitive.Root>
   );
@@ -39,12 +32,12 @@ export const ToggleGroupItem = React.forwardRef<
   <ToggleGroupPrimitive.Item
     ref={ref}
     className={cn(
-      "relative z-10 inline-flex h-9 items-center justify-center rounded-full bg-elevated px-3.5 text-sm text-muted",
-      "transition-[color,background-color,transform] duration-200 ease-out",
-      "hover:text-fg active:scale-[0.96]",
+      "relative z-10 inline-flex h-9 items-center justify-center bg-transparent px-0 text-sm text-muted",
+      "transition-colors duration-200 ease-out",
+      "hover:text-fg",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
       "disabled:pointer-events-none disabled:opacity-40",
-      "data-[state=on]:bg-transparent data-[state=on]:text-accent-fg",
+      "data-[state=on]:bg-transparent data-[state=on]:font-display data-[state=on]:text-fg data-[state=on]:italic data-[state=on]:shadow-[inset_0_-1px_0_var(--color-danger)]",
       className,
     )}
     {...props}

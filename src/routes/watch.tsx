@@ -191,8 +191,8 @@ export function WatchPage() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="font-display text-3xl tracking-tight md:text-4xl">追踪</h1>
-        <p className="text-sm text-muted">
+        <h1 className="kami-node-title text-3xl md:text-4xl">追踪</h1>
+        <p className="kami-node-note">
           {watchArtists.length}/{watchLimit} 位画师 · {watchTags.length}/{TAG_WATCH_LIMIT} 个标签
           {unreadTotal > 0 ? ` · ${unreadTotal} 张新作品` : ""}
           {" · 检查会拉取各条目最新一页并缓存到服务端（受缓存水位自动清理），订阅越多占用与流量越大。"}

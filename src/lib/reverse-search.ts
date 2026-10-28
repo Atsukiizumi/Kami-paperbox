@@ -1,19 +1,21 @@
 /**
  * 搜图引擎列表和结果解析（客户端形状）。
  *
- * 作用：SauceNAO / ascii2d / IQDB 的标识；把源站链接收成作品。
+ * 作用：SauceNAO / ascii2d / IQDB / trace.moe / Danbooru 的标识；把源站链接收成作品。
  * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
  */
 import type { Source } from "./types.ts";
 import { decodeHtmlEntities } from "./utils.ts";
 import { asNumber, asRecord, asStringLoose as asString } from "./parse.ts";
 
-export type SearchEngine = "saucenao" | "ascii2d" | "iqdb";
+export type SearchEngine = "saucenao" | "ascii2d" | "iqdb" | "tracemoe" | "danbooru";
 
 export const SEARCH_ENGINES = [
   { id: "saucenao", label: "SauceNAO", origin: "https://saucenao.com/" },
   { id: "ascii2d", label: "ascii2d", origin: "https://ascii2d.net/" },
   { id: "iqdb", label: "IQDB", origin: "https://iqdb.org/" },
+  { id: "tracemoe", label: "trace.moe", origin: "https://trace.moe/" },
+  { id: "danbooru", label: "Danbooru", origin: "https://danbooru.donmai.us/" },
 ] as const satisfies ReadonlyArray<{ id: SearchEngine; label: string; origin: string }>;
 
 export const DEFAULT_SEARCH_ENGINE: SearchEngine = "saucenao";
@@ -192,6 +194,33 @@ export function parseSauceNaoJson(raw: unknown, _safeMode: boolean): ReverseHit[
   return hits.sort((a, b) => b.similarity - a.similarity);
 }
 
+/**
+ * SauceNAO 官方 JSON 回包 header 的判读。
+ *
+ * 作用：把 429 / -2 之类官方语义翻成准确的话。
+ * 为什么：撞官方 API 限额时 SauceNAO 回 429 + JSON（header.status=-2），
+ *        那是它自家的 30 秒窗口限流，不是 Cloudflare 风控；照风控报会吓到
+ *        已经填了 key 的用户。返回 undefined 表示 header 没说人话，交给外层。
+ */
+export function sauceNaoApiError(
+  header: { status?: number; message?: string } | undefined,
+  httpStatus: number,
+): string | undefined {
+  if (!header) return undefined;
+  const hStatus = typeof header.status === "number" ? header.status : 0;
+  const message = header.message?.trim() ?? "";
+  if (httpStatus === 429 || hStatus === -2 || /rate limit/i.test(message)) {
+    return "SauceNAO 官方接口限流：30 秒窗口次数用完，等半分钟再搜（不是风控，key 仍有效）";
+  }
+  if (hStatus === -3 || hStatus === -4 || /daily/i.test(message)) {
+    return "SauceNAO 今日次数用完了，明天再试，或换 IQDB";
+  }
+  if (hStatus < 0 && message && !/anonymous account type does not permit API/i.test(message)) {
+    return message.slice(0, 160);
+  }
+  return undefined;
+}
+
 export function parseIqdbHtml(html: string, safeMode: boolean): ReverseHit[] {
   const chunk = html.split(/id=["']pages["']/)[1] ?? html;
   const tables = chunk.split(/<table>/i).slice(1);
@@ -262,6 +291,90 @@ export function parseAscii2dHtml(html: string, extra = "特征"): ReverseHit[] {
     );
   }
   return hits;
+}
+
+function clockLabel(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "";
+  const total = Math.floor(seconds);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** trace.moe 公开接口。similarity 是 0–1；anilist 可能是数字，也可能是带标题的对象。 */
+export function parseTraceMoeJson(raw: unknown, safeMode: boolean): ReverseHit[] {
+  const root = asRecord(raw);
+  const rows = Array.isArray(root.result) ? root.result : [];
+  const hits: ReverseHit[] = [];
+  for (const row of rows) {
+    const rec = asRecord(row);
+    const info = asRecord(rec.anilist);
+    const anilistId = asNumber(info.id, asNumber(rec.anilist));
+    const titles = asRecord(info.title);
+    const native = asString(titles.native);
+    const romaji = asString(titles.romaji);
+    const english = asString(titles.english);
+    if (safeMode && info.isAdult === true) continue;
+    const simRaw = asNumber(rec.similarity);
+    const similarity = simRaw > 0 && simRaw <= 1 ? Math.round(simRaw * 1000) / 10 : simRaw;
+    const episode = asNumber(rec.episode);
+    const scene = [episode > 0 ? `第 ${episode} 话` : "", clockLabel(asNumber(rec.from))].filter(Boolean).join(" · ");
+    const title = native || romaji || english || "动画截图";
+    const author = [romaji && romaji !== title ? romaji : english && english !== title ? english : "", scene]
+      .filter(Boolean)
+      .join(" · ");
+    const thumb = asString(rec.image);
+    const sourceUrl = anilistId > 0 ? `https://anilist.co/anime/${anilistId}` : thumb;
+    if (!sourceUrl && similarity <= 0) continue;
+    hits.push({
+      engine: "tracemoe",
+      similarity,
+      title,
+      author,
+      thumb,
+      sourceUrl,
+      extra: scene || "动画",
+    });
+  }
+  return hits.sort((a, b) => b.similarity - a.similarity).slice(0, 8);
+}
+
+/** Danbooru 自己的相似图。有嵌套 post 时带预览和分级；只有 post_id 也能打开原帖。 */
+export function parseDanbooruIqdbJson(raw: unknown, safeMode: boolean): ReverseHit[] {
+  const root = asRecord(raw);
+  const rows = Array.isArray(root.matches) ? root.matches : Array.isArray(raw) ? raw : [];
+  const hits: ReverseHit[] = [];
+  for (const row of rows) {
+    const rec = asRecord(row);
+    const post = asRecord(rec.post);
+    const id = asString(post.id) || asString(rec.post_id) || asString(rec.postId);
+    if (!id || !/^\d+$/.test(id)) continue;
+    const tags = splitWords(asString(post.tag_string) || asString(post.tag_string_general));
+    if (blocked(tags)) continue;
+    const rating = asString(post.rating).toLowerCase();
+    if (safeMode && /^(e|q|explicit|questionable)$/i.test(rating)) continue;
+    let sim = asNumber(rec.score, asNumber(rec.similarity));
+    if (sim > 0 && sim <= 1) sim = Math.round(sim * 1000) / 10;
+    const source = asString(post.source);
+    const postUrl = `https://danbooru.donmai.us/posts/${id}`;
+    const sourceUrl = /^https?:\/\//i.test(source) ? source : postUrl;
+    const thumb = absUrl(
+      "https://danbooru.donmai.us/",
+      asString(post.preview_file_url) || asString(rec.preview_url),
+    );
+    hits.push(
+      withWork({
+        engine: "danbooru",
+        similarity: sim,
+        title: tags.slice(0, 4).join(" · ").replace(/_/g, " ") || `Danbooru #${id}`,
+        author: "Danbooru",
+        thumb,
+        sourceUrl,
+        extra: "Danbooru",
+      }),
+    );
+  }
+  return hits.sort((a, b) => b.similarity - a.similarity).slice(0, 12);
 }
 
 export function ascii2dBovwUrl(html: string, fromUrl = ""): string {

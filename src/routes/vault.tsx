@@ -404,8 +404,8 @@ function VaultPageInner() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">纸匣</h1>
-          <p className="mt-1 text-sm text-muted">
+          <h1 className="kami-node-title text-3xl md:text-4xl">纸匣</h1>
+          <p className="kami-node-note">
             {folderLabel
               ? `原图在「${folderLabel}」，这里只记路径和校验。`
               : "当前窗口不能挂文件夹时，图会暂存在本机纸匣库里，不设条数上限。"}

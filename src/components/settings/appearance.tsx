@@ -809,7 +809,8 @@ export function ThemeMenu() {
           className="inline-flex size-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-elevated hover:text-fg"
           aria-label={`主题：${current.name}`}
         >
-          <Palette className="size-4" />
+          <Palette className="kami-theme-icon size-4" />
+          <span className="kami-theme-word hidden">{current.name}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">

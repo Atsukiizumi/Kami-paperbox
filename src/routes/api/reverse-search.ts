@@ -1,6 +1,36 @@
 import { runReverseSearchAll } from "@/lib/reverse-search.server";
 import { MAX_SEARCH_BYTES, SEARCH_TYPES } from "@/lib/reverse-search";
 
+function readCookie(header: string | null, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === name) {
+      try {
+        return decodeURIComponent(rest.join("="));
+      } catch {
+        return rest.join("=");
+      }
+    }
+  }
+  return undefined;
+}
+
+/** kami_danbooru 存的是 JSON（login + apiKey）。没填或坏了就当匿名。 */
+function readDanbooru(header: string | null): { login: string; apiKey: string } | undefined {
+  const raw = readCookie(header, "kami_danbooru");
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { login?: unknown; apiKey?: unknown };
+    const login = typeof parsed.login === "string" ? parsed.login : "";
+    const apiKey = typeof parsed.apiKey === "string" ? parsed.apiKey : "";
+    if (!login || !apiKey) return undefined;
+    return { login, apiKey };
+  } catch {
+    return undefined;
+  }
+}
+
 function json(data: unknown, status = 200) {
   return Response.json(data, {
     status,
@@ -40,6 +70,7 @@ export async function POST(request: Request) {
             type: SEARCH_TYPES.has(type) ? type : "image/jpeg",
             safeMode,
             apiKey: apiKey || undefined,
+            danbooru: readDanbooru(request.headers.get("cookie")),
           });
           return json({ ok: true, ...result });
         } catch (err) {

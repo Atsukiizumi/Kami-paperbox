@@ -49,14 +49,16 @@ function NodeCard({ card, rank, style }: { card: WorkCard; rank: number; style?:
       to="/work/$source/$id"
       params={{ source: card.source, id: card.id }}
       style={style}
-      className="relative block aspect-[3/4] w-36 shrink-0 overflow-hidden rounded-lg bg-elevated shadow-[var(--shadow-paper-1)]"
+      className="kami-dk-tile relative block aspect-[3/4] w-36 shrink-0 overflow-hidden bg-elevated"
     >
       <ProxiedImg
         src={card.thumb}
         alt=""
         className={cn("h-full w-full object-cover", veilCoverClass(veil, card))}
       />
-      <span className="absolute left-1 top-1 text-[10px] tabular-nums text-accent-fg">{rank}</span>
+      <span className="absolute left-0 top-0 bg-bg/85 px-1 font-sans text-[10px] tabular-nums tracking-widest text-fg">
+        {String(rank).padStart(2, "0")}
+      </span>
     </Link>
   );
 }
@@ -184,7 +186,7 @@ export function DeskNewspaper({ className }: { className?: string }) {
         <p className="kami-dk-title text-sm text-muted">今日报纸</p>
         <div className="mt-3 flex gap-3 overflow-hidden">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="aspect-[3/4] w-36 shrink-0 rounded-lg bg-surface" />
+            <div key={i} className="kami-dk-tile aspect-[3/4] w-36 shrink-0 bg-surface" />
           ))}
         </div>
       </section>

@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ink="paper">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kami 纸匣 · 信息架构样张</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,460;0,6..72,560;1,6..72,460;1,6..72,560&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe8;
+      --fg: #141210;
+      --muted: #5e5954;
+      --line: rgb(20 18 16 / 14%);
+      --line-strong: rgb(20 18 16 / 34%);
+      --paper: #e7dfd2;
+      --paper-2: #f7f3ec;
+      --seal: #8f3d32;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --serif: "Newsreader", "Noto Serif SC", "Songti SC", "PMingLiU", serif;
+      --sans: "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    html[data-ink="desk"] {
+      --bg: #0e0d0c;
+      --fg: #f3efe8;
+      --muted: #a39c93;
+      --line: rgb(243 239 232 / 14%);
+      --line-strong: rgb(243 239 232 / 32%);
+      --paper: #1b1916;
+      --paper-2: #26231f;
+      --seal: #e8a09a;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow: hidden;
+      transition: background 0.45s var(--ease), color 0.45s var(--ease);
+    }
+    button, input { font: inherit; color: inherit; background: none; border: 0; border-radius: 0; padding: 0; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+    em { font-style: italic; }
+
+    .grain {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 20;
+      opacity: 0.16;
+      mix-blend-mode: multiply;
+    }
+    html[data-ink="desk"] .grain { mix-blend-mode: overlay; opacity: 0.32; }
+
+    .frame, .frame-col {
+      position: fixed;
+      pointer-events: none;
+      z-index: 6;
+    }
+    .frame {
+      inset: 12px;
+      border: 1px solid var(--line);
+    }
+    .frame-col {
+      top: 12px;
+      bottom: 12px;
+      left: 112px;
+      width: 1px;
+      background: var(--line);
+    }
+
+    .brand, .corner-tr {
+      position: fixed;
+      z-index: 7;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .brand { top: 22px; left: 26px; width: 76px; line-height: 1.4; letter-spacing: 0.14em; }
+    .brand strong {
+      display: block;
+      color: var(--fg);
+      font-weight: 500;
+      letter-spacing: 0.14em;
+    }
+    .brand a { color: inherit; text-decoration: none; }
+
+    .app {
+      position: relative;
+      z-index: 2;
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 12px 28px;
+      padding: 64px 28px 18px 24px;
+      transition: padding-right 0.7s var(--ease);
+    }
+    @media (min-width: 861px) {
+      body[data-sheet="queue"] .app,
+      body[data-sheet="seal"] .app { padding-right: 428px; }
+    }
+
+    .rooms {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 28px;
+      padding-top: 92px;
+    }
+    .rooms button {
+      writing-mode: vertical-rl;
+      letter-spacing: 0.42em;
+      font-size: 13px;
+      color: var(--muted);
+      align-self: start;
+    }
+    .rooms button[aria-current="true"] {
+      color: var(--fg);
+      font-family: var(--serif);
+      font-style: italic;
+      letter-spacing: 0.28em;
+    }
+
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow: hidden;
+    }
+    .stage-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+    }
+    .kicker {
+      margin: 0 0 6px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      font-family: var(--serif);
+      font-weight: 560;
+      font-size: clamp(56px, 7.4vw, 104px);
+      line-height: 0.84;
+      letter-spacing: -0.045em;
+    }
+    h1 .sub {
+      font-size: 0.26em;
+      font-weight: 460;
+      font-style: italic;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    .mask { display: block; overflow: hidden; }
+    .mask > span { display: block; transform: translateY(110%); }
+    .stage.in .mask > span { transform: none; transition: transform 0.9s var(--ease); }
+    .stage.in .mask:nth-child(2) > span,
+    h1 .sub.mask > span { transition-delay: 0.06s; }
+
+    .seal {
+      flex: none;
+      width: 92px;
+      height: 92px;
+      margin-bottom: 6px;
+      border: 1px solid var(--seal);
+      color: var(--seal);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      transform: rotate(-8deg);
+      font-family: var(--serif);
+      font-size: 13px;
+      line-height: 1.25;
+      letter-spacing: 0.08em;
+    }
+
+    .modes, .sites, .feeds {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .modes { margin-top: -4px; }
+    .modes button, .sites button, .feeds button, .seg button {
+      min-height: 36px;
+      padding: 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .modes button[aria-current="true"],
+    .sites button[aria-current="true"],
+    .feeds button[aria-current="true"],
+    .seg button[aria-current="true"] {
+      color: var(--fg);
+      font-family: var(--serif);
+      font-style: italic;
+    }
+    .sites, .feeds { border: 0; gap: 0; }
+    .feeds { justify-content: flex-end; }
+
+    .stage-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    .today {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 272px;
+      gap: 22px;
+    }
+    .sheet-label {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .strip, .wall {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+    .strip {
+      height: calc(100% - 24px);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .fill { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .fill > .wall { flex: 1; min-height: 0; }
+    .wall {
+      flex: 1;
+      grid-template-columns: 1.35fr 1fr 1fr;
+      grid-template-rows: 1.15fr 0.85fr;
+    }
+    .wall .tile:first-child { grid-row: 1 / span 2; }
+
+    .tile {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--fg);
+      text-align: left;
+      clip-path: inset(100% 0 0 0);
+      container-type: size;
+    }
+    .stage.in .tile {
+      clip-path: inset(0);
+      transition: clip-path 0.95s var(--ease);
+    }
+    .stage.in .tile:nth-child(2) { transition-delay: 0.05s; }
+    .stage.in .tile:nth-child(3) { transition-delay: 0.1s; }
+    .stage.in .tile:nth-child(4) { transition-delay: 0.14s; }
+    .stage.in .tile:nth-child(5) { transition-delay: 0.18s; }
+    .stage.in .tile:nth-child(6) { transition-delay: 0.22s; }
+    .tile .comp { transform: scale(1.12); }
+    .stage.in .tile .comp { transform: none; transition: transform 1.15s var(--ease); }
+    .tile:hover .comp { transform: scale(1.04); }
+    .tile footer {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      padding: 28px 10px 8px;
+      background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 92%, transparent));
+      font-size: 12px;
+      overflow: hidden;
+    }
+    .tile footer b,
+    .tile footer span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tile footer b { font-weight: 500; }
+    .tile footer em, .tile footer span { color: var(--muted); font-style: normal; }
+    .fold {
+      position: absolute;
+      top: 0; right: 0;
+      width: 0; height: 0;
+      border-top: 18px solid var(--bg);
+      border-left: 18px solid transparent;
+      z-index: 1;
+    }
+
+    .comp { position: absolute; inset: 0; }
+    .comp i, .comp b { position: absolute; display: block; }
+    .c1 i:nth-child(1) {
+      width: 62%; aspect-ratio: 1; border-radius: 50%;
+      border: 1px solid var(--line-strong); right: -10%; top: 8%;
+    }
+    .c1 i:nth-child(2) { width: 1px; top: 0; bottom: 0; left: 24%; background: var(--line-strong); }
+    .c2 i:nth-child(1) { left: 12%; right: 20%; top: 32%; height: 1px; background: var(--fg); }
+    .c2 i:nth-child(2) { left: 12%; width: 38%; top: 44%; height: 7px; background: var(--fg); }
+    .c2 i:nth-child(3) { left: 12%; right: 36%; top: 58%; height: 1px; background: var(--line-strong); }
+    .c3 i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 18%; background: var(--seal); opacity: 0.85; }
+    .c3 i:nth-child(2) { left: 28%; right: 12%; top: 22%; bottom: 22%; border: 1px solid var(--line-strong); }
+    .c4 i:nth-child(1) {
+      right: 0; top: 0; width: 46%; height: 58%;
+      background: linear-gradient(135deg, transparent 50%, var(--paper-2) 50%);
+      border-left: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .c5 i { background: var(--line-strong); }
+    .c5 i:nth-child(1) { left: 8%; right: 8%; top: 18%; height: 1px; }
+    .c5 i:nth-child(2) { left: 8%; right: 8%; top: 36%; height: 1px; }
+    .c5 i:nth-child(3) { left: 8%; right: 8%; top: 54%; height: 1px; }
+    .c5 i:nth-child(4) { top: 8%; bottom: 28%; left: 33%; width: 1px; }
+    .c6 i:nth-child(1) { left: 10%; top: 16%; width: 54%; height: 62%; border: 1px solid var(--fg); }
+    .c6 i:nth-child(2) { left: 28%; top: 30%; width: 54%; height: 48%; background: color-mix(in srgb, var(--fg) 12%, transparent); }
+    .c7 b {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 460;
+      font-size: 52cqi;
+      line-height: 0.8;
+      letter-spacing: -0.06em;
+      right: 4%;
+      bottom: 16%;
+    }
+    .c8 i:nth-child(1) { inset: 16%; border: 1px solid var(--line-strong); }
+    .c8 i:nth-child(2) { inset: 28%; border: 1px solid var(--fg); }
+    .c8 i:nth-child(3) { width: 8px; height: 8px; border-radius: 50%; background: var(--seal); left: 22%; top: 22%; }
+
+    .slips { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); padding-left: 16px; }
+    .slip { padding: 8px 0 12px; border-bottom: 1px solid var(--line); }
+    .slip header { white-space: nowrap; }
+    .slip header, .row, .tool, .q-item, .seal-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      width: 100%;
+      text-align: left;
+    }
+    .slip header { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+    .slip li { list-style: none; }
+    .slip ul { margin: 8px 0 0; padding: 0; }
+    .slip button, .row {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 32px;
+      padding: 4px 0;
+    }
+    .slip button span { color: var(--muted); flex: none; }
+    .hot { color: var(--seal); }
+    .fail { color: var(--muted); font-style: italic; }
+
+    .split {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.4fr);
+      gap: 28px;
+    }
+    .spine { border-right: 1px solid var(--line); padding-right: 18px; overflow: auto; }
+    .spine button {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      min-height: 48px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      text-align: left;
+    }
+    .spine button[aria-current="true"] { color: var(--fg); font-family: var(--serif); font-style: italic; }
+    .spine button b { font-weight: 500; font-size: 18px; letter-spacing: -0.03em; }
+    .note { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+
+    .rows { overflow: auto; border-top: 1px solid var(--line); }
+    .row {
+      border-bottom: 1px solid var(--line);
+      min-height: 58px;
+      padding: 0 4px;
+    }
+    .row:hover { background: color-mix(in srgb, var(--paper) 70%, transparent); }
+    .row .idx { font-family: var(--serif); font-style: italic; color: var(--muted); width: 2.2em; }
+    .row .grow { flex: 1; }
+    .row small { color: var(--muted); }
+
+    .detail {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.75fr);
+      gap: 28px;
+    }
+    .detail-fig {
+      position: relative;
+      min-height: 0;
+      background: var(--paper);
+      overflow: hidden;
+      clip-path: inset(0 0 100% 0);
+    }
+    .stage.in .detail-fig { clip-path: inset(0); transition: clip-path 1s var(--ease); }
+    .stage.in .detail-fig .comp { transform: none; transition: transform 1.2s var(--ease); }
+    .detail-fig .comp { transform: scale(1.15); }
+    .detail-copy { display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 8px; }
+    .detail-copy .back { align-self: flex-start; color: var(--muted); min-height: 36px; margin-bottom: auto; }
+    .detail-copy h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 560;
+      font-size: clamp(40px, 4vw, 64px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+    .meta-line { margin: 10px 0 18px; color: var(--muted); }
+    .actions { display: flex; gap: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .actions button { min-height: 40px; }
+    .actions button:hover { color: var(--seal); }
+
+    .empty {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty .mark {
+      width: 36px; height: 44px; margin: 0 auto 10px;
+      border: 1px solid var(--line-strong);
+      position: relative;
+    }
+    .empty .mark::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0;
+      border-top: 12px solid var(--bg);
+      border-left: 12px solid transparent;
+    }
+
+    .foot {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      min-height: 42px;
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      background: var(--bg);
+      z-index: 4;
+    }
+    .chap { font-variant-numeric: tabular-nums; letter-spacing: 0.08em; font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .find, .vtools, .foot-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .find { border-bottom: 1px solid var(--line-strong); min-height: 36px; }
+    .find.hot { border-bottom-color: var(--seal); }
+    .find input { flex: 1; min-width: 0; min-height: 36px; }
+    .find input::placeholder { color: var(--muted); }
+    .drop { color: var(--muted); white-space: nowrap; min-height: 36px; }
+    .foot-end { justify-content: flex-end; }
+    .foot-end time { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--muted); }
+    #open-queue b {
+      font-family: var(--serif);
+      font-style: italic;
+      font-weight: 460;
+      margin-left: 6px;
+    }
+    .ink button[aria-pressed="true"] { font-family: var(--serif); font-style: italic; color: var(--fg); }
+    .ink button { color: var(--muted); min-height: 36px; padding: 0 4px; }
+    body[data-room="vault"] #find,
+    body[data-detail="1"] #find,
+    body[data-reverse="1"] #find,
+    body[data-room="look"] #vtools { display: none; }
+
+    .sheet {
+      position: fixed;
+      top: 12px;
+      bottom: 12px;
+      right: 12px;
+      width: min(400px, calc(100vw - 24px));
+      background: var(--bg);
+      border-left: 1px solid var(--line-strong);
+      z-index: 8;
+      padding: 28px 26px 22px;
+      transform: translateX(104%);
+      transition: transform 0.7s var(--ease);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    body[data-sheet="queue"] #queue,
+    body[data-sheet="seal"] #seal {
+      transform: none;
+      pointer-events: auto;
+    }
+    .sheet h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 560;
+      font-size: 48px;
+      line-height: 0.9;
+      letter-spacing: -0.04em;
+    }
+    .sheet-head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .sheet-head button { color: var(--muted); min-height: 32px; }
+    .q-list, .seal-list { list-style: none; margin: 12px 0 0; padding: 0; overflow: auto; }
+    .q-item, .seal-row {
+      border-bottom: 1px solid var(--line);
+      min-height: 52px;
+      padding: 8px 0;
+    }
+    .kind {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      border: 1px solid var(--line-strong);
+      padding: 1px 6px;
+    }
+    .kind.keep { color: var(--seal); border-color: var(--seal); }
+    .seal-row small, .q-item small { color: var(--muted); }
+    .seal-blurb { margin-top: auto; color: var(--muted); font-size: 13px; min-height: 3.2em; }
+    .group-label { margin: 16px 0 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+
+    .trail {
+      position: fixed;
+      left: 0; top: 0;
+      width: 200px;
+      height: 260px;
+      z-index: 12;
+      pointer-events: none;
+      opacity: 0;
+      background: var(--paper);
+      box-shadow: 0 18px 40px rgb(0 0 0 / 16%);
+      overflow: hidden;
+    }
+    .trail .cap {
+      position: absolute;
+      left: 10px; right: 10px; bottom: 10px;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 18px;
+    }
+
+    .mobile-nav { display: none; }
+
+    @media (max-width: 860px) {
+      .frame-col, .rooms, .seal { display: none; }
+      .brand { left: 20px; }
+      .app {
+        grid-template-columns: 1fr;
+        padding: 58px 16px 78px;
+        gap: 10px;
+      }
+      h1 { font-size: 52px; }
+      .today, .detail, .split, .wall, .strip { grid-template-columns: 1fr 1fr; }
+      .wall .tile:first-child, .tile { grid-row: auto; grid-column: auto; min-height: 160px; }
+      .strip { height: auto; }
+      .slips { border-left: 0; padding-left: 0; grid-column: 1 / -1; }
+      .today > div:first-child { grid-column: 1 / -1; }
+      .foot { grid-template-columns: 1fr; gap: 6px; }
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        z-index: 8;
+        left: 12px; right: 12px; bottom: 12px;
+        background: var(--bg);
+        border-top: 1px solid var(--line-strong);
+        justify-content: space-between;
+      }
+      .mobile-nav button { flex: 1; min-height: 48px; color: var(--muted); }
+      .mobile-nav button[aria-current="true"] {
+        color: var(--fg);
+        font-family: var(--serif);
+        font-style: italic;
+      }
+    }
+    @media (hover: none) { .trail { display: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .mask > span, .tile, .tile .comp, .detail-fig, .detail-fig .comp, .sheet, .trail {
+        transition: none !important;
+        transform: none !important;
+        clip-path: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body data-room="look" data-mode="today" data-detail="0" data-reverse="0" data-sheet="">
+  <svg class="grain" aria-hidden="true">
+    <filter id="n">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" />
+      <feColorMatrix type="saturate" values="0" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#n)" />
+  </svg>
+  <div class="frame"></div>
+  <div class="frame-col"></div>
+  <div class="brand"><strong>Kami</strong>纸匣样张<br /><a href="kami-style.html">版图</a><br /><a href="kami-binding.html">装帧</a></div>
+
+  <div class="app">
+    <nav class="rooms" aria-label="房间">
+      <button type="button" data-act="room" data-room="look">看</button>
+      <button type="button" data-act="room" data-room="vault">纸匣</button>
+    </nav>
+    <main class="stage" id="stage"></main>
+    <footer class="foot">
+      <div class="chap" id="chap">[01 // 04]</div>
+      <form class="find" id="find">
+        <label for="q">检索</label>
+        <input id="q" name="q" placeholder="标签、链接或作品号" autocomplete="off" />
+        <button class="drop" type="button" data-act="reverse">拖入一张图</button>
+      </form>
+      <div class="vtools" id="vtools">
+        <div class="seg" id="vseg"></div>
+        <button type="button" data-act="tidy">整理</button>
+      </div>
+      <div class="foot-end">
+        <time id="clock" datetime="">00:00:00</time>
+        <button type="button" id="open-queue" data-act="queue">笺 <b id="qcount">2</b></button>
+        <button type="button" data-act="seal">印</button>
+        <span class="ink">
+          <button type="button" data-act="ink" data-ink="paper" aria-pressed="true">纸</button>
+          <button type="button" data-act="ink" data-ink="desk" aria-pressed="false">墨</button>
+        </span>
+      </div>
+    </footer>
+  </div>
+
+  <nav class="mobile-nav" aria-label="房间">
+    <button type="button" data-act="room" data-room="look">看</button>
+    <button type="button" data-act="room" data-room="vault">纸匣</button>
+    <button type="button" data-act="queue">笺</button>
+    <button type="button" data-act="seal">印</button>
+  </nav>
+
+  <aside class="sheet" id="queue" aria-label="队列">
+    <div class="sheet-head">
+      <p class="kicker">03 — 笺</p>
+      <button type="button" data-act="close">关闭</button>
+    </div>
+    <h2>队列</h2>
+    <p class="note">下载和收入纸匣都从这里过。人留在原来的那一页。</p>
+    <ol class="q-list" id="qlist"></ol>
+  </aside>
+
+  <aside class="sheet" id="seal" aria-label="印">
+    <div class="sheet-head">
+      <p class="kicker">04 — 印</p>
+      <button type="button" data-act="close">关闭</button>
+    </div>
+    <h2>印</h2>
+    <p class="group-label">留在手上</p>
+    <ul class="seal-list" id="hand"></ul>
+    <p class="group-label">很少打开</p>
+    <ul class="seal-list" id="rare"></ul>
+    <p class="seal-blurb" id="blurb">账号、文件夹、代理、备份收在这枚印里。</p>
+  </aside>
+
+  <div class="trail" id="trail"></div>
+
+  <script>
+    const WORKS = [
+      { id: "w1", title: "窗边的猫", author: "三日月", source: "Pixiv", date: "10.24", comp: "c1", folded: true },
+      { id: "w2", title: "雨停之前", author: "白井", source: "yande.re", date: "10.22", comp: "c2", folded: false },
+      { id: "w3", title: "港的灯", author: "海岸线", source: "Konachan", date: "10.18", comp: "c3", folded: true },
+      { id: "w4", title: "稿纸第 19 页", author: "纸间", source: "Danbooru", date: "10.11", comp: "c4", folded: false },
+      { id: "w5", title: "晚班电车", author: "三日月", source: "Pixiv", date: "10.09", comp: "c5", folded: false },
+      { id: "w6", title: "干燥的风", author: "白井", source: "FANBOX", date: "09.28", comp: "c6", folded: true },
+      { id: "w7", title: "未命名素描", author: "岸", source: "Pixiv", date: "09.14", comp: "c7", folded: false },
+      { id: "w8", title: "桌子上的刀", author: "纸间", source: "Danbooru", date: "08.30", comp: "c8", folded: false },
+      { id: "w9", title: "支持者通信", author: "白井", source: "FANBOX", date: "10.02", comp: "c3", folded: false },
+      { id: "w10", title: "潮声", author: "海岸线", source: "Konachan", date: "10.01", comp: "c6", folded: false },
+      { id: "w11", title: "周日的墙", author: "白井", source: "yande.re", date: "09.21", comp: "c5", folded: true },
+      { id: "w12", title: "蓝图残页", author: "岸", source: "Danbooru", date: "09.02", comp: "c1", folded: false },
+      { id: "w13", title: "楼梯转角", author: "三日月", source: "Pixiv", date: "10.20", comp: "c4", folded: false },
+      { id: "w14", title: "夜航", author: "岸", source: "Pixiv", date: "10.16", comp: "c6", folded: true },
+      { id: "w15", title: "静物", author: "三日月", source: "Pixiv", date: "10.08", comp: "c8", folded: false }
+    ];
+    const SITES = {
+      Pixiv: ["日榜", "关注", "推荐", "标签"],
+      FANBOX: ["首页", "支持中"],
+      "yande.re": ["新作", "日榜", "周榜", "月榜"],
+      Konachan: ["新作", "日榜", "周榜", "月榜"],
+      Danbooru: ["新作", "日榜", "周榜", "月榜"]
+    };
+    const ARTISTS = [
+      { name: "三日月", source: "Pixiv", note: "3 张新作", hot: true, id: "w1" },
+      { name: "白井", source: "yande.re", note: "已读", hot: false, id: "w2" },
+      { name: "海岸线", source: "Konachan", note: "检查失败", fail: true, id: "w3" },
+      { name: "纸间", source: "Danbooru", note: "1 张新作", hot: true, id: "w4" },
+      { name: "岸", source: "Pixiv", note: "已读", hot: false, id: "w7" }
+    ];
+    const TAGS = [
+      { name: "猫", source: "Pixiv", note: "2 张新作", hot: true, id: "w1" },
+      { name: "雨", source: "yande.re", note: "已读", hot: false, id: "w2" },
+      { name: "夜车", source: "Danbooru", note: "1 张新作", hot: true, id: "w5" }
+    ];
+    const RANKS = [
+      { id: "d", label: "10.26", kind: "日榜", site: "yande.re", ids: ["w2", "w11", "w3"] },
+      { id: "w", label: "10.19", kind: "周榜", site: "yande.re", ids: ["w11", "w3", "w10"] },
+      { id: "m", label: "09", kind: "月榜", site: "Konachan", ids: ["w3", "w10", "w4"] }
+    ];
+    const TOOLS = [
+      { id: "dup", name: "查重", line: "窗边的猫 与 未命名素描 · 距离 6" },
+      { id: "clean", name: "清理向导", line: "2 张还没有标签" },
+      { id: "import", name: "导入收藏夹", line: "从 Pixiv 收藏夹读入，仍经队列" },
+      { id: "time", name: "回忆流", line: "十月 · 4 张" },
+      { id: "cross", name: "同图多源", line: "港的灯 · Konachan / Danbooru" },
+      { id: "trash", name: "纸篓", line: "12 张 · 可以放回去" },
+      { id: "col", name: "合集", line: "夜里 · 4 张" }
+    ];
+    const HAND = [
+      { id: "veil", name: "遮盖", line: "开着。顶栏那一枚还在。" },
+      { id: "r18", name: "R-18", line: "按站点。人在看的时候就能拨。" },
+      { id: "ai", name: "AI", line: "隐藏生成图。也在看的手上。" }
+    ];
+    const RARE = [
+      { id: "theme", name: "外观", line: "主题包、壳的形态、纸与墨。" },
+      { id: "storage", name: "存储", line: "文件夹和路径。" },
+      { id: "backup", name: "备份", line: "导出、导入。" },
+      { id: "lex", name: "词表", line: "标签译文。" },
+      { id: "key", name: "以图的钥匙", line: "SauceNAO 与 Danbooru。" },
+      { id: "acct", name: "账号", line: "登录和 Cookie。" },
+      { id: "proxy", name: "代理", line: "出站网络。" },
+      { id: "help", name: "说明", line: "会话怎么复制。" }
+    ];
+    const MODES = [
+      ["today", "今日"],
+      ["flow", "流"],
+      ["watch", "追踪"],
+      ["rank", "榜"],
+      ["walked", "走过"]
+    ];
+    const FILTERS = ["全部", "未读", "去年今日", "Pixiv"];
+
+    const state = {
+      ink: "paper",
+      room: "look",
+      mode: "today",
+      site: "Pixiv",
+      feed: "日榜",
+      watchTab: "artists",
+      rank: "d",
+      query: "",
+      reverse: false,
+      detail: null,
+      from: "今日",
+      sheet: "",
+      tidy: false,
+      tool: "",
+      vfilter: "全部",
+      blurb: "账号、文件夹、代理、备份收在这枚印里。",
+      queue: [
+        { kind: "收入纸匣", title: "窗边的猫", status: "进行中 2 / 4" },
+        { kind: "下载", title: "雨停之前", status: "排队" }
+      ]
+    };
+
+    const stage = document.getElementById("stage");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const byId = (id) => WORKS.find((w) => w.id === id);
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function compHTML(name, extra) {
+      if (name === "c7") return `<div class="comp c7"><b>19</b></div>${extra || ""}`;
+      const count = name === "c5" ? 4 : name === "c2" || name === "c8" ? 3 : 2;
+      return `<div class="comp ${name}">${Array.from({ length: count }, () => "<i></i>").join("")}</div>${extra || ""}`;
+    }
+
+    function tileHTML(w) {
+      const fold = w.folded ? `<i class="fold"></i>` : "";
+      return `<button type="button" class="tile" data-act="open" data-id="${w.id}">
+        ${compHTML(w.comp, fold)}
+        <footer><b>${esc(w.title)}</b><span>${esc(w.author)} · ${esc(w.source)}</span></footer>
+      </button>`;
+    }
+
+    function currentTitle() {
+      if (state.detail) return byId(state.detail)?.title || "";
+      if (state.reverse) return "以图";
+      if (state.room === "vault") return state.tool ? TOOLS.find((t) => t.id === state.tool)?.name || "整理" : "纸匣";
+      return MODES.find((m) => m[0] === state.mode)?.[1] || "看";
+    }
+
+    function head(kicker, title, sub, seal) {
+      return `<header class="stage-head">
+        <div>
+          <p class="kicker">${kicker}</p>
+          <h1>
+            <span class="mask"><span>${esc(title)}</span></span>
+            ${sub ? `<span class="sub mask"><span>${esc(sub)}</span></span>` : ""}
+          </h1>
+        </div>
+        ${seal ? `<div class="seal" aria-hidden="true">二〇二六<br />十月<br />廿六</div>` : ""}
+      </header>`;
+    }
+
+    function modeRow() {
+      return `<div class="modes">${MODES.map(([id, label], i) =>
+        `<button type="button" data-act="mode" data-mode="${id}" aria-current="${state.mode === id}">${String(i + 1).padStart(2, "0")} ${label}</button>`
+      ).join("")}</div>`;
+    }
+
+    function filteredFlow() {
+      const q = state.query.trim();
+      return WORKS.filter((w) => w.source === state.site).filter((w) => {
+        if (!q) return true;
+        return (w.title + w.author + w.source).includes(q);
+      });
+    }
+
+    function flowHTML() {
+      const feeds = SITES[state.site];
+      const works = filteredFlow().slice(0, 5);
+      const sites = Object.keys(SITES).map((name) =>
+        `<button type="button" data-act="site" data-site="${esc(name)}" aria-current="${state.site === name}">${esc(name)}</button>`
+      ).join("");
+      const feedBtns = feeds.map((name) =>
+        `<button type="button" data-act="feed" data-feed="${esc(name)}" aria-current="${state.feed === name}">${esc(name)}</button>`
+      ).join("");
+      const wall = works.length
+        ? `<div class="wall">${works.map(tileHTML).join("")}</div>`
+        : `<div class="empty"><div><div class="mark"></div><p>这张纸是空的</p></div></div>`;
+      const qline = state.query ? `<p class="note">「${esc(state.query)}」· ${filteredFlow().length} 张</p>` : "";
+      return `${head("01 — 看", "流", state.site, false)}
+        ${modeRow()}
+        <div class="stage-body">
+          <div class="sites">${sites}<div class="feeds">${feedBtns}</div></div>
+          ${qline}
+          ${wall}
+        </div>`;
+    }
+
+    function todayHTML() {
+      const strip = WORKS.filter((w) => w.source === "Pixiv").slice(0, 4);
+      const letters = ARTISTS.slice(0, 3).map((a) =>
+        `<li><button type="button" data-act="open" data-id="${a.id}" class="${a.hot ? "hot" : ""}">${esc(a.name)}<span>${esc(a.note)}</span></button></li>`
+      ).join("");
+      const stack = state.queue.slice(0, 3).map((item) =>
+        `<li><button type="button" data-act="queue">${esc(item.title)}<span>${esc(item.status)}</span></button></li>`
+      ).join("");
+      return `${head("01 — 看", "今日", "十月二十六日", true)}
+        ${modeRow()}
+        <div class="stage-body">
+          <div class="today">
+            <div>
+              <p class="sheet-label"><span>铺纸</span><button type="button" data-act="mode" data-mode="flow">继续日榜</button></p>
+              <div class="strip">${strip.map(tileHTML).join("")}</div>
+            </div>
+            <div class="slips">
+              <section class="slip">
+                <header><span>信</span><span>03</span></header>
+                <ul>${letters}</ul>
+              </section>
+              <section class="slip">
+                <header><span>纸叠</span><button type="button" data-act="queue">${state.queue.length}</button></header>
+                <ul>${stack}</ul>
+              </section>
+              <section class="slip">
+                <header><span>画师墙</span><button type="button" data-act="mode" data-mode="watch">全部</button></header>
+                <ul>${ARTISTS.slice(0, 3).map((a) => `<li><button type="button" data-act="open" data-id="${a.id}">${esc(a.name)}<span>${esc(a.source)}</span></button></li>`).join("")}</ul>
+              </section>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function rowHTML(item, index) {
+      const w = byId(item.id);
+      return `<button type="button" class="row" data-act="open" data-id="${item.id}" data-comp="${w.comp}" data-title="${esc(w.title)}">
+        <span class="idx">${String(index + 1).padStart(2, "0")}</span>
+        <span class="grow">${esc(item.name)}</span>
+        <small>${esc(item.source)}</small>
+        <span class="${item.fail ? "fail" : item.hot ? "hot" : ""}">${esc(item.note)}</span>
+      </button>`;
+    }
+
+    function watchHTML() {
+      const list = state.watchTab === "artists" ? ARTISTS : TAGS;
+      return `${head("01 — 看", "追踪", state.watchTab === "artists" ? "画师" : "标签", false)}
+        ${modeRow()}
+        <div class="stage-body">
+          <div class="modes">
+            <button type="button" data-act="watch" data-tab="artists" aria-current="${state.watchTab === "artists"}">画师</button>
+            <button type="button" data-act="watch" data-tab="tags" aria-current="${state.watchTab === "tags"}">标签</button>
+          </div>
+          <div class="rows">${list.map(rowHTML).join("")}</div>
+        </div>`;
+    }
+
+    function rankHTML() {
+      const snap = RANKS.find((r) => r.id === state.rank) || RANKS[0];
+      const spine = RANKS.map((r) =>
+        `<button type="button" data-act="rank" data-rank="${r.id}" aria-current="${r.id === snap.id}"><b>${esc(r.label)}</b><span>${esc(r.kind)} · ${esc(r.site)}</span></button>`
+      ).join("");
+      const works = snap.ids.map(byId).filter(Boolean);
+      return `${head("01 — 看", "榜", snap.site, false)}
+        ${modeRow()}
+        <div class="stage-body">
+          <div class="split">
+            <div class="spine">${spine}<p class="note">Pixiv 的榜按日期留在流里。这里是三图站已经记下的快照。</p></div>
+            <div class="wall">${works.map(tileHTML).join("")}</div>
+          </div>
+        </div>`;
+    }
+
+    function walkedHTML() {
+      const works = WORKS.slice(0, 5);
+      const authors = [
+        ["三日月", "Pixiv", "w1"],
+        ["白井", "FANBOX", "w6"],
+        ["海岸线", "Konachan", "w3"]
+      ];
+      return `${head("01 — 看", "走过", "只在这台浏览器", false)}
+        ${modeRow()}
+        <div class="stage-body">
+          <div class="split">
+            <div>
+              <p class="sheet-label"><span>作品</span><span>05</span></p>
+              <div class="rows">${works.map((w, i) => rowHTML({ name: w.title, source: w.date, note: w.author, id: w.id }, i)).join("")}</div>
+            </div>
+            <div>
+              <p class="sheet-label"><span>作者</span><span>03</span></p>
+              <div class="rows">${authors.map((a, i) => rowHTML({ name: a[0], source: a[1], note: "画师", id: a[2] }, i)).join("")}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function vaultWorks() {
+      return WORKS.filter((w) => {
+        if (state.vfilter === "Pixiv") return w.source === "Pixiv";
+        if (state.vfilter === "未读") return w.folded;
+        if (state.vfilter === "去年今日") return w.date.startsWith("10.2");
+        return true;
+      });
+    }
+
+    function vaultHTML() {
+      if (state.tool) {
+        const tool = TOOLS.find((t) => t.id === state.tool);
+        return `${head("02 — 纸匣", tool.name, "整理", false)}
+          <div class="stage-body">
+            <button type="button" class="back" data-act="tool" data-tool="">返回纸匣</button>
+            <p class="meta-line">${esc(tool.line)}</p>
+            <div class="wall">${WORKS.slice(0, 3).map((w) => tileHTML({ ...w, folded: true })).join("")}</div>
+          </div>`;
+      }
+      const tools = state.tidy
+        ? `<div class="spine">${TOOLS.map((t) => `<button type="button" data-act="tool" data-tool="${t.id}"><b>${esc(t.name)}</b></button>`).join("")}</div>`
+        : "";
+      const wall = vaultWorks().slice(0, 5);
+      return `${head("02 — 纸匣", "纸匣", "1,284 张", false)}
+        <div class="stage-body">
+          <div class="${state.tidy ? "split" : "fill"}">
+            ${tools}
+            <div class="wall">${wall.map((w) => tileHTML({ ...w, folded: true })).join("")}</div>
+          </div>
+        </div>`;
+    }
+
+    function detailHTML() {
+      const w = byId(state.detail);
+      if (!w) return todayHTML();
+      return `<div class="detail">
+        <div class="detail-fig">${compHTML(w.comp, w.folded ? `<i class="fold"></i>` : "")}</div>
+        <div class="detail-copy">
+          <button type="button" class="back" data-act="back">返回${esc(state.from)}</button>
+          <p class="kicker">${esc(w.source)} · ${esc(w.date)}</p>
+          <h2><span class="mask"><span>${esc(w.title)}</span></span></h2>
+          <p class="meta-line"><em>${esc(w.author)}</em></p>
+          <div class="actions">
+            <button type="button" data-act="keep" data-id="${w.id}">收入纸匣</button>
+            <button type="button" data-act="download" data-id="${w.id}">下载</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function reverseHTML() {
+      const w = WORKS[0];
+      return `${head("01 — 看", "以图", "样张里的一张", false)}
+        <div class="stage-body">
+          <div class="detail">
+            <div class="detail-fig">${compHTML("c2")}</div>
+            <div class="detail-copy">
+              <button type="button" class="back" data-act="unreverse">返回${esc(state.from)}</button>
+              <p class="kicker">纸匣里有近的</p>
+              <div class="rows">
+                ${rowHTML({ name: w.title, source: "纸匣", note: "近", id: w.id }, 0)}
+                ${rowHTML({ name: "雨停之前", source: "yande.re", note: "站外", id: "w2" }, 1)}
+                ${rowHTML({ name: "港的灯", source: "Konachan", note: "站外", id: "w3" }, 2)}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderStage(animate) {
+      let html = "";
+      if (state.detail) html = detailHTML();
+      else if (state.reverse) html = reverseHTML();
+      else if (state.room === "vault") html = vaultHTML();
+      else if (state.mode === "flow") html = flowHTML();
+      else if (state.mode === "watch") html = watchHTML();
+      else if (state.mode === "rank") html = rankHTML();
+      else if (state.mode === "walked") html = walkedHTML();
+      else html = todayHTML();
+      stage.classList.remove("in");
+      stage.innerHTML = html;
+      if (animate && !reduced) {
+        void stage.offsetWidth;
+        stage.classList.add("in");
+      } else {
+        stage.classList.add("in");
+      }
+    }
+
+    function chapter() {
+      if (state.sheet === "seal") return "[04 // 04]  印";
+      if (state.sheet === "queue") return "[03 // 04]  笺";
+      if (state.room === "vault") return "[02 // 04]  纸匣";
+      return "[01 // 04]  看";
+    }
+
+    function paintChrome() {
+      document.documentElement.dataset.ink = state.ink;
+      document.body.dataset.room = state.room;
+      document.body.dataset.mode = state.mode;
+      document.body.dataset.detail = state.detail ? "1" : "0";
+      document.body.dataset.reverse = state.reverse ? "1" : "0";
+      document.body.dataset.sheet = state.sheet;
+      document.getElementById("chap").textContent = chapter();
+      document.getElementById("qcount").textContent = String(state.queue.length).padStart(2, "0");
+      document.querySelectorAll("[data-act='room']").forEach((btn) => {
+        btn.setAttribute("aria-current", btn.dataset.room === state.room ? "true" : "false");
+      });
+      document.querySelectorAll("[data-act='ink']").forEach((btn) => {
+        btn.setAttribute("aria-pressed", btn.dataset.ink === state.ink ? "true" : "false");
+      });
+      document.getElementById("vseg").innerHTML = FILTERS.map((name) =>
+        `<button type="button" data-act="vfilter" data-filter="${esc(name)}" aria-current="${state.vfilter === name}">${esc(name)}</button>`
+      ).join("");
+      document.getElementById("qlist").innerHTML = state.queue.map((item) =>
+        `<li class="q-item"><span><i class="kind ${item.kind === "收入纸匣" ? "keep" : ""}">${esc(item.kind)}</i> ${esc(item.title)}</span><small>${esc(item.status)}</small></li>`
+      ).join("") || `<li class="q-item"><span>队列是空的</span></li>`;
+      const row = (list) => list.map((item) =>
+        `<li><button type="button" class="seal-row" data-act="blurb" data-line="${esc(item.line)}"><span>${esc(item.name)}</span></button></li>`
+      ).join("");
+      document.getElementById("hand").innerHTML = row(HAND);
+      document.getElementById("rare").innerHTML = row(RARE);
+      document.getElementById("blurb").textContent = state.blurb;
+      const tidyBtn = document.querySelector("[data-act='tidy']");
+      if (tidyBtn) tidyBtn.textContent = state.tidy ? "收起" : "整理";
+    }
+
+    function commit(animate = true) {
+      paintChrome();
+      renderStage(animate);
+    }
+
+    function rememberFrom() {
+      state.from = state.room === "vault" ? "纸匣" : (MODES.find((m) => m[0] === state.mode)?.[1] || "今日");
+    }
+
+    function enqueue(id, kind) {
+      const w = byId(id);
+      if (!w) return;
+      state.queue.unshift({ kind, title: w.title, status: "排队" });
+      state.sheet = "queue";
+      commit(false);
+    }
+
+    document.body.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-act]");
+      if (!el) return;
+      const act = el.dataset.act;
+      if (act === "ink") {
+        state.ink = el.dataset.ink;
+        paintChrome();
+        return;
+      }
+      if (act === "room") {
+        state.room = el.dataset.room;
+        state.detail = null;
+        state.reverse = false;
+        state.sheet = "";
+        if (state.room === "look") state.tool = "";
+        commit();
+        return;
+      }
+      if (act === "mode") {
+        state.room = "look";
+        state.mode = el.dataset.mode;
+        state.detail = null;
+        state.reverse = false;
+        commit();
+        return;
+      }
+      if (act === "site") {
+        state.site = el.dataset.site;
+        const feeds = SITES[state.site];
+        if (!feeds.includes(state.feed)) state.feed = feeds[0];
+        commit(false);
+        return;
+      }
+      if (act === "feed") {
+        state.feed = el.dataset.feed;
+        commit(false);
+        return;
+      }
+      if (act === "watch") {
+        state.watchTab = el.dataset.tab;
+        commit(false);
+        return;
+      }
+      if (act === "rank") {
+        state.rank = el.dataset.rank;
+        commit();
+        return;
+      }
+      if (act === "open") {
+        rememberFrom();
+        state.detail = el.dataset.id;
+        state.reverse = false;
+        commit();
+        return;
+      }
+      if (act === "back") {
+        state.detail = null;
+        commit();
+        return;
+      }
+      if (act === "reverse") {
+        rememberFrom();
+        state.reverse = true;
+        state.detail = null;
+        state.room = "look";
+        commit();
+        return;
+      }
+      if (act === "unreverse") {
+        state.reverse = false;
+        commit();
+        return;
+      }
+      if (act === "keep") {
+        enqueue(el.dataset.id, "收入纸匣");
+        return;
+      }
+      if (act === "download") {
+        enqueue(el.dataset.id, "下载");
+        return;
+      }
+      if (act === "queue") {
+        state.sheet = state.sheet === "queue" ? "" : "queue";
+        paintChrome();
+        return;
+      }
+      if (act === "seal") {
+        state.sheet = state.sheet === "seal" ? "" : "seal";
+        paintChrome();
+        return;
+      }
+      if (act === "close") {
+        state.sheet = "";
+        paintChrome();
+        return;
+      }
+      if (act === "tidy") {
+        state.room = "vault";
+        state.tidy = !state.tidy;
+        state.tool = "";
+        state.detail = null;
+        commit();
+        return;
+      }
+      if (act === "tool") {
+        state.tool = el.dataset.tool || "";
+        state.tidy = state.tool ? true : state.tidy;
+        commit();
+        return;
+      }
+      if (act === "vfilter") {
+        state.vfilter = el.dataset.filter;
+        commit(false);
+        return;
+      }
+      if (act === "blurb") {
+        state.blurb = el.dataset.line;
+        paintChrome();
+      }
+    });
+
+    const find = document.getElementById("find");
+    find.addEventListener("submit", (e) => {
+      e.preventDefault();
+      state.query = new FormData(find).get("q").trim();
+      state.room = "look";
+      state.mode = "flow";
+      state.detail = null;
+      state.reverse = false;
+      commit();
+    });
+    find.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      find.classList.add("hot");
+    });
+    find.addEventListener("dragleave", () => find.classList.remove("hot"));
+    find.addEventListener("drop", (e) => {
+      e.preventDefault();
+      find.classList.remove("hot");
+      rememberFrom();
+      state.reverse = true;
+      state.detail = null;
+      state.room = "look";
+      commit();
+    });
+
+    const trail = document.getElementById("trail");
+    let tx = 80, ty = 80, cx = 80, cy = 80, showTrail = false;
+    document.addEventListener("pointerover", (e) => {
+      const row = e.target.closest?.(".row");
+      if (!row || !row.dataset.comp) {
+        showTrail = false;
+        return;
+      }
+      showTrail = true;
+      trail.innerHTML = `${compHTML(row.dataset.comp)}<div class="cap">${row.dataset.title || ""}</div>`;
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (!showTrail) return;
+      tx = Math.min(e.clientX + 28, innerWidth - 220);
+      ty = Math.min(Math.max(16, e.clientY - 80), innerHeight - 280);
+    });
+    function spring() {
+      cx += (tx - cx) * 0.16;
+      cy += (ty - cy) * 0.16;
+      const rot = Math.max(-7, Math.min(7, (tx - cx) * 0.06));
+      trail.style.transform = `translate3d(${cx}px, ${cy}px, 0) rotate(${rot}deg)`;
+      trail.style.opacity = showTrail ? "1" : "0";
+      requestAnimationFrame(spring);
+    }
+    spring();
+
+    function tickClock() {
+      const now = new Date();
+      const text = now.toLocaleTimeString("zh-CN", { hour12: false });
+      const node = document.getElementById("clock");
+      node.textContent = text;
+      node.dateTime = now.toISOString();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    commit(true);
+  </script>
+</body>
+</html>

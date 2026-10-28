@@ -52,6 +52,8 @@ const MEDIA_HOSTS = new Set([
   "img3.saucenao.com",
   "iqdb.org",
   "ascii2d.net",
+  "api.trace.moe",
+  "media.trace.moe",
   // X 静态图 CDN（?format=…&name=orig 直链免登录）。video.twimg.com 不加：
   // X 把 GIF 转码成视频，首版只收静态图（PRD Out of Scope）。
   "pbs.twimg.com",
@@ -230,6 +232,8 @@ async function loadMediaResponse(
     headers.Referer = "https://saucenao.com/";
   } else if (host.endsWith("iqdb.org")) {
     headers.Referer = "https://iqdb.org/";
+  } else if (host.endsWith("trace.moe")) {
+    headers.Referer = "https://trace.moe/";
   } else if (host === "pbs.twimg.com") {
     // X 静态图 CDN：直链免登录、不查 Cookie——显式分支，别落进 FANBOX 兜底
     //（那会把 FANBOXSESSID 发给 X 的域）。

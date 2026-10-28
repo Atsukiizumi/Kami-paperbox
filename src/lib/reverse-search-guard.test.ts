@@ -10,13 +10,16 @@ import {
 
 test("SauceNAO with API key waits less", () => {
   assert.equal(searchGapMs("saucenao", false), 8_000);
-  assert.equal(searchGapMs("saucenao", true), 2_500);
+  // 官方免费档 30 秒约 6 次：5.5 秒是压着限额的下限，再快必吃 429
+  assert.equal(searchGapMs("saucenao", true), 5_500);
   assert.ok(searchGapMs("ascii2d") > searchGapMs("iqdb"));
 });
 
 test("falls back to IQDB except when already on IQDB", () => {
   assert.equal(fallbackSearchEngine("saucenao"), "iqdb");
   assert.equal(fallbackSearchEngine("ascii2d"), "iqdb");
+  assert.equal(fallbackSearchEngine("tracemoe"), "iqdb");
+  assert.equal(fallbackSearchEngine("danbooru"), "iqdb");
   assert.equal(fallbackSearchEngine("iqdb"), "saucenao");
 });
 

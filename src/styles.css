@@ -279,6 +279,63 @@ html[data-theme="bindery"][data-appearance="light"] {
   --color-ok: #3d6b42;
 }
 
+/* 装帧：书页不随夜反色。案色只在 --kami-desk（夜 #100e0c / 昼 #e7e0d4）。 */
+html[data-theme="binding"][data-appearance="dark"] {
+  --color-bg: #f4efe6;
+  --color-surface: #ebe4d8;
+  --color-elevated: #f7f4ee;
+  --color-fg: #1c1814;
+  --color-muted: #5c564e;
+  --color-subtle: #8a8076;
+  --color-accent: #1c1814;
+  --color-accent-fg: #f4efe6;
+  --color-danger: #8f3d32;
+  --color-ok: #3d6b42;
+  --kami-desk: #100e0c;
+  --kami-thread: #8f3d32;
+  --kami-binding: #e6dfd2;
+  color-scheme: light;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-paper-1: none;
+  --shadow-paper-2: none;
+  --shadow-paper-3: none;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --color-border: color-mix(in srgb, var(--color-fg) 14%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 32%, transparent);
+}
+
+html[data-theme="binding"][data-appearance="light"] {
+  --color-bg: #f7f4ee;
+  --color-surface: #efe8dc;
+  --color-elevated: #fffdf8;
+  --color-fg: #1c1814;
+  --color-muted: #5c564e;
+  --color-subtle: #8a8076;
+  --color-accent: #1c1814;
+  --color-accent-fg: #f7f4ee;
+  --color-danger: #8f3d32;
+  --color-ok: #3d6b42;
+  --kami-desk: #e7e0d4;
+  --kami-thread: #8f3d32;
+  --kami-binding: #e6dfd2;
+  color-scheme: light;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-paper-1: none;
+  --shadow-paper-2: none;
+  --shadow-paper-3: none;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --color-border: color-mix(in srgb, var(--color-fg) 14%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 32%, transparent);
+}
+
 html[data-appearance="dark"] {
   color-scheme: dark;
 }
@@ -1317,6 +1374,176 @@ html[data-vault-col="wide"] .kami-vault-fall {
   html[data-shell-form="rail"][data-topbar="float"] .kami-topbar {
     display: none;
   }
+}
+
+/* 纸格 + 书案：满页的格。顶栏不再横贯，只留右上角的工具。 */
+@media (min-width: 768px) {
+  html[data-theme="bindery"][data-shell-form="desk"] .min-h-dvh {
+    padding: 12px 12px 0;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .min-h-dvh::before {
+    content: "";
+    position: fixed;
+    inset: 12px;
+    z-index: 36;
+    pointer-events: none;
+    border: 1px solid var(--color-border);
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-topbar {
+    width: auto;
+    height: auto;
+    min-height: 2.75rem;
+    margin-left: 88px;
+    border-bottom-color: transparent;
+    background: transparent;
+    justify-content: flex-end;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-brand,
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-topbar-rule {
+    display: none;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside {
+    top: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: 88px;
+    background: transparent;
+    border-right: 1px solid var(--color-border);
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside > p {
+    display: none;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav {
+    align-items: center;
+    gap: 1.75rem;
+    padding: 5.5rem 0 0;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav::before {
+    content: "Kami\A纸匣";
+    display: block;
+    margin-bottom: 0.25rem;
+    white-space: pre;
+    font-family: var(--font-display);
+    font-size: 11px;
+    line-height: 1.35;
+    letter-spacing: 0.22em;
+    color: var(--color-muted);
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside .kami-nav-marker {
+    display: none;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav a {
+    writing-mode: vertical-rl;
+    height: auto;
+    width: auto;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0;
+    overflow: visible;
+    border-radius: 0;
+    font-size: 13px;
+    letter-spacing: 0.42em;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav a svg {
+    display: none;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav a.text-fg {
+    font-family: var(--font-display);
+    font-style: italic;
+    letter-spacing: 0.28em;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-aside nav a .ml-auto {
+    margin-left: 0;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-pageframe {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-pageframe > div {
+    padding-top: 0.25rem;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-node-title {
+    font-size: clamp(52px, 6.6vw, 96px);
+    font-weight: 500;
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] body::before {
+    content: none;
+  }
+}
+
+/* 纸格顶栏：站点、主题、账号都是字，不留徽章和圆钮。 */
+html[data-theme="bindery"] .kami-topbar button {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html[data-theme="bindery"] .kami-topbar button:hover,
+html[data-theme="bindery"] .kami-topbar button[data-state="open"] {
+  background: transparent;
+  color: var(--color-fg);
+}
+html[data-theme="bindery"] .kami-topbar button:focus-visible {
+  outline: 1px solid var(--color-fg);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+html[data-theme="bindery"] .kami-topbar button[aria-label="切换图源"] {
+  height: auto;
+  padding-inline: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--color-fg);
+}
+html[data-theme="bindery"] .kami-topbar button[aria-label="切换图源"] > span:first-child {
+  display: none;
+}
+html[data-theme="bindery"] .kami-topbar .kami-brand {
+  color: var(--color-fg);
+  letter-spacing: 0.16em;
+}
+html[data-theme="bindery"] .kami-topbar .kami-brand svg {
+  color: var(--color-fg);
+}
+html[data-theme="bindery"] .kami-topbar .ml-auto {
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 1.25rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .kami-topbar .ml-auto button {
+  width: auto;
+  height: auto;
+  min-height: 1.75rem;
+  padding-inline: 0.35rem;
+}
+html[data-theme="bindery"] .kami-topbar button > span.rounded-full {
+  display: none;
+}
+html[data-theme="bindery"] .kami-topbar button span.flex-col > span:last-child {
+  display: none;
+}
+html[data-theme="bindery"] .kami-topbar button span.flex-col > span:first-child {
+  max-width: 9rem;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+html[data-theme="bindery"] .kami-topbar .kami-theme-icon {
+  display: none;
+}
+html[data-theme="bindery"] .kami-topbar .kami-theme-word {
+  display: inline;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.16em;
 }
 
 /* 书案形态顶栏密度：compact 收一档（侧栏顶随之对齐） */
@@ -3054,10 +3281,130 @@ html[data-motion="off"] .bindery .bd-visitor-stamp.on {
 }
 
 /* 标题（衬线）与计数（mono 小字） */
-.kami-dk-title {
+.kami-dk-title,
+.kami-node-title {
   font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  line-height: 1.12;
+}
+.kami-node-note {
+  margin-top: 0.25rem;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-muted);
+}
+
+/* 内容读法：同一套页面。纸格是格子，装帧是书页。案头走 kami-dk-*，不进这里。 */
+html[data-theme="bindery"] [role="radiogroup"] [data-state="on"] {
+  font-style: italic;
+  box-shadow: inset 0 -1px 0 var(--color-fg);
+}
+html[data-theme="binding"] [role="radiogroup"] [data-state="on"] {
+  font-style: normal;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  box-shadow: inset 0 -1px 0 var(--kami-thread, var(--color-danger));
+}
+html[data-theme="bindery"] .kami-card-caption,
+html[data-theme="binding"] .kami-card-caption {
+  height: auto;
+  min-height: 4.25rem;
+}
+html[data-theme="bindery"] .kami-card-caption {
+  padding-right: 0;
+  padding-left: 0;
+}
+html[data-theme="bindery"] .kami-card-caption h3 {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+html[data-theme="binding"] .kami-card-caption h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+html[data-theme="bindery"] .kami-masonry {
+  --masonry-gap: 0.55rem;
+}
+html[data-theme="binding"] .kami-masonry {
+  --masonry-gap: 1.35rem;
+}
+html[data-theme="bindery"] .group:hover .kami-card-media img,
+html[data-theme="binding"] .group:hover .kami-card-media img {
+  transform: none;
+}
+html[data-theme="bindery"] .kami-plate,
+html[data-theme="binding"] .kami-plate {
+  border-radius: 0;
+  padding: 0.1rem 0.35rem;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+}
+html[data-theme="bindery"] .kami-plate-size {
+  top: 0;
+  right: auto;
+  bottom: auto;
+  left: 0;
+}
+html[data-theme="bindery"] .kami-card-media > .absolute.top-2.right-2 {
+  top: 0;
+  right: 0;
+}
+html[data-theme="binding"] .kami-queue-row {
+  padding-left: 0.85rem;
+  box-shadow: inset 3px 0 0 var(--kami-thread, var(--color-danger));
+}
+html[data-theme="bindery"] .kami-colophon .rounded-xl.bg-surface,
+html[data-theme="binding"] .kami-colophon .rounded-xl.bg-surface {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 1.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
+html[data-theme="bindery"] .kami-colophon h2 {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--color-muted);
+}
+html[data-theme="binding"] .kami-colophon h2 {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+html[data-theme="binding"] .kami-colophon nav button.italic {
+  font-style: normal;
+  box-shadow: inset 0 -1px 0 var(--kami-thread, var(--color-danger));
+}
+@media (min-width: 768px) {
+  html[data-theme="binding"] :is(header, div):has(> .kami-node-title) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    gap: 0.35rem;
+  }
+  html[data-theme="binding"] :is(header, div):has(> .kami-node-title) > .kami-node-note {
+    order: -1;
+    margin: 0;
+    font-family: var(--font-display);
+    letter-spacing: 0.18em;
+  }
+  html[data-theme="binding"] .kami-node-title {
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: clamp(36px, 4vw, 56px);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: 0.04em;
+  }
 }
 .kami-dk-label {
   /* 样张标签语法：sans 11px + 字距，无 mono 无大写变形 */
@@ -3112,6 +3459,45 @@ html[data-desk-edit] [data-desk-edit-card] {
 }
 html[data-desk-edit] [data-desk-edit-card][aria-pressed="true"] {
   outline-style: solid;
+}
+
+/* 编辑条挂在 body 上，滚动画布时停在可视区域底部。 */
+.kami-dk-editdock {
+  position: fixed;
+  z-index: 70;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 0.75rem calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+.kami-dk-editdock .kami-dk-editbar {
+  pointer-events: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: min(100%, 72rem);
+}
+@media (min-width: 768px) {
+  .kami-dk-editdock {
+    padding-bottom: 1.25rem;
+  }
+  html[data-theme="bindery"][data-shell-form="desk"] .kami-dk-editdock {
+    left: calc(12px + 88px);
+    right: 12px;
+    bottom: 12px;
+    padding-bottom: 0.75rem;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-dk-editdock {
+    left: calc(var(--kami-sheet-left, 36px) + var(--kami-spine, 36px));
+    right: var(--kami-sheet-right, 78px);
+    bottom: 44px;
+    padding-bottom: 0.75rem;
+  }
+}
+html[data-desk-edit] .kami-dk-main {
+  padding-bottom: 5.5rem;
 }
 
 /* 编辑条：文字 + 发丝线（去药丸底），当前项衬线斜体 */
@@ -3312,6 +3698,15 @@ html[data-motion="off"] .kami-dk-stamp.show {
 .kami-enter:hover {
   border-color: var(--color-border-strong);
 }
+.kami-queue-row {
+  border-right: 0;
+  border-left: 0;
+  border-top: 0;
+  background: transparent;
+}
+.kami-queue-row + .kami-queue-row {
+  border-top: 1px solid var(--color-border);
+}
 .rounded-xl.bg-surface.p-3,
 div.flex.flex-wrap.items-center.gap-2.bg-elevate {
   border-radius: 0;
@@ -3323,4 +3718,226 @@ div.flex.flex-wrap.items-center.gap-2.bg-elevate {
 /* 动效关停：hover 过渡直切 */
 html[data-motion="off"].kami-card-shell {
   transition: none;
+}
+
+/* ── 纸格 / 装帧（样张 kami-ia.html、kami-binding.html）────────────────────
+   只挂在 data-theme 上。纸格是满页的格；装帧的色板 bg 是案，这里把书页色盖回去。 */
+
+html[data-theme="bindery"] {
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-paper-1: none;
+  --shadow-paper-2: none;
+  --shadow-paper-3: none;
+  --shadow-float: none;
+  --shadow-border-hover: none;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --color-border: color-mix(in srgb, var(--color-fg) 14%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 34%, transparent);
+}
+
+html[data-theme="bindery"] body::before {
+  content: "";
+  position: fixed;
+  inset: 12px;
+  z-index: 45;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--color-fg) 14%, transparent);
+}
+
+html[data-theme="bindery"] .kami-aside .kami-nav-marker {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 2px 0 0 var(--color-danger);
+}
+
+html[data-theme="bindery"] .kami-aside nav a.text-fg,
+html[data-theme="bindery"] .kami-chrome-up a.text-fg {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+html[data-theme="bindery"] .kami-chrome-up .kami-nav-marker span {
+  border-radius: 0;
+  background: var(--color-danger);
+}
+
+html[data-theme="binding"] body {
+  background: var(--kami-desk);
+}
+
+html[data-theme="binding"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  border: 8px solid var(--kami-desk);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kami-thread) 28%, transparent);
+}
+
+html[data-theme="binding"] .kami-aside {
+  background-color: var(--kami-binding);
+  background-image: repeating-linear-gradient(to bottom, var(--kami-thread) 0 1px, transparent 1px 24px);
+  background-size: 12px 100%;
+  background-repeat: no-repeat;
+  background-position: 7px 0;
+  border-right: 1px solid color-mix(in srgb, var(--kami-thread) 45%, transparent);
+}
+
+html[data-theme="binding"] .kami-aside .kami-nav-marker,
+html[data-theme="binding"] .kami-chrome-up .kami-nav-marker span {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--kami-thread);
+}
+
+html[data-theme="binding"] .kami-chrome-up .kami-nav-marker span {
+  background: var(--kami-thread);
+  box-shadow: none;
+}
+
+html[data-theme="binding"] .kami-aside nav a.text-fg,
+html[data-theme="binding"] .kami-chrome-up a.text-fg,
+html[data-theme="binding"] .font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+html[data-theme="binding"] .kami-topbar .text-accent,
+html[data-theme="binding"] .kami-aside .text-accent {
+  color: var(--kami-thread);
+}
+
+@media (max-width: 767px) {
+  html[data-theme="bindery"] body::before,
+  html[data-theme="binding"] body::before {
+    inset: 0;
+    border-width: 0;
+    box-shadow: none;
+  }
+  html[data-theme="binding"] .kami-topbar {
+    box-shadow: inset 0 3px 0 var(--kami-thread);
+  }
+}
+
+/* 装帧 + 书案：案上的一册。订口是脊，房间改走行首，右侧留出书边。 */
+@media (min-width: 768px) {
+  html[data-theme="binding"][data-shell-form="desk"] {
+    --kami-sheet-left: clamp(36px, 7vw, 96px);
+    --kami-sheet-right: clamp(78px, 13vw, 200px);
+    --kami-spine: 36px;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] body {
+    background: var(--kami-desk);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] body::before {
+    content: none;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .min-h-dvh {
+    position: relative;
+    background: transparent;
+    padding-bottom: 36px;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .min-h-dvh::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    top: 36px;
+    right: var(--kami-sheet-right);
+    bottom: 36px;
+    left: var(--kami-sheet-left);
+    background: var(--color-bg);
+    box-shadow:
+      0 28px 70px rgb(0 0 0 / 0.45),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-fg) 8%, transparent);
+  }
+  html[data-theme="binding"][data-appearance="light"][data-shell-form="desk"] .min-h-dvh::before {
+    box-shadow:
+      0 18px 44px rgb(70 48 24 / 0.16),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-fg) 8%, transparent);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-topbar {
+    position: fixed;
+    top: 36px;
+    right: var(--kami-sheet-right);
+    left: calc(var(--kami-sheet-left) + var(--kami-spine));
+    z-index: 40;
+    height: 2.75rem;
+    border-bottom-color: var(--color-border);
+    background: var(--color-bg);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-brand,
+  html[data-theme="binding"][data-shell-form="desk"] .kami-topbar-rule {
+    display: none;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-running a.text-fg {
+    font-family: var(--font-display);
+    font-style: normal;
+    letter-spacing: 0.08em;
+    box-shadow: inset 0 -1px 0 var(--kami-thread);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-aside {
+    top: 36px;
+    bottom: 36px;
+    left: var(--kami-sheet-left);
+    width: var(--kami-spine);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+    background-color: var(--kami-binding);
+    background-image: none;
+    border-right: 0;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-spine-scroll,
+  html[data-theme="binding"][data-shell-form="desk"] .kami-aside > p {
+    display: none;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-aside::before {
+    content: "";
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: 10px;
+    width: 16px;
+    pointer-events: none;
+    background: repeating-linear-gradient(to bottom, var(--kami-thread) 0 1px, transparent 1px 28px);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-aside::after {
+    content: "Kami 纸匣";
+    position: relative;
+    z-index: 1;
+    writing-mode: vertical-rl;
+    padding: 10px 0;
+    background: var(--kami-binding);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.42em;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] main {
+    position: relative;
+    z-index: 1;
+    padding-top: calc(36px + 2.75rem);
+    padding-left: calc(var(--kami-sheet-left) + var(--kami-spine));
+    padding-right: var(--kami-sheet-right);
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-pageframe {
+    padding-left: 1.35rem;
+    padding-right: 2rem;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-pageframe > div {
+    padding-top: 0.75rem;
+  }
+  html[data-theme="binding"][data-shell-form="desk"] .kami-node-title {
+    font-size: clamp(36px, 4vw, 56px);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: 0.04em;
+  }
 }
