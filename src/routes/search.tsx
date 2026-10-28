@@ -5,9 +5,7 @@ import { ExternalLink, ImagePlus, LoaderCircle, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ProxiedImg } from "@/components/proxied-img";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { SEARCH_FILE_EVENT } from "@/components/drop-to-search";
 import { VaultSearchBlock, type VaultSearchBlockState, type VaultSearchMatch } from "@/components/vault-search-block";
 import { prepareSearchImage } from "@/lib/prepare-search-image";
@@ -41,14 +39,14 @@ export function SearchPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const applyFile = useCallback((next: File | null) => {
-    if (!next) return;
+    if (!next) return false;
     if (next.size > MAX_SEARCH_BYTES) {
       toast.error("图片超过 8 MB，请缩小后再试");
-      return;
+      return false;
     }
     if (next.type && !SEARCH_TYPES.has(next.type) && !next.type.startsWith("image/")) {
       toast.error("只支持 JPEG / PNG / GIF / WebP");
-      return;
+      return false;
     }
     setFile(next);
     setGroups([]);
@@ -57,6 +55,7 @@ export function SearchPage() {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(next);
     });
+    return true;
   }, []);
 
   async function run(target: File) {
@@ -93,9 +92,9 @@ export function SearchPage() {
         .then((next) => setVaultState(next))
         .catch(() => setVaultState({ state: "unavailable" }));
       const res = await fetch("/api/reverse-search", { method: "POST", body });
-      const data = (await res.json()) as ApiOk | ApiErr;
-      if (!data.ok) throw new Error(data.error || "搜图失败");
-      setGroups(data.groups);
+      const data = (await res.json().catch(() => null)) as ApiOk | ApiErr | null;
+      if (!data?.ok) throw new Error(data && "error" in data ? data.error || "搜图失败" : "搜图失败");
+      setGroups(data.groups ?? []);
     } catch (err) {
       const message = err instanceof Error ? err.message : "搜图失败";
       setGroups([]);
@@ -105,6 +104,8 @@ export function SearchPage() {
       setLoading(false);
     }
   }
+  const runRef = useRef(run);
+  runRef.current = run;
 
   useEffect(() => {
     const stashed = takeReverseImage();
@@ -120,11 +121,11 @@ export function SearchPage() {
       const item = [...(ev.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
       if (!item) return;
       ev.preventDefault();
-      applyFile(item);
+      if (applyFile(item)) void runRef.current(item);
     }
     function onDropped(ev: Event) {
       const dropped = (ev as CustomEvent<File>).detail;
-      if (dropped instanceof File) applyFile(dropped);
+      if (dropped instanceof File && applyFile(dropped)) void runRef.current(dropped);
     }
     window.addEventListener("paste", onPaste);
     window.addEventListener(SEARCH_FILE_EVENT, onDropped);
@@ -141,20 +142,26 @@ export function SearchPage() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="font-display text-3xl tracking-tight md:text-4xl">搜图</h1>
+        <h1 className="kami-node-title text-3xl md:text-4xl">搜图</h1>
+        <p className="kami-node-note">
+          ascii2d 弹出验证码时会停，纸匣不代解。动画截图问 trace.moe，插画再问 Danbooru。
+        </p>
         {!apiKey ? (
           <p className="text-xs text-subtle">
             SauceNAO 建议在{" "}
             <Link to="/settings" hash="search" className="text-muted hover:text-fg hover:underline">
               设置
             </Link>{" "}
-            填 API key，匿名很容易被风控。
+            填 API key。匿名次数少，也更容易被拦住。
           </p>
         ) : null}
       </header>
 
-      <Card
-        className={cn("transition-colors duration-200", dragOver ? "bg-elevated" : "")}
+      <div
+        className={cn(
+          "border border-dashed border-border-strong p-4 transition-colors",
+          dragOver && "border-solid border-danger bg-elevated/40",
+        )}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -162,9 +169,10 @@ export function SearchPage() {
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setDragOver(false);
           const dropped = e.dataTransfer.files[0];
-          if (dropped) applyFile(dropped);
+          if (dropped && applyFile(dropped)) void run(dropped);
         }}
       >
         <input
@@ -182,7 +190,7 @@ export function SearchPage() {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="flex aspect-square w-36 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-elevated"
+            className="kami-dk-tile flex aspect-square w-36 shrink-0 items-center justify-center overflow-hidden bg-elevated"
           >
             {preview ? (
               <img src={preview} alt="待搜" className="size-full object-cover" />
@@ -191,7 +199,7 @@ export function SearchPage() {
             )}
           </button>
           <div className="min-w-0 flex-1 space-y-3">
-            <p className="text-sm text-muted">拖到这里，或点选文件。也可以 Ctrl+V 粘贴。</p>
+            <p className="kami-node-note">拖到这里，或点选文件。松开、粘贴都会直接开搜。</p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" onClick={() => inputRef.current?.click()}>
                 <Upload className="size-4" />
@@ -209,7 +217,7 @@ export function SearchPage() {
             ) : null}
           </div>
         </div>
-      </Card>
+      </div>
 
       {error ? <p className="text-sm text-muted">{error}</p> : null}
 
@@ -224,7 +232,7 @@ export function SearchPage() {
 
       {groups.map((group) => (
         <section key={group.engine} className="space-y-3">
-          <h2 className="text-lg font-semibold">{engineLabel(group.engine)}</h2>
+          <h2 className="kami-dk-label">{engineLabel(group.engine)}</h2>
           {group.status === "limited" ? (
             <p className="text-sm text-muted">{group.error || `${engineLabel(group.engine)} 被风控了`}</p>
           ) : group.status === "error" ? (
@@ -254,11 +262,11 @@ function HitCard({ hit, index = 0 }: { hit: ReverseHit; index?: number }) {
           <div className="size-full" />
         )}
         {hit.similarity > 0 ? (
-          <Badge className="absolute left-2 top-2 bg-bg/80 text-fg">
+          <span className="absolute left-0 top-0 bg-bg/85 px-1 text-[10px] tabular-nums tracking-widest text-fg">
             {hit.similarity.toFixed(hit.similarity >= 10 ? 0 : 1)}%
-          </Badge>
+          </span>
         ) : hit.extra ? (
-          <Badge className="absolute left-2 top-2 bg-bg/80 text-fg">{hit.extra}</Badge>
+          <span className="absolute left-0 top-0 max-w-[80%] truncate bg-bg/85 px-1 text-[10px] text-fg">{hit.extra}</span>
         ) : null}
       </div>
       <div className="space-y-1 px-3 py-2">

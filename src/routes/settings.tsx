@@ -116,8 +116,10 @@ function SettingsMenu({
                   type="button"
                   onClick={() => onPick(item.id)}
                   className={cn(
-                    "flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors",
-                    active ? "bg-elevated text-fg" : "text-muted hover:bg-elevated/70 hover:text-fg",
+                    "flex w-full flex-col border-b border-transparent px-0 py-2 text-left transition-colors",
+                    active
+                      ? "font-display text-fg italic shadow-[inset_0_-1px_0_var(--color-danger)]"
+                      : "text-muted hover:text-fg",
                   )}
                 >
                   <span className="text-sm">{item.label}</span>
@@ -246,10 +248,10 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="kami-colophon mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="font-display text-3xl tracking-tight md:text-4xl">设置</h1>
-        <p className="mt-1 text-sm text-muted">左边选分类，右边只看这一页。</p>
+        <h1 className="kami-node-title text-3xl md:text-4xl">设置</h1>
+        <p className="kami-node-note">左边选分类，右边只看这一页。</p>
       </header>
 
       <div className="flex flex-col gap-6 md:flex-row md:items-start">

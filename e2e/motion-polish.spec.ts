@@ -143,21 +143,17 @@ test.describe("动效 · 控件与入队", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.locator("article")).toHaveCount(50, { timeout: 60_000 });
 
-    // 切榜单：滑块 FLIP 落位后与选中项几何对齐（≤1px），文字按钮不受影响
+    // 切榜单：当前项是字和发丝线，不再用滑块药丸
     await page.getByRole("radio", { name: "近期热门" }).click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
     const aligned = await page.evaluate(() => {
       const on = document.querySelector('[role="radiogroup"] [data-state="on"]');
-      const pill = document.querySelector('[role="radiogroup"] span[aria-hidden]');
-      if (!on || !pill) return null;
-      const a = on.getBoundingClientRect();
-      const b = pill.getBoundingClientRect();
-      return { dx: Math.abs(a.left - b.left), dw: Math.abs(a.width - b.width), dh: Math.abs(a.height - b.height) };
+      if (!on) return null;
+      return { state: on.getAttribute("data-state"), text: on.textContent?.trim() ?? "" };
     });
     expect(aligned).not.toBeNull();
-    expect(aligned!.dx).toBeLessThanOrEqual(1);
-    expect(aligned!.dw).toBeLessThanOrEqual(1);
-    expect(aligned!.dh).toBeLessThanOrEqual(1);
+    expect(aligned!.state).toBe("on");
+    expect(aligned!.text).toContain("近期热门");
 
     // 回「最新」，hover 首卡入队：飞纸出现又消失，队列徽标计数上升（业务 enqueue 真实发生）
     await page.getByRole("radio", { name: "最新" }).click();

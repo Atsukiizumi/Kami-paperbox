@@ -252,7 +252,7 @@ export function ArtworkCard({
             {isAiWork(work) ? (
               <Badge
                 className={cn(
-                  "absolute bg-bg/80 text-fg",
+                  "kami-plate absolute bg-bg/80 text-fg",
                   marks && marks.length > 0 ? "left-2 top-10" : "left-2 top-2",
                 )}
               >
@@ -262,13 +262,13 @@ export function ArtworkCard({
             {work.pageCount > 1 || work.illustType === 2 ? (
               <div className="absolute right-2 top-2 z-10 flex flex-row items-center gap-1">
                 {work.pageCount > 1 ? (
-                  <Badge className="bg-bg/80 text-fg">{work.pageCount}p</Badge>
+                  <Badge className="kami-plate bg-bg/80 text-fg">{work.pageCount}p</Badge>
                 ) : null}
-                {work.illustType === 2 ? <Badge className="bg-bg/80 text-fg">GIF</Badge> : null}
+                {work.illustType === 2 ? <Badge className="kami-plate bg-bg/80 text-fg">GIF</Badge> : null}
               </div>
             ) : null}
             {resolution ? (
-              <Badge className="absolute bottom-2 right-2 z-10 bg-bg/80 font-normal tabular-nums text-fg">
+              <Badge className="kami-plate kami-plate-size absolute bottom-2 right-2 z-10 bg-bg/80 font-normal tabular-nums text-fg">
                 {resolution}
               </Badge>
             ) : null}
@@ -316,14 +316,14 @@ export function ArtworkCard({
               </>
             ) : null}
             {inVault ? (
-              <Badge className="absolute bottom-2 right-2 gap-1 bg-bg/80 text-fg">
+              <Badge className="kami-plate absolute bottom-2 right-2 gap-1 bg-bg/80 text-fg">
                 <Check className="size-3" />
                 已收入
               </Badge>
             ) : null}
             {work.feeRequired || showR18 ? (
               <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
-                {work.feeRequired ? <Badge className="bg-bg/80 text-fg">¥{work.feeRequired}</Badge> : null}
+                {work.feeRequired ? <Badge className="kami-plate bg-bg/80 text-fg">¥{work.feeRequired}</Badge> : null}
                 {showR18 ? <Badge tone="red" className="bg-bg/75">{r18Label}</Badge> : null}
               </div>
             ) : null}

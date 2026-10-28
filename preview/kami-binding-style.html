@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ink="night">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kami 纸匣 · 装帧版图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@500;600&family=Shippori+Mincho:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --desk: #100e0c;
+      --desk-ink: #c9c1b6;
+      --desk-muted: #b7aea3;
+      --shadow: 0 28px 70px rgb(0 0 0 / 0.55);
+      --sheet: #f4efe6;
+      --ink: #1c1814;
+      --muted: #5c564e;
+      --binding: #e6dfd2;
+      --thread: #8f3d32;
+      --line: rgb(28 24 20 / 14%);
+      --line-strong: rgb(28 24 20 / 32%);
+      --paper-2: #ebe4d8;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --serif: "Shippori Mincho", "Noto Serif SC", "Songti SC", "PMingLiU", serif;
+      --sans: "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    html[data-ink="day"] {
+      --desk: #e7e0d4;
+      --desk-ink: #3a342c;
+      --desk-muted: #5e564c;
+      --shadow: 0 18px 44px rgb(70 48 24 / 0.16);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--desk);
+      color: var(--desk-ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+      overflow: hidden;
+      transition: background 0.45s var(--ease), color 0.45s var(--ease);
+    }
+    button, input { font: inherit; color: inherit; background: none; border: 0; padding: 0; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid var(--thread); outline-offset: 3px; }
+    .grain-desk {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; opacity: 0.28; mix-blend-mode: overlay;
+    }
+    html[data-ink="day"] .grain-desk { mix-blend-mode: multiply; opacity: 0.22; }
+    .book {
+      position: absolute; z-index: 1;
+      top: 36px; bottom: 36px;
+      left: clamp(36px, 7vw, 96px);
+      right: clamp(78px, 13vw, 200px);
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      background: var(--sheet);
+      color: var(--ink);
+      box-shadow: var(--shadow), inset 0 0 0 1px rgb(28 24 20 / 6%);
+    }
+    .spine {
+      position: relative; background: var(--binding);
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      padding: 14px 0 16px;
+    }
+    .stitches {
+      position: absolute; inset: 16px 0;
+      display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+    }
+    .stitches i { width: 16px; height: 1px; background: var(--thread); display: block; }
+    .spine b {
+      position: relative; z-index: 1; writing-mode: vertical-rl;
+      font-family: var(--serif); font-weight: 500; font-size: 12px; letter-spacing: 0.42em;
+      background: var(--binding); padding: 10px 0;
+    }
+    .page {
+      position: relative; isolation: isolate; min-width: 0; min-height: 0;
+      display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto;
+      padding: 16px 34px 12px 22px; background: var(--sheet);
+    }
+    .grain-sheet {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; opacity: 0.2; mix-blend-mode: multiply;
+    }
+    .running, .title-row, .body, .foot { position: relative; z-index: 1; }
+    .running {
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: 12px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--line);
+      font-size: 12px; letter-spacing: 0.16em;
+    }
+    .rooms { display: flex; gap: 16px; }
+    .sig { color: var(--muted); }
+    .run-end { justify-self: end; font-family: var(--serif); }
+    button[aria-current="true"] {
+      font-family: var(--serif); color: var(--ink); box-shadow: inset 0 -1px 0 var(--thread);
+    }
+    .title-row { padding-top: 14px; }
+    .kicker { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); }
+    h1 {
+      margin: 0; font-family: var(--serif); font-weight: 600;
+      font-size: clamp(32px, 4vw, 48px); line-height: 1.12; letter-spacing: 0.04em;
+    }
+    .body { min-height: 0; overflow: auto; padding: 14px 0 20px; }
+    .plate { display: none; flex-direction: column; gap: 16px; }
+    body[data-plate="color"] .plate-color,
+    body[data-plate="type"] .plate-type,
+    body[data-plate="grid"] .plate-grid,
+    body[data-plate="mark"] .plate-mark,
+    body[data-plate="part"] .plate-part,
+    body[data-plate="board"] .plate-board { display: flex; }
+
+    .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+    .swatch {
+      min-height: 84px; padding: 10px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
+    }
+    .swatch b { font-family: var(--serif); font-weight: 600; }
+    .swatch span { font-size: 11px; letter-spacing: 0.06em; }
+    .group-name { margin: 4px 0 0; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); }
+    .prose { margin: 0; max-width: 42em; color: var(--muted); line-height: 1.6; }
+    .split { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr); gap: 28px; align-items: start; }
+    .scale { display: flex; flex-direction: column; }
+    .scale div {
+      display: grid; grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line);
+    }
+    .scale b { font-family: var(--serif); font-weight: 500; color: var(--muted); }
+    .scale i { color: var(--muted); font-style: normal; font-size: 12px; }
+    .sample {
+      margin: 0; font-family: var(--serif); font-weight: 600;
+      font-size: clamp(36px, 4.4vw, 52px); line-height: 1.12; letter-spacing: 0.04em;
+    }
+    .sample em { font-family: var(--serif); font-style: normal; font-size: 0.42em; color: var(--muted); margin-left: 10px; letter-spacing: 0.08em; }
+    .diagram {
+      min-height: 240px; background: var(--desk); color: var(--desk-ink);
+      padding: 18px 22px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 84px; gap: 10px;
+      align-items: stretch;
+    }
+    .diagram span { font-size: 11px; letter-spacing: 0.12em; display: grid; place-items: center; text-align: center; }
+    .d-book {
+      background: var(--sheet); color: var(--ink);
+      display: grid; grid-template-columns: 22px minmax(0, 1fr); position: relative;
+      box-shadow: 0 10px 24px rgb(0 0 0 / 28%);
+    }
+    .d-spine { background: var(--binding); display: grid; place-items: center; font-family: var(--serif); font-size: 11px; writing-mode: vertical-rl; letter-spacing: 0.2em; }
+    .d-page { display: grid; place-items: center; font-family: var(--serif); }
+    .d-ribbon {
+      position: absolute; top: 18px; right: -12px; width: 16px; height: 54px; background: var(--thread); color: #f6f1ea;
+      writing-mode: vertical-rl; font-size: 11px; display: grid; place-items: center;
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), 50% 100%, 0 calc(100% - 8px));
+    }
+    .rules div {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px;
+    }
+    .rules span { color: var(--muted); text-align: right; }
+    .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
+    .marks article { min-width: 0; }
+    .marks h2 { margin: 0 0 8px; font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: 0.06em; }
+    .marks p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .stitch-demo, .ribbon-demo, .fold-demo {
+      height: 72px; background: var(--paper-2); border: 1px solid var(--line); position: relative;
+    }
+    .stitch-demo { display: flex; align-items: center; justify-content: space-evenly; }
+    .stitch-demo i { width: 22px; height: 1px; background: var(--thread); }
+    .ribbon-demo { background: var(--paper-2); border: 1px solid var(--line); }
+    .ribbon-demo i {
+      position: absolute; top: -1px; right: 22px; width: 16px; height: 64px; background: var(--thread);
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), 50% 100%, 0 calc(100% - 10px));
+    }
+    .chop {
+      width: 54px; height: 54px; border: 1.5px solid var(--thread); color: var(--thread);
+      display: grid; place-items: center; text-align: center; font-family: var(--serif); font-size: 12px; line-height: 1.25; letter-spacing: 0.12em;
+    }
+    .fold-demo i {
+      position: absolute; top: 0; right: 0; border-top: 18px solid var(--sheet); border-left: 18px solid transparent;
+    }
+    .toc { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+    .toc button { color: var(--muted); }
+    .demo-row, .find {
+      display: flex; width: 100%; justify-content: space-between; gap: 10px; align-items: baseline;
+    }
+    .demo-row { padding: 8px 0 8px 8px; border-bottom: 1px solid var(--line); border-left: 2px solid transparent; }
+    .demo-row.on { border-left-color: var(--thread); }
+    .idx { font-family: var(--serif); color: var(--muted); width: 1.8em; }
+    .hot { color: var(--thread); font-family: var(--serif); }
+    .find { margin-top: 12px; border-bottom: 1px solid var(--line-strong); padding: 6px 0; color: var(--muted); }
+    .find input { flex: 1; min-width: 0; }
+    .keep { margin-top: 16px; color: var(--thread); font-family: var(--serif); }
+    .atlas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .mini { min-width: 0; }
+    .mock {
+      height: 132px; background: var(--desk); padding: 6px; position: relative;
+      display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 6px;
+    }
+    .mock .pg { background: var(--sheet); min-width: 0; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+    .mock .sp { background: var(--binding); }
+    .hair { font-size: 10px; letter-spacing: 0.12em; color: var(--muted); font-family: var(--serif); }
+    .blk { flex: 1; background: var(--paper-2); border: 1px solid var(--line); min-height: 16px; }
+    .mock .rowline { height: 1px; background: var(--line-strong); }
+    .capline { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+    .foot {
+      display: flex; align-items: center; gap: 14px;
+      padding-top: 8px; border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--muted);
+    }
+    .chap { font-family: var(--serif); color: var(--ink); flex: none; }
+    #line { flex: 1; min-width: 0; }
+    .foot-end { display: flex; gap: 14px; align-items: center; flex: none; }
+    .ink button[aria-pressed="true"] { font-family: var(--serif); color: var(--ink); box-shadow: inset 0 -1px 0 var(--thread); }
+    .mobile-nav { display: none; }
+    @media (max-width: 860px) {
+      .book {
+        top: 8px; left: 8px; right: 8px; bottom: 72px;
+        grid-template-columns: 1fr; grid-template-rows: 28px minmax(0, 1fr);
+      }
+      .spine { flex-direction: row; justify-content: flex-start; padding: 0 12px; }
+      .stitches { inset: 0 10px; flex-direction: row; align-items: center; }
+      .stitches i { width: 1px; height: 12px; }
+      .spine b { writing-mode: horizontal-tb; letter-spacing: 0.28em; padding: 0 8px; }
+      .page { padding: 12px 14px 10px; }
+      .running .rooms { display: none; }
+      .running { grid-template-columns: 1fr auto; }
+      h1, .sample { font-size: 32px; }
+      .swatches, .split, .marks, .atlas { grid-template-columns: 1fr 1fr; }
+      .swatch { min-height: 72px; }
+      .diagram { grid-template-columns: 28px minmax(0, 1fr) 36px; min-height: 180px; padding: 12px; }
+      .foot { flex-wrap: wrap; }
+      #line { flex: 1 1 100%; }
+      .mobile-nav {
+        display: grid; grid-template-columns: repeat(6, 1fr);
+        position: fixed; z-index: 5; left: 8px; right: 8px; bottom: 8px; height: 52px;
+        background: var(--sheet); color: var(--ink); box-shadow: var(--shadow);
+      }
+      .mobile-nav button { min-height: 52px; color: var(--muted); }
+      .mobile-nav button[aria-current="true"] { color: var(--ink); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      body { transition: none; }
+    }
+  </style>
+</head>
+<body data-plate="color">
+  <svg class="grain-desk" aria-hidden="true">
+    <filter id="gn"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+    <rect width="100%" height="100%" filter="url(#gn)" />
+  </svg>
+  <div class="book">
+    <div class="spine" aria-hidden="true">
+      <span class="stitches"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <b>Kami</b>
+    </div>
+    <div class="page">
+      <svg class="grain-sheet" aria-hidden="true">
+        <filter id="gs"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+        <rect width="100%" height="100%" filter="url(#gs)" />
+      </svg>
+      <header class="running">
+        <nav class="rooms" aria-label="版图">
+          <button type="button" data-plate="color">色</button>
+          <button type="button" data-plate="type">字</button>
+          <button type="button" data-plate="grid">格</button>
+          <button type="button" data-plate="mark">记</button>
+          <button type="button" data-plate="part">件</button>
+          <button type="button" data-plate="board">版</button>
+        </nav>
+        <span class="sig">装帧版图</span>
+        <span class="run-end" id="folio">01</span>
+      </header>
+      <div class="title-row">
+        <p class="kicker" id="kicker">01 / 06</p>
+        <h1 id="title">色谱</h1>
+      </div>
+      <div class="body">
+        <section class="plate plate-color" aria-label="色谱">
+          <p class="group-name">案</p>
+          <div class="swatches">
+            <div class="swatch" style="background:#100e0c;color:#c9c1b6"><b>夜案</b><span>#100E0C</span></div>
+            <div class="swatch" style="background:#100e0c;color:#b7aea3"><b>夜注</b><span>#B7AEA3</span></div>
+            <div class="swatch" style="background:#e7e0d4;color:#3a342c"><b>昼案</b><span>#E7E0D4</span></div>
+            <div class="swatch" style="background:#e7e0d4;color:#5e564c"><b>昼注</b><span>#5E564C</span></div>
+          </div>
+          <p class="group-name">页 · 昼夜同一张</p>
+          <div class="swatches">
+            <div class="swatch" style="background:#f4efe6;color:#1c1814"><b>书页</b><span>#F4EFE6</span></div>
+            <div class="swatch" style="background:#1c1814;color:#f4efe6"><b>墨</b><span>#1C1814</span></div>
+            <div class="swatch" style="background:#5c564e;color:#f4efe6"><b>次墨</b><span>#5C564E</span></div>
+            <div class="swatch" style="background:#e6dfd2;color:#1c1814"><b>订口</b><span>#E6DFD2</span></div>
+            <div class="swatch" style="background:#ebe4d8;color:#1c1814"><b>图底</b><span>#EBE4D8</span></div>
+            <div class="swatch" style="background:#8f3d32;color:#f6f1ea"><b>线</b><span>#8F3D32</span></div>
+          </div>
+          <p class="prose">朱红只用来缝、夹书签、点未读，以及「收入纸匣」。书页不跟着夜案反色。</p>
+        </section>
+
+        <section class="plate plate-type" aria-label="字体">
+          <div class="split">
+            <div>
+              <p class="sample">今日 <em>十月二十六日</em></p>
+              <p class="prose">标题用明朝体，大约一行的高度。西文落到 Shippori Mincho，汉字落到思源宋。正文和目录用思源黑体。正在看的一项改成宋体，下面一条短线。</p>
+            </div>
+            <div class="scale">
+              <div><b>52</b><span class="sample" style="font-size:28px">今日</span><i>标题</i></div>
+              <div><b>28</b><span style="font-family:var(--serif);font-size:22px">队列</span><i>笺</i></div>
+              <div><b>18</b><span style="font-family:var(--serif)">三日月</span><i>作者</i></div>
+              <div><b>15</b><span>标签、链接或作品号</span><i>正文</i></div>
+              <div><b>12</b><span style="letter-spacing:0.16em">卷一 · 看</span><i>书眉</i></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="plate plate-grid" aria-label="装订">
+          <div class="split">
+            <div class="diagram" aria-hidden="true">
+              <span>左案</span>
+              <div class="d-book">
+                <span class="d-spine">订口</span>
+                <span class="d-page">书页</span>
+                <i class="d-ribbon">笺</i>
+              </div>
+              <span>右案更宽</span>
+            </div>
+            <div class="rules">
+              <div>书页 <span>不贴窗口</span></div>
+              <div>订口 <span>28px，朱红缝线</span></div>
+              <div>右案 <span>比左案宽</span></div>
+              <div>圆角 <span>0。方印也是方的</span></div>
+              <div>落定 <span>8px · 0.55s</span></div>
+              <div>缓动 <span>0.22, 1, 0.36, 1</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="plate plate-mark" aria-label="记号">
+          <div class="marks">
+            <article>
+              <h2>订线</h2>
+              <div class="stitch-demo"><i></i><i></i><i></i><i></i><i></i></div>
+              <p>订口上的短线。夜和昼都是同一条朱红。</p>
+            </article>
+            <article>
+              <h2>书签</h2>
+              <div class="ribbon-demo"><i></i></div>
+              <p>笺挂在书页右边。拉开之后，队列写在这一页上。</p>
+            </article>
+            <article>
+              <h2>方印</h2>
+              <div class="chop">二六<br />十月</div>
+              <p>只盖在今日。方的，不旋转。</p>
+            </article>
+            <article>
+              <h2>折角</h2>
+              <div class="fold-demo"><i></i></div>
+              <p>已经在纸匣里。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="plate plate-part" aria-label="构件">
+          <div class="toc" id="demo-toc">
+            <button type="button" data-demo="today" aria-current="true">今日</button>
+            <button type="button" data-demo="flow">流</button>
+            <button type="button" data-demo="watch">追踪</button>
+            <button type="button" data-demo="rank">榜</button>
+            <button type="button" data-demo="walked">走过</button>
+          </div>
+          <button type="button" class="demo-row on"><span class="idx">01</span><span style="flex:1">三日月</span><span>Pixiv</span><span class="hot">3 张新作</span></button>
+          <button type="button" class="demo-row"><span class="idx">02</span><span style="flex:1">白井</span><span>yande.re</span><span>已读</span></button>
+          <button type="button" class="demo-row"><span class="idx">03</span><span style="flex:1">海岸线</span><span>Konachan</span><span>检查失败</span></button>
+          <form class="find">
+            <label for="q">检索</label>
+            <input id="q" placeholder="标签、链接或作品号" />
+            <span>拖入一张图</span>
+          </form>
+          <div class="keep">收入纸匣</div>
+        </section>
+
+        <section class="plate plate-board" aria-label="版式">
+          <div class="atlas">
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg"><span class="hair">今日</span><div class="blk"></div><div class="blk"></div></div></div><p class="capline">今日。铺纸在左，信和纸叠在右。</p></article>
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg"><span class="hair">流</span><div class="blk"></div><div class="rowline"></div><div class="blk"></div></div></div><p class="capline">流。站点是一行字，下面是墙。</p></article>
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg"><span class="hair">纸匣</span><div class="blk"></div><div class="blk"></div></div></div><p class="capline">纸匣。折角表示已经留下。</p></article>
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg" style="flex-direction:row"><div class="blk"></div><div><span class="hair">窗边的猫</span><div class="rowline"></div></div></div></div><p class="capline">详情。图在左，收入纸匣是一行宋体。</p></article>
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg" style="flex-direction:row"><div class="blk"></div><div style="border-left:1px solid #8f3d32;padding-left:4px"><span class="hair">笺</span><div class="rowline"></div><div class="rowline"></div></div></div></div><p class="capline">笺。书签拉开，队列写在书页里。</p></article>
+            <article class="mini"><div class="mock"><i class="sp"></i><div class="pg"><span class="hair">印</span><div class="rowline"></div><div class="rowline"></div><div class="rowline"></div></div></div><p class="capline">印。版权页，窄栏，放在书的最后。</p></article>
+          </div>
+        </section>
+      </div>
+      <footer class="foot">
+        <div class="chap" id="chap">01 色</div>
+        <div id="line"></div>
+        <div class="foot-end">
+          <a href="kami-binding.html">样张</a>
+          <a href="kami-style.html">纸格</a>
+          <span class="ink">
+            <button type="button" data-ink="night" aria-pressed="true">夜</button>
+            <button type="button" data-ink="day" aria-pressed="false">昼</button>
+          </span>
+        </div>
+      </footer>
+    </div>
+  </div>
+  <nav class="mobile-nav" aria-label="版图">
+    <button type="button" data-plate="color">色</button>
+    <button type="button" data-plate="type">字</button>
+    <button type="button" data-plate="grid">格</button>
+    <button type="button" data-plate="mark">记</button>
+    <button type="button" data-plate="part">件</button>
+    <button type="button" data-plate="board">版</button>
+  </nav>
+  <script>
+    const PLATES = {
+      color: ["01 / 06", "色谱", "01", "01 色", "夜案是房间，书页是纸。昼只把案换亮。"],
+      type: ["02 / 06", "字体", "02", "02 字", "标题一行高。正在看的改成宋体，下面一条短线。"],
+      grid: ["03 / 06", "装订", "03", "03 格", "纸不铺满窗口。左边订口，右边多留一截案。"],
+      mark: ["04 / 06", "记号", "04", "04 记", "订线、书签、方印、折角。朱红是线。"],
+      part: ["05 / 06", "构件", "05", "05 件", "目录是一行字。收入纸匣用宋体朱红。"],
+      board: ["06 / 06", "版式", "06", "06 版", "同一页纸上的六种版。笺是书签，印是版权页。"]
+    };
+    const title = document.getElementById("title");
+    const kicker = document.getElementById("kicker");
+    const chap = document.getElementById("chap");
+    const line = document.getElementById("line");
+    const folio = document.getElementById("folio");
+    function paint(plate) {
+      const row = PLATES[plate];
+      if (!row) return;
+      document.body.dataset.plate = plate;
+      kicker.textContent = row[0];
+      title.textContent = row[1];
+      folio.textContent = row[2];
+      chap.textContent = row[3];
+      line.textContent = row[4];
+      document.querySelectorAll("button[data-plate]").forEach((btn) => {
+        btn.setAttribute("aria-current", btn.dataset.plate === plate ? "true" : "false");
+      });
+    }
+    document.addEventListener("click", (e) => {
+      const plate = e.target.closest?.("button[data-plate]");
+      if (plate) { paint(plate.dataset.plate); return; }
+      const ink = e.target.closest?.("button[data-ink]");
+      if (ink) {
+        document.documentElement.dataset.ink = ink.dataset.ink;
+        document.querySelectorAll("button[data-ink]").forEach((btn) => {
+          btn.setAttribute("aria-pressed", btn.dataset.ink === ink.dataset.ink ? "true" : "false");
+        });
+        return;
+      }
+      const demo = e.target.closest?.("button[data-demo]");
+      if (demo) {
+        document.querySelectorAll("button[data-demo]").forEach((btn) => {
+          btn.setAttribute("aria-current", btn === demo ? "true" : "false");
+        });
+      }
+    });
+    paint("color");
+  </script>
+</body>
+</html>

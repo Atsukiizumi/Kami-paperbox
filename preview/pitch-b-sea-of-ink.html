@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>提案 B · 墨之海 SEA OF INK — Kami 紙匣</title>
+<meta name="description" content="Kami 紙匣风格提案 B：刷图是海上漂流，收藏才是潜水打捞。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@200;300;500;800&family=Noto+Serif+JP:wght@600;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --abyss:#060A12; --moon:#EAF2FF; --moon-dim:rgba(234,242,255,.62);
+  --vermilion:#C93A2B; --tide:#9FD8FF;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --grot:'Archivo','Noto Sans JP',sans-serif;
+  --serif:'Noto Serif JP',serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--abyss);color:var(--moon);font-family:var(--grot);overflow-x:hidden;
+  --ls:.08em; --d:0;}
+::selection{background:var(--vermilion);color:var(--moon)}
+a{color:inherit}
+
+canvas#sea{position:fixed;inset:0;z-index:0;display:block}
+
+.vignette{position:fixed;inset:0;z-index:4;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(2,4,8,.75) 100%);}
+.grain{position:fixed;inset:-40px;z-index:5;pointer-events:none;opacity:.09;mix-blend-mode:screen;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="220" height="220" filter="url(%23n)" opacity="0.6"/></svg>');}
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;z-index:6;font-family:var(--mono);font-size:10px;
+  letter-spacing:.24em;color:var(--moon-dim)}
+.hud-tl{top:22px;left:26px}
+.hud-tl b{color:var(--moon);font-weight:500}
+.hud-tr{top:22px;right:26px;text-align:right}
+.hud-bl{bottom:24px;left:26px;letter-spacing:.2em}
+.hud-bc{bottom:24px;left:50%;transform:translateX(-50%);text-align:center;
+  letter-spacing:.28em;color:rgba(234,242,255,.5);transition:opacity .6s}
+.hud-bc .jp{font-family:var(--serif);color:var(--moon-dim)}
+
+/* 捕捞计数 */
+.haul{position:fixed;top:52px;right:26px;z-index:6;text-align:right;
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--moon-dim)}
+.haul b{display:block;font-family:var(--grot);font-weight:800;font-size:30px;
+  letter-spacing:.06em;color:var(--moon);line-height:1.15}
+.haul .zhu{color:var(--vermilion)}
+
+/* 深度标尺 */
+.ruler{position:fixed;left:26px;top:50%;transform:translateY(-50%);z-index:6;
+  height:min(46vh,380px);width:30px;pointer-events:none}
+.ruler .bar{position:absolute;left:12px;top:0;bottom:0;width:1px;background:rgba(234,242,255,.28)}
+.ruler .ticks{position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,rgba(234,242,255,.34) 0 1px,transparent 1px calc(100%/10));
+  background-size:12px 100%;background-repeat:no-repeat;background-position:left}
+.ruler .mk{position:absolute;left:4px;width:17px;height:1px;background:var(--vermilion);
+  box-shadow:0 0 8px rgba(201,58,43,.8);top:0;transition:top .18s linear}
+.ruler .read{position:absolute;left:-6px;top:calc(100% + 12px);font-family:var(--mono);
+  font-size:10px;letter-spacing:.18em;color:var(--moon-dim);white-space:nowrap}
+
+/* 纸鹤 */
+.crane{position:fixed;z-index:5;pointer-events:none;width:44px;height:44px;
+  filter:drop-shadow(0 0 6px rgba(234,242,255,.55))}
+
+/* ---------- 内容层带 ---------- */
+main{position:relative;z-index:2}
+.band{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+  padding:0 clamp(28px,12vw,220px)}
+.band .k{font-family:var(--mono);font-size:10px;letter-spacing:.34em;
+  color:var(--vermilion);margin-bottom:22px}
+.band h2{font-weight:200;font-size:clamp(44px,7vw,104px);line-height:1.02;
+  letter-spacing:var(--ls);transition:letter-spacing .3s linear;margin-bottom:26px}
+.band h2 .jp{font-family:var(--serif);font-weight:900}
+.band p{font-weight:300;font-size:clamp(14px,1.5vw,17px);line-height:2.05;
+  color:var(--moon-dim);max-width:44ch;letter-spacing:var(--ls)}
+.band p b{font-weight:500;color:var(--moon)}
+.band .src{font-family:var(--mono);font-size:10px;letter-spacing:.26em;
+  margin-top:30px;color:rgba(234,242,255,.42)}
+.band .src i{font-style:normal;color:var(--tide)}
+
+/* 水面首屏 */
+.surface{align-items:flex-start}
+.surface .bigjp{font-family:var(--serif);font-weight:900;
+  font-size:clamp(58px,10vw,150px);line-height:1.05;letter-spacing:.1em;
+  text-shadow:0 0 44px rgba(234,242,255,.35)}
+.surface .sub{margin-top:14px;font-weight:300;font-size:clamp(14px,1.6vw,19px);
+  color:var(--moon-dim);letter-spacing:.42em}
+.dive{margin-top:44px;display:inline-flex;align-items:center;gap:14px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.34em;color:var(--moon);
+  text-decoration:none;border:1px solid rgba(234,242,255,.4);padding:15px 26px;
+  background:rgba(6,10,18,.35);backdrop-filter:blur(3px);
+  transition:all .45s var(--ease);cursor:pointer}
+.dive:hover{border-color:var(--moon);box-shadow:0 0 26px rgba(234,242,255,.25);
+  letter-spacing:.42em}
+.dive svg{animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(5px)}}
+
+/* 海床 */
+.seabed{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;padding:14vh 24px;gap:34px}
+.seabed .k{font-family:var(--mono);font-size:10px;letter-spacing:.4em;color:var(--vermilion)}
+.boxwrap{position:relative;width:min(300px,72vw);aspect-ratio:1.28;--heat:0}
+.box{
+  position:absolute;inset:0;border:1px solid rgba(234,242,255,.5);
+  background:linear-gradient(160deg,rgba(234,242,255,.1),rgba(234,242,255,.03) 55%);
+  box-shadow:0 0 calc(28px + 90px*var(--heat)) rgba(255,196,120,calc(.14 + .5*var(--heat)));
+  transform:perspective(900px) rotateX(16deg);transition:box-shadow .8s;
+}
+.box::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 40%,rgba(255,196,120,calc(.05 + .22*var(--heat))) 100%)}
+.box .lid{position:absolute;left:-7%;right:-7%;top:-15%;height:24%;
+  border:1px solid rgba(234,242,255,.6);border-bottom:none;
+  background:linear-gradient(180deg,rgba(234,242,255,.16),rgba(234,242,255,.04));
+  transform:perspective(900px) rotateX(52deg);transform-origin:bottom;
+  box-shadow:0 0 30px rgba(234,242,255,calc(.1 + .3*var(--heat)))}
+.box .label{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+  font-family:var(--serif);font-weight:900;font-size:44px;letter-spacing:.3em;
+  color:var(--moon);text-shadow:0 0 24px rgba(234,242,255,.5);white-space:nowrap}
+.box .label small{display:block;font-family:var(--mono);font-size:8px;font-weight:400;
+  letter-spacing:.5em;color:var(--moon-dim);margin-top:8px;text-align:center}
+.caught{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:520px;min-height:30px}
+.caught .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+  color:var(--moon-dim);border:1px solid rgba(234,242,255,.24);padding:6px 12px;
+  animation:chipIn .5s var(--ease) both}
+@keyframes chipIn{from{opacity:0;transform:translateY(10px) scale(.9)}}
+.seabed h3{font-family:var(--serif);font-weight:600;font-size:clamp(17px,2vw,22px);
+  letter-spacing:.3em;color:var(--moon-dim)}
+.rise{margin-top:8px}
+
+.xnav{position:fixed;right:20px;bottom:20px;z-index:7;display:flex;gap:6px;font-family:var(--mono);font-size:10px}
+.xnav a{text-decoration:none;padding:7px 11px;border:1px solid rgba(234,242,255,.3);
+  letter-spacing:.14em;color:var(--moon-dim);background:rgba(6,10,18,.6);
+  backdrop-filter:blur(3px);transition:all .3s var(--ease)}
+.xnav a:hover{color:var(--moon);border-color:rgba(234,242,255,.7)}
+.xnav a.cur{background:var(--moon);color:var(--abyss);border-color:var(--moon)}
+
+.rv{opacity:0;transform:translateY(26px);transition:opacity 1s var(--ease),transform 1s var(--ease)}
+.rv.on{opacity:1;transform:none}
+
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none}
+  .dive svg,.crane{animation:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<canvas id="sea" aria-hidden="true"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="hud hud-tl"><b>墨之海</b> — SEA OF INK<br />KAMI-PAPERBOX · PITCH B / FWA</div>
+<div class="hud hud-tr"><span id="clock">--:--:--</span><br />N24.1176 E153.9844 · 深海底</div>
+<div class="haul"><span class="zhu">◉ 捕捞</span><b id="haulN">0</b>枚 / 已入匣</div>
+<div class="ruler" aria-hidden="true">
+  <span class="bar"></span><span class="ticks"></span><span class="mk" id="rmark"></span>
+  <span class="read" id="rread">0m — 水面</span>
+</div>
+<div class="hud hud-bc" id="hint">按住画面任意处 — 聚起涡流，松手捕捞入匣<br /><span class="jp">触屏：轻点海面即可打捞一网</span></div>
+<div class="hud hud-bl" id="bandname">LAYER 0 · 水面 SURFACE</div>
+
+<main>
+  <!-- 0m 水面 · pixiv -->
+  <section class="band surface" data-band="LAYER 0 · 水面 SURFACE">
+    <p class="k rv">0 m · 潮の表面 · PIXIV</p>
+    <h1 class="bigjp rv" lang="ja">墨之海</h1>
+    <p class="sub rv">SEA OF INK — 刷图是漂流，收藏是打捞</p>
+    <p class="rv" style="margin-top:34px">海的表面是流动的画廊——pixiv 的插画、漫画、小说每日如潮涌来，
+      你在浪尖滑过它们，一次又一次。紙匣潜在这片海里：<br />
+      <b>把刷过的，变成拥有的。</b></p>
+    <a class="dive rv" href="#b2">下潜 · DESCEND
+      <svg width="12" height="16" viewBox="0 0 12 16" fill="none"><path d="M6 0v13M1 9l5 6 5-6" stroke="currentColor" stroke-width="1.4"/></svg>
+    </a>
+  </section>
+
+  <!-- -120m danbooru -->
+  <section class="band" id="b2" data-band="LAYER 1 · 档案馆 ARCHIVE">
+    <p class="k rv">−120 m · 档案馆层 · DANBOORU</p>
+    <h2 class="rv">标签是洋流，<span class="jp" lang="ja">万物各归其位</span></h2>
+    <p class="rv">下潜到第一层沉积带，danbooru 用数万枚标签把整片海编成索引。
+      光开始变冷，秩序开始显形——<b>每一枚标签，都是一条可循的洋流</b>，
+      顺流而下，总能找到同类。</p>
+    <p class="src rv">SAMPLE — <i>tag:night_sky</i> · <i>tag:long_hair</i> · 3,700,000+ posts indexed</p>
+  </section>
+
+  <!-- -240m yande.re -->
+  <section class="band" data-band="LAYER 2 · 矿脉 VEIN">
+    <p class="k rv">−240 m · 高质量矿脉 · YANDE.RE</p>
+    <h2 class="rv">矿脉深处，<span class="jp" lang="ja">只采高品位的原石</span></h2>
+    <p class="rv">yande.re 的世界拒绝泥沙。这里只有高分辨率、高质量判定的插画原石，
+      在冷光里静静发光。<b>紙匣的筛网在这里张开</b>——尺寸、评分、来源，
+      一网打尽，不入流者沉底。</p>
+    <p class="src rv">SAMPLE — <i>rating:s</i> · <i>size:≥3508×4961</i> · moeimouto archive</p>
+  </section>
+
+  <!-- -320m konachan -->
+  <section class="band" data-band="LAYER 3 · 印刷厂 PRESS">
+    <p class="k rv">−320 m · 壁纸印刷厂 · KONACHAN</p>
+    <h2 class="rv">印刷厂的底层，<span class="jp" lang="ja">尺寸即正义</span></h2>
+    <p class="rv">海床之上最后一层，是 konachan 的印刷车间：1920×1080 起跳，
+      按分辨率与主题分档出货。<b>每一张都天生为你的屏幕而生</b>——
+      捞起一枚，桌面即焕新。</p>
+    <p class="src rv">SAMPLE — <i>wallpaper</i> · <i>1920x1080</i> · weekly press run</p>
+  </section>
+
+  <!-- -400m 海床 紙匣 -->
+  <section class="band seabed" data-band="SEABED · 海床 — 紙匣" id="seabed">
+    <p class="k rv">−400 m · 海床 · 你的紙匣在这里发光</p>
+    <div class="boxwrap rv" id="boxwrap">
+      <div class="box">
+        <span class="lid"></span>
+        <span class="label" lang="ja">紙匣<small>KAMI-PAPERBOX</small></span>
+      </div>
+    </div>
+    <h3 class="rv" lang="ja">捕ったものは、ここで光を保つ</h3>
+    <div class="caught rv" id="caught"><span class="chip">海はまだ空っぽ — 去上面捞一网吧</span></div>
+    <a class="dive rise rv" href="#" id="rise">↖ 浮上水面 · 与所爱重逢</a>
+  </section>
+</main>
+
+<nav class="xnav">
+  <a href="pitch-a-infinite-binding.html">A 裝訂</a>
+  <a class="cur" href="pitch-b-sea-of-ink.html">B 墨海</a>
+  <a href="pitch-c-paperbox-works.html">C 製作所</a>
+</nav>
+
+<script>
+(function(){
+"use strict";
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+var canvas = document.getElementById("sea"), ctx = canvas.getContext("2d");
+var W, H, DPR;
+function size(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+size(); addEventListener("resize", size);
+
+/* 预渲染辉光精灵 */
+var TINTS = ["234,242,255", "159,216,255", "255,217,168", "234,242,255"];
+function makeSprite(rgb){
+  var s = document.createElement("canvas"); s.width = s.height = 64;
+  var c = s.getContext("2d");
+  var g = c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0, "rgba("+rgb+",0.95)");
+  g.addColorStop(0.25, "rgba("+rgb+",0.38)");
+  g.addColorStop(1, "rgba("+rgb+",0)");
+  c.fillStyle = g; c.fillRect(0,0,64,64);
+  return s;
+}
+var sprites = TINTS.map(makeSprite);
+var rareSprite = makeSprite("201,58,43"); /* 朱色稀有粒子 */
+
+var N = Math.round(Math.min(380, Math.max(130, (W*H)/4200)));
+var parts = [];
+function spawn(init){
+  return {
+    x: Math.random()*W, y: init ? Math.random()*H : -20,
+    vx: 0, vy: 0,
+    s: 7 + Math.random()*20,
+    sp: sprites[Math.random() < 0.055 ? 1 : (Math.random()*sprites.length|0)],
+    rare: Math.random() < 0.04,
+    ph: Math.random()*Math.PI*2,
+    state: 0, tx: 0, ty: 0, a: 1
+  };
+}
+for(var i=0;i<N;i++) parts.push(spawn(true));
+
+var px=-1e4, py=-1e4, pdown=false, holdT=0, vortex=null;
+var uplift = 0, count = 0;
+
+addEventListener("pointermove", function(e){ px = e.clientX; py = e.clientY; }, {passive:true});
+canvas.parentElement.addEventListener("pointerdown", function(e){
+  if(e.target.closest("a,button")) return;
+  pdown = true; holdT = performance.now(); vortex = {x: e.clientX, y: e.clientY};
+});
+addEventListener("pointerup", function(e){
+  if(!pdown) return; pdown = false;
+  var quick = performance.now() - holdT < 280;
+  var touch = e.pointerType !== "mouse";
+  if(vortex && (touch || quick) && !reduce){ pulse(e.clientX, e.clientY); }
+  release(); vortex = null;
+});
+addEventListener("pointercancel", function(){ pdown = false; vortex = null; release(); });
+
+var flying = [];
+function pulse(x, y){
+  parts.forEach(function(p){
+    var dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
+    if(d < 110 && p.state === 0){ capture(p); }
+  });
+  burstCranes(x, y, 3);
+}
+function capture(p){
+  p.state = 2;
+  p.tx = W/2 + (Math.random()-0.5)*W*0.35;
+  p.ty = H + 90;
+  flying.push(p);
+}
+function release(){
+  var captured = parts.filter(function(p){ return p.state === 1; });
+  captured.forEach(capture);
+  if(captured.length) burstCranes(vortex ? vortex.x : W/2, vortex ? vortex.y : H/2, Math.min(7, 2+Math.round(captured.length/4)));
+  captured.length = 0;
+  /* 保持总数 */
+  var lost = flying.length;
+  for(var k=0;k<Math.min(lost, N*0.3);k++) parts.push(spawn(false));
+}
+function burstCranes(x, y, n){
+  if(reduce) return;
+  for(var i=0;i<n;i++){
+    var el = document.createElement("div");
+    el.className = "crane";
+    el.innerHTML = '<svg viewBox="0 0 48 48" fill="none"><path d="M24 4 44 20 24 16 4 20Z" fill="#EAF2FF" opacity=".92"/><path d="M24 16 44 20 24 44 4 20Z" fill="#9FD8FF" opacity=".65"/><path d="M24 4 24 16 14 12Z" fill="#C93A2B"/></svg>';
+    el.style.left = (x-22)+"px"; el.style.top = (y-22)+"px";
+    document.body.appendChild(el);
+    var dx = (W/2 - x) * (0.5 + Math.random()*0.5) + (Math.random()-0.5)*160;
+    var dy = (H*0.86 - y) * (0.6 + Math.random()*0.4) + (Math.random()-0.5)*80;
+    var kf = [];
+    for(var s=0; s<=6; s++){
+      var t = s/6;
+      kf.push({
+        transform: "translate("+(dx*t + Math.sin(t*Math.PI*3+i)*26)+"px,"+(dy*t - Math.sin(t*Math.PI)*40)+"px) rotate("+(t*300-40+i*40)+"deg) scale("+(0.5+t*0.5)+")",
+        opacity: t > 0.85 ? 1-(t-0.85)/0.15 : 1
+      });
+    }
+    el.animate(kf, {duration: 1500 + Math.random()*700, delay: i*90,
+      easing: "cubic-bezier(.4,.1,.6,.9)"}).onfinish = function(){ el.remove(); };
+  }
+}
+
+var haulEl = document.getElementById("haulN");
+var caughtEl = document.getElementById("caught");
+var boxwrap = document.getElementById("boxwrap");
+var first = true;
+function arrive(){
+  count++;
+  haulEl.textContent = count;
+  boxwrap.style.setProperty("--heat", Math.min(1, count/18));
+  if(first){ caughtEl.innerHTML = ""; first = false; }
+  if(caughtEl.children.length > 14) caughtEl.removeChild(caughtEl.firstChild);
+  var chip = document.createElement("span");
+  chip.className = "chip";
+  chip.textContent = "拾-" + String(count).padStart(2,"0") + " · " +
+    (Math.random()<0.5 ? "pixiv" : ["danbooru","yande.re","konachan"][Math.random()*3|0]);
+  caughtEl.appendChild(chip);
+}
+
+/* 深色混合 */
+function mix(d){
+  var a = [10,19,34], b = [3,6,11], o = [];
+  for(var i=0;i<3;i++) o.push(Math.round(a[i]+(b[i]-a[i])*d));
+  return "rgb(" + o.join(",") + ")";
+}
+var docH, prog = 0;
+function measure(){ docH = document.documentElement.scrollHeight - innerHeight; }
+measure(); addEventListener("resize", measure);
+
+var rmark = document.getElementById("rmark"), rread = document.getElementById("rread"),
+    bandname = document.getElementById("bandname"), hint = document.getElementById("hint");
+var bands = Array.prototype.slice.call(document.querySelectorAll(".band"));
+var seen = {};
+new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if(e.isIntersecting && !seen[e.target.id = e.target.dataset.band]){
+      seen[e.target.dataset.band] = 1;
+    }
+  });
+},{threshold:.5});
+var curBand = "";
+var bandIO = new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if(e.isIntersecting) curBand = e.target.dataset.band || curBand;
+  });
+},{threshold:.55});
+bands.forEach(function(b){ bandIO.observe(b); });
+
+var rvIO = new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("on"); rvIO.unobserve(e.target); } });
+},{threshold:.15});
+document.querySelectorAll(".rv").forEach(function(el){ rvIO.observe(el); });
+
+function onScroll(){
+  prog = Math.min(1, Math.max(0, scrollY / Math.max(1, docH)));
+  document.body.style.setProperty("--d", prog.toFixed(3));
+  document.body.style.setProperty("--ls", (0.06 + 0.3*prog).toFixed(3) + "em");
+  var depth = Math.round(prog * 400);
+  rread.textContent = (depth ? "−" + depth + "m" : "0m — 水面");
+  rmark.style.top = (prog * 100) + "%";
+  bandname.textContent = curBand;
+  hint.style.opacity = prog > 0.7 ? 0 : 1;
+}
+addEventListener("scroll", onScroll, {passive:true});
+onScroll();
+
+/* 浮上：气泡上涌 + 回顶 */
+document.getElementById("rise").addEventListener("click", function(e){
+  e.preventDefault();
+  uplift = -4.2;
+  setTimeout(function(){ uplift = 0; }, 1600);
+  if(!reduce) scrollTo({top: 0, behavior: "smooth"});
+  else scrollTo(0, 0);
+});
+
+/* 时钟 */
+var clockEl = document.getElementById("clock");
+setInterval(function(){
+  var d = new Date(), p = function(n){ return String(n).padStart(2,"0"); };
+  clockEl.textContent = p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+}, 1000);
+
+/* ---------- 主循环 ---------- */
+var t = 0;
+function frame(){
+  t += 0.006;
+  var d = parseFloat(document.body.style.getPropertyValue("--d")) || 0;
+  /* 拖影式清屏（颜色随深度加深） */
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(3,6,11,0.16)";
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = "lighter";
+
+  var holdActive = pdown && vortex && (performance.now() - holdT > 280);
+
+  for(var i = parts.length - 1; i >= 0; i--){
+    var p = parts[i];
+
+    if(p.state === 2){ /* 飞向海床 */
+      p.x += (p.tx - p.x) * 0.06; p.y += (p.ty - p.y) * 0.06;
+      p.a -= 0.008;
+      if(p.y > H - 4 || p.a <= 0){ arrive(); parts.splice(i,1); continue; }
+      ctx.globalAlpha = Math.max(0, p.a);
+      ctx.drawImage(p.rare ? rareSprite : p.sp, p.x - p.s, p.y - p.s, p.s*2, p.s*2);
+      continue;
+    }
+
+    /* 流场 */
+    var ang = Math.sin(p.x*0.0016 + t) * 1.8 + Math.cos(p.y*0.0019 - t*0.8) * 1.8;
+    p.vx += Math.cos(ang) * 0.016;
+    p.vy += Math.sin(ang) * 0.014;
+    p.vy -= 0.006 + uplift * 0.02;      /* 浮游生物般的缓升 */
+    p.ph += 0.02;
+
+    /* 指针搅动 */
+    var mdx = p.x - px, mdy = p.y - py, md = Math.hypot(mdx, mdy);
+    if(md < 150 && md > 0.1){
+      var f = (1 - md/150) * 0.5;
+      p.vx += (mdx/md) * f * 1.6; p.vy += (mdy/md) * f * 1.6;
+    }
+
+    /* 涡流：切向 + 向心 */
+    if(holdActive){
+      var dx = p.x - vortex.x, dy = p.y - vortex.y, dd = Math.hypot(dx, dy);
+      if(dd < 240){
+        var k = (1 - dd/240);
+        p.vx += (-dy/dd) * k * 1.5 - (dx/dd) * k * 0.55;
+        p.vy += ( dx/dd) * k * 1.5 - (dy/dd) * k * 0.55;
+        if(dd < 56) p.state = 1; /* 已吸入，待松手 */
+      }
+    }
+
+    p.vx *= 0.955; p.vy *= 0.955;
+    p.x += p.vx; p.y += p.vy + Math.sin(p.ph) * 0.18;
+
+    if(p.y < -30) p.y = H + 20;
+    if(p.y > H + 40) p.y = -20;
+    if(p.x < -30) p.x = W + 20;
+    if(p.x > W + 30) p.x = -20;
+
+    ctx.globalAlpha = p.state === 1 ? 1 : 0.85;
+    var sz = p.s * (p.state === 1 ? 1.35 : 1) * (1 + Math.sin(p.ph)*0.12);
+    ctx.drawImage(p.rare ? rareSprite : p.sp, p.x - sz, p.y - sz, sz*2, sz*2);
+  }
+  ctx.globalAlpha = 1;
+
+  /* 涡流中心指示 */
+  if(holdActive){
+    ctx.save();
+    ctx.translate(vortex.x, vortex.y);
+    ctx.rotate(t*3);
+    ctx.strokeStyle = "rgba(201,58,43,.6)";
+    ctx.lineWidth = 1;
+    for(var r = 0; r < 3; r++){
+      ctx.beginPath();
+      ctx.arc(0, 0, 26 + r*22, r*2, r*2 + 2.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  requestAnimationFrame(frame);
+}
+
+if(reduce){
+  /* 弱动效：静态撒一场辉光，放弃交互循环 */
+  ctx.fillStyle = "#050910"; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation = "lighter";
+  parts.forEach(function(p){ ctx.globalAlpha = .8; ctx.drawImage(p.sp, p.x-p.s, p.y-p.s, p.s*2, p.s*2); });
+  document.getElementById("hint").textContent = "弱动效模式 — 墨海静止";
+} else {
+  frame();
+}
+})();
+</script>
+</body>
+</html>

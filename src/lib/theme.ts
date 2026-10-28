@@ -1,4 +1,4 @@
-export const THEME_IDS = ["washi", "aosumi", "shusha", "songyan", "koke", "bindery"] as const;
+export const THEME_IDS = ["washi", "aosumi", "shusha", "songyan", "koke", "bindery", "binding"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export const APPEARANCES = ["system", "light", "dark"] as const;
@@ -186,9 +186,9 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
   bindery: {
     id: "bindery",
     name: "纸格",
-    description: "装帧工房 · 纸面与印红",
-    // Grok 会话 01a1742d 定稿「纸格」双态色板：亮=三层纸色（纸/纸背/paper-2）+印泥红，
-    // 暗=夜案（墨黑书案家族）。朱红语义沿用 danger（日期章/未读/印章）。
+    description: "满页的格。发丝线，直角，当前项改衬线。",
+    // 样张 preview/kami-ia.html。亮=三层纸色 + 印泥红，暗=夜案。
+    // 朱红走 danger（日期章 / 未读 / 收入纸匣）。结构见 styles.css 的 data-theme=bindery。
     dark: {
       bg: "#0e0d0c",
       surface: "#1b1916",
@@ -210,6 +210,36 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
       subtle: "#8a8378",
       accent: "#141210",
       accentFg: "#f7f3ec",
+      danger: "#8f3d32",
+      ok: "#3d6b42",
+    },
+  },
+  binding: {
+    id: "binding",
+    name: "装帧",
+    description: "案上的一页。订口缝线，书页不随夜反色。",
+    // 样张 preview/kami-binding.html。书页不反色；案色是 styles.css 的 --kami-desk。
+    dark: {
+      bg: "#f4efe6",
+      surface: "#ebe4d8",
+      elevated: "#f7f4ee",
+      fg: "#1c1814",
+      muted: "#5c564e",
+      subtle: "#8a8076",
+      accent: "#1c1814",
+      accentFg: "#f4efe6",
+      danger: "#8f3d32",
+      ok: "#3d6b42",
+    },
+    light: {
+      bg: "#f7f4ee",
+      surface: "#efe8dc",
+      elevated: "#fffdf8",
+      fg: "#1c1814",
+      muted: "#5c564e",
+      subtle: "#8a8076",
+      accent: "#1c1814",
+      accentFg: "#f7f4ee",
       danger: "#8f3d32",
       ok: "#3d6b42",
     },

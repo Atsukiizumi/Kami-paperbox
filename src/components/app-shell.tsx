@@ -185,8 +185,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const watchBadge = useWatchBadge((s) => s.newCount);
   const veil = useVeil((s) => s.veil);
   const veilOff = useVeil((s) => s.off);
-  const [expanded, setExpanded] = useState(true);
   const shellEff = useEffectiveShell();
+  const theme = useSettings((s) => s.theme);
+  const [expanded, setExpanded] = useState(true);
 
   // 访客遮盖（U）：Esc 一键撤离——演示场景最常用的收尾动作
   useEffect(() => {
@@ -248,25 +249,31 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 并吃合并壳层（主题包跟随）。移动端一律原顶栏+底部栏。
   const plan = shellRenderPlan(shellEff);
   const deskForm = !plan.custom && shellEff.form === "desk";
-  const sideExpanded = plan.sidebarMode === "full" && (deskForm ? expanded : true);
+  const paperGrid = theme === "bindery" && deskForm;
+  const paperBook = theme === "binding" && deskForm;
+  const sideExpanded = plan.sidebarMode === "full" && (deskForm ? paperGrid || paperBook || expanded : true);
   const W_BY_PX = { 48: "md:w-12", 64: "md:w-16", 80: "md:w-20" } as const;
   const PAD_BY_PX = { 48: "md:pl-12", 64: "md:pl-16", 80: "md:pl-20" } as const;
   const paneWidth = plan.custom
     ? ""
-    : deskForm
-      ? expanded
-        ? "md:w-56"
-        : "md:w-16"
-      : (plan.sidebarW && W_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:w-16";
+    : paperGrid
+      ? "md:w-[88px]"
+      : deskForm
+        ? expanded
+          ? "md:w-56"
+          : "md:w-16"
+        : (plan.sidebarW && W_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:w-16";
   const contentPad = plan.custom
     ? "kami-pagepad"
     : shellEff.form === "zen"
       ? ""
-      : deskForm
-        ? expanded
-          ? "md:pl-56"
-          : "md:pl-16"
-        : (plan.sidebarW && PAD_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:pl-16";
+      : paperGrid
+        ? "md:pl-[88px]"
+        : deskForm
+          ? expanded
+            ? "md:pl-56"
+            : "md:pl-16"
+          : (plan.sidebarW && PAD_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:pl-16";
   const railIconCls = plan.sidebarW === 48 ? "size-3.5" : plan.sidebarW === 80 ? "size-5" : "size-4";
   const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndex = Math.max(0, desktopRawIndex);
@@ -276,7 +283,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <header className="kami-topbar kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg px-3 md:px-4">
-        {deskForm ? (
+        {deskForm && !paperGrid && !paperBook ? (
           <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
             <Button
               type="button"
@@ -290,12 +297,40 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
           </Hint>
         ) : null}
-        <Link to="/" className="flex shrink-0 items-center gap-2 px-1">
+        <Link to="/" className="kami-brand flex shrink-0 items-center gap-2 px-1">
           <LogoMark className="size-6 text-accent" />
           <span className="hidden font-display text-base tracking-tight sm:inline">Kami 纸匣</span>
         </Link>
-        <Separator className="hidden h-5 w-px shrink-0 bg-border sm:block" />
+        <Separator className="kami-topbar-rule hidden h-5 w-px shrink-0 bg-border sm:block" />
         <SiteSwitcher />
+        {paperBook ? (
+          <nav aria-label="房间" className="kami-running hidden min-w-0 flex-1 items-baseline gap-x-4 overflow-x-auto md:flex">
+            {NAV.map((item) => {
+              const active = navItemActive(pathname, item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  prefetch={item.to === "/browse" ? false : undefined}
+                  className={cn(
+                    "shrink-0 text-[13px] tracking-[0.14em]",
+                    active ? "text-fg" : "text-muted hover:text-fg",
+                  )}
+                >
+                  {item.label}
+                  {item.to === "/queue" && queued > 0 ? (
+                    <span className="ml-1 font-display tabular-nums text-danger">{queued}</span>
+                  ) : null}
+                  {item.to === "/watch" && watchBadge > 0 ? (
+                    <span className="ml-1 font-display tabular-nums text-danger">
+                      {watchBadge > 99 ? "99+" : watchBadge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-0.5">
           <Hint label="追踪" side="bottom">
             <Link
@@ -327,7 +362,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           paneWidth,
         )}
       >
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="kami-spine-scroll min-h-0 flex-1">
         <nav className="relative flex flex-col gap-1 p-2">
           <span
             aria-hidden

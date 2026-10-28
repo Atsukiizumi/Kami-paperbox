@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ink="night">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kami 纸匣 · 装帧</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@500;600&family=Shippori+Mincho:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --desk: #100e0c;
+      --desk-ink: #c9c1b6;
+      --desk-muted: #b7aea3;
+      --shadow: 0 28px 70px rgb(0 0 0 / 0.55);
+      --sheet: #f4efe6;
+      --ink: #1c1814;
+      --muted: #5c564e;
+      --binding: #e6dfd2;
+      --thread: #8f3d32;
+      --line: rgb(28 24 20 / 14%);
+      --line-strong: rgb(28 24 20 / 32%);
+      --paper-2: #ebe4d8;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --serif: "Shippori Mincho", "Noto Serif SC", "Songti SC", "PMingLiU", serif;
+      --sans: "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    html[data-ink="day"] {
+      --desk: #e7e0d4;
+      --desk-ink: #3a342c;
+      --desk-muted: #5e564c;
+      --shadow: 0 18px 44px rgb(70 48 24 / 0.16);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--desk);
+      color: var(--desk-ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+      overflow: hidden;
+      transition: background 0.45s var(--ease), color 0.45s var(--ease);
+    }
+    button, input { font: inherit; color: inherit; background: none; border: 0; padding: 0; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 1px solid var(--thread);
+      outline-offset: 3px;
+    }
+    .grain-desk {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; opacity: 0.28; mix-blend-mode: overlay;
+    }
+    html[data-ink="day"] .grain-desk { mix-blend-mode: multiply; opacity: 0.22; }
+
+    .book {
+      position: absolute;
+      z-index: 1;
+      top: 36px;
+      bottom: 36px;
+      left: clamp(36px, 7vw, 96px);
+      right: clamp(78px, 13vw, 200px);
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      background: var(--sheet);
+      color: var(--ink);
+      box-shadow: var(--shadow), inset 0 0 0 1px rgb(28 24 20 / 6%);
+    }
+    .spine {
+      position: relative;
+      background: var(--binding);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 14px 0 16px;
+    }
+    .stitches {
+      position: absolute;
+      inset: 16px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    .stitches i { display: block; width: 16px; height: 1px; background: var(--thread); }
+    .spine b {
+      position: relative;
+      z-index: 1;
+      writing-mode: vertical-rl;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 12px;
+      letter-spacing: 0.42em;
+      background: var(--binding);
+      padding: 10px 0;
+    }
+    .page {
+      position: relative;
+      isolation: isolate;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      padding: 16px 34px 12px 22px;
+      background: var(--sheet);
+    }
+    .grain-sheet {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; opacity: 0.2; mix-blend-mode: multiply;
+    }
+    .running, .folio, .foot { position: relative; z-index: 1; }
+    .running {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: baseline;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+    }
+    .rooms { display: flex; gap: 18px; }
+    .sig { color: var(--muted); }
+    .run-end { display: flex; justify-content: flex-end; align-items: baseline; gap: 16px; }
+    #folio { font-family: var(--serif); letter-spacing: 0.06em; }
+    button[aria-current="true"] {
+      font-family: var(--serif);
+      color: var(--ink);
+      box-shadow: inset 0 -1px 0 var(--thread);
+    }
+
+    .folio {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .book[data-queue="1"] .folio { grid-template-columns: minmax(0, 1fr) 228px; }
+    #stage {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-top: 14px;
+    }
+    .rise {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      animation: rise 0.55s var(--ease);
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    .stage-body { flex: 1; min-height: 0; overflow: auto; }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .kicker {
+      margin: 0 0 4px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: clamp(34px, 4vw, 52px);
+      line-height: 1.12;
+      letter-spacing: 0.04em;
+    }
+    .deck { margin: 4px 0 0; color: var(--muted); font-family: var(--serif); font-size: 14px; }
+    .chop {
+      flex: none;
+      width: 54px;
+      height: 54px;
+      border: 1.5px solid var(--thread);
+      color: var(--thread);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-family: var(--serif);
+      font-size: 12px;
+      line-height: 1.25;
+      letter-spacing: 0.12em;
+    }
+    .toc, .sites, .feeds, .vseg {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      align-items: baseline;
+    }
+    .toc { padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .toc button, .sites button, .feeds button, .vseg button { color: var(--muted); font-size: 13px; }
+    .sites { width: 100%; margin-bottom: 10px; }
+    .feeds { margin-left: auto; }
+    .label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+    }
+    .today {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 208px;
+      gap: 22px;
+      align-items: start;
+    }
+    .slips { border-left: 1px solid var(--line); padding-left: 14px; }
+    .slip { padding: 2px 0 8px; border-bottom: 1px solid var(--line); }
+    .slip header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .slip ul, .q-list { list-style: none; margin: 6px 0 0; padding: 0; }
+    .slip button, .row, .spine-list button, .seal-row, .q-item {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      text-align: left;
+    }
+    .slip button { min-height: 30px; padding: 3px 0; }
+    .slip button .name, .row .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .slip button .note, .row small { flex: none; color: var(--muted); }
+    .hot { color: var(--thread); }
+    .fail { color: var(--muted); font-family: var(--serif); }
+
+    .strip, .wall {
+      display: grid;
+      gap: 12px 10px;
+    }
+    .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .wall { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 188px; }
+    .strip .tile { height: 176px; }
+    .wall .tile { height: auto; min-height: 0; }
+    .wall .tile:first-child { grid-row: span 2; }
+    .tile {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      text-align: left;
+    }
+    .fig {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      container-type: inline-size;
+    }
+    .tile .fig { transition: transform 0.55s var(--ease); }
+    .tile:hover .fig { transform: scale(1.02); }
+    .cap { display: flex; flex-direction: column; min-width: 0; }
+    .cap b, .cap small, .tile .cap b, .tile .cap small {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cap b { font-weight: 500; font-size: 13px; }
+    .cap small { color: var(--muted); font-size: 12px; }
+    .fold {
+      position: absolute;
+      top: 0; right: 0;
+      width: 0; height: 0;
+      border-top: 16px solid var(--sheet);
+      border-left: 16px solid transparent;
+      z-index: 1;
+    }
+    .comp { position: absolute; inset: 0; }
+    .comp i, .comp b { position: absolute; display: block; }
+    .c1 i:nth-child(1) {
+      width: 62%; aspect-ratio: 1; border-radius: 50%;
+      border: 1px solid var(--line-strong); right: -10%; top: 8%;
+    }
+    .c1 i:nth-child(2) { width: 1px; top: 0; bottom: 0; left: 24%; background: var(--line-strong); }
+    .c2 i:nth-child(1) { left: 12%; right: 20%; top: 32%; height: 1px; background: var(--ink); }
+    .c2 i:nth-child(2) { left: 12%; width: 38%; top: 44%; height: 7px; background: var(--ink); }
+    .c2 i:nth-child(3) { left: 12%; right: 36%; top: 58%; height: 1px; background: var(--line-strong); }
+    .c3 i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 18%; background: var(--thread); opacity: 0.9; }
+    .c3 i:nth-child(2) { left: 28%; right: 12%; top: 22%; bottom: 22%; border: 1px solid var(--line-strong); }
+    .c4 i:nth-child(1) {
+      right: 0; top: 0; width: 46%; height: 58%;
+      background: linear-gradient(135deg, transparent 50%, var(--sheet) 50%);
+      border-left: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .c5 i { background: var(--line-strong); }
+    .c5 i:nth-child(1) { left: 8%; right: 8%; top: 18%; height: 1px; }
+    .c5 i:nth-child(2) { left: 8%; right: 8%; top: 36%; height: 1px; }
+    .c5 i:nth-child(3) { left: 8%; right: 8%; top: 54%; height: 1px; }
+    .c5 i:nth-child(4) { top: 8%; bottom: 28%; left: 33%; width: 1px; }
+    .c6 i:nth-child(1) { left: 10%; top: 16%; width: 54%; height: 62%; border: 1px solid var(--ink); }
+    .c6 i:nth-child(2) { left: 28%; top: 30%; width: 54%; height: 48%; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+    .c7 b {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 48cqi;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      right: 6%;
+      bottom: 12%;
+    }
+    .c8 i:nth-child(1) { inset: 16%; border: 1px solid var(--line-strong); }
+    .c8 i:nth-child(2) { inset: 28%; border: 1px solid var(--ink); }
+    .c8 i:nth-child(3) { width: 8px; height: 8px; background: var(--thread); left: 22%; top: 22%; }
+
+    .row, .spine-list button, .seal-row {
+      min-height: 36px;
+      padding: 7px 0 7px 8px;
+      border-bottom: 1px solid var(--line);
+      border-left: 2px solid transparent;
+      color: var(--ink);
+    }
+    .row:hover, .spine-list button:hover, .seal-row:hover { border-left-color: var(--thread); }
+    .row .idx { font-family: var(--serif); color: var(--muted); width: 1.8em; flex: none; }
+    .spine-list button { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .spine-list button b { font-weight: 500; }
+    .spine-list button span { color: var(--muted); font-size: 12px; }
+    .split, .tidy {
+      display: grid;
+      grid-template-columns: 168px minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+    }
+    .walk {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 168px;
+      gap: 22px;
+      align-items: start;
+    }
+    .archive {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      grid-auto-rows: 156px;
+      gap: 12px 10px;
+    }
+    .archive .tile { height: auto; min-height: 0; }
+    .walk-rail {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      border-left: 1px solid var(--line);
+      padding-left: 14px;
+    }
+    .walk-rail ul { list-style: none; margin: 0; padding: 0; }
+    .walk-rail button {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      min-height: 32px;
+      padding: 4px 0;
+      text-align: left;
+      color: var(--muted);
+    }
+    .walk-rail button .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .note { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .empty {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty .paper {
+      width: 36px; height: 44px; margin: 0 auto 8px;
+      border: 1px solid var(--line-strong);
+      background:
+        linear-gradient(135deg, transparent 46%, var(--sheet) 46%) top right / 14px 14px no-repeat,
+        var(--paper-2);
+    }
+    .spread {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(200px, 0.85fr);
+      gap: 28px;
+      align-items: start;
+      width: 100%;
+    }
+    .spread .fig { height: min(440px, 54vh); min-height: 240px; }
+    .back { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; margin-bottom: 14px; }
+    .by { margin: 10px 0 0; font-family: var(--serif); font-size: 18px; }
+    .actions {
+      display: flex;
+      gap: 22px;
+      margin-top: 22px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .actions button[data-act="keep"] { color: var(--thread); font-family: var(--serif); }
+    .meta-line { margin: 8px 0 14px; color: var(--muted); }
+
+    .queue-col { display: none; min-width: 0; min-height: 0; }
+    .book[data-queue="1"] .queue-col {
+      display: flex;
+      flex-direction: column;
+      overflow: auto;
+      margin-left: 16px;
+      padding: 14px 0 0 16px;
+      border-left: 1px solid color-mix(in srgb, var(--thread) 55%, var(--line));
+    }
+    .queue-col h2 {
+      margin: 0 0 6px;
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1.15;
+      letter-spacing: 0.06em;
+    }
+    .queue-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .q-item { font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .q-item small { flex: none; color: var(--muted); }
+    .kind { font-style: normal; margin-right: 6px; color: var(--muted); }
+    .kind.keep { color: var(--thread); font-family: var(--serif); }
+
+    .colophon { max-width: 440px; }
+    .colophon .group {
+      margin: 18px 0 0;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+    }
+    .colophon .blurb { margin-top: 16px; font-family: var(--serif); line-height: 1.6; }
+
+    .foot {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .chap { flex: none; font-family: var(--serif); color: var(--ink); letter-spacing: 0.08em; }
+    .find {
+      flex: 0 1 420px;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .find input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 4px 0; }
+    .find .drop { flex: none; color: var(--muted); }
+    .find.hot { border-bottom-color: var(--thread); }
+    .vtools { display: none; flex: 1; min-width: 0; align-items: center; gap: 14px; }
+    .book[data-room="vault"][data-detail="0"][data-reverse="0"][data-seal="0"] .find { display: none; }
+    .book[data-room="vault"][data-detail="0"][data-reverse="0"][data-seal="0"] .vtools { display: flex; }
+    .book[data-detail="1"] .find,
+    .book[data-reverse="1"] .find,
+    .book[data-seal="1"] .find { display: none; }
+    .foot-end { display: flex; align-items: center; gap: 14px; flex: none; margin-left: auto; }
+    .ink { display: flex; gap: 10px; }
+    .ink button[aria-pressed="true"],
+    .run-end button[aria-pressed="true"] {
+      font-family: var(--serif);
+      color: var(--ink);
+      box-shadow: inset 0 -1px 0 var(--thread);
+    }
+    time { font-variant-numeric: tabular-nums; }
+
+    .ribbon {
+      position: absolute;
+      z-index: 2;
+      top: 58px;
+      right: -22px;
+      width: 28px;
+      height: 96px;
+      background: var(--thread);
+      color: #f6f1ea;
+      font-family: var(--serif);
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      writing-mode: vertical-rl;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px));
+    }
+    .ribbon[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgb(246 241 234 / 50%); }
+    .trail {
+      position: absolute;
+      z-index: 3;
+      left: 0; top: 0;
+      width: 132px;
+      height: 158px;
+      pointer-events: none;
+      opacity: 0;
+      background: var(--sheet);
+      border: 1px solid var(--line-strong);
+      box-shadow: 0 12px 28px rgb(28 24 20 / 12%);
+      display: flex;
+      flex-direction: column;
+    }
+    .trail .fig { flex: 1; border: 0; }
+    .trail .cap { padding: 0 8px 8px; font-family: var(--serif); font-size: 13px; }
+
+    .mobile-nav { display: none; }
+
+    @media (max-width: 860px) {
+      .book {
+        top: 8px; left: 8px; right: 8px; bottom: 72px;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 28px minmax(0, 1fr);
+      }
+      .spine { flex-direction: row; justify-content: flex-start; padding: 0 12px; }
+      .stitches { inset: 0 10px; flex-direction: row; align-items: center; }
+      .stitches i { width: 1px; height: 12px; }
+      .spine b { writing-mode: horizontal-tb; letter-spacing: 0.28em; padding: 0 8px; }
+      .page { padding: 12px 14px 10px; }
+      .running .rooms, .ribbon { display: none; }
+      .running { grid-template-columns: 1fr auto; }
+      h1 { font-size: 32px; }
+      .today, .split, .tidy, .spread, .walk { grid-template-columns: 1fr; }
+      .archive { grid-template-columns: 1fr 1fr; }
+      .walk-rail {
+        position: static;
+        order: -1;
+        border-left: 0;
+        padding-left: 0;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+      }
+      .walk-rail ul { display: flex; flex-wrap: wrap; gap: 0 14px; overflow: visible; }
+      .walk-rail li { flex: none; }
+      .walk-rail button { width: auto; min-height: 44px; white-space: nowrap; }
+      .spread .fig { height: 200px; min-height: 0; }
+      .slips { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 8px; }
+      .strip, .wall { grid-template-columns: 1fr 1fr; }
+      .strip .tile, .wall .tile, .wall .tile:first-child { height: 148px; grid-row: auto; }
+      .book[data-queue="1"] .folio { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(132px, 36%); }
+      .book[data-queue="1"] .queue-col {
+        margin-left: 0;
+        padding: 8px 0 0;
+        border-left: 0;
+        border-top: 1px solid color-mix(in srgb, var(--thread) 55%, var(--line));
+      }
+      .foot { flex-wrap: wrap; gap: 8px; }
+      .find, .vtools { flex: 1 1 100%; max-width: none; }
+      .foot [data-act="seal"] { display: none; }
+      .slip button, .row, .seal-row { min-height: 44px; }
+      .mobile-nav {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        position: fixed;
+        z-index: 5;
+        left: 8px; right: 8px; bottom: 8px;
+        height: 52px;
+        background: var(--sheet);
+        color: var(--ink);
+        box-shadow: var(--shadow);
+      }
+      .mobile-nav button { color: var(--muted); min-height: 52px; }
+      .mobile-nav button[aria-current="true"] { color: var(--ink); }
+      .mobile-nav .rib {
+        background: var(--thread);
+        color: #f6f1ea;
+        box-shadow: none;
+        font-family: var(--serif);
+      }
+      .mobile-nav .rib[aria-pressed="true"] { box-shadow: inset 0 -3px 0 #f6f1ea; }
+      .mobile-nav button[data-act="seal"][aria-pressed="true"] { color: var(--ink); font-family: var(--serif); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .rise, .tile .fig, body { animation: none; transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="grain-desk" aria-hidden="true">
+    <filter id="gn"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+    <rect width="100%" height="100%" filter="url(#gn)" />
+  </svg>
+
+  <div class="book" id="book" data-room="look" data-mode="today" data-detail="0" data-reverse="0" data-queue="0" data-seal="0">
+    <div class="spine" aria-hidden="true">
+      <span class="stitches"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <b>Kami</b>
+    </div>
+    <div class="page" id="page">
+      <svg class="grain-sheet" aria-hidden="true">
+        <filter id="gs"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+        <rect width="100%" height="100%" filter="url(#gs)" />
+      </svg>
+      <header class="running">
+        <nav class="rooms" aria-label="房间">
+          <button type="button" data-act="room" data-room="look" aria-current="true">看</button>
+          <button type="button" data-act="room" data-room="vault">纸匣</button>
+        </nav>
+        <span class="sig">装帧</span>
+        <span class="run-end">
+          <button type="button" data-act="seal" aria-pressed="false">印</button>
+          <span id="folio">01</span>
+        </span>
+      </header>
+      <div class="folio">
+        <main id="stage"></main>
+        <aside class="queue-col" id="queue" aria-label="队列">
+          <div class="queue-head">
+            <p class="kicker">卷三 · 笺</p>
+            <button type="button" data-act="queue">合上</button>
+          </div>
+          <h2>队列</h2>
+          <p class="note">下载和收入纸匣都从这里过。人留在这一页。</p>
+          <ol class="q-list" id="qlist"></ol>
+        </aside>
+      </div>
+      <footer class="foot">
+        <div class="chap" id="chap">01 看</div>
+        <form class="find" id="find">
+          <label for="q">检索</label>
+          <input id="q" name="q" placeholder="标签、链接或作品号" autocomplete="off" />
+          <button class="drop" type="button" data-act="reverse">拖入一张图</button>
+        </form>
+        <div class="vtools" id="vtools">
+          <div class="vseg" id="vseg"></div>
+          <button type="button" data-act="tidy">整理</button>
+        </div>
+        <div class="foot-end">
+          <time id="clock" datetime="">00:00:00</time>
+          <span class="ink">
+            <button type="button" data-act="ink" data-ink="night" aria-pressed="true">夜</button>
+            <button type="button" data-act="ink" data-ink="day" aria-pressed="false">昼</button>
+          </span>
+          <a href="kami-binding-style.html">版图</a>
+          <a href="kami-ia.html">纸格</a>
+        </div>
+      </footer>
+      <button class="ribbon" type="button" data-act="queue" aria-pressed="false">笺</button>
+      <div class="trail" id="trail"></div>
+    </div>
+  </div>
+
+  <nav class="mobile-nav" aria-label="房间">
+    <button type="button" data-act="room" data-room="look">看</button>
+    <button type="button" data-act="room" data-room="vault">纸匣</button>
+    <button type="button" class="rib" data-act="queue">笺 <b class="qcount">02</b></button>
+    <button type="button" data-act="seal">印</button>
+  </nav>
+
+  <script>
+    const WORKS = [
+      { id: "w1", title: "窗边的猫", author: "三日月", source: "Pixiv", date: "10.24", comp: "c1", folded: true },
+      { id: "w2", title: "雨停之前", author: "白井", source: "yande.re", date: "10.22", comp: "c2", folded: false },
+      { id: "w3", title: "港的灯", author: "海岸线", source: "Konachan", date: "10.18", comp: "c3", folded: true },
+      { id: "w4", title: "稿纸第 19 页", author: "纸间", source: "Danbooru", date: "10.11", comp: "c4", folded: false },
+      { id: "w5", title: "晚班电车", author: "三日月", source: "Pixiv", date: "10.09", comp: "c5", folded: false },
+      { id: "w6", title: "干燥的风", author: "白井", source: "FANBOX", date: "09.28", comp: "c6", folded: true },
+      { id: "w7", title: "未命名素描", author: "岸", source: "Pixiv", date: "09.14", comp: "c7", folded: false },
+      { id: "w8", title: "桌子上的刀", author: "纸间", source: "Danbooru", date: "08.30", comp: "c8", folded: false },
+      { id: "w9", title: "支持者通信", author: "白井", source: "FANBOX", date: "10.02", comp: "c3", folded: false },
+      { id: "w10", title: "潮声", author: "海岸线", source: "Konachan", date: "10.01", comp: "c6", folded: false },
+      { id: "w11", title: "周日的墙", author: "白井", source: "yande.re", date: "09.21", comp: "c5", folded: true },
+      { id: "w12", title: "蓝图残页", author: "岸", source: "Danbooru", date: "09.02", comp: "c1", folded: false },
+      { id: "w13", title: "楼梯转角", author: "三日月", source: "Pixiv", date: "10.20", comp: "c4", folded: false },
+      { id: "w14", title: "夜航", author: "岸", source: "Pixiv", date: "10.16", comp: "c6", folded: true },
+      { id: "w15", title: "静物", author: "三日月", source: "Pixiv", date: "10.08", comp: "c8", folded: false }
+    ];
+    const SITES = {
+      Pixiv: ["日榜", "关注", "推荐", "标签"],
+      FANBOX: ["首页", "支持中"],
+      "yande.re": ["新作", "日榜", "周榜", "月榜"],
+      Konachan: ["新作", "日榜", "周榜", "月榜"],
+      Danbooru: ["新作", "日榜", "周榜", "月榜"]
+    };
+    const ARTISTS = [
+      { name: "三日月", source: "Pixiv", note: "3 张新作", hot: true, id: "w1" },
+      { name: "白井", source: "yande.re", note: "已读", hot: false, id: "w2" },
+      { name: "海岸线", source: "Konachan", note: "检查失败", fail: true, id: "w3" },
+      { name: "纸间", source: "Danbooru", note: "1 张新作", hot: true, id: "w4" },
+      { name: "岸", source: "Pixiv", note: "已读", hot: false, id: "w7" }
+    ];
+    const TAGS = [
+      { name: "猫", source: "Pixiv", note: "2 张新作", hot: true, id: "w1" },
+      { name: "雨", source: "yande.re", note: "已读", hot: false, id: "w2" },
+      { name: "夜车", source: "Danbooru", note: "1 张新作", hot: true, id: "w5" }
+    ];
+    const RANKS = [
+      { id: "d", label: "10.26", kind: "日榜", site: "yande.re", ids: ["w2", "w11", "w3"] },
+      { id: "w", label: "10.19", kind: "周榜", site: "yande.re", ids: ["w11", "w3", "w10"] },
+      { id: "m", label: "09", kind: "月榜", site: "Konachan", ids: ["w3", "w10", "w4"] }
+    ];
+    const TOOLS = [
+      { id: "dup", name: "查重", line: "窗边的猫 与 未命名素描 · 距离 6" },
+      { id: "clean", name: "清理向导", line: "2 张还没有标签" },
+      { id: "import", name: "导入收藏夹", line: "从 Pixiv 收藏夹读入，仍经队列" },
+      { id: "time", name: "回忆流", line: "十月 · 4 张" },
+      { id: "cross", name: "同图多源", line: "港的灯 · Konachan / Danbooru" },
+      { id: "trash", name: "纸篓", line: "12 张 · 可以放回去" },
+      { id: "col", name: "合集", line: "夜里 · 4 张" }
+    ];
+    const HAND = [
+      { id: "veil", name: "遮盖", line: "开着。看的时候就能拨。" },
+      { id: "r18", name: "R-18", line: "按站点。人在看的时候就能拨。" },
+      { id: "ai", name: "AI", line: "隐藏生成图。也在看的手上。" }
+    ];
+    const RARE = [
+      { id: "theme", name: "外观", line: "主题包、壳的形态、夜与昼。" },
+      { id: "storage", name: "存储", line: "文件夹和路径。" },
+      { id: "backup", name: "备份", line: "导出、导入。" },
+      { id: "lex", name: "词表", line: "标签译文。" },
+      { id: "key", name: "以图的钥匙", line: "SauceNAO 与 Danbooru。" },
+      { id: "acct", name: "账号", line: "登录和 Cookie。" },
+      { id: "proxy", name: "代理", line: "出站网络。" },
+      { id: "help", name: "说明", line: "会话怎么复制。" }
+    ];
+    const MODES = [["today", "今日"], ["flow", "流"], ["watch", "追踪"], ["rank", "榜"], ["walked", "走过"]];
+    const FILTERS = ["全部", "未读", "去年今日", "Pixiv"];
+    const state = {
+      ink: "night",
+      room: "look",
+      mode: "today",
+      site: "Pixiv",
+      feed: "日榜",
+      watchTab: "artists",
+      rank: "d",
+      walkArtist: "",
+      query: "",
+      reverse: false,
+      detail: null,
+      from: "今日",
+      queueOpen: false,
+      seal: false,
+      tidy: false,
+      tool: "",
+      vfilter: "全部",
+      blurb: "账号、文件夹、代理、备份印在这一页。",
+      queue: [
+        { kind: "收入纸匣", title: "窗边的猫", status: "进行中 2 / 4" },
+        { kind: "下载", title: "雨停之前", status: "排队" }
+      ]
+    };
+
+    const stage = document.getElementById("stage");
+    const book = document.getElementById("book");
+    const pageEl = document.getElementById("page");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const byId = (id) => WORKS.find((w) => w.id === id);
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function figHTML(name, folded) {
+      const fold = folded ? `<i class="fold"></i>` : "";
+      if (name === "c7") return `<span class="fig"><span class="comp c7"><b>19</b></span>${fold}</span>`;
+      const count = name === "c5" ? 4 : name === "c2" || name === "c8" ? 3 : 2;
+      const marks = Array.from({ length: count }, () => "<i></i>").join("");
+      return `<span class="fig"><span class="comp ${name}">${marks}</span>${fold}</span>`;
+    }
+    function tileHTML(w) {
+      return `<button type="button" class="tile" data-act="open" data-id="${w.id}">
+        ${figHTML(w.comp, w.folded)}
+        <span class="cap"><b>${esc(w.title)}</b><small>${esc(w.author)} · ${esc(w.source)}</small></span>
+      </button>`;
+    }
+    function head(kicker, title, deck, chop) {
+      return `<div class="title-row">
+        <div>
+          <p class="kicker">${kicker}</p>
+          <h1>${esc(title)}</h1>
+          ${deck ? `<p class="deck">${esc(deck)}</p>` : ""}
+        </div>
+        ${chop ? `<div class="chop" aria-hidden="true">二六<br />十月</div>` : ""}
+      </div>`;
+    }
+    function modeRow() {
+      return `<div class="toc">${MODES.map(([id, label]) =>
+        `<button type="button" data-act="mode" data-mode="${id}" aria-current="${state.mode === id}">${label}</button>`
+      ).join("")}</div>`;
+    }
+    function filteredFlow() {
+      const q = state.query.trim();
+      return WORKS.filter((w) => w.source === state.site).filter((w) => !q || (w.title + w.author + w.source).includes(q));
+    }
+    function flowHTML() {
+      const works = filteredFlow().slice(0, 5);
+      const sites = Object.keys(SITES).map((name) =>
+        `<button type="button" data-act="site" data-site="${esc(name)}" aria-current="${state.site === name}">${esc(name)}</button>`
+      ).join("");
+      const feeds = SITES[state.site].map((name) =>
+        `<button type="button" data-act="feed" data-feed="${esc(name)}" aria-current="${state.feed === name}">${esc(name)}</button>`
+      ).join("");
+      const wall = works.length
+        ? `<div class="wall">${works.map(tileHTML).join("")}</div>`
+        : `<div class="empty"><div><div class="paper"></div><p>这一页还空着</p></div></div>`;
+      const qline = state.query ? `<p class="note">「${esc(state.query)}」· ${filteredFlow().length} 张</p>` : "";
+      return `<div class="rise">${head("卷一 · 看", "流", state.site, false)}${modeRow()}<div class="stage-body"><div class="sites">${sites}<span class="feeds">${feeds}</span></div>${qline}${wall}</div></div>`;
+    }
+    function todayHTML() {
+      const strip = WORKS.filter((w) => w.source === "Pixiv").slice(0, 4);
+      const letters = ARTISTS.slice(0, 3).map((a) =>
+        `<li><button type="button" data-act="open" data-id="${a.id}"><span class="name">${esc(a.name)}</span><span class="note ${a.hot ? "hot" : ""}">${esc(a.note)}</span></button></li>`
+      ).join("");
+      const stack = state.queue.slice(0, 3).map((item) =>
+        `<li><button type="button" data-act="queue"><span class="name">${esc(item.title)}</span><span class="note">${esc(item.status)}</span></button></li>`
+      ).join("");
+      return `<div class="rise">${head("卷一 · 看", "今日", "十月二十六日", true)}${modeRow()}
+        <div class="stage-body"><div class="today">
+          <div>
+            <p class="label"><span>铺纸</span><button type="button" data-act="mode" data-mode="flow">继续日榜</button></p>
+            <div class="strip">${strip.map(tileHTML).join("")}</div>
+          </div>
+          <div class="slips">
+            <section class="slip"><header><span>信</span><span>03</span></header><ul>${letters}</ul></section>
+            <section class="slip"><header><span>纸叠</span><button type="button" data-act="queue">${String(state.queue.length).padStart(2, "0")}</button></header><ul>${stack}</ul></section>
+            <section class="slip"><header><span>画师墙</span><button type="button" data-act="mode" data-mode="watch">全部</button></header>
+              <ul>${ARTISTS.slice(0, 3).map((a) => `<li><button type="button" data-act="open" data-id="${a.id}"><span class="name">${esc(a.name)}</span><span class="note">${esc(a.source)}</span></button></li>`).join("")}</ul>
+            </section>
+          </div>
+        </div></div></div>`;
+    }
+    function rowHTML(item, index) {
+      const w = byId(item.id);
+      if (!w) return "";
+      return `<button type="button" class="row" data-act="open" data-id="${item.id}" data-comp="${w.comp}" data-title="${esc(w.title)}">
+        <span class="idx">${String(index + 1).padStart(2, "0")}</span>
+        <span class="grow">${esc(item.name)}</span>
+        <small>${esc(item.source)}</small>
+        <span class="${item.fail ? "fail" : item.hot ? "hot" : ""}">${esc(item.note)}</span>
+      </button>`;
+    }
+    function watchHTML() {
+      const list = state.watchTab === "artists" ? ARTISTS : TAGS;
+      return `<div class="rise">${head("卷一 · 看", "追踪", state.watchTab === "artists" ? "画师" : "标签", false)}${modeRow()}
+        <div class="stage-body">
+          <div class="toc">
+            <button type="button" data-act="watch" data-tab="artists" aria-current="${state.watchTab === "artists"}">画师</button>
+            <button type="button" data-act="watch" data-tab="tags" aria-current="${state.watchTab === "tags"}">标签</button>
+          </div>
+          <div>${list.map(rowHTML).join("")}</div>
+        </div></div>`;
+    }
+    function rankHTML() {
+      const snap = RANKS.find((r) => r.id === state.rank) || RANKS[0];
+      const spine = RANKS.map((r) =>
+        `<button type="button" data-act="rank" data-rank="${r.id}" aria-current="${r.id === snap.id}"><b>${esc(r.label)}</b><span>${esc(r.kind)} · ${esc(r.site)}</span></button>`
+      ).join("");
+      return `<div class="rise">${head("卷一 · 看", "榜", snap.site, false)}${modeRow()}
+        <div class="stage-body"><div class="split">
+          <div class="spine-list">${spine}<p class="note">Pixiv 的榜按日期留在流里。这里是三图站已经记下的快照。</p></div>
+          <div class="wall">${snap.ids.map(byId).filter(Boolean).map(tileHTML).join("")}</div>
+        </div></div></div>`;
+    }
+    function historyArtists() {
+      const map = new Map();
+      for (const w of WORKS) {
+        const row = map.get(w.author) || { name: w.author, n: 0 };
+        row.n += 1;
+        map.set(w.author, row);
+      }
+      return [...map.values()];
+    }
+    function walkedHTML() {
+      const artists = historyArtists();
+      const works = state.walkArtist ? WORKS.filter((w) => w.author === state.walkArtist) : WORKS;
+      const rail = [
+        `<li><button type="button" data-act="artist" data-artist="*" aria-current="${state.walkArtist === ""}"><span class="name">全部</span><span class="note">${WORKS.length}</span></button></li>`,
+        ...artists.map((a) =>
+          `<li><button type="button" data-act="artist" data-artist="${esc(a.name)}" aria-current="${state.walkArtist === a.name}"><span class="name">${esc(a.name)}</span><span class="note">${a.n}</span></button></li>`
+        )
+      ].join("");
+      return `<div class="rise">${head("卷一 · 看", "走过", "只在这台浏览器", false)}${modeRow()}
+        <div class="stage-body"><div class="walk">
+          <div>
+            <p class="label"><span>作品</span><span>${String(works.length).padStart(2, "0")}</span></p>
+            <div class="archive">${works.map(tileHTML).join("")}</div>
+          </div>
+          <aside class="walk-rail">
+            <p class="label"><span>画师</span><span>${String(artists.length).padStart(2, "0")}</span></p>
+            <ul>${rail}</ul>
+          </aside>
+        </div></div></div>`;
+    }
+    function vaultWorks() {
+      return WORKS.filter((w) => {
+        if (state.vfilter === "Pixiv") return w.source === "Pixiv";
+        if (state.vfilter === "未读") return w.folded;
+        if (state.vfilter === "去年今日") return w.date.startsWith("10.2");
+        return true;
+      });
+    }
+    function vaultHTML() {
+      if (state.tool) {
+        const tool = TOOLS.find((t) => t.id === state.tool);
+        return `<div class="rise">${head("卷二 · 纸匣", tool.name, "整理", false)}
+          <div class="stage-body">
+            <button type="button" class="back" data-act="tool" data-tool="">返回纸匣</button>
+            <p class="meta-line">${esc(tool.line)}</p>
+            <div class="wall">${WORKS.slice(0, 3).map((w) => tileHTML({ ...w, folded: true })).join("")}</div>
+          </div></div>`;
+      }
+      const tools = state.tidy
+        ? `<div class="spine-list">${TOOLS.map((t) => `<button type="button" data-act="tool" data-tool="${t.id}"><b>${esc(t.name)}</b></button>`).join("")}</div>`
+        : "";
+      return `<div class="rise">${head("卷二 · 纸匣", "纸匣", "1,284 张", false)}
+        <div class="stage-body"><div class="${state.tidy ? "tidy" : ""}">
+          ${tools}
+          <div class="wall">${vaultWorks().slice(0, 5).map((w) => tileHTML({ ...w, folded: true })).join("")}</div>
+        </div></div></div>`;
+    }
+    function detailHTML() {
+      const w = byId(state.detail);
+      if (!w) return todayHTML();
+      return `<div class="rise stage-body"><article class="spread">
+        ${figHTML(w.comp, w.folded)}
+        <div>
+          <button type="button" class="back" data-act="back">返回${esc(state.from)}</button>
+          <p class="kicker">${esc(w.source)} · ${esc(w.date)}</p>
+          <h1>${esc(w.title)}</h1>
+          <p class="by">${esc(w.author)}</p>
+          <div class="actions">
+            <button type="button" data-act="keep" data-id="${w.id}">收入纸匣</button>
+            <button type="button" data-act="download" data-id="${w.id}">下载</button>
+          </div>
+        </div>
+      </article></div>`;
+    }
+    function reverseHTML() {
+      return `<div class="rise">${head("卷一 · 看", "以图", "样张里的一张", false)}
+        <div class="stage-body"><article class="spread">
+          ${figHTML("c2", false)}
+          <div>
+            <button type="button" class="back" data-act="unreverse">返回${esc(state.from)}</button>
+            <p class="kicker">纸匣里有近的</p>
+            ${rowHTML({ name: "窗边的猫", source: "纸匣", note: "近", id: "w1" }, 0)}
+            ${rowHTML({ name: "雨停之前", source: "yande.re", note: "站外", id: "w2" }, 1)}
+            ${rowHTML({ name: "港的灯", source: "Konachan", note: "站外", id: "w3" }, 2)}
+          </div>
+        </article></div></div>`;
+    }
+    function sealHTML() {
+      const row = (list) => list.map((item) =>
+        `<li><button type="button" class="seal-row" data-act="blurb" data-line="${esc(item.line)}"><span>${esc(item.name)}</span></button></li>`
+      ).join("");
+      return `<div class="rise">${head("卷四 · 印", "印", "版权页", false)}
+        <div class="stage-body"><div class="colophon">
+          <p class="note">很少改的东西放在书的最后。遮盖、R-18、AI 仍留在看的手上。</p>
+          <p class="group">留在手上</p>
+          <ul class="q-list">${row(HAND)}</ul>
+          <p class="group">很少打开</p>
+          <ul class="q-list">${row(RARE)}</ul>
+          <p class="blurb" id="blurb">${esc(state.blurb)}</p>
+        </div></div></div>`;
+    }
+    function renderStage() {
+      let html = "";
+      if (state.seal) html = sealHTML();
+      else if (state.detail) html = detailHTML();
+      else if (state.reverse) html = reverseHTML();
+      else if (state.room === "vault") html = vaultHTML();
+      else if (state.mode === "flow") html = flowHTML();
+      else if (state.mode === "watch") html = watchHTML();
+      else if (state.mode === "rank") html = rankHTML();
+      else if (state.mode === "walked") html = walkedHTML();
+      else html = todayHTML();
+      stage.innerHTML = html;
+    }
+    function chapter() {
+      if (state.seal) return ["04", "印"];
+      if (state.room === "vault") return ["02", "纸匣"];
+      return ["01", "看"];
+    }
+    function paintChrome() {
+      document.documentElement.dataset.ink = state.ink;
+      book.dataset.room = state.room;
+      book.dataset.mode = state.mode;
+      book.dataset.detail = state.detail ? "1" : "0";
+      book.dataset.reverse = state.reverse ? "1" : "0";
+      book.dataset.queue = state.queueOpen ? "1" : "0";
+      book.dataset.seal = state.seal ? "1" : "0";
+      const [no, name] = chapter();
+      document.getElementById("chap").textContent = `${no} ${name}`;
+      document.getElementById("folio").textContent = no;
+      const count = String(state.queue.length).padStart(2, "0");
+      document.querySelectorAll(".qcount").forEach((node) => { node.textContent = count; });
+      document.querySelectorAll("button[data-act='room']").forEach((btn) => {
+        btn.setAttribute("aria-current", btn.dataset.room === state.room && !state.seal ? "true" : "false");
+      });
+      document.querySelectorAll("button[data-act='ink']").forEach((btn) => {
+        btn.setAttribute("aria-pressed", btn.dataset.ink === state.ink ? "true" : "false");
+      });
+      document.querySelectorAll("button[data-act='seal']").forEach((btn) => {
+        btn.setAttribute("aria-pressed", state.seal ? "true" : "false");
+      });
+      document.querySelectorAll("button[data-act='queue']").forEach((btn) => {
+        btn.setAttribute("aria-pressed", state.queueOpen ? "true" : "false");
+      });
+      document.getElementById("vseg").innerHTML = FILTERS.map((name) =>
+        `<button type="button" data-act="vfilter" data-filter="${esc(name)}" aria-current="${state.vfilter === name}">${esc(name)}</button>`
+      ).join("");
+      document.getElementById("qlist").innerHTML = state.queue.map((item) =>
+        `<li class="q-item"><span><i class="kind ${item.kind === "收入纸匣" ? "keep" : ""}">${esc(item.kind)}</i>${esc(item.title)}</span><small>${esc(item.status)}</small></li>`
+      ).join("") || `<li class="q-item"><span>队列是空的</span></li>`;
+      const tidyBtn = document.querySelector("button[data-act='tidy']");
+      if (tidyBtn) tidyBtn.textContent = state.tidy ? "收起" : "整理";
+    }
+    function commit() {
+      paintChrome();
+      renderStage();
+    }
+    function rememberFrom() {
+      state.from = state.room === "vault" ? "纸匣" : (MODES.find((m) => m[0] === state.mode)?.[1] || "今日");
+    }
+    function enqueue(id, kind) {
+      const w = byId(id);
+      if (!w) return;
+      state.queue.unshift({ kind, title: w.title, status: "排队" });
+      state.queueOpen = true;
+      paintChrome();
+    }
+
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest?.("button[data-act]");
+      if (!el) return;
+      const act = el.dataset.act;
+      if (act === "ink") { state.ink = el.dataset.ink; paintChrome(); return; }
+      if (act === "room") {
+        state.room = el.dataset.room;
+        state.detail = null;
+        state.reverse = false;
+        state.seal = false;
+        if (state.room === "look") state.tool = "";
+        commit();
+        return;
+      }
+      if (act === "mode") {
+        state.room = "look";
+        state.mode = el.dataset.mode;
+        state.detail = null;
+        state.reverse = false;
+        state.seal = false;
+        commit();
+        return;
+      }
+      if (act === "site") {
+        state.site = el.dataset.site;
+        if (!SITES[state.site].includes(state.feed)) state.feed = SITES[state.site][0];
+        commit();
+        return;
+      }
+      if (act === "feed") { state.feed = el.dataset.feed; commit(); return; }
+      if (act === "watch") { state.watchTab = el.dataset.tab; commit(); return; }
+      if (act === "artist") {
+        state.walkArtist = el.dataset.artist === "*" ? "" : el.dataset.artist;
+        state.room = "look";
+        state.mode = "walked";
+        state.detail = null;
+        state.reverse = false;
+        state.seal = false;
+        commit();
+        return;
+      }
+      if (act === "rank") { state.rank = el.dataset.rank; commit(); return; }
+      if (act === "open") {
+        rememberFrom();
+        state.detail = el.dataset.id;
+        state.reverse = false;
+        state.seal = false;
+        commit();
+        return;
+      }
+      if (act === "back") { state.detail = null; commit(); return; }
+      if (act === "reverse") {
+        rememberFrom();
+        state.reverse = true;
+        state.detail = null;
+        state.seal = false;
+        state.room = "look";
+        commit();
+        return;
+      }
+      if (act === "unreverse") { state.reverse = false; commit(); return; }
+      if (act === "keep") { enqueue(el.dataset.id, "收入纸匣"); return; }
+      if (act === "download") { enqueue(el.dataset.id, "下载"); return; }
+      if (act === "queue") { state.queueOpen = !state.queueOpen; paintChrome(); return; }
+      if (act === "seal") { state.seal = !state.seal; commit(); return; }
+      if (act === "tidy") {
+        state.room = "vault";
+        state.tidy = !state.tidy;
+        state.tool = "";
+        state.detail = null;
+        state.seal = false;
+        commit();
+        return;
+      }
+      if (act === "tool") {
+        state.tool = el.dataset.tool || "";
+        state.tidy = state.tool ? true : state.tidy;
+        commit();
+        return;
+      }
+      if (act === "vfilter") { state.vfilter = el.dataset.filter; commit(); return; }
+      if (act === "blurb") {
+        state.blurb = el.dataset.line;
+        const node = document.getElementById("blurb");
+        if (node) node.textContent = state.blurb;
+      }
+    });
+
+    const find = document.getElementById("find");
+    find.addEventListener("submit", (e) => {
+      e.preventDefault();
+      state.query = String(new FormData(find).get("q") || "").trim();
+      state.room = "look";
+      state.mode = "flow";
+      state.detail = null;
+      state.reverse = false;
+      state.seal = false;
+      commit();
+    });
+    find.addEventListener("dragover", (e) => { e.preventDefault(); find.classList.add("hot"); });
+    find.addEventListener("dragleave", () => find.classList.remove("hot"));
+    find.addEventListener("drop", (e) => {
+      e.preventDefault();
+      find.classList.remove("hot");
+      rememberFrom();
+      state.reverse = true;
+      state.detail = null;
+      state.seal = false;
+      state.room = "look";
+      commit();
+    });
+
+    const trail = document.getElementById("trail");
+    let tx = 40, ty = 40, cx = 40, cy = 40, showTrail = false;
+    if (fine) {
+      document.addEventListener("pointerover", (e) => {
+        const row = e.target.closest?.("button.row");
+        if (!row || !row.dataset.comp) { showTrail = false; return; }
+        showTrail = true;
+        trail.innerHTML = figHTML(row.dataset.comp, false);
+        const cap = document.createElement("span");
+        cap.className = "cap";
+        cap.textContent = row.dataset.title || "";
+        trail.appendChild(cap);
+      });
+      document.addEventListener("pointermove", (e) => {
+        if (!showTrail) return;
+        const r = pageEl.getBoundingClientRect();
+        const stageBox = stage.getBoundingClientRect();
+        tx = Math.min(Math.max(stageBox.right - r.left - 146, 12), r.width - 146);
+        ty = Math.min(Math.max(stageBox.bottom - r.top - 172, 12), r.height - 172);
+        if (reduced) {
+          trail.style.transform = `translate3d(${tx}px, ${ty}px, 0) rotate(1.5deg)`;
+          trail.style.opacity = "1";
+        }
+      });
+      function spring() {
+        cx += (tx - cx) * 0.12;
+        cy += (ty - cy) * 0.12;
+        const rot = Math.max(-2, Math.min(2, (tx - cx) * 0.05));
+        trail.style.transform = `translate3d(${cx}px, ${cy}px, 0) rotate(${rot}deg)`;
+        trail.style.opacity = showTrail ? "1" : "0";
+        if (!reduced) requestAnimationFrame(spring);
+      }
+      if (!reduced) spring();
+    }
+
+    function tickClock() {
+      const now = new Date();
+      const node = document.getElementById("clock");
+      node.textContent = now.toLocaleTimeString("zh-CN", { hour12: false });
+      node.dateTime = now.toISOString();
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    commit();
+  </script>
+</body>
+</html>

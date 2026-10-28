@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>提案 A · 無限裝訂 INFINITE BINDING — Kami 紙匣</title>
+<meta name="description" content="Kami 紙匣风格提案 A：把无尽的信息流装订成一部画集合订本。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@500;700;900&family=Archivo:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --washi:#F4EFE4; --paper2:#EDE4D0; --ink:#141210; --ink-2:#4A4238;
+  --vermilion:#C93A2B; --print-cyan:#2E7F8F;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;
+  --serif:'Noto Serif JP','Shippori Mincho',serif;
+  --grot:'Archivo','Noto Sans JP',sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--washi); color:var(--ink); font-family:var(--serif);
+  cursor:crosshair; overflow-x:hidden;
+  background-image:
+    linear-gradient(rgba(20,18,16,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(20,18,16,.045) 1px,transparent 1px);
+  background-size:88px 88px;
+}
+::selection{background:var(--vermilion);color:var(--washi)}
+a{color:inherit}
+
+/* ---------- 纸张纤维噪点 ---------- */
+.grain{
+  position:fixed; inset:-40px; pointer-events:none; z-index:90;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.82" numOctaves="2" stitchTiles="stitch"/></filter><rect width="240" height="240" filter="url(%23n)" opacity="0.5"/></svg>');
+  opacity:.16; mix-blend-mode:multiply;
+}
+
+/* ---------- 裁切角线 + 页面铭牌 ---------- */
+.crop{position:fixed;width:26px;height:26px;z-index:95;pointer-events:none}
+.crop::before,.crop::after{content:"";position:absolute;background:var(--ink);opacity:.8}
+.crop::before{width:100%;height:1px} .crop::after{width:1px;height:100%}
+.crop.tl{top:14px;left:14px} .crop.tr{top:14px;right:14px;transform:scaleX(-1)}
+.crop.bl{bottom:14px;left:14px;transform:scaleY(-1)} .crop.br{bottom:14px;right:14px;transform:scale(-1)}
+
+.chrome{
+  position:fixed;top:0;left:0;right:0;z-index:80;
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding:20px 52px 12px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.22em;color:var(--ink-2);
+  border-bottom:1px solid rgba(20,18,16,.25);
+  background:linear-gradient(var(--washi) 62%,transparent);
+}
+.chrome b{font-weight:500;color:var(--ink)}
+.chrome .jp{font-family:var(--serif);font-size:12px;letter-spacing:.5em}
+.footline{
+  position:fixed;bottom:0;left:0;right:0;z-index:80;pointer-events:none;
+  display:flex;justify-content:space-between;padding:12px 52px 16px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ink-2);
+}
+
+/* ---------- 跨案切换 ---------- */
+.xnav{position:fixed;right:20px;bottom:44px;z-index:96;display:flex;gap:6px;font-family:var(--mono);font-size:10px}
+.xnav a{
+  text-decoration:none;padding:7px 11px;border:1px solid rgba(20,18,16,.4);
+  letter-spacing:.14em;color:var(--ink-2);background:rgba(244,239,228,.85);backdrop-filter:blur(2px);
+  transition:all .3s var(--ease);
+}
+.xnav a:hover{border-color:var(--ink);color:var(--ink)}
+.xnav a.cur{background:var(--ink);color:var(--washi);border-color:var(--ink)}
+
+/* ---------- 揭示动效 ---------- */
+.rv{opacity:0;transform:translateY(26px)}
+.rv.on{opacity:1;transform:none;transition:opacity .9s var(--ease),transform .9s var(--ease)}
+
+/* ---------- HERO：摊开的对页 ---------- */
+.hero{
+  min-height:100vh;position:relative;
+  display:grid;grid-template-columns:1fr 2px 1fr;
+  padding:120px 6vw 80px;column-gap:0;
+}
+.spine{position:relative;background:var(--ink)}
+.spine::before,.spine::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);
+  width:34px;height:1px;background:var(--ink);opacity:.65;
+}
+.spine::before{top:8%} .spine::after{bottom:8%}
+.stitch{position:absolute;left:50%;transform:translateX(-50%);width:1px;height:34px;
+  background:repeating-linear-gradient(var(--ink) 0 6px,transparent 6px 12px);opacity:.5}
+
+.hero-left{padding-right:5vw;display:flex;justify-content:flex-end}
+.vtitle{
+  writing-mode:vertical-rl;font-weight:900;line-height:1.06;
+  font-size:clamp(84px,13vw,190px);letter-spacing:.06em;
+  color:var(--ink);
+  text-shadow:3px 0 rgba(46,127,143,.45),-3px 0 rgba(201,58,43,.4);
+}
+.vsub{
+  writing-mode:vertical-rl;font-family:var(--serif);font-weight:500;
+  font-size:clamp(13px,1.4vw,17px);letter-spacing:.55em;color:var(--ink-2);
+  margin-left:clamp(18px,3vw,44px);padding-top:8px;
+}
+.hero-right{padding-left:5vw;display:flex;flex-direction:column;justify-content:center;gap:34px;position:relative}
+.kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.34em;color:var(--vermilion)}
+.lede{font-size:clamp(16px,1.7vw,21px);line-height:2.15;font-weight:500;max-width:44ch}
+.lede em{font-style:normal;color:var(--vermilion);border-bottom:1px solid rgba(201,58,43,.5)}
+.hero-meta{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--ink-2);line-height:2}
+
+/* 四枚来源图版散落 */
+.plates-scatter{position:relative;height:230px;margin-top:6px}
+.sp{
+  position:absolute;width:150px;font-family:var(--mono);
+}
+.sp .frame{
+  border:1px solid var(--ink);padding:7px;background:var(--paper2);
+  box-shadow:5px 6px 0 rgba(46,127,143,.28),-4px -4px 0 rgba(201,58,43,.16);
+  transition:transform .5s var(--ease),box-shadow .5s var(--ease);
+}
+.sp:hover .frame{transform:translate(-2px,-3px);box-shadow:9px 11px 0 rgba(46,127,143,.34),-7px -7px 0 rgba(201,58,43,.22)}
+.sp svg{display:block;width:100%;height:auto}
+.sp figcaption{margin-top:8px;font-size:9px;letter-spacing:.16em;color:var(--ink-2);display:flex;justify-content:space-between}
+.sp:nth-child(1){left:0;top:0;transform:rotate(-2.4deg)}
+.sp:nth-child(2){left:24%;top:52px;transform:rotate(1.6deg) scale(.92)}
+.sp:nth-child(3){left:48%;top:8px;transform:rotate(-1deg) scale(1.04)}
+.sp:nth-child(4){left:72%;top:64px;transform:rotate(2.6deg) scale(.88)}
+@media(max-width:900px){.sp:nth-child(4){left:52%;top:150px}}
+
+.scrollcue{
+  position:absolute;bottom:26px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.4em;color:var(--ink-2);
+  writing-mode:vertical-rl;height:110px;
+  display:flex;align-items:center;
+}
+.scrollcue::after{content:"";width:1px;flex:1;background:linear-gradient(var(--ink-2),transparent);margin-top:10px}
+
+/* ---------- 章节标头 ---------- */
+section{position:relative}
+.sec-head{
+  display:flex;align-items:baseline;gap:26px;
+  padding:0 6vw;margin-bottom:54px;
+}
+.sec-no{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--vermilion)}
+.sec-title{font-size:clamp(34px,4.6vw,64px);font-weight:900;letter-spacing:.08em}
+.sec-en{font-family:var(--grot);font-weight:700;font-size:11px;letter-spacing:.42em;color:var(--ink-2);text-transform:uppercase}
+.sec-rule{flex:1;height:1px;background:var(--ink);opacity:.55;align-self:center}
+
+/* ---------- 図版頁 ---------- */
+.plates-sec{padding:16vh 0 14vh}
+.plate-grid{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:44px 34px;
+  padding:0 6vw;align-items:start;
+}
+.plate{position:relative}
+.plate .art{
+  border:1px solid var(--ink);background:var(--paper2);padding:10px;
+  transition:transform .5s var(--ease),box-shadow .5s var(--ease);
+}
+.plate svg{display:block;width:100%;height:auto}
+.plate figcaption{
+  margin-top:12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;
+}
+.plate figcaption b{font-weight:500;color:var(--ink)}
+.plate:hover .art{
+  transform:translate(-3px,-3px);
+  box-shadow:6px 7px 0 rgba(46,127,143,.32),-5px -5px 0 rgba(201,58,43,.2);
+}
+.p1{grid-column:1/span 5}
+.p2{grid-column:7/span 4;margin-top:12vh}
+.p3{grid-column:2/span 4;margin-top:-4vh}
+.p4{grid-column:8/span 5;margin-top:6vh}
+.p5{grid-column:1/span 4;margin-top:4vh}
+.p6{grid-column:6/span 6;margin-top:10vh}
+@media(max-width:860px){
+  .p1,.p2,.p3,.p4,.p5,.p6{grid-column:1/-1;margin-top:0}
+  .plate-grid{gap:56px}
+}
+
+/* 右缘奥付排字机 */
+.colophon-aside{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:70;
+  width:196px;padding:16px 18px;border-left:1px solid var(--ink);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;line-height:2;
+  color:var(--ink-2);background:rgba(244,239,228,.9);
+}
+.colophon-aside .tag{color:var(--vermilion);letter-spacing:.3em;margin-bottom:6px}
+.colophon-aside .caret{display:inline-block;width:7px;height:13px;background:var(--vermilion);
+  vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media(max-width:1180px){.colophon-aside{display:none}}
+
+/* ---------- 蔷書票（藏书票） ---------- */
+.exlibris-sec{padding:14vh 0;background:var(--paper2);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+.ex-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:6vw;padding:0 6vw;align-items:start}
+.ex-copy p{font-size:clamp(15px,1.5vw,18px);line-height:2.1;max-width:40ch;margin-bottom:26px}
+.ex-copy .hint{font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--vermilion)}
+.sample-row{display:flex;gap:22px;margin-top:34px;flex-wrap:wrap}
+.sample{
+  width:128px;border:1px solid var(--ink);padding:6px;background:var(--washi);
+  cursor:pointer;transition:transform .4s var(--ease);
+}
+.sample:hover{transform:translateY(-6px) rotate(-1.2deg)}
+.sample svg{display:block;width:100%;height:auto}
+.sample figcaption{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--ink-2);margin-top:6px}
+
+.ex-card{
+  position:relative;border:2.5px solid var(--ink);background:var(--washi);
+  padding:34px 30px 30px;min-height:430px;
+  background-image:
+    linear-gradient(var(--washi),var(--washi)),
+    repeating-linear-gradient(90deg,transparent 0 14px,rgba(20,18,16,.06) 14px 15px);
+}
+.ex-card::before{
+  content:"EX LIBRIS · 紙匣藏書票";position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.4em;color:var(--ink-2);white-space:nowrap;
+}
+.ex-card h3{
+  font-family:var(--serif);font-weight:900;writing-mode:vertical-rl;
+  position:absolute;top:30px;right:26px;font-size:26px;letter-spacing:.3em;
+}
+.ex-card .vframe{border:1px solid rgba(20,18,16,.35);padding:8px;position:absolute;top:30px;left:26px}
+.ex-card .vframe svg{display:block;width:86px;height:auto}
+.hanko{
+  position:absolute;width:58px;height:58px;border:2.5px solid var(--vermilion);
+  border-radius:6px;color:var(--vermilion);display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-weight:900;font-size:30px;
+  mix-blend-mode:multiply;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(201,58,43,.35);
+  animation:stampIn .5s var(--ease) both;
+}
+.hanko small{position:absolute;bottom:3px;left:0;right:0;text-align:center;
+  font-family:var(--mono);font-size:6px;letter-spacing:.1em}
+@keyframes stampIn{
+  0%{transform:scale(3.2) rotate(-16deg);opacity:0;filter:blur(3px)}
+  62%{transform:scale(.9) rotate(-8deg);opacity:1;filter:blur(0)}
+  100%{transform:scale(1) rotate(-8deg)}
+}
+.ex-list{
+  position:absolute;left:26px;right:118px;bottom:24px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--ink-2);
+  line-height:1.9;max-height:150px;overflow:hidden;
+}
+.ex-count{position:absolute;right:26px;bottom:24px;font-family:var(--mono);font-size:9px;
+  letter-spacing:.2em;color:var(--vermilion);text-align:right;line-height:2}
+@media(max-width:980px){.ex-wrap{grid-template-columns:1fr}}
+
+/* ---------- 奥付页脚 ---------- */
+.colophon{padding:16vh 6vw 20vh;position:relative}
+.colophon-grid{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:40px 8vw;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;line-height:2.4;color:var(--ink-2)}
+.colophon-grid b{color:var(--ink);font-weight:500}
+.colophon .bigline{
+  margin-top:9vh;font-size:clamp(22px,3vw,40px);font-weight:900;letter-spacing:.14em;line-height:1.9;
+}
+.visitor-stamp{
+  position:absolute;right:6vw;bottom:16vh;width:110px;height:110px;
+  border:3px solid var(--vermilion);border-radius:10px;color:var(--vermilion);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-family:var(--serif);font-weight:900;transform:rotate(7deg);mix-blend-mode:multiply;
+  opacity:0;transition:all .6s var(--ease);
+}
+.visitor-stamp .vs-jp{font-size:26px;letter-spacing:.2em}
+.visitor-stamp .vs-en{font-family:var(--mono);font-size:7.5px;letter-spacing:.3em;font-weight:400}
+.visitor-stamp.on{opacity:1;animation:stampIn .55s var(--ease) both;animation-delay:.1s}
+@media(max-width:980px){.visitor-stamp{display:none}}
+
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none;transition:none}
+  .hanko,.visitor-stamp.on{animation:none;opacity:1;transform:rotate(-8deg)}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="crop tl"></div><div class="crop tr"></div><div class="crop bl"></div><div class="crop br"></div>
+
+<header class="chrome">
+  <span><b class="jp">紙匣</b>　KAMI-PAPERBOX</span>
+  <span>合本第壱號 · <b>無限裝訂</b> INFINITE BINDING</span>
+  <span><span id="clock">--:--:--</span> · N35.6812 E139.7671</span>
+</header>
+
+<!-- ============ HERO 对页 ============ -->
+<section class="hero">
+  <div class="hero-left rv">
+    <h1 class="vtitle" lang="ja">流ヲ、冊ヘ。</h1>
+    <p class="vsub" lang="ja">四つの海から、一枚の紙へ。.pixiv・danbooru・yande.re・konachan</p>
+  </div>
+  <div class="spine" aria-hidden="true">
+    <span class="stitch" style="top:22%"></span>
+    <span class="stitch" style="top:50%"></span>
+    <span class="stitch" style="top:78%"></span>
+  </div>
+  <div class="hero-right">
+    <p class="kicker rv">KAMI-PAPERBOX / STYLE PITCH A / AWWWARDS SOTD</p>
+    <p class="lede rv">互联网把插画变成了无尽的「流」，一刷而过，无处安放。<br />
+      紙匣做的事只有一件——<em>把流装订成册</em>。聚合 pixiv、danbooru、
+      yande.re、konachan 四片海，经队列下载，收入你自己的纸匣，
+      在任何时刻与它们重逢。</p>
+    <div class="hero-meta rv">
+      図版 6 点掲載 / 出典 4 源 / 裝幀 和紙×油墨×朱印<br />
+      第壱刷 2026-10 · 静态提案 · 仅供评审
+    </div>
+    <div class="plates-scatter rv">
+      <figure class="sp">
+        <div class="frame"><svg viewBox="0 0 300 210" aria-hidden="true">
+          <rect width="300" height="210" fill="#16232B"/>
+          <circle cx="228" cy="62" r="34" fill="#EAF2FF" opacity=".9"/>
+          <path d="M0 170 L92 84 L156 148 L226 100 L300 176 L300 210 L0 210 Z" fill="#07090C"/>
+        </svg></div>
+        <figcaption><span>図001</span><span>pixiv</span></figcaption>
+      </figure>
+      <figure class="sp">
+        <div class="frame"><svg viewBox="0 0 300 210" aria-hidden="true">
+          <rect width="300" height="210" fill="#F4EFE4"/>
+          <defs><pattern id="h2" width="14" height="14" patternUnits="userSpaceOnUse">
+            <circle cx="7" cy="7" r="3.4" fill="#141210"/></pattern></defs>
+          <rect width="300" height="210" fill="url(#h2)" opacity=".14"/>
+          <circle cx="150" cy="105" r="74" fill="url(#h2)"/>
+          <circle cx="150" cy="105" r="92" fill="none" stroke="#C93A2B" stroke-width="2.5"/>
+        </svg></div>
+        <figcaption><span>PLATE 02</span><span>danbooru</span></figcaption>
+      </figure>
+      <figure class="sp">
+        <div class="frame"><svg viewBox="0 0 300 210" aria-hidden="true">
+          <rect width="300" height="210" fill="#F4EFE4"/>
+          <path d="M30 170 C110 20 180 190 274 44" fill="none" stroke="#141210" stroke-width="26" stroke-linecap="round" opacity=".92"/>
+          <path d="M60 184 C130 60 200 200 260 90" fill="none" stroke="#C93A2B" stroke-width="10" stroke-linecap="round" opacity=".85"/>
+        </svg></div>
+        <figcaption><span>PLATE 07</span><span>yande.re</span></figcaption>
+      </figure>
+      <figure class="sp">
+        <div class="frame"><svg viewBox="0 0 300 210" aria-hidden="true">
+          <rect width="300" height="210" fill="#1C2B33"/>
+          <defs><linearGradient id="s4" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#E8A13C"/><stop offset="1" stop-color="#C93A2B"/></linearGradient></defs>
+          <circle cx="150" cy="105" r="66" fill="url(#s4)"/>
+          <g stroke="#16232B" stroke-width="7">
+            <line x1="150" y1="20" x2="150" y2="190"/><line x1="65" y1="105" x2="235" y2="105"/>
+            <line x1="90" y1="45" x2="210" y2="165"/><line x1="210" y1="45" x2="90" y2="165"/>
+          </g>
+        </svg></div>
+        <figcaption><span>PLATE 11</span><span>konachan</span></figcaption>
+      </figure>
+    </div>
+  </div>
+  <div class="scrollcue" lang="ja">裝訂ヲ始メル</div>
+</section>
+
+<!-- ============ 図版頁 ============ -->
+<section class="plates-sec">
+  <div class="sec-head rv">
+    <span class="sec-no">02 / 05</span>
+    <h2 class="sec-title" lang="ja">図版頁</h2>
+    <span class="sec-en">Plates — four seas, one volume</span>
+    <span class="sec-rule"></span>
+  </div>
+  <div class="plate-grid">
+    <figure class="plate p1 press rv" data-c="図001 · pixiv 插画 · 4000×5600 · #夜 #月 #風景 · 入庫 2026-10-26">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <defs><linearGradient id="a1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1C2B33"/><stop offset="1" stop-color="#0E161B"/></linearGradient></defs>
+        <rect width="400" height="560" fill="url(#a1)"/>
+        <circle cx="298" cy="128" r="58" fill="#EAF2FF" opacity=".93"/>
+        <circle cx="298" cy="128" r="74" fill="none" stroke="#EAF2FF" stroke-opacity=".22"/>
+        <path d="M0 452 L118 312 L196 412 L274 330 L400 476 L400 560 L0 560 Z" fill="#07090C"/>
+        <path d="M0 500 L158 398 L300 486 L400 438 L400 560 L0 560 Z" fill="#04060899"/>
+        <g stroke="#EAF2FF" stroke-opacity=".14"><line x1="60" y1="560" x2="140" y2="500"/><line x1="120" y1="560" x2="220" y2="492"/></g>
+      </svg></div>
+      <figcaption><span><b>図001</b> · pixiv</span><span>4000×5600 · #夜 #月</span></figcaption>
+    </figure>
+
+    <figure class="plate p2 press rv" data-c="PLATE 02 · danbooru 档案 · 2760×3800 · tag:halftone archive · 入庫 2026-10-25">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <rect width="400" height="560" fill="#F4EFE4"/>
+        <defs><pattern id="a2" width="17" height="17" patternUnits="userSpaceOnUse">
+          <circle cx="8.5" cy="8.5" r="4.2" fill="#141210"/></pattern></defs>
+        <rect width="400" height="560" fill="url(#a2)" opacity=".16"/>
+        <circle cx="200" cy="238" r="118" fill="url(#a2)"/>
+        <circle cx="200" cy="238" r="146" fill="none" stroke="#C93A2B" stroke-width="3"/>
+        <rect x="46" y="440" width="308" height="1.5" fill="#141210"/>
+        <text x="46" y="472" font-family="monospace" font-size="15" letter-spacing="5" fill="#141210">DANBOORU — ARCHIVE</text>
+      </svg></div>
+      <figcaption><span><b>PLATE 02</b> · danbooru</span><span>2760×3800 · archive</span></figcaption>
+    </figure>
+
+    <figure class="plate p3 press rv" data-c="PLATE 07 · yande.re 高质量插画 · 3508×4961 · #筆 #一筆書き · 入庫 2026-10-24">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <rect width="400" height="560" fill="#F4EFE4"/>
+        <path d="M52 470 C140 90 232 520 352 130" fill="none" stroke="#141210" stroke-width="34" stroke-linecap="round"/>
+        <path d="M84 494 C160 180 244 540 336 216" fill="none" stroke="#C93A2B" stroke-width="11" stroke-linecap="round"/>
+        <path d="M120 520 C190 300 260 556 318 320" fill="none" stroke="#141210" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+        <circle cx="336" cy="130" r="6" fill="#C93A2B"/>
+      </svg></div>
+      <figcaption><span><b>PLATE 07</b> · yande.re</span><span>3508×4961 · #筆</span></figcaption>
+    </figure>
+
+    <figure class="plate p4 press rv" data-c="PLATE 11 · konachan 壁纸 · 1920×1080 · wallpaper/print run · 入庫 2026-10-24">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <rect width="400" height="560" fill="#1C2B33"/>
+        <defs><linearGradient id="a4" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E8A13C"/><stop offset="1" stop-color="#C93A2B"/></linearGradient></defs>
+        <circle cx="200" cy="228" r="88" fill="url(#a4)"/>
+        <g stroke="#1C2B33" stroke-width="10">
+          <line x1="200" y1="112" x2="200" y2="344"/><line x1="84" y1="228" x2="316" y2="228"/>
+          <line x1="118" y1="146" x2="282" y2="310"/><line x1="282" y1="146" x2="118" y2="310"/>
+        </g>
+        <g fill="#EAF2FF" font-family="monospace" font-size="12" letter-spacing="4">
+          <text x="40" y="480">KONACHAN · WALLPAPER</text>
+          <text x="40" y="502">1920 × 1080 · PRINT RUN</text>
+        </g>
+      </svg></div>
+      <figcaption><span><b>PLATE 11</b> · konachan</span><span>1920×1080 · print</span></figcaption>
+    </figure>
+
+    <figure class="plate p5 press rv" data-c="図014 · pixiv 小説 · 縦書き 12,400 字 · #SF #群像 · 入庫 2026-10-22">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <rect width="400" height="560" fill="#F4EFE4"/>
+        <g stroke="#141210" stroke-width="2" opacity=".82">
+          <path d="M120 60 v440"/><path d="M160 60 v440"/><path d="M200 60 v440"/>
+          <path d="M240 60 v440"/><path d="M280 60 v440"/>
+        </g>
+        <g fill="#141210">
+          <rect x="113" y="96" width="14" height="30" transform="rotate(180 120 111)"/>
+          <rect x="153" y="150" width="14" height="52" transform="rotate(180 160 176)"/>
+          <rect x="193" y="96" width="14" height="44" transform="rotate(180 200 118)"/>
+          <rect x="233" y="150" width="14" height="38" transform="rotate(180 240 169)"/>
+          <rect x="273" y="96" width="14" height="58" transform="rotate(180 280 125)"/>
+          <rect x="113" y="290" width="14" height="40" transform="rotate(180 120 310)"/>
+          <rect x="153" y="340" width="14" height="34" transform="rotate(180 160 357)"/>
+          <rect x="193" y="290" width="14" height="52" transform="rotate(180 200 316)"/>
+        </g>
+        <circle cx="240" cy="352" r="20" fill="#C93A2B"/>
+      </svg></div>
+      <figcaption><span><b>図014</b> · pixiv 小説</span><span>縦書き 12,400 字</span></figcaption>
+    </figure>
+
+    <figure class="plate p6 press rv" data-c="PLATE 19 · 跨源合册 · 四源同匣 · mosaic index · 入庫 2026-10-20">
+      <div class="art"><svg viewBox="0 0 400 560" aria-hidden="true">
+        <rect width="400" height="560" fill="#EDE4D0"/>
+        <g>
+          <rect x="40" y="40" width="150" height="150" fill="#141210"/>
+          <rect x="210" y="40" width="150" height="150" fill="#C93A2B"/>
+          <rect x="40" y="210" width="150" height="150" fill="#2E7F8F"/>
+          <rect x="210" y="210" width="150" height="150" fill="#F4EFE4" stroke="#141210" stroke-width="2"/>
+          <rect x="40" y="380" width="320" height="140" fill="#141210"/>
+          <text x="56" y="458" fill="#F4EFE4" font-family="monospace" font-size="21" letter-spacing="7">1 BOX = 4 SEAS</text>
+        </g>
+        <circle cx="285" cy="285" r="30" fill="#141210"/>
+      </svg></div>
+      <figcaption><span><b>PLATE 19</b> · 跨源合册</span><span>四源同匣 · index</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<aside class="colophon-aside" aria-hidden="true">
+  <div class="tag">奥付 / COLOPHON</div>
+  <div id="ctype">図版に觸レテクダサイ —<br/>hover a plate to typeset its colophon.</div>
+</aside>
+
+<!-- ============ 蔷書票 ============ -->
+<section class="exlibris-sec">
+  <div class="sec-head rv">
+    <span class="sec-no">03 / 05</span>
+    <h2 class="sec-title" lang="ja">蔵書票</h2>
+    <span class="sec-en">Ex-libris — to download is to stamp</span>
+    <span class="sec-rule"></span>
+  </div>
+  <div class="ex-wrap">
+    <div class="ex-copy rv">
+      <p>在紙匣，每一次下载都不是一次「保存」，而是一次<span style="color:var(--vermilion)">盖章入藏</span>。
+        图从海里来，落入匣中，从此带着你的朱印——来源、尺寸、标签、入库时间，
+        全部排成一枚活字奥付。</p>
+      <p>这只匣子不打烊、不推送、不算法。它只负责一件事：<br />让你在任何时刻，与你的藏品重逢。</p>
+      <p class="hint">↓ 試す：點擊見本図版，為它蓋上朱印</p>
+      <div class="sample-row">
+        <figure class="sample" data-id="図001" data-src="pixiv">
+          <svg viewBox="0 0 300 210" aria-hidden="true"><rect width="300" height="210" fill="#16232B"/><circle cx="228" cy="62" r="34" fill="#EAF2FF" opacity=".9"/><path d="M0 170 L92 84 L156 148 L226 100 L300 176 L300 210 L0 210 Z" fill="#07090C"/></svg>
+          <figcaption>見本 · 図001 pixiv</figcaption>
+        </figure>
+        <figure class="sample" data-id="PLATE 07" data-src="yande.re">
+          <svg viewBox="0 0 300 210" aria-hidden="true"><rect width="300" height="210" fill="#F4EFE4"/><path d="M30 170 C110 20 180 190 274 44" fill="none" stroke="#141210" stroke-width="26" stroke-linecap="round"/><path d="M60 184 C130 60 200 200 260 90" fill="none" stroke="#C93A2B" stroke-width="10" stroke-linecap="round"/></svg>
+          <figcaption>見本 · PLATE07 yande.re</figcaption>
+        </figure>
+        <figure class="sample" data-id="PLATE 11" data-src="konachan">
+          <svg viewBox="0 0 300 210" aria-hidden="true"><rect width="300" height="210" fill="#1C2B33"/><defs><linearGradient id="sx" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E8A13C"/><stop offset="1" stop-color="#C93A2B"/></linearGradient></defs><circle cx="150" cy="105" r="62" fill="url(#sx)"/><g stroke="#16232B" stroke-width="7"><line x1="150" y1="20" x2="150" y2="190"/><line x1="65" y1="105" x2="235" y2="105"/></g></svg>
+          <figcaption>見本 · PLATE11 konachan</figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="ex-card rv" id="excard">
+      <h3 lang="ja">紙匣藏書</h3>
+      <div class="vframe">
+        <svg viewBox="0 0 300 210" aria-hidden="true"><rect width="300" height="210" fill="#F4EFE4"/><defs><pattern id="hx" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3.4" fill="#141210"/></pattern></defs><rect width="300" height="210" fill="url(#hx)" opacity=".14"/><circle cx="150" cy="105" r="66" fill="url(#hx)"/><circle cx="150" cy="105" r="84" fill="none" stroke="#C93A2B" stroke-width="2.5"/></svg>
+      </div>
+      <div class="ex-list" id="exlist">（まだ何も蓋されていない / nothing stamped yet）</div>
+      <div class="ex-count" id="excount">入庫 0 点</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 奥付 ============ -->
+<footer class="colophon">
+  <div class="sec-head rv">
+    <span class="sec-no">05 / 05</span>
+    <h2 class="sec-title" lang="ja">奥付</h2>
+    <span class="sec-en">Colophon</span>
+    <span class="sec-rule"></span>
+  </div>
+  <div class="colophon-grid rv">
+    <div>
+      <b>発行</b>　紙匣製作所 KAMI-PAPERBOX<br />
+      <b>編集</b>　あなた（所有者即編纂者）<br />
+      <b>裝幀</b>　和紙 × 油墨 × 朱印<br />
+      <b>第壱刷</b>　2026 年 10 月 26 日
+    </div>
+    <div>
+      <b>図版出典</b>　pixiv（插画・漫画・小説）<br />
+      　　　　　　danbooru / yande.re / konachan<br />
+      <b>製作</b>　静态风格提案 · 仅供评审<br />
+      <b>刷次</b>　無限 — 匣不封頂，隨入隨刷
+    </div>
+  </div>
+  <p class="bigline rv" lang="ja">刷るほどに、匣は厚くなる。<br />——あなたの畫集は、まだ書き終わらない。</p>
+  <div class="visitor-stamp" id="vstamp">
+    <span class="vs-jp" lang="ja">閲覧済</span>
+    <span class="vs-en">VISITED · KAMI</span>
+  </div>
+</footer>
+
+<div class="footline">
+  <span>KAMI-PAPERBOX · PITCH A — INFINITE BINDING</span>
+  <span>紙匣静的提案 · 紙＝神</span>
+</div>
+
+<nav class="xnav">
+  <a class="cur" href="pitch-a-infinite-binding.html">A 裝訂</a>
+  <a href="pitch-b-sea-of-ink.html">B 墨海</a>
+  <a href="pitch-c-paperbox-works.html">C 製作所</a>
+ <a href="pitch-d-bindery.html">D 合併</a>
+</nav>
+
+<script>
+(function(){
+"use strict";
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* 时钟 */
+var clockEl = document.getElementById("clock");
+function tick(){
+  var d = new Date(), p = function(n){return String(n).padStart(2,"0");};
+  clockEl.textContent = p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+}
+tick(); setInterval(tick, 1000);
+
+/* 揭示 */
+var io = new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if(e.isIntersecting){ e.target.classList.add("on"); io.unobserve(e.target); }
+  });
+},{threshold:.12});
+document.querySelectorAll(".rv").forEach(function(el,i){
+  el.style.transitionDelay = (i%4)*0.08+"s"; io.observe(el);
+});
+
+/* 访客朱印 */
+var vs = document.getElementById("vstamp");
+new IntersectionObserver(function(es,obs){
+  if(es[0].isIntersecting){ vs.classList.add("on"); obs.disconnect(); }
+},{threshold:.6}).observe(vs);
+
+/* 奥付排字机（hover 図版 → 右缘逐字排版） */
+var ctype = document.getElementById("ctype"), typeTimer = null;
+function typeset(text){
+  clearInterval(typeTimer);
+  var i = 0, plain = text.replace(/<br\s*\/?>/gi," ");
+  ctype.innerHTML = "";
+  var span = document.createElement("span"), caret = document.createElement("span");
+  caret.className = "caret";
+  ctype.appendChild(span); ctype.appendChild(caret);
+  if(reduce){ span.textContent = plain; return; }
+  typeTimer = setInterval(function(){
+    span.textContent = plain.slice(0, ++i);
+    if(i >= plain.length) clearInterval(typeTimer);
+  }, 22);
+}
+document.querySelectorAll(".plate").forEach(function(pl){
+  pl.addEventListener("mouseenter", function(){ typeset(pl.dataset.c || ""); });
+});
+
+/* 图版滚动压入书脊 + 油墨渗影 */
+var plates = Array.prototype.slice.call(document.querySelectorAll(".press"));
+var raf = false;
+function press(){
+  raf = false;
+  var vh = innerHeight, mid = vh/2;
+  plates.forEach(function(pl){
+    var r = pl.getBoundingClientRect();
+    if(r.bottom < -80 || r.top > vh+80) return;
+    var c = r.top + r.height/2;
+    var p = Math.max(0, 1 - Math.abs(c - mid)/(vh*0.75));
+    var side = (r.left + r.width/2) < innerWidth/2 ? 1 : -1;
+    var dx = p * 34 * side, rot = p * 1.4 * side;
+    var art = pl.querySelector(".art");
+    art.style.transform = "translate("+(dx*0.5)+"px,"+(p*-10)+"px) rotate("+rot+"deg)";
+    art.style.boxShadow = (dx*0.28*side)+"px "+(p*16)+"px "+(10+p*26)+"px rgba(20,18,16,"+(0.12+p*0.22)+")";
+  });
+}
+if(!reduce){
+  addEventListener("scroll", function(){ if(!raf){ raf = true; requestAnimationFrame(press); } }, {passive:true});
+  press();
+}
+
+/* 蔷書票盖章 */
+var card = document.getElementById("excard"),
+    list = document.getElementById("exlist"),
+    count = document.getElementById("excount"),
+    n = 0;
+function stamp(fig){
+  var h = document.createElement("div");
+  h.className = "hanko";
+  h.innerHTML = "匣<small>"+(fig.dataset.id || "")+"</small>";
+  var zone = card.getBoundingClientRect();
+  h.style.left = (90 + Math.random()*Math.max(40, zone.width-260)) + "px";
+  h.style.top  = (140 + Math.random()*Math.max(30, zone.height-260)) + "px";
+  card.appendChild(h);
+  n++;
+  count.innerHTML = "入庫 " + n + " 点";
+  if(list.textContent.indexOf("まだ何も") === 0) list.innerHTML = "";
+  var d = new Date(), p = function(x){return String(x).padStart(2,"0");};
+  list.insertAdjacentHTML("beforeend",
+    fig.dataset.id + " · " + fig.dataset.src + " · 入庫 " +
+    p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()) + "<br/>");
+}
+document.querySelectorAll(".sample").forEach(function(s){
+  s.addEventListener("click", function(){ stamp(s); });
+});
+})();
+</script>
+</body>
+</html>

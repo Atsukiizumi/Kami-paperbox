@@ -59,8 +59,8 @@ export function QueuePage() {
     <div className="space-y-5">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">队列</h1>
-          <p className="mt-1 text-sm text-muted">下载和收入纸匣都从这里走，按顺序处理。</p>
+          <h1 className="kami-node-title text-3xl md:text-4xl">队列</h1>
+          <p className="kami-node-note">下载和收入纸匣都从这里走，按顺序处理。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={() => clearDone()}>
@@ -72,15 +72,15 @@ export function QueuePage() {
         </div>
       </header>
       {failed.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-elevated/60 p-3">
-          <span className="text-sm text-muted">失败 {failed.length} 项：</span>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 border-b border-border pb-3">
+          <span className="kami-dk-label">失败 {failed.length} 项</span>
           {[...failedKinds.entries()].map(([kind, n]) => (
-            <span key={kind} className="rounded-full bg-bg px-2.5 py-0.5 text-xs text-muted">
+            <span key={kind} className="text-xs text-muted">
               {QUEUE_ERROR_KIND_LABEL[kind]} ×{n}
             </span>
           ))}
           {retryKeys.length > 0 ? (
-            <Button size="sm" variant="secondary" className="ml-auto" onClick={retryAllFailed}>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={retryAllFailed}>
               <RotateCcw className="size-4" />
               重试全部失败（{retryKeys.length}）
             </Button>
@@ -93,11 +93,11 @@ export function QueuePage() {
       {items.length === 0 ? (
         <EmptySheet title="队列是空的" hint="点「下载」或「收入纸匣」都会进这里，并显示进度。" />
       ) : (
-        <ul className="space-y-2">
+        <ul className="border-b border-border">
           {items.map((item, i) => (
             <li
               key={item.key}
-              className="kami-enter flex items-center gap-3 rounded-xl bg-surface p-3 transition-colors hover:bg-elevated"
+              className="kami-enter kami-queue-row flex items-center gap-3 py-3"
               style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
             >
               <Link
@@ -105,29 +105,36 @@ export function QueuePage() {
                 params={{ source: item.source, id: item.id }}
                 className="flex min-w-0 flex-1 items-center gap-3"
               >
-                <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-elevated">
-                  <ProxiedImg src={item.thumb} alt="" className="size-full" />
+                <div className="kami-dk-tile size-14 shrink-0 overflow-hidden bg-elevated">
+                  <ProxiedImg src={item.thumb} alt="" className="size-full object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium" title={item.title}>
+                  <p className="truncate text-sm" title={item.title}>
                     {item.title}
                   </p>
-                  <p className="truncate text-xs text-muted">
-                    {kindLabel(item)} · {item.author}
+                  <p className="mt-0.5 truncate text-xs text-muted">
+                    <span className={item.kind === "vault" ? "font-display text-danger" : undefined}>{kindLabel(item)}</span>
+                    {item.author ? ` · ${item.author}` : ""}
                   </p>
-                  <Progress
-                    value={item.total > 0 ? Math.round((item.progress / item.total) * 100) : 0}
-                    className={item.status === "error" ? "mt-1.5 [&>div]:bg-danger" : "mt-1.5"}
-                  />
                   <p
                     className={
                       item.status === "done"
-                        ? "kami-done-pop mt-1 text-xs tabular-nums text-subtle"
-                        : "mt-1 text-xs tabular-nums text-subtle"
+                        ? "kami-done-pop mt-0.5 text-xs tabular-nums text-subtle"
+                        : item.status === "error"
+                          ? "mt-0.5 text-xs text-danger"
+                          : "mt-0.5 text-xs tabular-nums text-muted"
                     }
                   >
                     {statusLabel(item)}
                   </p>
+                  <Progress
+                    value={item.total > 0 ? Math.round((item.progress / item.total) * 100) : 0}
+                    className={
+                      item.status === "error"
+                        ? "mt-1.5 h-px rounded-none bg-border [&>div]:rounded-none [&>div]:bg-danger"
+                        : "mt-1.5 h-px rounded-none bg-border [&>div]:rounded-none [&>div]:bg-fg"
+                    }
+                  />
                 </div>
               </Link>
               {item.status === "error" ? (

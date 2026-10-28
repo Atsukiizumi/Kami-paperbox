@@ -6,11 +6,16 @@ import {
   type SearchEngine,
   type SearchGroup,
   ascii2dBovwUrl,
+  engineLabel,
   parseAscii2dHtml,
+  parseDanbooruIqdbJson,
   parseIqdbHtml,
   parseSauceNaoHtml,
   parseSauceNaoJson,
+  sauceNaoApiError,
+  parseTraceMoeJson,
 } from "./reverse-search.ts";
+import { DANBOORU_UA, danbooruAuthHeader } from "./booru.ts";
 import {
   challengeMessage,
   isBotChallenge,
@@ -25,15 +30,38 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 const lastSearchAt = new Map<SearchEngine, number>();
+/** ascii2d 弹出验证码后停 10 分钟，不再连续撞。 */
+let ascii2dCoolUntil = 0;
+/** SauceNAO 的 Cloudflare 浏览器验证同理：服务器直连过不了 JS 挑战
+ *  （2026-10 实测 GET / POST / curl 全 403 "Just a moment"），被拦后停 10 分钟。 */
+let sauceNaoCoolUntil = 0;
 
 type SessionJar = { cookie: string; token: string; at: number };
 const jars = new Map<string, SessionJar>();
 const JAR_TTL_MS = 8 * 60 * 1000;
 
 function engineName(engine: SearchEngine): string {
-  if (engine === "saucenao") return "SauceNAO";
-  if (engine === "ascii2d") return "ascii2d";
-  return "IQDB";
+  return engineLabel(engine);
+}
+
+function coolAscii2d() {
+  ascii2dCoolUntil = Date.now() + 10 * 60_000;
+}
+
+function assertAscii2dCool() {
+  const wait = ascii2dCoolUntil - Date.now();
+  if (wait <= 0) return;
+  const minutes = Math.max(1, Math.ceil(wait / 60_000));
+  throw new Error(`ascii2d 刚刚被验证码拦住，先停 ${minutes} 分钟。纸匣不代解验证码，继续撞会更严。`);
+}
+
+function assertSauceNaoCool() {
+  const wait = sauceNaoCoolUntil - Date.now();
+  if (wait <= 0) return;
+  const minutes = Math.max(1, Math.ceil(wait / 60_000));
+  throw new Error(
+    `SauceNAO 的浏览器验证还开着，约 ${minutes} 分钟内自动跳过它。IQDB / trace.moe / ascii2d 不受影响，先用它们搜。`,
+  );
 }
 
 function cookieHeader(setCookies: string[]): string {
@@ -76,12 +104,33 @@ async function postForm(
   form: FormData,
   headers: Record<string, string>,
 ): Promise<{ status: number; text: string; json: unknown; setCookies: string[] }> {
-  const res = await outboundFetch(url, {
-    method: "POST",
-    headers,
-    body: form,
-    redirect: "follow",
-  });
+  async function once(init?: { timeoutMs: number }): Promise<Response> {
+    return outboundFetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      redirect: "follow",
+      ...(init ? { signal: AbortSignal.timeout(init.timeoutMs) } : {}),
+    });
+  }
+  let res: Response;
+  try {
+    res = await once();
+  } catch (err) {
+    // curl 降级通道对部分搜源站（如 iqdb）会半途断流——curl 28 超时 /
+    // 连接被切，收到 ~2KB 就停（2026-10 实测；同图同网 undici 直连 1s
+    // 完整返回）。绕开 outbound 的代理决策用原生 undici 直连重试一次：
+    // TUN 环境不走代理出口通常即通。只兜搜源层（健康环记一次失败属预期）。
+    const msg = err instanceof Error ? `${err.message} ${err.cause ?? ""}` : String(err);
+    if (!/curl: \(28\)|timed?\s*out|Operation timeout|ECONNRESET|socket hang up/i.test(msg)) throw err;
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      redirect: "follow",
+      signal: AbortSignal.timeout(90_000),
+    });
+  }
   const text = await res.text();
   let json: unknown = null;
   const ct = res.headers.get("content-type") ?? "";
@@ -111,6 +160,7 @@ async function searchSauceNao(
   safeMode: boolean,
   apiKey?: string,
 ): Promise<ReverseHit[]> {
+  assertSauceNaoCool();
   const form = new FormData();
   form.set("file", file);
   // 官网默认 hide=0 展示全部高相似。hide=3 会把「疑似成人」的真匹配藏掉，
@@ -127,24 +177,33 @@ async function searchSauceNao(
     Accept: "application/json,text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
     Referer: "https://saucenao.com/",
   });
-  throwIfChallenged("saucenao", status, text);
+  // output_type=2 的回包带 JSON 信封：官方 API 自家限流（429/-2）在信封里说，
+  // 不是 Cloudflare。只有没拿到信封（HTML 页）才可能是真风控。
+  const header =
+    json && typeof json === "object"
+      ? (json as { header?: { status?: number; message?: string } }).header
+      : undefined;
+  const apiError = sauceNaoApiError(header, status);
+  if (apiError) throw new Error(apiError);
+  if (!header) {
+    // 无 JSON 信封的 403/429/挑战页：Cloudflare 浏览器验证——服务器直连
+    // （fetch/curl）过不了 JS 挑战，冷却 10 分钟并在文案里把路指给其他引擎。
+    if (isBotChallenge(status, text)) {
+      sauceNaoCoolUntil = Date.now() + 10 * 60_000;
+      throw new Error(
+        "SauceNAO 开了浏览器验证（Cloudflare），服务器直连暂时过不去——10 分钟内自动跳过它。IQDB / trace.moe / ascii2d 不受影响，先用它们搜。",
+      );
+    }
+  }
   if (status >= 400) throw new Error(`SauceNAO 请求失败（${status}）`);
   const jsonHits = json ? parseSauceNaoJson(json, safeMode) : [];
   if (jsonHits.length > 0) return jsonHits;
-  if (json && typeof json === "object") {
-    const header = (json as { header?: { message?: string; status?: number } }).header;
-    if (header?.status && header.status < 0 && header.message) {
-      if (/limit/i.test(header.message)) {
-        throw new Error("SauceNAO 今日次数用完了，换 IQDB，或填 API key 后再试");
-      }
-      if (!/anonymous account type does not permit API/i.test(header.message)) {
-        throw new Error(header.message);
-      }
-    }
-  }
   if (/too small/i.test(text)) throw new Error("图片尺寸太小，换一张再试");
   if (/Daily Search Limit Exceeded|search limit/i.test(text)) {
     throw new Error("SauceNAO 今日次数用完了，换 IQDB，或在设置里填 API key");
+  }
+  if (/you need an image|acceptable format/i.test(text)) {
+    throw new Error("SauceNAO 没吃进这张图。换 JPEG 或 PNG 再试。这不是验证码。");
   }
   if (/SauceNAO Error/i.test(text) && text.length < 2000) {
     const msg = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -169,6 +228,58 @@ async function searchIqdb(file: File, safeMode: boolean): Promise<ReverseHit[]> 
   return parseIqdbHtml(text, safeMode);
 }
 
+async function searchTraceMoe(file: File, safeMode: boolean): Promise<ReverseHit[]> {
+  const res = await outboundFetch("https://api.trace.moe/search?anilistInfo=1&cutBorders=1", {
+    method: "POST",
+    headers: {
+      "User-Agent": UA,
+      Accept: "application/json",
+      "Content-Type": file.type || "image/jpeg",
+    },
+    body: new Uint8Array(await file.arrayBuffer()),
+  });
+  const text = await res.text();
+  if (res.status === 402 || res.status === 429) throw new Error("trace.moe 次数用完了，过一会儿再试");
+  throwIfChallenged("tracemoe", res.status, text);
+  if (res.status >= 400) throw new Error(`trace.moe 请求失败（${res.status}）`);
+  let json: unknown = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("trace.moe 没有返回结果");
+  }
+  const error = typeof json === "object" && json && "error" in json ? String((json as { error?: unknown }).error ?? "") : "";
+  if (error.trim()) {
+    if (/quota|limit/i.test(error)) throw new Error("trace.moe 次数用完了，过一会儿再试");
+    throw new Error(error.trim().slice(0, 120));
+  }
+  return parseTraceMoeJson(json, safeMode);
+}
+
+async function searchDanbooru(
+  file: File,
+  safeMode: boolean,
+  account?: { login: string; apiKey: string },
+): Promise<ReverseHit[]> {
+  const form = new FormData();
+  form.set("search[file]", file);
+  const headers: Record<string, string> = {
+    "User-Agent": DANBOORU_UA,
+    Accept: "application/json,text/html;q=0.8",
+    Referer: "https://danbooru.donmai.us/iqdb_queries",
+  };
+  const authorization = danbooruAuthHeader(account?.login, account?.apiKey);
+  if (authorization) headers.Authorization = authorization;
+  const { status, text, json } = await postForm("https://danbooru.donmai.us/iqdb_queries.json", form, headers);
+  if (!authorization && (status === 403 || isBotChallenge(status, text))) {
+    throw new Error("Danbooru 被人机验证拦住了。到设置填上账号后再搜，请求会带凭据，一般就不再要验证码。");
+  }
+  throwIfChallenged("danbooru", status, text);
+  if (status >= 400) throw new Error(`Danbooru 请求失败（${status}）`);
+  if (!json) throw new Error("Danbooru 没有返回相似图");
+  return parseDanbooruIqdbJson(json, safeMode);
+}
+
 async function ascii2dSession(): Promise<SessionJar> {
   const cached = jars.get("ascii2d");
   if (cached && Date.now() - cached.at < JAR_TTL_MS && cached.cookie) return cached;
@@ -179,6 +290,7 @@ async function ascii2dSession(): Promise<SessionJar> {
   const homeHtml = await home.text();
   if (isBotChallenge(home.status, homeHtml)) {
     jars.delete("ascii2d");
+    coolAscii2d();
     throw new Error(challengeMessage("ascii2d"));
   }
   const fileForm = homeHtml.match(/id=["']file_upload["'][\s\S]*?<\/form>/i)?.[0] ?? homeHtml;
@@ -223,6 +335,7 @@ async function searchAscii2d(file: File): Promise<ReverseHit[]> {
   }
   if (isBotChallenge(res.status, colorHtml)) {
     jars.delete("ascii2d");
+    coolAscii2d();
     throw new Error(challengeMessage("ascii2d"));
   }
   if (res.status >= 400) throw new Error(`ascii2d 请求失败（${res.status}）`);
@@ -262,6 +375,7 @@ export async function runReverseSearch(input: {
   type: string;
   safeMode: boolean;
   apiKey?: string;
+  danbooru?: { login: string; apiKey: string };
 }): Promise<{ engine: SearchEngine; items: ReverseHit[] }> {
   if (input.bytes.byteLength === 0) throw new Error("没有读到图片");
   if (input.bytes.byteLength > MAX_SEARCH_BYTES) throw new Error("图片超过 8 MB，请缩小后再试");
@@ -269,9 +383,14 @@ export async function runReverseSearch(input: {
   const name = input.filename.replace(/[^\w.-]+/g, "_").slice(0, 80) || "upload.jpg";
   const file = asFile(input.bytes, name, type);
   const key = input.apiKey?.trim() || "";
+  if (input.engine === "ascii2d") assertAscii2dCool();
   await pace(input.engine, Boolean(key || process.env.SAUCENAO_API_KEY?.trim()));
   if (input.engine === "iqdb") return { engine: "iqdb", items: await searchIqdb(file, input.safeMode) };
   if (input.engine === "ascii2d") return { engine: "ascii2d", items: await searchAscii2d(file) };
+  if (input.engine === "tracemoe") return { engine: "tracemoe", items: await searchTraceMoe(file, input.safeMode) };
+  if (input.engine === "danbooru") {
+    return { engine: "danbooru", items: await searchDanbooru(file, input.safeMode, input.danbooru) };
+  }
   return { engine: "saucenao", items: await searchSauceNao(file, input.safeMode, key) };
 }
 
@@ -281,6 +400,7 @@ export async function runReverseSearchAll(input: {
   type: string;
   safeMode: boolean;
   apiKey?: string;
+  danbooru?: { login: string; apiKey: string };
 }): Promise<{ groups: SearchGroup[] }> {
   const groups = await Promise.all(
     SEARCH_ENGINES.map(async ({ id }): Promise<SearchGroup> => {

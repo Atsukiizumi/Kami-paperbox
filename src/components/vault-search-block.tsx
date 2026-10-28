@@ -36,7 +36,7 @@ export function VaultSearchBlock({ state }: { state: VaultSearchBlockState }) {
   if (state.state === "unavailable") return null;
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">你的纸匣</h2>
+      <h2 className="kami-dk-label">你的纸匣</h2>
       {state.matches.length === 0 ? (
         <p className="text-sm text-muted">纸匣里没有近似的图。</p>
       ) : (

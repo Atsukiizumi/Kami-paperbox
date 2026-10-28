@@ -27,6 +27,8 @@ export const DEFAULT_THROTTLE: ThrottleConfig = {
     saucenao: 8_000,
     ascii2d: 15_000,
     iqdb: 6_000,
+    tracemoe: 3_000,
+    danbooru: 6_000,
   },
 };
 

@@ -534,7 +534,7 @@ export function Home() {
       type="button"
       size="sm"
       variant="ghost"
-      className="h-9 rounded-full px-3 text-sm text-muted"
+      className="h-9 px-0 text-sm text-muted"
       disabled={!settingsReady || refreshing}
       onClick={() => void refreshFeed()}
     >
@@ -562,9 +562,7 @@ export function Home() {
       <div className="space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
-            <h1 className="font-display text-3xl leading-tight tracking-tight text-fg md:text-4xl">
-              {siteLabel(tab)}
-            </h1>
+            <h1 className="kami-node-title text-3xl text-fg md:text-4xl">{siteLabel(tab)}</h1>
           </div>
         </header>
         <ArtworkGridSkeleton />
@@ -576,10 +574,8 @@ export function Home() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
-          <h1 className="font-display text-3xl leading-tight tracking-tight text-fg md:text-4xl">
-            {siteLabel(tab)}
-          </h1>
-          <p className="max-w-lg text-sm text-muted">
+          <h1 className="kami-node-title text-3xl text-fg md:text-4xl">{siteLabel(tab)}</h1>
+          <p className="kami-node-note max-w-lg">
             {tab === "pixiv"
               ? "空格分开多个标签。登录后可收藏、红心和关注。点单个标签是精确匹配。"
               : tab === "fanbox"
@@ -693,7 +689,7 @@ export function Home() {
               <Button
                 type="button"
                 size="sm"
-                className="rounded-full"
+                variant="ghost"
                 onClick={() => {
                   setSearchWord("");
                 }}
@@ -764,7 +760,7 @@ export function Home() {
             <Button
               type="button"
               size="sm"
-              className="rounded-full"
+              variant="ghost"
               onClick={() => {
                 setSearchWord("");
               }}
@@ -804,7 +800,7 @@ export function Home() {
             <Button
               type="button"
               size="sm"
-              className="rounded-full"
+              variant="ghost"
               onClick={() => {
                 setSearchWord("");
               }}

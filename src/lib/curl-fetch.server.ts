@@ -300,7 +300,9 @@ async function outboundFetchAttempt(url: string, init: RequestInit): Promise<Res
   if (!proxy) {
     return fetch(url, resolved);
   }
-  if (proxyPoolAvailable()) {
+  // 带文件的表单不走连接池。undici 过代理时常把文件部分丢掉，
+  // SauceNAO 就会回 “You need an Image!”，其实图根本没到。
+  if (!(init.body instanceof FormData) && proxyPoolAvailable()) {
     try {
       const res = await proxyPoolFetch(url, resolved, proxy);
       noteProxyPoolResult(true);

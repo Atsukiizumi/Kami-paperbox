@@ -79,7 +79,7 @@ function SearchKeySection() {
       <CardHeader>
         <CardTitle>搜图</CardTitle>
         <CardDescription>
-          SauceNAO 匿名每天次数很少，也容易被当成机器人。填 API key 后走官方接口，间隔可以更短。
+          SauceNAO 填 API key 后走官方接口，少撞次数上限。ascii2d 没有接口，弹出验证码就停，纸匣不代解。动画截图另问 trace.moe；插画另问 Danbooru，用下面的账号避开人机验证。
         </CardDescription>
       </CardHeader>
       <CardContent>

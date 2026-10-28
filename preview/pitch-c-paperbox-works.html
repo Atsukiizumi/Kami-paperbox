@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>提案 C · 紙匣製作所 PAPERBOX WORKS — Kami 紙匣</title>
+<meta name="description" content="Kami 紙匣风格提案 C：一条为你量产个人画集的装订流水线。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Noto+Sans+JP:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --kraft:#CDB389; --kraft-2:#D9C49C; --kraft-3:#B89A6C;
+  --blue:#274B6D; --blue-soft:rgba(39,75,109,.5);
+  --ink:#241D13; --ink-2:#5C4E38;
+  --vermilion:#C93A2B; --paper:#F6EFDF;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'Noto Sans JP','Archivo',sans-serif;
+  --grot:'Archivo',sans-serif;
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--kraft);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+::selection{background:var(--vermilion);color:var(--paper)}
+a{color:inherit}
+
+/* 蓝图网格底纹 */
+.blueprint{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:
+    linear-gradient(rgba(39,75,109,.14) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(39,75,109,.14) 1px,transparent 1px),
+    linear-gradient(rgba(39,75,109,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(39,75,109,.08) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;}
+main{position:relative;z-index:1}
+
+/* 顶部游标进度尺 */
+.rulebar{position:fixed;top:0;left:0;right:0;height:30px;z-index:60;
+  background:var(--kraft);border-bottom:1px solid var(--blue);
+  display:flex;align-items:flex-end}
+.rulebar .ticks{position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(90deg,var(--blue-soft) 0 1px,transparent 1px 24px) 0 12px/100% 8px no-repeat,
+    repeating-linear-gradient(90deg,rgba(39,75,109,.75) 0 1px,transparent 1px 120px) 0 0/100% 18px no-repeat;
+  opacity:.6}
+.rulebar .fill{position:absolute;left:0;top:0;bottom:0;width:0;
+  background:linear-gradient(90deg,rgba(201,58,43,.25),rgba(201,58,43,.5));
+  border-right:2px solid var(--vermilion)}
+.rulebar .meta{position:absolute;right:14px;top:5px;font-family:var(--mono);
+  font-size:9px;letter-spacing:.2em;color:var(--ink-2)}
+.rulebar .brand{position:absolute;left:14px;top:5px;font-family:var(--mono);
+  font-size:9px;letter-spacing:.3em;color:var(--ink)}
+
+.xnav{position:fixed;right:20px;bottom:20px;z-index:70;display:flex;gap:6px;font-family:var(--mono);font-size:10px}
+.xnav a{text-decoration:none;padding:7px 11px;border:1px solid rgba(36,29,19,.45);
+  letter-spacing:.14em;color:var(--ink-2);background:rgba(205,179,137,.9);transition:all .3s var(--ease)}
+.xnav a:hover{color:var(--ink);border-color:var(--ink)}
+.xnav a.cur{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* 揭示 */
+.rv{opacity:0;transform:translateY(26px)}
+.rv.on{opacity:1;transform:none;transition:opacity .9s var(--ease),transform .9s var(--ease)}
+
+/* ---------- HERO ---------- */
+.hero{min-height:100vh;padding:120px 6vw 60px;display:grid;
+  grid-template-columns:1.15fr .85fr;gap:5vw;align-items:center}
+.kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.34em;color:var(--vermilion);margin-bottom:22px}
+.hero h1{font-weight:900;font-size:clamp(46px,6.4vw,96px);line-height:1.06;letter-spacing:.04em}
+.hero h1 .en{display:block;font-family:var(--grot);font-weight:700;font-size:clamp(13px,1.3vw,17px);
+  letter-spacing:.5em;color:var(--blue);margin-top:16px}
+.hero .lede{margin-top:30px;font-size:clamp(14.5px,1.5vw,17.5px);line-height:2.05;color:var(--ink-2);max-width:46ch}
+.hero .lede b{color:var(--ink)}
+.spec-line{margin-top:34px;font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--ink-2)}
+
+/* 工程表 */
+.process-index{border:1.5px dashed var(--blue);background:rgba(246,239,223,.55);padding:22px 24px}
+.process-index h2{font-family:var(--mono);font-size:10px;letter-spacing:.4em;color:var(--blue);margin-bottom:14px}
+.pi-row{display:flex;gap:16px;align-items:baseline;padding:11px 4px;
+  border-top:1px dashed var(--blue-soft);font-family:var(--mono);font-size:11px;
+  letter-spacing:.12em;transition:background .3s}
+.pi-row:hover{background:rgba(39,75,109,.08)}
+.pi-row:last-child{border-bottom:1px dashed var(--blue-soft)}
+.pi-row .no{color:var(--vermilion)}
+.pi-row .nm{font-family:var(--sans);font-weight:700;font-size:13px;letter-spacing:.2em;color:var(--ink)}
+.pi-row .en{margin-left:auto;color:var(--ink-2);font-size:9px;letter-spacing:.18em}
+
+/* 机械臂 */
+.arm-stage{position:relative;margin-top:26px;height:210px}
+.arm-stage svg{width:100%;height:100%;display:block}
+.arm-j1{transform-origin:150px 40px;animation:j1 5.6s ease-in-out infinite}
+.arm-j2{transform-origin:150px 40px;animation:j1 5.6s ease-in-out infinite reverse}
+.arm-card{transform-origin:230px 120px;animation:carddrop 5.6s ease-in-out infinite}
+@keyframes j1{0%,100%{transform:rotate(0deg)}30%{transform:rotate(9deg)}60%{transform:rotate(-6deg)}}
+@keyframes carddrop{0%,18%{opacity:1;transform:translateY(0)}30%,70%{opacity:1;transform:translateY(56px)}82%,100%{opacity:0;transform:translateY(56px)}}
+
+/* ---------- 工序通用 ---------- */
+.process{padding:14vh 6vw;position:relative}
+.p-head{display:flex;align-items:baseline;gap:22px;margin-bottom:44px;flex-wrap:wrap}
+.p-no{font-family:var(--mono);font-size:12px;letter-spacing:.3em;color:var(--paper);
+  background:var(--blue);padding:7px 13px}
+.p-title{font-size:clamp(30px,3.8vw,52px);font-weight:900;letter-spacing:.08em}
+.p-en{font-family:var(--grot);font-weight:700;font-size:10.5px;letter-spacing:.4em;color:var(--blue)}
+.p-rule{flex:1;height:1px;background:var(--blue-soft);min-width:60px;align-self:center}
+.p-copy{font-size:clamp(14.5px,1.45vw,17px);line-height:2.05;color:var(--ink-2);max-width:52ch}
+.p-copy b{color:var(--ink)}
+.panel{border:1.5px dashed var(--blue);background:rgba(246,239,223,.55);
+  padding:26px;position:relative}
+.panel::before{content:attr(--data-sn);position:absolute;top:-9px;right:14px;
+  background:var(--kraft);padding:0 8px;font-family:var(--mono);font-size:9px;
+  letter-spacing:.24em;color:var(--ink-2)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:5vw;align-items:center}
+@media(max-width:960px){.two-col{grid-template-columns:1fr}.hero{grid-template-columns:1fr}}
+
+/* 工序01 四片海域 */
+.seamap svg{width:100%;height:auto;display:block}
+.node circle{fill:var(--kraft-2);stroke:var(--blue);stroke-width:1.5}
+.node text{font-family:var(--mono);font-size:10px;letter-spacing:.14em;fill:var(--ink)}
+.route{stroke:var(--blue-soft);stroke-dasharray:5 6;fill:none;stroke-width:1.5;
+  animation:flow 2.2s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-22}}
+.core{fill:var(--vermilion)}
+.stat-list{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;line-height:2.5;color:var(--ink-2)}
+.stat-list b{color:var(--ink);font-weight:500}
+
+/* 工序02 检索 */
+.searchbox{border:1.5px solid var(--ink);background:var(--paper);padding:16px 18px}
+.searchbox .row{display:flex;gap:12px;align-items:center}
+.searchbox .prompt{font-family:var(--mono);color:var(--vermilion);font-size:14px}
+.searchbox input{flex:1;border:none;outline:none;background:transparent;
+  font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--blue);
+  border:1px solid var(--blue-soft);padding:6px 11px;cursor:pointer;transition:all .25s}
+.chip:hover,.chip.hot{background:var(--blue);color:var(--paper)}
+.results{margin-top:20px;border-top:1.5px dashed var(--blue-soft);padding-top:16px}
+.res-row{display:flex;gap:14px;align-items:center;padding:9px 0;
+  border-bottom:1px dashed rgba(39,75,109,.25);font-family:var(--mono);font-size:10px;
+  letter-spacing:.12em;color:var(--ink-2)}
+.res-row .th{width:44px;height:32px;border:1px solid var(--blue-soft);background:var(--kraft-2)}
+.res-row .st{margin-left:auto;color:var(--blue)}
+
+/* 工序03 队列 */
+.belt-frame{overflow:hidden;border:1.5px dashed var(--blue);background:rgba(246,239,223,.55);padding:34px 0 22px;position:relative}
+.belt{display:flex;gap:26px;width:max-content;animation:belt 16s linear infinite}
+@keyframes belt{to{transform:translateX(-50%)}}
+.qcard{width:190px;border:1.5px solid var(--ink);background:var(--paper);padding:12px;flex:none}
+.qcard .bar{height:5px;background:rgba(39,75,109,.18);margin-top:10px;position:relative;overflow:hidden}
+.qcard .bar i{position:absolute;inset:0;right:auto;background:var(--vermilion);animation:fill 3.4s ease-in-out infinite}
+.qcard:nth-child(3) .bar i{animation-delay:1.1s}.qcard:nth-child(4) .bar i{animation-delay:2.2s}
+.qcard:nth-child(5) .bar i{animation-delay:.5s}
+@keyframes fill{0%{width:6%}70%{width:96%}100%{width:6%}}
+.qcard .meta{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--ink-2);
+  display:flex;justify-content:space-between;margin-top:9px}
+.qcard .st{color:var(--vermilion)}
+.qstats{display:flex;gap:34px;margin-top:26px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.2em;color:var(--ink-2);flex-wrap:wrap}
+.qstats b{display:block;font-family:var(--grot);font-weight:900;font-size:26px;
+  color:var(--ink);letter-spacing:.02em;margin-top:4px}
+
+/* 工序04 爆炸分解 */
+.explode-sec{height:250vh;padding:0}
+.explode-stick{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  justify-content:center;padding:80px 6vw 40px}
+.xb-wrap{position:relative;width:min(560px,86vw);margin:6vh auto 0;--ex:0}
+.xb-layer{position:absolute;left:0;right:0;height:110px;border:1.5px dashed var(--blue);
+  background:rgba(246,239,223,.5);transition:none;
+  transform:translateY(calc(var(--ex) * var(--off)));
+  display:flex;align-items:center;padding:0 22px;gap:14px}
+.xb-layer .lid-tag{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--blue)}
+.xb-layer .nm{font-weight:900;font-size:15px;letter-spacing:.24em}
+.xb-layer .spec{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--ink-2);margin-left:auto;text-align:right}
+.xb-l1{top:-16px;--off:-150px;background:rgba(201,58,43,.1)}
+.xb-l2{top:110px;--off:-50px}
+.xb-l3{top:236px;--off:50px}
+.xb-l4{top:362px;--off:150px;background:rgba(39,75,109,.12)}
+.xb-base{position:absolute;left:8%;right:8%;bottom:-90px;height:1.5px;background:var(--blue);
+  opacity:.6}
+.xb-labels{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--ink-2);
+  text-align:center;margin-top:24px}
+.axis{position:absolute;left:-46px;top:-20px;bottom:-20px;width:40px;opacity:.65}
+
+/* 工序05 书架 */
+.shelf{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+@media(max-width:860px){.shelf{grid-template-columns:repeat(2,1fr)}}
+.frame{border:1.5px solid var(--ink);background:var(--paper);padding:9px;position:relative;
+  opacity:.28;transform:translateY(10px);transition:all .8s var(--ease)}
+.frame.on{opacity:1;transform:none}
+.frame svg{display:block;width:100%;height:auto}
+.frame figcaption{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;
+  color:var(--ink-2);margin-top:7px;display:flex;justify-content:space-between}
+.frame.taken{border-style:dashed;border-color:var(--vermilion)}
+.frame.taken::after{content:"取出中 —";position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;
+  letter-spacing:.3em;color:var(--vermilion);background:rgba(246,239,223,.72)}
+.frame .card-out{position:absolute;inset:9px;bottom:auto;top:9px;animation:takeout 5s var(--ease) infinite}
+@keyframes takeout{0%,20%{transform:translate(0,0) rotate(0)}55%{transform:translate(120%,-14%) rotate(6deg)}100%{transform:translate(0,0) rotate(0)}}
+
+/* ---------- 試運転微型流水线 ---------- */
+.miniline{position:fixed;left:20px;bottom:20px;z-index:65;width:300px;
+  border:1.5px solid var(--ink);background:var(--paper);box-shadow:6px 7px 0 rgba(36,29,19,.22)}
+.miniline header{display:flex;justify-content:space-between;align-items:center;
+  background:var(--blue);color:var(--paper);padding:9px 13px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.28em}
+.miniline header b{color:#F0C97E;font-weight:500}
+.ml-stage{position:relative;height:96px;margin:14px;
+  border-bottom:1.5px dashed var(--blue-soft);
+  background:repeating-linear-gradient(90deg,transparent 0 30px,rgba(39,75,109,.12) 30px 31px)}
+.ml-station{position:absolute;bottom:6px;font-family:var(--mono);font-size:8px;
+  letter-spacing:.2em;color:var(--ink-2);text-align:center}
+.ml-station::before{content:"";display:block;width:1px;height:10px;background:var(--blue-soft);margin:0 auto 4px}
+.st-a{left:18px}.st-b{left:50%;transform:translateX(-50%)}.st-c{right:18px}
+.ml-card{position:absolute;left:12px;top:8px;width:64px;height:46px;
+  border:1.5px solid var(--ink);background:var(--kraft-2);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .55s var(--spring),opacity .3s;
+  will-change:transform}
+.ml-card svg{width:100%;height:100%;display:block}
+.ml-card.punch{animation:punch .4s var(--ease)}
+@keyframes punch{0%{transform:scale(1)}40%{transform:scale(1.22,.74)}100%{transform:scale(1)}}
+.ml-qc{position:absolute;width:30px;height:30px;border:2px solid var(--vermilion);
+  border-radius:5px;color:var(--vermilion);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:900;transform:rotate(-10deg) scale(0);opacity:0;
+  transition:all .4s var(--spring)}
+.ml-qc.on{transform:rotate(-10deg) scale(1);opacity:1}
+.ml-box{position:absolute;right:10px;top:16px;width:58px;height:46px;
+  border:1.5px solid var(--ink);background:var(--kraft-2)}
+.ml-box::before{content:"";position:absolute;left:-6%;right:-6%;top:-12px;height:14px;
+  border:1.5px solid var(--ink);border-bottom:none;background:var(--kraft-3);
+  transform-origin:bottom;transition:transform .5s var(--ease)}
+.ml-box.shut::before{transform:rotateX(58deg)}
+.miniline .ctrl{display:flex;gap:10px;padding:0 14px 12px;align-items:center}
+.ml-btn{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--paper);
+  background:var(--vermilion);border:none;padding:10px 15px;cursor:pointer;
+  transition:transform .2s var(--spring),opacity .2s}
+.ml-btn:hover{transform:translateY(-2px)}
+.ml-btn:disabled{opacity:.45;cursor:wait;transform:none}
+.ml-count{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-2)}
+.receipt{max-height:0;overflow:hidden;transition:max-height .6s var(--ease);
+  border-top:1.5px dashed var(--blue-soft);margin:0 14px;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;line-height:1.9;color:var(--ink-2)}
+.receipt.open{max-height:120px;padding-bottom:12px}
+@media(max-width:760px){.miniline{display:none}}
+
+/* ---------- 订单页脚 ---------- */
+.order{margin:12vh 6vw 16vh;position:relative;
+  border:1.5px solid var(--ink);background:var(--paper);padding:54px 6vw 64px}
+.order::before,.order::after{content:"";position:absolute;top:14px;bottom:14px;width:0;
+  border-left:1.5px dashed var(--blue-soft)}
+.order::before{left:26px}.order::after{right:26px}
+.order .k{font-family:var(--mono);font-size:10px;letter-spacing:.4em;color:var(--vermilion)}
+.order h2{font-weight:900;font-size:clamp(30px,4vw,54px);letter-spacing:.06em;margin:14px 0 30px}
+.order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:22px 4vw;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
+  line-height:2.3;color:var(--ink-2)}
+.order-grid b{color:var(--ink);font-weight:500}
+.order .cta{margin-top:44px;display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.big-btn{font-family:var(--sans);font-weight:900;font-size:16px;letter-spacing:.3em;
+  color:var(--paper);background:var(--ink);border:none;padding:20px 40px;cursor:pointer;
+  transition:all .3s var(--ease)}
+.big-btn:hover{background:var(--vermilion);letter-spacing:.36em}
+.order .note{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ink-2)}
+.accept-stamp{position:absolute;right:8vw;top:60px;width:96px;height:96px;
+  border:3px solid var(--vermilion);border-radius:8px;color:var(--vermilion);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-weight:900;transform:rotate(8deg);mix-blend-mode:multiply;
+  opacity:0;pointer-events:none}
+.accept-stamp .jp{font-size:22px;letter-spacing:.18em}
+.accept-stamp .en{font-family:var(--mono);font-size:7px;letter-spacing:.26em;font-weight:400}
+.accept-stamp.on{animation:stampin .5s var(--ease) both}
+@keyframes stampin{0%{transform:rotate(8deg) scale(3);opacity:0;filter:blur(3px)}
+  62%{transform:rotate(8deg) scale(.9);opacity:1;filter:none}100%{transform:rotate(8deg) scale(1);opacity:1}}
+.foot{padding:0 6vw 60px;font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;
+  color:var(--ink-2);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1;transform:none}
+  .belt,.route,.arm-j1,.arm-j2,.arm-card,.frame .card-out,.qcard .bar i{animation:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div class="blueprint"></div>
+<div class="rulebar">
+  <span class="brand">KAMI-PAPERBOX · PITCH C</span>
+  <span class="ticks"></span><span class="fill" id="rfill"></span>
+  <span class="meta"><span id="pct">000</span>% · <span id="clock">--:--:--</span> · SN-001</span>
+</div>
+
+<main>
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div>
+    <p class="kicker rv">WEBBY STYLE PITCH · 工程 00 / 05</p>
+    <h1 class="rv">紙匣製作所<span class="en">PAPERBOX WORKS — 个人画集量产线</span></h1>
+    <p class="lede rv">这不是一个网站，这是一间<b>画集装订工房</b>。一张插画的一生在这里被拆成五道工序：
+      从四片海域被发现，经检索比对、队列下载、折叠归档，最终上架你的私人展览墙——
+      <b>每一次刷新，流水线为你多装订一页。</b></p>
+    <p class="spec-line rv">仕様 — 全長 5 工程 / 源 4 海 / 精度 0.1mm / 稼働 24h · 静态提案仅供评审</p>
+  </div>
+  <div class="rv">
+    <div class="process-index">
+      <h2>工程表 PROCESS INDEX</h2>
+      <div class="pi-row"><span class="no">01</span><span class="nm">发 现</span><span class="en">DISCOVER</span></div>
+      <div class="pi-row"><span class="no">02</span><span class="nm">检 索</span><span class="en">SEARCH</span></div>
+      <div class="pi-row"><span class="no">03</span><span class="nm">队 列</span><span class="en">DOWNLOAD</span></div>
+      <div class="pi-row"><span class="no">04</span><span class="nm">归 档</span><span class="en">ARCHIVE</span></div>
+      <div class="pi-row"><span class="no">05</span><span class="nm">重 逢</span><span class="en">REUNITE</span></div>
+    </div>
+    <div class="arm-stage" aria-hidden="true">
+      <svg viewBox="0 0 420 210">
+        <rect x="20" y="180" width="380" height="16" fill="none" stroke="#274B6D" stroke-width="1.5"/>
+        <rect x="300" y="128" width="86" height="54" fill="none" stroke="#274B6D" stroke-width="1.5" stroke-dasharray="5 5"/>
+        <text x="343" y="196" text-anchor="middle" font-family="monospace" font-size="8" letter-spacing="2" fill="#5C4E38">BOX-A</text>
+        <g class="arm-j1"><g class="arm-j2">
+          <rect x="90" y="32" width="120" height="14" fill="#274B6D"/>
+          <rect x="146" y="30" width="10" height="18" fill="#241D13"/>
+          <rect x="206" y="20" width="14" height="42" fill="#274B6D" transform="rotate(24 213 41)"/>
+        </g></g>
+        <g class="arm-card">
+          <rect x="218" y="98" width="30" height="22" fill="#C93A2B" stroke="#241D13"/>
+        </g>
+        <g stroke="#274B6D" stroke-width="1">
+          <line x1="60" y1="30" x2="60" y2="14"/><line x1="90" y1="30" x2="90" y2="14"/><line x1="120" y1="30" x2="120" y2="14"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 工序01 发现 ============ -->
+<section class="process" id="p1">
+  <div class="p-head rv">
+    <span class="p-no">工程 01</span><h2 class="p-title">发 现</h2>
+    <span class="p-en">DISCOVER — four seas, one net</span><span class="p-rule"></span>
+  </div>
+  <div class="two-col">
+    <div class="panel seamap rv" data-sn="FIG.1-1 四海域汇流図">
+      <svg viewBox="0 0 480 320" aria-hidden="true">
+        <path class="route" d="M80 60 C160 90 200 140 236 168"/>
+        <path class="route" d="M80 250 C160 220 200 190 236 176"/>
+        <path class="route" d="M400 60 C320 90 280 140 244 168"/>
+        <path class="route" d="M400 250 C320 220 280 190 244 176"/>
+        <g class="node"><circle cx="80" cy="60" r="34"/><text x="80" y="118" text-anchor="middle">pixiv</text><text x="80" y="132" text-anchor="middle" font-size="8" opacity=".7">插画·漫画·小说</text></g>
+        <g class="node"><circle cx="80" cy="250" r="34"/><text x="80" y="200" text-anchor="middle">danbooru</text><text x="80" y="188" text-anchor="middle" font-size="8" opacity=".7">标签档案馆</text></g>
+        <g class="node"><circle cx="400" cy="60" r="34"/><text x="400" y="118" text-anchor="middle">yande.re</text><text x="400" y="132" text-anchor="middle" font-size="8" opacity=".7">高质量矿脉</text></g>
+        <g class="node"><circle cx="400" cy="250" r="34"/><text x="400" y="200" text-anchor="middle">konachan</text><text x="400" y="188" text-anchor="middle" font-size="8" opacity=".7">壁纸印刷厂</text></g>
+        <circle class="core" cx="240" cy="172" r="18"/>
+        <circle cx="240" cy="172" r="30" fill="none" stroke="#C93A2B" stroke-width="1" stroke-dasharray="4 5"/>
+        <text x="240" y="226" text-anchor="middle" font-family="monospace" font-size="10" letter-spacing="3" fill="#241D13">紙匣 KAMI</text>
+        <text x="240" y="242" text-anchor="middle" font-family="monospace" font-size="8" letter-spacing="2" fill="#5C4E38">AGGREGATION NODE</text>
+      </svg>
+    </div>
+    <div class="rv">
+      <p class="p-copy">四片性格迥异的海，在工房上空汇成一张网。<b>pixiv 的画廊、danbooru 的档案馆、
+        yande.re 的矿脉、konachan 的印刷厂</b>——同一个搜索框，打捞四个世界的藏品；
+        同一张插画，多源归并成一张卡。</p>
+      <div class="stat-list" style="margin-top:26px">
+        <b>SRC-01</b>　pixiv — 插画 / 漫画 / 小说 全形态<br />
+        <b>SRC-02</b>　danbooru — 数万标签级档案索引<br />
+        <b>SRC-03</b>　yande.re — 高分辨率高质量筛选<br />
+        <b>SRC-04</b>　konachan — 1920×1080 壁纸专供
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 工序02 检索 ============ -->
+<section class="process" id="p2">
+  <div class="p-head rv">
+    <span class="p-no">工程 02</span><h2 class="p-title">检 索</h2>
+    <span class="p-en">SEARCH — comparable, filterable</span><span class="p-rule"></span>
+  </div>
+  <div class="two-col">
+    <div class="rv">
+      <p class="p-copy">比对台。跨站语法混写，一处生效——<b>pixiv 的标签、booru 系的
+        rating:、yande.re 的尺寸下限</b>，全部在同一行查询里相互翻译。
+        同图多源自动归并，让候选清单只剩「最好的那一份」。</p>
+      <div class="stat-list" style="margin-top:26px">
+        <b>QRY-A</b>　跨站标签互译 · 同图归并<br />
+        <b>QRY-B</b>　safe / R-18 每站独立档位<br />
+        <b>QRY-C</b>　以图搜匣 — 本地反查出处
+      </div>
+    </div>
+    <div class="panel rv" data-sn="FIG.2-1 検索コンソール">
+      <div class="searchbox">
+        <div class="row">
+          <span class="prompt">◉</span>
+          <input id="qinput" aria-label="检索演示" readonly />
+          <span class="ml-count" id="qhint">DEMO</span>
+        </div>
+        <div class="chips">
+          <span class="chip hot">#夜空</span><span class="chip">rating:s</span>
+          <span class="chip">≥3508px</span><span class="chip">pixiv 小説</span>
+          <span class="chip">壁纸 1920×1080</span>
+        </div>
+        <div class="results">
+          <div class="res-row"><span class="th"></span><span>図0231 · pixiv</span><span class="st">4 源归并 ✓</span></div>
+          <div class="res-row"><span class="th"></span><span>図0232 · yande.re</span><span class="st">3508×4961</span></div>
+          <div class="res-row"><span class="th"></span><span>図0233 · konachan</span><span class="st">壁纸档</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 工序03 队列 ============ -->
+<section class="process" id="p3">
+  <div class="p-head rv">
+    <span class="p-no">工程 03</span><h2 class="p-title">队 列</h2>
+    <span class="p-en">DOWNLOAD — the conveyor never sleeps</span><span class="p-rule"></span>
+  </div>
+  <p class="p-copy rv" style="margin-bottom:38px">下载是一条永不停歇的传送带：<b>限速、重试、校验、去重</b>，
+    每张图在带上有自己的工位与状态章。断网不是事故，只是传送带暂停——
+    恢复后从断点继续，一张不丢。</p>
+  <div class="belt-frame rv">
+    <div class="belt" id="belt">
+      <div class="qcard"><svg viewBox="0 0 160 90"><rect width="160" height="90" fill="#16232B"/><circle cx="118" cy="26" r="16" fill="#EAF2FF" opacity=".9"/><path d="M0 74 L46 42 L78 64 L112 50 L160 78 L160 90 L0 90Z" fill="#07090C"/></svg><div class="bar"><i></i></div><div class="meta"><span>図0231</span><span class="st">下載中</span></div></div>
+      <div class="qcard"><svg viewBox="0 0 160 90"><rect width="160" height="90" fill="#F4EFE4"/><path d="M20 74 C58 12 96 82 144 24" fill="none" stroke="#141210" stroke-width="13" stroke-linecap="round"/><path d="M34 80 C70 32 104 86 138 48" fill="none" stroke="#C93A2B" stroke-width="5" stroke-linecap="round"/></svg><div class="bar"><i></i></div><div class="meta"><span>図0232</span><span class="st">待機</span></div></div>
+      <div class="qcard"><svg viewBox="0 0 160 90"><rect width="160" height="90" fill="#1C2B33"/><circle cx="80" cy="42" r="26" fill="#C93A2B"/><g stroke="#1C2B33" stroke-width="4"><line x1="80" y1="10" x2="80" y2="74"/><line x1="44" y1="42" x2="116" y2="42"/></g></svg><div class="bar"><i></i></div><div class="meta"><span>図0233</span><span class="st">下載中</span></div></div>
+      <div class="qcard"><svg viewBox="0 0 160 90"><rect width="160" height="90" fill="#F4EFE4"/><g stroke="#141210" stroke-width="1.6"><path d="M48 12v66"/><path d="M66 12v66"/><path d="M84 12v66"/><path d="M102 12v66"/></g><g fill="#141210"><rect x="44" y="24" width="8" height="18" transform="rotate(180 48 33)"/><rect x="62" y="38" width="8" height="24" transform="rotate(180 66 50)"/><rect x="80" y="24" width="8" height="16" transform="rotate(180 84 32)"/></g></svg><div class="bar"><i></i></div><div class="meta"><span>小説 #8801</span><span class="st">完了 ✓</span></div></div>
+      <div class="qcard"><svg viewBox="0 0 160 90"><rect width="160" height="90" fill="#EDE4D0"/><rect x="18" y="12" width="58" height="34" fill="#141210"/><rect x="84" y="12" width="58" height="34" fill="#2E7F8F"/><rect x="18" y="52" width="124" height="26" fill="#141210"/><text x="26" y="69" fill="#F4EFE4" font-family="monospace" font-size="9" letter-spacing="3">1BOX=4SEAS</text></svg><div class="bar"><i></i></div><div class="meta"><span>図0234</span><span class="st">待機</span></div></div>
+    </div>
+  </div>
+  <div class="qstats rv">
+    <span>同時下載<b>6</b></span><span>重試成功率<b>99.2%</b></span>
+    <span>斷點續傳<b>✓</b></span><span>SHA 校驗<b>✓</b></span>
+  </div>
+</section>
+
+<!-- ============ 工序04 归档（爆炸分解） ============ -->
+<section class="process explode-sec" id="p4">
+  <div class="explode-stick">
+    <div class="p-head" style="margin-bottom:0">
+      <span class="p-no rv">工程 04</span><h2 class="p-title rv">归 档</h2>
+      <span class="p-en rv">ARCHIVE — exploded view</span><span class="p-rule"></span>
+    </div>
+    <div class="xb-wrap rv" id="xbwrap">
+      <svg class="axis" viewBox="0 0 40 560" aria-hidden="true">
+        <line x1="8" y1="0" x2="8" y2="560" stroke="#274B6D" stroke-width="1"/>
+        <g stroke="#274B6D" stroke-width="1">
+          <line x1="0" y1="40" x2="16" y2="40"/><line x1="0" y1="140" x2="16" y2="140"/>
+          <line x1="0" y1="240" x2="16" y2="240"/><line x1="0" y1="340" x2="16" y2="340"/>
+          <line x1="0" y1="440" x2="16" y2="440"/><line x1="0" y1="540" x2="16" y2="540"/>
+        </g>
+      </svg>
+      <div class="xb-layer xb-l1"><span class="lid-tag">L-01 蓋</span><span class="nm">展览墙</span><span class="spec">随时重逢<br/>REUNITE</span></div>
+      <div class="xb-layer xb-l2"><span class="lid-tag">L-02</span><span class="nm">馆藏库</span><span class="spec">本地匣 · 全文检索<br/>ARCHIVE</span></div>
+      <div class="xb-layer xb-l3"><span class="lid-tag">L-03</span><span class="nm">下载队列</span><span class="spec">限速·重试·校验<br/>QUEUE</span></div>
+      <div class="xb-layer xb-l4"><span class="lid-tag">L-04 底</span><span class="nm">聚合检索</span><span class="spec">四源一网<br/>AGGREGATE</span></div>
+      <span class="xb-base"></span>
+    </div>
+    <p class="xb-labels rv">↑ 继续滚动 — 纸匣逐层分解 / SCROLL TO EXPLODE · SN-001 · 精度 0.1mm</p>
+  </div>
+</section>
+
+<!-- ============ 工序05 重逢 ============ -->
+<section class="process" id="p5">
+  <div class="p-head rv">
+    <span class="p-no">工程 05</span><h2 class="p-title">重 逢</h2>
+    <span class="p-en">REUNITE — the shelf wall</span><span class="p-rule"></span>
+  </div>
+  <p class="p-copy rv" style="margin-bottom:38px">最后一道工序没有机器——<b>是你亲手把画集放上墙</b>。
+    离线的匣、本地的墙、标签即索引；任何时候取下一帧，它就在原地等你。
+    流水线的终点，是重逢。</p>
+  <div class="shelf rv">
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#16232B"/><circle cx="118" cy="28" r="17" fill="#EAF2FF" opacity=".92"/><path d="M0 82 L46 48 L80 70 L114 56 L160 84 L160 100 L0 100Z" fill="#07090C"/></svg><figcaption><span>匣-001</span><span>pixiv</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#F4EFE4"/><defs><pattern id="c2" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="3" fill="#141210"/></pattern></defs><rect width="160" height="100" fill="url(#c2)" opacity=".15"/><circle cx="80" cy="46" r="34" fill="url(#c2)"/><circle cx="80" cy="46" r="44" fill="none" stroke="#C93A2B" stroke-width="2"/></svg><figcaption><span>匣-002</span><span>danbooru</span></figcaption></figure>
+    <figure class="frame taken"><div class="card-out"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#F4EFE4"/><path d="M22 82 C60 14 98 86 144 22" fill="none" stroke="#141210" stroke-width="13" stroke-linecap="round"/><path d="M36 88 C72 34 106 90 138 46" fill="none" stroke="#C93A2B" stroke-width="5" stroke-linecap="round"/></svg></div><figcaption><span>匣-003</span><span>yande.re</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#1C2B33"/><circle cx="80" cy="46" r="28" fill="#C93A2B"/><g stroke="#1C2B33" stroke-width="5"><line x1="80" y1="12" x2="80" y2="80"/><line x1="42" y1="46" x2="118" y2="46"/></g></svg><figcaption><span>匣-004</span><span>konachan</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#F4EFE4"/><g stroke="#141210" stroke-width="1.6"><path d="M52 12v76"/><path d="M72 12v76"/><path d="M92 12v76"/><path d="M112 12v76"/></g><g fill="#141210"><rect x="47" y="26" width="10" height="20" transform="rotate(180 52 36)"/><rect x="67" y="42" width="10" height="26" transform="rotate(180 72 55)"/><rect x="87" y="26" width="10" height="18" transform="rotate(180 92 35)"/></g><circle cx="112" cy="66" r="9" fill="#C93A2B"/></svg><figcaption><span>匣-005</span><span>pixiv 小説</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#EDE4D0"/><rect x="18" y="12" width="58" height="34" fill="#141210"/><rect x="84" y="12" width="58" height="34" fill="#2E7F8F"/><rect x="18" y="52" width="124" height="30" fill="#141210"/><text x="26" y="71" fill="#F4EFE4" font-family="monospace" font-size="9" letter-spacing="3">1BOX=4SEAS</text></svg><figcaption><span>匣-006</span><span>跨源合册</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#16232B"/><path d="M0 66 L60 30 L104 56 L160 34 L160 100 L0 100Z" fill="#07090C"/><circle cx="128" cy="24" r="10" fill="#EAF2FF" opacity=".85"/></svg><figcaption><span>匣-007</span><span>pixiv</span></figcaption></figure>
+    <figure class="frame"><svg viewBox="0 0 160 100"><rect width="160" height="100" fill="#F4EFE4"/><circle cx="80" cy="50" r="36" fill="none" stroke="#141210" stroke-width="1.4"/><circle cx="80" cy="50" r="22" fill="#C93A2B"/><g stroke="#141210" stroke-width="1"><line x1="80" y1="6" x2="80" y2="94"/><line x1="36" y1="50" x2="124" y2="50"/></g></svg><figcaption><span>匣-008</span><span>合册表纸</span></figcaption></figure>
+  </div>
+</section>
+
+<!-- ============ 订单 ============ -->
+<section class="order rv" id="order">
+  <span class="accept-stamp" id="astamp"><span class="jp" lang="ja">受付済</span><span class="en">ORDER ACCEPTED</span></span>
+  <p class="k">裝訂注文書 · WORK ORDER</p>
+  <h2>你的第一部「无限画集」，现在开印</h2>
+  <div class="order-grid">
+    <div><b>品 名</b>　個人畫集 · 紙匣藏<br /><b>冊 数</b>　無限 — 匣不封頂</div>
+    <div><b>來 源</b>　pixiv / danbooru / yande.re / konachan<br /><b>裝 幀</b>　牛皮紙 × 制图蓝 × 朱印</div>
+    <div><b>納 期</b>　一生 — 隨入隨刷<br /><b>取 引</b>　全部在你自己的電腦上完成</div>
+  </div>
+  <div class="cta">
+    <button class="big-btn" id="orderbtn">開始裝訂 — START</button>
+    <span class="note">※ 静态提案 · 点击盖章即可视作下单成功</span>
+  </div>
+</section>
+
+<div class="foot">
+  <span>KAMI-PAPERBOX · PITCH C — PAPERBOX WORKS</span>
+  <span>工程 05/05 完了 · 流水线不停 · <span id="clock2">--:--:--</span></span>
+</div>
+</main>
+
+<!-- 試運転微型流水线 -->
+<aside class="miniline" id="miniline" aria-label="试运转流水线演示">
+  <header><span>試運転 TEST RUN</span><b>LINE-A</b></header>
+  <div class="ml-stage">
+    <span class="ml-station st-a">沖壓 PUNCH</span>
+    <span class="ml-station st-b">檢品 QC</span>
+    <span class="ml-station st-c">入匣 BOX</span>
+    <div class="ml-qc" id="mlqc">合</div>
+    <div class="ml-box" id="mlbox"></div>
+    <div class="ml-card" id="mlcard">
+      <svg viewBox="0 0 64 46"><rect width="64" height="46" fill="#D9C49C"/><circle cx="44" cy="14" r="7" fill="#EAF2FF"/><path d="M0 38 L20 20 L34 32 L48 24 L64 40 L64 46 L0 46Z" fill="#274B6D"/></svg>
+    </div>
+  </div>
+  <div class="ctrl">
+    <button class="ml-btn" id="mlbtn">投入見本</button>
+    <span class="ml-count" id="mlcount">見本 0 体 · 稼働中</span>
+  </div>
+  <div class="receipt" id="receipt"></div>
+</aside>
+
+<nav class="xnav">
+  <a href="pitch-a-infinite-binding.html">A 裝訂</a>
+  <a href="pitch-b-sea-of-ink.html">B 墨海</a>
+  <a class="cur" href="pitch-c-paperbox-works.html">C 製作所</a>
+ <a href="pitch-d-bindery.html">D 合併</a>
+</nav>
+
+<script>
+(function(){
+"use strict";
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* 时钟 ×2 + 百分比 */
+var c1 = document.getElementById("clock"), c2 = document.getElementById("clock2"),
+    pct = document.getElementById("pct"), fill = document.getElementById("rfill");
+function tick(){
+  var d = new Date(), p = function(n){ return String(n).padStart(2,"0"); };
+  var s = p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+  c1.textContent = s; c2.textContent = s;
+}
+tick(); setInterval(tick, 1000);
+
+/* 揭示 */
+var io = new IntersectionObserver(function(es){
+  es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("on"); io.unobserve(e.target); } });
+},{threshold:.12});
+document.querySelectorAll(".rv").forEach(function(el, i){
+  el.style.transitionDelay = (i%4)*0.08+"s"; io.observe(el);
+});
+
+/* 书架逐格点亮 */
+var fio = new IntersectionObserver(function(es){
+  es.forEach(function(e, idx){
+    if(e.isIntersecting){
+      var el = e.target;
+      setTimeout(function(){ el.classList.add("on"); }, idx*140);
+      fio.unobserve(el);
+    }
+  });
+},{threshold:.4});
+document.querySelectorAll(".frame").forEach(function(f){ fio.observe(f); });
+
+/* 游标进度尺 + 爆炸分解 */
+var xbwrap = document.getElementById("xbwrap"), p4 = document.getElementById("p4");
+var ticking = false;
+function onScroll(){
+  ticking = false;
+  var doc = document.documentElement;
+  var sp = Math.min(1, scrollY / Math.max(1, doc.scrollHeight - innerHeight));
+  fill.style.width = (sp*100).toFixed(1) + "%";
+  pct.textContent = String(Math.round(sp*100)).padStart(3,"0");
+  /* 爆炸分解进度：section 进入视口 → 完全滚过 */
+  var r = p4.getBoundingClientRect();
+  var total = r.height - innerHeight;
+  var pr = Math.min(1, Math.max(0, -r.top / Math.max(1, total)));
+  xbwrap.style.setProperty("--ex", pr.toFixed(3));
+}
+addEventListener("scroll", function(){
+  if(!ticking){ ticking = true; requestAnimationFrame(onScroll); }
+}, {passive:true});
+onScroll();
+
+/* 检索台打字机 */
+var queries = [
+  "tag:夜空 rating:s size:≥3508",
+  "pixiv 小説 長篇 #SF",
+  "konachan wallpaper 1920×1080",
+  "yande.re rating:s order:score"
+];
+var qi = 0;
+(function typeLoop(){
+  var el = document.getElementById("qinput");
+  var text = queries[qi]; qi = (qi+1) % queries.length;
+  var i = 0, del = false;
+  if(reduce){ el.value = text; setTimeout(typeLoop, 2600); return; }
+  (function step(){
+    if(!del){
+      el.value = text.slice(0, ++i);
+      if(i >= text.length){ del = true; setTimeout(step, 1700); return; }
+    } else {
+      el.value = text.slice(0, --i);
+      if(i <= 0){ setTimeout(typeLoop, 300); return; }
+    }
+    setTimeout(step, del ? 14 : 46);
+  })();
+})();
+
+/* 订单盖章 */
+var orderBtn = document.getElementById("orderbtn"), aStamp = document.getElementById("astamp");
+orderBtn.addEventListener("click", function(){
+  aStamp.classList.remove("on"); void aStamp.offsetWidth;
+  aStamp.classList.add("on");
+  orderBtn.textContent = "受付済 — ACCEPTED ✓";
+});
+
+/* ---------- 試運転微型流水线 ---------- */
+var btn = document.getElementById("mlbtn"), card = document.getElementById("mlcard"),
+    qc = document.getElementById("mlqc"), box = document.getElementById("mlbox"),
+    cnt = document.getElementById("mlcount"), receipt = document.getElementById("receipt"),
+    made = 0, busy = false;
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+btn.addEventListener("click", async function(){
+  if(busy) return; busy = true; btn.disabled = true;
+  /* ① 冲压 */
+  card.style.opacity = "1";
+  card.style.transform = "translateX(0)";
+  await sleep(80);
+  card.classList.add("punch");
+  await sleep(420);
+  card.classList.remove("punch");
+  /* ② 质检盖章 */
+  card.style.transform = "translateX(calc(min(46vw,300px)/2 - 52px))";
+  await sleep(560);
+  qc.style.left = "calc(50% - 15px)";
+  qc.style.top = "16px";
+  qc.classList.add("on");
+  await sleep(620);
+  qc.classList.remove("on");
+  /* ③ 滑入纸匣 */
+  card.style.transform = "translateX(calc(min(46vw,300px) - 126px)) scale(.8)";
+  await sleep(480);
+  box.classList.add("shut");
+  made++;
+  cnt.textContent = "見本 " + made + " 体 · 稼働中";
+  /* 收据打印 */
+  var d = new Date(), p = function(n){ return String(n).padStart(2,"0"); };
+  receipt.insertAdjacentHTML("beforeend",
+    "SN-" + String(made).padStart(3,"0") + " · QC 合格 · 入匣 " +
+    p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()) + "<br/>");
+  receipt.classList.add("open");
+  await sleep(900);
+  /* 复位 */
+  card.style.opacity = "0";
+  await sleep(340);
+  card.style.transform = "translateX(0)";
+  box.classList.remove("shut");
+  busy = false; btn.disabled = false;
+});
+})();
+</script>
+</body>
+</html>

@@ -3,8 +3,8 @@
  *
  * 作用：控制各引擎最短间隔，并判断返回是不是 Cloudflare / 验证码。
  * 用法：searchGapMs() 给服务端排队；isBotChallenge() 在拿到 HTML 后调用。
- * 为什么：SauceNAO / ascii2d 对短时间多次上传很敏感。纸匣不能解验证码，
- *        只能少打、打小图、有 key 走官方 API。
+ * 为什么：SauceNAO / ascii2d 对短时间多次上传很敏感。纸匣不代解验证码。
+ *        SauceNAO 用官方 key；ascii2d 没有接口，被拦住就停；Danbooru 靠账号免验证。
  */
 import type { SearchEngine } from "./reverse-search.ts";
 
@@ -12,6 +12,8 @@ export const SEARCH_GAP_MS: Record<SearchEngine, number> = {
   saucenao: 8_000,
   ascii2d: 15_000,
   iqdb: 6_000,
+  tracemoe: 3_000,
+  danbooru: 6_000,
 };
 
 export function searchGapMs(
@@ -20,7 +22,8 @@ export function searchGapMs(
   overrides?: Partial<Record<SearchEngine, number>>,
 ): number {
   const base = overrides?.[engine] ?? SEARCH_GAP_MS[engine];
-  if (engine === "saucenao" && hasApiKey) return Math.min(base, 2_500);
+  // SauceNAO 官方接口免费档 30 秒约 6 次：key 只把 8 秒压到 5.5 秒，再快必吃 429。
+  if (engine === "saucenao" && hasApiKey) return Math.min(base, 5_500);
   return base;
 }
 

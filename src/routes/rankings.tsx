@@ -46,8 +46,10 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        "h-9 shrink-0 rounded-full px-3.5 text-sm",
-        active ? "bg-accent text-accent-fg" : "bg-elevated text-muted hover:text-fg",
+        "h-9 shrink-0 bg-transparent px-0 text-sm",
+        active
+          ? "font-display text-fg italic shadow-[inset_0_-1px_0_var(--color-danger)]"
+          : "text-muted hover:text-fg",
       )}
     >
       {children}
@@ -103,8 +105,8 @@ export function RankingsPage() {
     <div className="space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-3xl tracking-tight md:text-4xl">历史热榜</h1>
-          <p className="mt-1 max-w-xl text-sm text-muted">
+          <h1 className="kami-node-title text-3xl md:text-4xl">历史热榜</h1>
+          <p className="kami-node-note max-w-xl">
             记下图站已经打开过的日榜、周榜、月榜。Pixiv 请在浏览页改日期。
           </p>
         </div>
