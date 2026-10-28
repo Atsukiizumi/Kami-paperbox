@@ -36,6 +36,8 @@ type OwnedRecord = {
   el: HTMLElement;
   native: NativeAnimation | null;
   settled: boolean;
+  /** 动画打在伪元素上（如 ::view-transition-new(root)）：宿主元素从未被动画，不得写快照。 */
+  pseudo: boolean;
   runFinish: () => void;
   resolveFinished: (end: MotionEnd) => void;
 };
@@ -119,7 +121,7 @@ function readVisual(el: HTMLElement): { transform: string; opacity: number } {
 }
 
 /** 把动画效果写进 style 再撤销原生动画，画面停在不跳的位置（transform/opacity 兜底手写）。 */
-function commitVisual(el: HTMLElement, native: NativeAnimation): void {
+function commitVisual(el: HTMLElement, native: NativeAnimation, pseudo: boolean): void {
   try {
     native.commitStyles?.();
     return;
@@ -127,6 +129,9 @@ function commitVisual(el: HTMLElement, native: NativeAnimation): void {
     // commitStyles 不可用（伪元素 / 环境不支持）：transform/opacity 手动快照，
     // 其它属性（如 clipPath 在伪元素上）随效果撤销直接落回底层。
   }
+  // 伪元素动画的宿主（如 documentElement）本身没被动画；快照只会把视图过渡的
+  // 瞬时状态固化成行内样式——根上挂 transform 会让所有 position:fixed 改按文档定位。
+  if (pseudo) return;
   const visual = readVisual(el);
   el.style.transform = visual.transform;
   el.style.opacity = String(visual.opacity);
@@ -155,9 +160,9 @@ function settle(rec: OwnedRecord, end: MotionEnd, mode: "drop" | "commit" | "jum
       } catch {
         jumped = false;
       }
-      if (jumped) commitVisual(el, native);
+      if (jumped) commitVisual(el, native, rec.pseudo);
     } else if (mode === "commit") {
-      commitVisual(el, native);
+      commitVisual(el, native, rec.pseudo);
     }
     try {
       native.cancel();
@@ -190,6 +195,7 @@ export function playOwnedMotion(
     el,
     native: null,
     settled: false,
+    pseudo: Boolean((options as { pseudoElement?: string }).pseudoElement),
     runFinish,
     resolveFinished: (end) => resolveFinished(end),
   };
