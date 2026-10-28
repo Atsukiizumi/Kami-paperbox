@@ -110,6 +110,16 @@ export function WorkPage() {
     collectBooruTags(query.data.source, query.data.tags);
   }, [src, id, query.isSuccess, query.data]);
 
+  // 操作条「从独立到融入」（视觉在 styles.css 的 mat 段）：滚过阈值条身转透明，
+  // 只剩左右两组按钮浮在纸上；回顶复原。
+  const [barDissolved, setBarDissolved] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setBarDissolved(window.scrollY > 100);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // 续读定位（M2）：query 成功后读一次历史水位（getState 不订阅历史，避免多余重渲），
   // resumePage 判定值得定位（翻到中途）才滚动。didLocateRef 按 source:id 一次性：
   // rememberView 回填 / 点赞收藏 patch 让 work 换新身份重跑本 effect，不得二次滚动。
@@ -346,7 +356,10 @@ export function WorkPage() {
 
   return (
     <article>
-      <div className="kami-work-sticky -mx-4 flex flex-wrap items-center gap-2 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10">
+      <div
+        data-dissolved={barDissolved ? "" : undefined}
+        className="kami-work-sticky -mx-4 flex flex-wrap items-center gap-2 border-b border-border/70 bg-bg/85 px-4 py-1.5 backdrop-blur-md md:-mx-10 md:px-10"
+      >
         <BackToPrevious />
         <BackToBrowse />
         <div className="min-w-0 md:ml-auto">{actions}</div>

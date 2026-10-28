@@ -336,6 +336,60 @@ html[data-theme="binding"][data-appearance="light"] {
   --color-border-strong: color-mix(in srgb, var(--color-fg) 32%, transparent);
 }
 
+/* 台纸：纸上墙，纸不随夜反色（深浅同一套纸色）。墙色只在 --kami-wall（夜 #2c2a28 / 昼 #d4cdc2）。
+   红线：每个外观只此一条规则，--color-bg 不得出现在第二条 mat 规则里（构建与 theme.test 同步断言都会翻车）。 */
+html[data-theme="mat"][data-appearance="dark"] {
+  --color-bg: #f6f1e8;
+  --color-surface: #ebe4d8;
+  --color-elevated: #fbf7f0;
+  --color-fg: #1a1814;
+  --color-muted: #6b645c;
+  --color-subtle: #8f877e;
+  --color-accent: #1a1814;
+  --color-accent-fg: #f6f1e8;
+  --color-danger: #8f3d32;
+  --color-ok: #3d6b42;
+  --kami-wall: #2c2a28;
+  color-scheme: light;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-paper-1: none;
+  --shadow-paper-2: none;
+  --shadow-paper-3: none;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --color-border: color-mix(in srgb, var(--color-fg) 14%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 32%, transparent);
+}
+
+html[data-theme="mat"][data-appearance="light"] {
+  --color-bg: #f6f1e8;
+  --color-surface: #ebe4d8;
+  --color-elevated: #fbf7f0;
+  --color-fg: #1a1814;
+  --color-muted: #6b645c;
+  --color-subtle: #8f877e;
+  --color-accent: #1a1814;
+  --color-accent-fg: #f6f1e8;
+  --color-danger: #8f3d32;
+  --color-ok: #3d6b42;
+  --kami-wall: #d4cdc2;
+  color-scheme: light;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-paper-1: none;
+  --shadow-paper-2: none;
+  --shadow-paper-3: none;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --color-border: color-mix(in srgb, var(--color-fg) 14%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-fg) 32%, transparent);
+}
+
 html[data-appearance="dark"] {
   color-scheme: dark;
 }
@@ -3382,6 +3436,77 @@ html[data-theme="binding"] .kami-colophon nav button.italic {
   font-style: normal;
   box-shadow: inset 0 -1px 0 var(--kami-thread, var(--color-danger));
 }
+
+/* 台纸内容：目录号标题 + 宽边裱框 + 下沿居中图注/图注牌 + 行式队列 + 居中说明牌。
+   当前态与下沿房间条同一个语言：衬线不斜体 + 发丝线（下沿条的小方印见壳层段）。 */
+html[data-theme="mat"] [role="radiogroup"] [data-state="on"] {
+  font-family: var(--font-display);
+  font-style: normal;
+  box-shadow: inset 0 -1px 0 var(--color-fg);
+}
+html[data-theme="mat"] .kami-masonry {
+  --masonry-gap: 1.5rem;
+}
+html[data-theme="mat"] .group:hover .kami-card-media img {
+  transform: none;
+}
+/* 宽边裱框：图四周留出纸边，图注在同一张纸内居中 */
+html[data-theme="mat"] .kami-card-shell {
+  background: var(--color-surface);
+  padding: 10px 10px 0;
+  border: 1px solid var(--color-border);
+}
+html[data-theme="mat"] .kami-card-caption {
+  height: auto;
+  min-height: auto;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+html[data-theme="mat"] .kami-card-caption h3 {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+/* 图注牌：直角小字。位移只打 AI 标牌（absolute left-2 那块）——
+   「2p」/GIF 是角标簇里的 static 徽章、尺寸牌是右下角 kami-plate-size，都不动。 */
+html[data-theme="mat"] .kami-plate {
+  border-radius: 0;
+  padding: 0.1rem 0.5rem;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+}
+html[data-theme="mat"] .kami-card-media .kami-plate.absolute.left-2 {
+  top: auto;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* 队列：一行一行的说明，无订线 */
+html[data-theme="mat"] .kami-queue-row {
+  padding-left: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--color-border);
+}
+/* 设置：居中的说明牌，无底无影只有底边 */
+html[data-theme="mat"] .kami-colophon .rounded-xl.bg-surface {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 1.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
+html[data-theme="mat"] .kami-colophon h2 {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--color-muted);
+}
+html[data-theme="mat"] .kami-colophon nav button.italic {
+  font-style: normal;
+}
 @media (min-width: 768px) {
   html[data-theme="binding"] :is(header, div):has(> .kami-node-title) {
     display: flex;
@@ -3404,6 +3529,29 @@ html[data-theme="binding"] .kami-colophon nav button.italic {
     font-weight: 600;
     line-height: 1.12;
     letter-spacing: 0.04em;
+  }
+  html[data-theme="mat"] :is(header, div):has(> .kami-node-title) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    gap: 0.35rem;
+  }
+  html[data-theme="mat"] :is(header, div):has(> .kami-node-title) > .kami-node-note {
+    order: -1;
+    margin: 0;
+    font-family: var(--font-display);
+    letter-spacing: 0.18em;
+  }
+  /* 台纸标题：比装帧小一档的目录号读法 */
+  html[data-theme="mat"] .kami-node-title {
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: clamp(28px, 3vw, 40px);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
   }
 }
 .kami-dk-label {
@@ -3493,6 +3641,12 @@ html[data-desk-edit] [data-desk-edit-card][aria-pressed="true"] {
     left: calc(var(--kami-sheet-left, 36px) + var(--kami-spine, 36px));
     right: var(--kami-sheet-right, 78px);
     bottom: 44px;
+    padding-bottom: 0.75rem;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-dk-editdock {
+    left: var(--kami-mat-inset, 28px);
+    right: var(--kami-mat-inset, 28px);
+    bottom: calc(var(--kami-mat-inset, 28px) + var(--kami-mat-rail-h, 2.75rem) + 0.5rem);
     padding-bottom: 0.75rem;
   }
 }
@@ -3939,5 +4093,190 @@ html[data-theme="binding"] .kami-aside .text-accent {
     font-weight: 600;
     line-height: 1.12;
     letter-spacing: 0.04em;
+  }
+}
+
+/* 台纸 + 书案：墙上的一块裱纸。墙是 body（--kami-wall），纸是 .min-h-dvh::before 四边对称内缩；
+   房间收进纸下沿的说明行（.kami-mat-rail），顶栏只留右上控制组。全部限定 desk 形态，移动端与其余形态不动。 */
+@media (min-width: 768px) {
+  html[data-theme="mat"][data-shell-form="desk"] {
+    --kami-mat-inset: clamp(16px, 2.5vw, 28px);
+    --kami-mat-rail-h: 2.75rem;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] body {
+    background: var(--kami-wall);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .min-h-dvh {
+    position: relative;
+    background: transparent;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .min-h-dvh::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    inset: var(--kami-mat-inset);
+    background: var(--color-bg);
+    box-shadow:
+      0 18px 48px rgb(0 0 0 / 0.32),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-fg) 8%, transparent);
+  }
+  html[data-theme="mat"][data-appearance="light"][data-shell-form="desk"] .min-h-dvh::before {
+    box-shadow:
+      0 12px 32px rgb(70 48 24 / 0.12),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-fg) 8%, transparent);
+  }
+  /* 顶栏「从独立到融入」：它是纸头上的一条（absolute 贴板顶），在页顶时是带下缘发丝线的
+     独立横条；一滚动就随纸离开视口——不做 fixed 悬浮，内容永远不与它重叠。 */
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar {
+    position: absolute;
+    top: var(--kami-mat-inset);
+    right: var(--kami-mat-inset);
+    left: var(--kami-mat-inset);
+    z-index: 40;
+    border-bottom-color: var(--color-border);
+    background: var(--color-bg);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-brand,
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar-rule {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-aside {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] main {
+    position: relative;
+    z-index: 1;
+    padding:
+      calc(var(--kami-mat-inset) + 3.5rem)
+      var(--kami-mat-inset)
+      calc(var(--kami-mat-inset) + var(--kami-mat-rail-h) + 0.5rem)
+      var(--kami-mat-inset);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-pageframe {
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+  /* 作品/详情页的出血条（-mx-10 是按常规 40px 页框内边距配的）在台纸上会越过纸边压到墙：
+     负边距改为恰好抵消台纸页框的 1.75rem，齐平纸缘。 */
+  html[data-theme="mat"][data-shell-form="desk"] .kami-detail-nav,
+  html[data-theme="mat"][data-shell-form="desk"] .kami-work-sticky,
+  html[data-theme="mat"][data-shell-form="desk"] .kami-work-stage {
+    margin-left: -1.75rem;
+    margin-right: -1.75rem;
+  }
+  /* 作品页操作条「从独立到融入」：页顶是纸带（底色+发丝线+毛玻璃），滚过阈值条身转透明——
+     只剩左（上一页/返回浏览）右（纸匣等）两组按钮浮在纸上；回顶复原。
+     状态由组件打 data-dissolved（滚动驱动动画在这页与 body 滚动锁组合不可靠）。 */
+  html[data-theme="mat"][data-shell-form="desk"] .kami-work-sticky {
+    transition:
+      background-color var(--motion-quick) var(--ease-out),
+      border-bottom-color var(--motion-quick) var(--ease-out),
+      backdrop-filter var(--motion-quick) var(--ease-out);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-work-sticky[data-dissolved] {
+    background-color: transparent;
+    border-bottom-color: transparent;
+    backdrop-filter: blur(0);
+  }
+  html[data-motion-stopped][data-theme="mat"][data-shell-form="desk"] .kami-work-sticky {
+    transition: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-pageframe > div {
+    padding-top: 0.25rem;
+  }
+
+  /* 顶栏：无徽章无圆头像，字 + 发丝线（比照纸格的形状，衬线不斜体）。图源推到右侧成组。 */
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button {
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button:hover,
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button[data-state="open"] {
+    background: transparent;
+    color: var(--color-fg);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button:focus-visible {
+    outline: 1px solid var(--color-fg);
+    outline-offset: 3px;
+    box-shadow: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button[aria-label="切换图源"] {
+    margin-left: auto;
+    height: auto;
+    padding-inline: 0;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--color-fg);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button[aria-label="切换图源"] > span:first-child {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar .ml-auto {
+    align-items: center;
+    gap: 0.15rem;
+    margin-left: 1rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--color-border);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button > span.rounded-full {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button span.flex-col > span:last-child {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar button span.flex-col > span:first-child {
+    max-width: 9rem;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar .kami-theme-icon {
+    display: none;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-topbar .kami-theme-word {
+    display: inline;
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.14em;
+  }
+
+  /* 纸下沿的说明行：九个房间 + 当前项小方印（实心 6px + 衬线），数字朱红（组件里已 text-danger）。
+     长度只到内容（居中的美术馆标签），不拉满板宽；窄桌面放不下时内部横滑。 */
+  html[data-theme="mat"][data-shell-form="desk"] .kami-mat-rail {
+    position: fixed;
+    bottom: var(--kami-mat-inset);
+    left: 50%;
+    z-index: 40;
+    align-items: center;
+    gap: clamp(0.9rem, 2vw, 1.75rem);
+    height: var(--kami-mat-rail-h);
+    width: max-content;
+    max-width: calc(100vw - var(--kami-mat-inset) * 2);
+    padding-inline: clamp(0.75rem, 1.5vw, 1.25rem);
+    overflow-x: auto;
+    transform: translateX(-50%);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-mat-rail a {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-mat-rail a.text-fg {
+    font-family: var(--font-display);
+  }
+  html[data-theme="mat"][data-shell-form="desk"] .kami-mat-rail a.text-fg::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    margin-right: 0.45em;
+    background: var(--color-fg);
   }
 }

@@ -19,8 +19,8 @@ import {
 } from "./theme.ts";
 
 describe("theme catalog", () => {
-  it("ships seven named palettes with light and dark hex tokens", () => {
-    assert.equal(THEME_IDS.length, 7);
+  it("ships eight named palettes with light and dark hex tokens", () => {
+    assert.equal(THEME_IDS.length, 8);
     assert.equal(DEFAULT_THEME, "washi");
     assert.equal(DEFAULT_APPEARANCE, "dark");
     for (const id of THEME_IDS) {
