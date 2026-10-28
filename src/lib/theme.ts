@@ -1,4 +1,4 @@
-export const THEME_IDS = ["washi", "aosumi", "shusha", "songyan", "koke", "bindery", "binding"] as const;
+export const THEME_IDS = ["washi", "aosumi", "shusha", "songyan", "koke", "bindery", "binding", "mat"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export const APPEARANCES = ["system", "light", "dark"] as const;
@@ -240,6 +240,36 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
       subtle: "#8a8076",
       accent: "#1c1814",
       accentFg: "#f7f4ee",
+      danger: "#8f3d32",
+      ok: "#3d6b42",
+    },
+  },
+  mat: {
+    id: "mat",
+    name: "台纸",
+    description: "墙上的一块纸。下沿是说明。",
+    // 台纸不随夜反色：深浅同一套纸色，墙色差只在 styles.css 的 --kami-wall。
+    dark: {
+      bg: "#f6f1e8",
+      surface: "#ebe4d8",
+      elevated: "#fbf7f0",
+      fg: "#1a1814",
+      muted: "#6b645c",
+      subtle: "#8f877e",
+      accent: "#1a1814",
+      accentFg: "#f6f1e8",
+      danger: "#8f3d32",
+      ok: "#3d6b42",
+    },
+    light: {
+      bg: "#f6f1e8",
+      surface: "#ebe4d8",
+      elevated: "#fbf7f0",
+      fg: "#1a1814",
+      muted: "#6b645c",
+      subtle: "#8f877e",
+      accent: "#1a1814",
+      accentFg: "#f6f1e8",
       danger: "#8f3d32",
       ok: "#3d6b42",
     },

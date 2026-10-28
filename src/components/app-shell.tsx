@@ -251,29 +251,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   const deskForm = !plan.custom && shellEff.form === "desk";
   const paperGrid = theme === "bindery" && deskForm;
   const paperBook = theme === "binding" && deskForm;
+  const paperMat = theme === "mat" && deskForm;
   const sideExpanded = plan.sidebarMode === "full" && (deskForm ? paperGrid || paperBook || expanded : true);
   const W_BY_PX = { 48: "md:w-12", 64: "md:w-16", 80: "md:w-20" } as const;
   const PAD_BY_PX = { 48: "md:pl-12", 64: "md:pl-16", 80: "md:pl-20" } as const;
   const paneWidth = plan.custom
     ? ""
-    : paperGrid
-      ? "md:w-[88px]"
-      : deskForm
-        ? expanded
-          ? "md:w-56"
-          : "md:w-16"
-        : (plan.sidebarW && W_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:w-16";
+    : paperMat
+      ? ""
+      : paperGrid
+        ? "md:w-[88px]"
+        : deskForm
+          ? expanded
+            ? "md:w-56"
+            : "md:w-16"
+          : (plan.sidebarW && W_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:w-16";
   const contentPad = plan.custom
     ? "kami-pagepad"
     : shellEff.form === "zen"
       ? ""
-      : paperGrid
-        ? "md:pl-[88px]"
-        : deskForm
-          ? expanded
-            ? "md:pl-56"
-            : "md:pl-16"
-          : (plan.sidebarW && PAD_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:pl-16";
+      : paperMat
+        ? ""
+        : paperGrid
+          ? "md:pl-[88px]"
+          : deskForm
+            ? expanded
+              ? "md:pl-56"
+              : "md:pl-16"
+            : (plan.sidebarW && PAD_BY_PX[plan.sidebarW as 48 | 64 | 80]) || "md:pl-16";
   const railIconCls = plan.sidebarW === 48 ? "size-3.5" : plan.sidebarW === 80 ? "size-5" : "size-4";
   const desktopRawIndex = NAV.findIndex((item) => navItemActive(pathname, item.to));
   const activeIndex = Math.max(0, desktopRawIndex);
@@ -283,7 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <header className="kami-topbar kami-chrome-down sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border/80 bg-bg px-3 md:px-4">
-        {deskForm && !paperGrid && !paperBook ? (
+        {deskForm && !paperGrid && !paperBook && !paperMat ? (
           <Hint label={expanded ? "收起导航" : "展开导航"} side="bottom">
             <Button
               type="button"
@@ -433,6 +438,34 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </PageFrame>
       </main>
+      {paperMat ? (
+        <nav aria-label="房间" className="kami-mat-rail hidden md:flex">
+          {NAV.map((item) => {
+            const active = navItemActive(pathname, item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                prefetch={item.to === "/browse" ? false : undefined}
+                className={cn(
+                  "shrink-0 text-[13px] tracking-[0.14em] transition-colors",
+                  active ? "text-fg" : "text-muted hover:text-fg",
+                )}
+              >
+                {item.label}
+                {item.to === "/queue" && queued > 0 ? (
+                  <span className="ml-1 font-display tabular-nums text-danger">{queued}</span>
+                ) : null}
+                {item.to === "/watch" && watchBadge > 0 ? (
+                  <span className="ml-1 font-display tabular-nums text-danger">
+                    {watchBadge > 99 ? "99+" : watchBadge}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
       {plan.capsule !== "none" ? (
         <div className={cn("kami-float-controls hidden md:flex", plan.capsule === "left" && "kami-float-left")}>
           <SiteSwitcher />
