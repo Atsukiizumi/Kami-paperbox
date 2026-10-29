@@ -19,6 +19,7 @@ import { useMediaFlag } from "@/components/desk/use-media-flag";
 import { BROWSE_STALE_MS } from "@/lib/browse-cache";
 import { buildFrames, needsCarousel, sheetBatch } from "@/lib/desk-carousel";
 import { previewItems } from "@/lib/desk-preview";
+import { passPixivDisplayFilters } from "@/lib/pixiv-feed";
 import { Link } from "@/lib/kami-link";
 import { isBooru, siteLabel } from "@/lib/sites";
 import type { WorkCard } from "@/lib/types";
@@ -76,6 +77,10 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
     isPixivLoggedInSession(pixivCookie) ||
     Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
   const pixivOp = pixivLoggedIn ? "recommend" : "ranking";
+  // 发现流拉全池原始批（服务端不按开关过滤）——R-18/AI 两档不进键、展示层原地筛；
+  // 未登录的日榜仍由服务端过滤，键照旧带两维。
+  const rawRecommend = tab === "pixiv" && pixivOp === "recommend";
+  const filterKeys = rawRecommend ? (["raw", "raw"] as const) : ([safeMode, hideAi] as const);
 
   const query = useQuery({
     queryKey: [
@@ -83,8 +88,7 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
       tab,
       pixivOp,
       Boolean(fanboxCookie),
-      safeMode,
-      hideAi,
+      ...filterKeys,
       credentialTag(tab === "fanbox" ? fanboxCookie : pixivCookie),
     ],
     enabled: hydrated,
@@ -116,12 +120,17 @@ export function DeskBrowseSheet({ className }: { className?: string }) {
 
   // query.data 引用稳定（react-query 缓存对象），frames 顺势稳定，节奏不被无关渲染重置。
   // 静态分支与加载骨架同取一批的张数；轮播池对同一份数据多取到 3 批，不新增请求。
-  const items = useMemo(() => previewItems(query.data, batch), [query.data, batch]);
+  // 发现流原始批在此按当前开关原地筛（其它流服务端已筛，幂等）。
+  const sheetPass = (w: WorkCard) => passPixivDisplayFilters(w, safeMode, hideAi);
+  const items = useMemo(
+    () => previewItems(query.data, batch).filter(sheetPass),
+    [query.data, batch, safeMode, hideAi],
+  );
   const pending = query.isPending && items.length === 0;
 
   // 断点翻转会让 frames 重算（身份变化 → 轮播节奏重置一次）：断点切换本就是大事件，可接受。
   const carouselFrames = useMemo(
-    () => buildFrames(previewItems(query.data, poolLimit), batch, Math.random, "sequential"),
+    () => buildFrames(previewItems(query.data, poolLimit).filter(sheetPass), batch, Math.random, "sequential"),
     [query.data, batch, poolLimit],
   );
   const { frame, previousFrame, frameIndex, containerRef } = useCrossfade({

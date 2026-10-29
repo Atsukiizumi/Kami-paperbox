@@ -35,6 +35,7 @@ import {
   PIXIV_RANK_MODES,
   formatRankDate,
   isPixivRankMode,
+  passPixivDisplayFilters,
   type PixivFeed,
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
@@ -167,8 +168,12 @@ export function Home() {
     return forceFresh.current ? { ...creds, fresh: true } : creds;
   }
 
+  // 发现流（recommend）拉全池原始批，R-18/AI 两档在展示层原地筛——不进缓存键，
+  // 切开关不换缓存槽、不换一批内容（其余流仍由服务端按档过滤，键照旧带两维）。
+  const recommendFilterKeys = feed === "recommend" ? (["raw", "raw"] as const) : ([safeModeBySite.pixiv, hideAi] as const);
+
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchFilter, safeModeBySite.pixiv, hideAi, credentialTag(pixivCookie), boardDate],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, ...recommendFilterKeys, credentialTag(pixivCookie), boardDate],
     enabled: settingsReady && tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -349,7 +354,10 @@ export function Home() {
     setListPage(1);
   }
 
-  const pixivItems = collectWorks(pixivQuery.data?.pages, "pixiv");
+  // 发现流原始批按当前开关原地筛（passPixivDisplayFilters）；其余流服务端已筛过，此处幂等。
+  const pixivItems = collectWorks(pixivQuery.data?.pages, "pixiv").filter((w) =>
+    passPixivDisplayFilters(w, safeModeBySite.pixiv, hideAi),
+  );
   const rankingDate =
     pixivQuery.data?.pages[0] && pixivQuery.data.pages[0].op === "pixivRanking"
       ? pixivQuery.data.pages[0].date
@@ -513,7 +521,7 @@ export function Home() {
     setListPage(1);
     const key =
       tab === "pixiv"
-        ? (["home-pixiv", feed, searchWord, searchFilter, safeModeBySite.pixiv, hideAi, pixivCookie, boardDate] as const)
+        ? (["home-pixiv", feed, searchWord, searchFilter, ...(feed === "recommend" ? (["raw", "raw"] as const) : ([safeModeBySite.pixiv, hideAi] as const)), pixivCookie, boardDate] as const)
         : tab === "fanbox"
           ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, fanboxCookie] as const)
           : (["home-booru", tab, booruFeed, searchWord, safeModeBySite[tab], boardDate] as const);
@@ -850,7 +858,7 @@ export function Home() {
             tab === "pixiv" && hideAi
               ? "已过滤 AI 作画。关闭右上角「过滤 AI」可显示。"
               : isBooru(tab) && safeMode
-                ? "全年龄结果比较少。打开右上角 R-18 可以看到更多。"
+                ? "全年龄结果比较少。打开右上角 NSFW 可以看到更多。"
                 : undefined
           }
         />

@@ -44,7 +44,9 @@ export function sourceCacheKey(input: FetchInput): string | null {
     case "pixivRanking":
       return hashKey({ op: input.op, mode: input.mode, page: input.page, date: input.date ?? "", safe, hideAi, uid });
     case "pixivRecommend":
-      return hashKey({ op: input.op, safe, hideAi, uid });
+      // 发现流 = 全池原始批（R-18/AI 过滤在客户端展示层）：键不带 safe/hideAi——
+      // 旧口径（服务端过滤条目）的哈希不同，天然隔离，不会把过滤过的旧批当原始批发回去。
+      return hashKey({ op: input.op, uid });
     case "pixivFollowing":
       return hashKey({ op: input.op, page: input.page, safe, hideAi, uid });
     case "pixivMyFollowing":

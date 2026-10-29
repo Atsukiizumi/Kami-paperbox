@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { credentialTag } from "@/lib/sync/cred-tag";
+import { isAiWork } from "@/lib/pixiv-feed";
 import { fetchWorkDetail, workDetailQueryKey } from "@/lib/work-detail";
 import { Link, useNavigate, useParams } from "@/lib/kami-link";
 import { toast } from "sonner";
@@ -406,7 +407,10 @@ export function WorkPage() {
           <span className="text-xs tabular-nums text-subtle">{formatResolution(work.width, work.height)}</span>
         ) : null}
         {work.illustType === 2 || work.ugoira ? <Badge>动图 GIF</Badge> : null}
-        {work.aiType === 2 ? <Badge>AI</Badge> : null}
+        {isAiWork(work) ? <Badge>AI</Badge> : null}
+        {(work.xRestrict ?? 0) > 0 ? (
+          <Badge tone="red">{work.xRestrict === 2 ? "R-18G" : "R-18"}</Badge>
+        ) : null}
         {work.views ? <span className="text-xs tabular-nums text-subtle">浏览 {formatCount(work.views)}</span> : null}
         {work.bookmarks ? (
           <span className="text-xs tabular-nums text-subtle">收藏 {formatCount(work.bookmarks)}</span>

@@ -9,11 +9,11 @@ export function R18Switch({ source, className }: { source: Source; className?: s
   const setSafeModeFor = useSettings((s) => s.setSafeModeFor);
   return (
     <label className={cn("flex items-center gap-2 text-sm text-muted", className)}>
-      <span className={cn("font-medium", !safeMode && "text-fg")}>R-18</span>
+      <span className={cn("font-medium", !safeMode && "text-fg")}>NSFW</span>
       <Switch
         checked={!safeMode}
         onCheckedChange={(on) => setSafeModeFor(source, !on)}
-        aria-label="R-18 内容"
+        aria-label="NSFW 内容"
       />
     </label>
   );
