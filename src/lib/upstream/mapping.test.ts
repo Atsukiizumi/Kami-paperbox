@@ -30,7 +30,8 @@ const pixivItem = {
   width: 1000,
   height: 1600,
   illustType: 0,
-  aiType: 1,
+  // 实测定案（2026-10-29）：0/1=非 AI、2=AI 生成（发现流几乎全量 1；榜单接口不带该字段）。基夹具用 0=非 AI。
+  aiType: 0,
   tags: [{ tag: "夕立" }, { tag: "艦これ" }],
   createDate: "2026-01-02T03:04:05Z",
   totalBookmarks: 100,
@@ -43,7 +44,7 @@ test("mapPixivCard：常规字段与 thumb 回退链", () => {
   assert.equal(card.id, "12345");
   assert.equal(card.authorId, "777");
   assert.equal(card.pageCount, 2);
-  assert.equal(card.aiType, 1);
+  assert.equal(card.aiType, undefined, "aiType=0（非 AI）不上卡——显式 0 与缺字段同形");
   assert.equal(card.xRestrict, undefined, "全年龄作品不带 xRestrict");
   assert.deepEqual(card.tags, ["夕立", "艦これ"]);
 
@@ -72,13 +73,14 @@ test("mapIllustList：R-18 过滤、广告跳过、AI 过滤各归其位", () =>
           { ...pixivItem, id: "ad1", title: "广告" },
           { ...pixivItem, id: "222", xRestrict: 1 },
           { ...pixivItem, id: "333", aiType: 2 },
+          { ...pixivItem, id: "444", aiType: 1 },
         ],
       },
     },
   };
-  // safeMode 只管 R-18；AI 归 hideAi 管
-  assert.deepEqual(mapIllustList(feed, true, false).map((c) => c.id), ["12345", "333"]);
-  assert.deepEqual(mapIllustList(feed, true, true).map((c) => c.id), ["12345"]);
+  // safeMode 只管 R-18；AI 归 hideAi 管（只有 aiType=2 是 AI；1 是非 AI 显式值，放行）
+  assert.deepEqual(mapIllustList(feed, true, false).map((c) => c.id), ["12345", "333", "444"]);
+  assert.deepEqual(mapIllustList(feed, true, true).map((c) => c.id), ["12345", "444"]);
   assert.deepEqual(
     mapIllustList({ body: { illustManga: { data: [{ ...pixivItem, id: "222", xRestrict: 1 }] } } }, false, false).map((c) => c.id),
     ["222"],

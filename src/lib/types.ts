@@ -278,7 +278,7 @@ export type VaultMeta = {
   sha256?: string;
   replaced?: boolean;
   origin?: "folder" | "app";
-  /** 入匣时的 Pixiv AI 标记（aiType=2 即 AI 生成）。服务端目录一并保存，纸篓放回去还在。缺字段的旧行仍靠 tags 词表兜底。显式 0 = 确认不是 AI。 */
+  /** 入匣时的 Pixiv AI 标记（实测定案 2026-10-29：**只有 2=AI 生成**，0/1 均非 AI——1 是「非 AI」显式值；榜单等接口可缺字段，isAiWork 另有 tags 词表兜底）。服务端目录一并保存，纸篓放回去还在。显式 0 = 确认不是 AI。 */
   aiType?: number;
   /** 入匣时的成人分级（pixiv 1=R-18 2=R-18G；fanbox hasAdultContent→1）。同 aiType。显式 0 = 全年龄。 */
   xRestrict?: number;

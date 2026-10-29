@@ -858,7 +858,7 @@ export function Home() {
             tab === "pixiv" && hideAi
               ? "已过滤 AI 作画。关闭右上角「过滤 AI」可显示。"
               : isBooru(tab) && safeMode
-                ? "全年龄结果比较少。打开右上角 R-18 可以看到更多。"
+                ? "全年龄结果比较少。打开右上角 NSFW 可以看到更多。"
                 : undefined
           }
         />

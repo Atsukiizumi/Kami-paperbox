@@ -31,7 +31,7 @@ export function BrowseSection() {
       <CardContent className="space-y-4">
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium">R-18 内容（按站点）</p>
+            <p className="text-sm font-medium">NSFW 内容（按站点）</p>
             <p className="text-xs text-muted">
               逐站点控制是否显示成人向作品；浏览页右上角的开关跟随当前站点。涉及未成年人的内容始终过滤。
             </p>
