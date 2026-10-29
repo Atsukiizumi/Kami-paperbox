@@ -36,7 +36,8 @@ export async function dispatchFetch(input: FetchInput): Promise<FetchOk> {
     case "pixivSearch":
       return pixivSearch(input.word, input.page, pixiv, safe, hideAi, input.filter);
     case "pixivRecommend":
-      return pixivRecommend(pixiv, safe, hideAi);
+      // 发现流固定全池原始批（R-18/AI 过滤在客户端展示层）——safeMode/hideAi 不进上游
+      return pixivRecommend(pixiv);
     case "pixivFollowing":
       return pixivFollowing(input.page, pixiv, safe, hideAi);
     case "pixivMyFollowing":

@@ -219,16 +219,18 @@ async function loadPixivRanking(
   };
 }
 
-export async function pixivRecommend(cookie?: string, safeMode = true, hideAi = false): Promise<FetchOk> {
+export async function pixivRecommend(cookie?: string): Promise<FetchOk> {
   if (!cookie) throw new Error("需要登录 Pixiv 才能看为你推荐。");
-  const mode = safeMode ? "safe" : "all";
+  // 发现流固定拉全池原始批（mode 只有 all）：R-18 / AI 过滤由客户端在展示层原地筛
+  // （passPixivDisplayFilters）——切开关不换内容、不吃另一档的旧快照。上游按账号
+  // 显示设置可能本来就不含 R-18，那是账号侧的事，与本地开关无关。
   const json = await upstreamJson(
-    `https://www.pixiv.net/ajax/discovery/artworks?mode=${mode}&limit=60&lang=zh`,
+    `https://www.pixiv.net/ajax/discovery/artworks?mode=all&limit=60&lang=zh`,
     { cookie, origin: "pixiv" },
   );
   const root = asRecord(json);
   if (root.error) throw new Error(asString(root.message, "推荐加载失败，请确认 Cookie 仍然有效"));
-  return { op: "pixivRecommend", items: mapIllustList(json, safeMode, hideAi), nextPage: null };
+  return { op: "pixivRecommend", items: mapIllustList(json, false, false), nextPage: null };
 }
 
 export async function pixivFollowing(

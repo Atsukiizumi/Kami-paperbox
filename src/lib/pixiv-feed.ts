@@ -63,9 +63,29 @@ export function pixivAiType(raw: Record<string, unknown>): number {
   return 0;
 }
 
+/** Pixiv aiType 实测定案（2026-10-28/29 三方对照）：**2=AI 生成，0/1=非 AI**（1 是
+ * 「非 AI」的显式值，发现流几乎全量返回 1；榜单等接口干脆不带该字段）。
+ * 对照记录：全 AI 画师（users/123191274）41/41=2；发现流 59/60=1 且经用户肉眼
+ * 确认是手绘；「AI生成」标签搜索全量=1 是被账号 AI 显示设置过滤后的幸存者，
+ * 不能当 AI 样本。曾误判 1=AI 又回滚，勿再翻案。 */
 export function isAiWork(work: { aiType?: number; tags?: readonly string[] }): boolean {
   if (work.aiType === 2) return true;
   return (work.tags ?? []).some((t) => PIXIV_AI_TAGS.has(t.trim().toLowerCase()));
+}
+
+/**
+ * 展示层过滤（发现流「原始批」专用）：R-18 档与 AI 档各自独立原地筛。
+ * 发现流固定拉全池原始批（服务端不再按开关过滤），切开关 = 同一批内容原地增减，
+ * 不换批、不吃另一档的旧缓存快照。对服务端已过滤的流（榜单/搜索等）是幂等 no-op。
+ */
+export function passPixivDisplayFilters(
+  work: { xRestrict?: number; aiType?: number; tags?: readonly string[] },
+  safeMode: boolean,
+  hideAi: boolean,
+): boolean {
+  if (safeMode && (work.xRestrict ?? 0) > 0) return false;
+  if (hideAi && isAiWork(work)) return false;
+  return true;
 }
 
 

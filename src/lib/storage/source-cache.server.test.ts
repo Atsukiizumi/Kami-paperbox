@@ -42,6 +42,12 @@ test("recommend, following and FANBOX cache by account id", () => {
   assert.ok(recA);
   assert.equal(recA, recB);
   assert.notEqual(recA, recOther);
+  // 发现流 = 全池原始批（R-18/AI 过滤在客户端展示层）：键不随两档变——
+  // 切开关不换缓存槽，也不会命中旧口径（服务端过滤）的条目。
+  assert.equal(
+    sourceCacheKey({ op: "pixivRecommend", pixivCookie: "11111111_aaaaaaaa", safeMode: true, hideAi: true }),
+    sourceCacheKey({ op: "pixivRecommend", pixivCookie: "11111111_aaaaaaaa", safeMode: false, hideAi: false }),
+  );
   assert.ok(sourceCacheKey({ op: "pixivFollowing", page: 1, pixivCookie: "11111111_aaaaaaaa" }));
   assert.ok(sourceCacheKey({ op: "fanboxHome", fanboxCookie: "11111111_aaaaaaaa" }));
   assert.ok(sourceCacheKey({ op: "fanboxSupporting", fanboxCookie: "11111111_aaaaaaaa" }));
