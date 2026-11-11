@@ -38,6 +38,7 @@ test("kami_x 的 Set-Cookie 头与现有三枚同形态（HttpOnly / SameSite=La
     kamiSessionSetCookieHeader(x),
     `kami_x=${encodeURIComponent(X_OK)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`,
   );
+  assert.match(kamiSessionSetCookieHeader(x, true), /; Secure; Max-Age=2592000$/);
 });
 
 test("不带 x 的会话写入（pixiv 登录等场景）也产出 kami_x 条目，值为空即焚", () => {

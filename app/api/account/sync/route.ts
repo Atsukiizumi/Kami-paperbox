@@ -106,6 +106,10 @@ export const POST = withDataPlane(async (request: Request) => {
   await ensureDbReady();
   try {
     const userId = await requireUserId();
+    const declared = request.headers.get("content-length");
+    if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_PAYLOAD_BYTES)) {
+      return json({ error: "payload too large" }, 413);
+    }
     const raw = await request.text();
     if (!raw || raw.length > MAX_PAYLOAD_BYTES) return json({ error: "payload too large" }, 413);
     let body: Record<string, unknown>;

@@ -318,7 +318,8 @@ describe("XAccountCard 测试连接", () => {
       fireEvent.click(btn());
       await until(() => Boolean(lastBody));
       assert.equal((lastBody as { op?: string }).op, "xVerify", "走 xVerify op");
-      assert.ok((lastBody as { xCookie?: string }).xCookie?.includes("auth_token"), "带当前凭据");
+      // 凭据不在请求体：服务端从 HttpOnly 镜像读（与 queue-runner/store 同款契约）
+      assert.equal((lastBody as { xCookie?: string }).xCookie, undefined, "请求体不带 X Cookie，服务端读 HttpOnly");
       // toast 无 Toaster 不落 DOM——以按钮文案复位（测试中…→测试连接）证明链路落定
       await until(() => Boolean(document.body.textContent?.includes("测试连接")));
       assert.ok(true);

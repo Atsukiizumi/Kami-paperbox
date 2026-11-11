@@ -23,9 +23,11 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # 生产依赖审计 + Dockerfile/CI 的 Node 钉扎对照上游 24 线。依赖或基础镜像落后都会红。
+      - run: pnpm run security
       - run: pnpm run typecheck
       # 覆盖率观察（§6.3#5）：同一套测试只跑一遍，c8 顺带产出 coverage-summary。
       # 仅报告、不设阈值——数值只进日志，涨跌先观察一段再决定要不要门禁。
@@ -46,6 +48,8 @@ jobs:
         with:
           context: .
           push: false
+          # 钉死的 node:24.x.y tag 若官方重建过，不 pull 会一直用 Actions 缓存里的旧层。
+          pull: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -58,7 +62,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium

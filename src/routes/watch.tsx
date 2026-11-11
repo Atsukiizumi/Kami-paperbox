@@ -109,7 +109,7 @@ export function WatchPage() {
   }, []);
 
   async function importFollowing() {
-    if (!pixivCookie) {
+    if (!useSettings.getState().pixivTag && !pixivCookie) {
       toast.error("先在设置里添加 Pixiv 账号");
       return;
     }

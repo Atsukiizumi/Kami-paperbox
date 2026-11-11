@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      # node 版本对齐 ci.yml（Node 24）；脚本只用 node 内建模块，无需 pnpm install
+      # node 版本对齐 ci.yml / Dockerfile 的钉扎；脚本只用 node 内建模块，无需 pnpm install
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: 24.22.2
       - name: 抓取上游真实响应（匿名端点 + 脱敏落盘）
         run: node scripts/fetch-upstream-fixtures.mjs
       # 凭据零入库机器闸：命中即红（人工闸 = 维护者提交前亲自复核 artifact）

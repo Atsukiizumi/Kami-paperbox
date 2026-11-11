@@ -1,7 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { credentialTag } from "@/lib/sync/cred-tag";
+import { sessionKey } from "@/lib/sync/cred-tag";
 import { useParams } from "@/lib/kami-link";
 import { ArtworkGrid, ArtworkGridSkeleton } from "@/components/artwork-card";
 import { InfiniteSentinel } from "@/components/infinite-sentinel";
@@ -30,6 +30,7 @@ import { BatchToolbar } from "@/components/batch-toolbar";
 export function UserPage() {
   const { id } = useParams<{ id: string }>();
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const pixivTag = useSettings((s) => s.pixivTag);
   // 画师页是 Pixiv 专属：安全模式取 Pixiv 自己的开关
   const safeMode = useSettings((s) => s.safeModeBySite.pixiv);
   const hideAi = useSettings((s) => s.hideAi);
@@ -46,8 +47,8 @@ export function UserPage() {
 
   // M9/TD-23 教训成规：写路径（setQueryData）与读路径共用同一个 key 实例。
   const userQueryKey = useMemo(
-    () => ["user", id, safeMode, hideAi, credentialTag(pixivCookie)],
-    [id, safeMode, hideAi, pixivCookie],
+    () => ["user", id, safeMode, hideAi, sessionKey(pixivTag, pixivCookie)],
+    [id, safeMode, hideAi, pixivTag, pixivCookie],
   );
 
   const query = useInfiniteQuery({
@@ -158,7 +159,7 @@ export function UserPage() {
             variant={profile.isFollowed ? "secondary" : "default"}
             className="mt-2"
             onClick={() => {
-              if (!pixivCookie) {
+              if (!pixivTag && !pixivCookie) {
                 toast.error("先在设置里添加 Pixiv 账号");
                 return;
               }

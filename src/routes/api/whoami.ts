@@ -1,4 +1,5 @@
 import { resolveIdentities } from "@/lib/site-identity.server";
+import { readMirroredSiteSecrets } from "@/lib/sync/session-cookies.server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -8,14 +9,7 @@ function json(data: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
-        let body: { pixiv?: unknown; fanbox?: unknown };
-        try {
-          body = (await request.json()) as { pixiv?: unknown; fanbox?: unknown };
-        } catch {
-          return json({ ok: false, error: "无效的请求" }, 400);
-        }
-        const pixiv = typeof body.pixiv === "string" ? body.pixiv : "";
-        const fanbox = typeof body.fanbox === "string" ? body.fanbox : "";
-        const profiles = await resolveIdentities({ pixiv, fanbox });
+        const secrets = readMirroredSiteSecrets(request.headers.get("cookie"));
+        const profiles = await resolveIdentities({ pixiv: secrets.pixiv, fanbox: secrets.fanbox });
         return json({ ok: true, ...profiles });
 }

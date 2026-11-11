@@ -70,7 +70,7 @@ describe("loadWork x 分支（M6）", () => {
     assert.equal(calls.length, 1, "单次请求");
     assert.equal(calls[0]?.op, "xTweet");
     assert.equal(calls[0]?.id, "2109985996532261093");
-    assert.equal(calls[0]?.xCookie, "auth_token=aaaaaaaaaaaaaaaa; ct0=bbbbbbbbbbbbbbbb", "凭据经 cookiesFromSettings(\"x\") 上车");
+    assert.equal(calls[0]?.xCookie, undefined, "请求体不带 X Cookie，服务端读 HttpOnly");
     assert.deepEqual(work, X_WORK, "r.work 透传（后续 collectWorkFiles 走 /api/media 通用路径）");
   });
 

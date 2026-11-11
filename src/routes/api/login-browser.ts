@@ -11,8 +11,8 @@
  *      （不消费凭据、不回帧、零副作用、不含 job 状态）。job 终态 token 失效：
  *      done 消费 / cancel / 下一次 start 立即清；error 终态保留 token 供发起方
  *      单次补读（readLoginJobForRelay 读到即清，60s TTL 兜底——P1 修复，403 /
- *      超时文案不再被 401 拦断成孤儿提示）。访客可 start 自己的 job 拿
- *      自己的 token（TD-20 语义不变），但抢不走别人 job 的任何东西。
+ *      超时文案不再被 401 拦断成孤儿提示）。账号开启时未登录到不了本路由；
+ *      到了这里的请求仍用 relayToken 隔离，拿不到别人 job 的凭据。
  */
 import {
   assertRelayToken,

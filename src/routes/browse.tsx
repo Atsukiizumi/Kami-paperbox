@@ -39,7 +39,7 @@ import {
   type PixivFeed,
 } from "@/lib/pixiv-feed";
 import { fetchSource } from "@/lib/source";
-import { credentialTag } from "@/lib/sync/cred-tag";
+import { sessionKey } from "@/lib/sync/cred-tag";
 import { cookiesFromSettings, useSettings, useSettingsHydrated } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { isPixivLoggedInSession, fanboxSessionFrom } from "@/lib/sync/browser-login";
@@ -67,10 +67,12 @@ export function Home() {
   const recents = useSettings((s) => s.recents);
   const addRecent = useSettings((s) => s.addRecent);
   const pixivCookie = useSettings((s) => s.pixivCookie);
+  const pixivTag = useSettings((s) => s.pixivTag);
   const accounts = useSettings((s) => s.accounts);
   const activeAccountId = useSettings((s) => s.activeAccountId);
   const setSafeModeFor = useSettings((s) => s.setSafeModeFor);
   const fanboxCookie = useSettings((s) => fanboxSessionFrom(s.fanboxCookie, s.pixivCookie));
+  const fanboxTag = useSettings((s) => s.fanboxTag);
   // 每站点 R-18：UI 层取当前站点的开关；react-query 键各用各站的值，
   // 避免 tab 切换把 pixiv/fanbox 的缓存键搅在一起。
   const safeModeBySite = useSettings((s) => s.safeModeBySite);
@@ -125,9 +127,10 @@ export function Home() {
 
   const pathname = usePathname();
   const router = useRouter();
-  const loggedIn = isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
+  const loggedIn = Boolean(pixivTag) || isPixivLoggedInSession(pixivCookie) || Boolean(accounts.find((a) => a.id === activeAccountId)?.pixivProfile?.id);
   const feed: PixivFeed = feedPick ?? (loggedIn ? "recommend" : "daily");
-  const fanboxFeed: FanboxFeed = fanboxPick ?? (fanboxCookie ? "home" : "creator");
+  const fanboxOn = Boolean(fanboxTag || fanboxCookie);
+  const fanboxFeed: FanboxFeed = fanboxPick ?? (fanboxOn ? "home" : "creator");
   useEffect(() => {
     if (loggedIn && (feed === "daily" || feed === "recommend")) {
       setFeed("recommend");
@@ -154,14 +157,14 @@ export function Home() {
   }, [pathname, router, setTab]);
 
   useEffect(() => {
-    if (fanboxCookie && fanboxFeed === "creator" && creatorId === "official") {
+    if (fanboxOn && fanboxFeed === "creator" && creatorId === "official") {
       setFanboxFeed("home");
     }
-    if (!fanboxCookie && (fanboxFeed === "home" || fanboxFeed === "supporting")) {
+    if (!fanboxOn && (fanboxFeed === "home" || fanboxFeed === "supporting")) {
       setFanboxFeed("creator");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上：cookie 变化时一次性纠正 fanboxFeed
-  }, [fanboxCookie]);
+  }, [fanboxOn]);
 
   function sourceCreds(source: Source) {
     const creds = cookiesFromSettings(source);
@@ -173,7 +176,7 @@ export function Home() {
   const recommendFilterKeys = feed === "recommend" ? (["raw", "raw"] as const) : ([safeModeBySite.pixiv, hideAi] as const);
 
   const pixivQuery = useInfiniteQuery({
-    queryKey: ["home-pixiv", feed, searchWord, searchFilter, ...recommendFilterKeys, credentialTag(pixivCookie), boardDate],
+    queryKey: ["home-pixiv", feed, searchWord, searchFilter, ...recommendFilterKeys, sessionKey(pixivTag, pixivCookie), boardDate],
     enabled: settingsReady && tab === "pixiv",
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -211,7 +214,7 @@ export function Home() {
   });
 
   const fanboxQuery = useInfiniteQuery({
-    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, credentialTag(fanboxCookie)],
+    queryKey: ["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, sessionKey(fanboxTag, fanboxCookie)],
     enabled: settingsReady && tab === "fanbox",
     initialPageParam: (searchWord ? 1 : undefined) as number | FanboxCursor | undefined,
     queryFn: async ({ pageParam }) => {
@@ -521,9 +524,9 @@ export function Home() {
     setListPage(1);
     const key =
       tab === "pixiv"
-        ? (["home-pixiv", feed, searchWord, searchFilter, ...(feed === "recommend" ? (["raw", "raw"] as const) : ([safeModeBySite.pixiv, hideAi] as const)), pixivCookie, boardDate] as const)
+        ? (["home-pixiv", feed, searchWord, searchFilter, ...(feed === "recommend" ? (["raw", "raw"] as const) : ([safeModeBySite.pixiv, hideAi] as const)), sessionKey(pixivTag, pixivCookie), boardDate] as const)
         : tab === "fanbox"
-          ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, fanboxCookie] as const)
+          ? (["home-fanbox", fanboxFeed, creatorId, searchWord, safeModeBySite.fanbox, sessionKey(fanboxTag, fanboxCookie)] as const)
           : (["home-booru", tab, booruFeed, searchWord, safeModeBySite[tab], boardDate] as const);
     queryClient.setQueryData(key, (old: InfiniteData<FetchOk> | undefined) => {
       if (!old?.pages?.length) return old;
@@ -752,7 +755,7 @@ export function Home() {
             value={!searchWord ? fanboxFeed : ""}
             onValueChange={(v) => {
               if (!v) return;
-              if (v !== "creator" && !fanboxCookie) {
+              if (v !== "creator" && !fanboxOn) {
                 toast.error("先在设置里添加 FANBOX 账号");
                 return;
               }

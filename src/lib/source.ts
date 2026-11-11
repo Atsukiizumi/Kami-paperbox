@@ -209,10 +209,10 @@ export const mutateSource = async ({ data }: { data: SocialInput }): Promise<Soc
 };
 
 /** 登录后预拉 CSRF，点红心时只打 like，不再先扒首页。 */
-export function warmPixivCsrf(pixivCookie?: string) {
-  const cookie = pixivCookie?.trim();
-  if (!cookie) return;
-  void mutateSource({ data: { op: "pixivWarm", pixivCookie: cookie } }).catch(() => undefined);
+/** 登录后预拉 CSRF。凭据在 HttpOnly cookie 里，请求体不再带原文。 */
+export function warmPixivCsrf(active = true) {
+  if (!active) return;
+  void mutateSource({ data: { op: "pixivWarm" } }).catch(() => undefined);
 }
 
 export const sessionSchema = z.object({
@@ -223,20 +223,36 @@ export const sessionSchema = z.object({
   x: z.string().max(8192).optional(),
   danbooruLogin: z.string().max(120).optional(),
   danbooruApiKey: z.string().max(200).optional(),
+  accountId: z.string().max(80).optional(),
+  action: z.enum(["save", "switch", "drop"]).optional(),
+  /** drop 时删除的是当前账号 → 顺带清掉本浏览器的 HttpOnly 镜像。 */
+  clearMirror: z.boolean().optional(),
 });
 
-export const saveSessions = async ({ data }: { data: z.infer<typeof sessionSchema> }) => {
+export type SessionTags = {
+  pixivTag: string;
+  fanboxTag: string;
+  xTag: string;
+  danbooruTag: string;
+};
+
+export const saveSessions = async ({ data }: { data: z.infer<typeof sessionSchema> }): Promise<SessionTags> => {
   const res = await fetch("/api/sessions", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(data),
     credentials: "same-origin",
   });
-  const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  const body = (await res.json().catch(() => null)) as (SessionTags & { ok?: boolean; error?: string }) | null;
   if (!res.ok) {
     throw new Error(body?.error || `会话写入失败（${res.status}）`);
   }
-  return { ok: true as const };
+  return {
+    pixivTag: body?.pixivTag ?? "",
+    fanboxTag: body?.fanboxTag ?? "",
+    xTag: body?.xTag ?? "",
+    danbooruTag: body?.danbooruTag ?? "",
+  };
 };
 
 export type { FanboxCursor };

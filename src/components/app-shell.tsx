@@ -207,7 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (!queueReady || !settingsReady) return;
       void useSettings.getState().syncSessions().catch(() => undefined);
       void useVaultIndex.getState().refresh().catch(() => undefined);
-      warmPixivCsrf(useSettings.getState().pixivCookie);
+      warmPixivCsrf(Boolean(useSettings.getState().pixivTag || useSettings.getState().pixivCookie));
       resumeQueue();
       void warnFolderIfBroken(() => navigate({ to: "/settings", hash: "storage" }));
     };

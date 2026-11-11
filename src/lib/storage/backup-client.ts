@@ -35,10 +35,11 @@ import { parseAuthorHistory, parseHistoryItems, useViewHistory } from "../view-h
  * lastBackupAt 只留本机（备份提醒不跨设备）。
  */
 export const SNAPSHOT_SETTINGS_FIELDS = [
-  "pixivCookie",
-  "fanboxCookie",
+  "pixivTag",
+  "fanboxTag",
+  "xTag",
+  "danbooruTag",
   "danbooruLogin",
-  "danbooruApiKey",
   "safeModeBySite",
   "hideAi",
   "downloadOriginal",
@@ -63,8 +64,7 @@ export const SNAPSHOT_SETTINGS_FIELDS = [
   "watchTags",
   // 手工合集（v15）：结构性列表同款陷阱位——漏采则推不进同步段，拉取还清空本地
   "collections",
-  // X 账号关联（v16）：xCookie / xAssociations / xGraphQLQueryIds 同款陷阱位
-  "xCookie",
+  // X 账号关联。xCookie 原文不再进同步段，只留服务端。
   "xAssociations",
   "xGraphQLQueryIds",
   "accounts",
@@ -86,8 +86,11 @@ export const SNAPSHOT_SETTINGS_FIELDS = [
 
 /** 设置段采集：按白名单键清单从 store 取值再过 parseBackupSettings 清洗。导出仅供测试断言字段齐全。 */
 export function snapshotSettings(): BackupSettings {
-  const s = useSettings.getState() as unknown as Record<string, unknown>;
-  return parseBackupSettings(Object.fromEntries(SNAPSHOT_SETTINGS_FIELDS.map((k) => [k, s[k]])));
+  const s = useSettings.getState();
+  const raw: Record<string, unknown> = {};
+  for (const key of SNAPSHOT_SETTINGS_FIELDS) raw[key] = s[key];
+  raw.accounts = s.accounts.map((account) => ({ ...account, pixivCookie: "", fanboxCookie: "", xCookie: "" }));
+  return parseBackupSettings(raw);
 }
 
 async function readProxyUrl(): Promise<string> {

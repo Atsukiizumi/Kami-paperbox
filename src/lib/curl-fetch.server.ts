@@ -11,10 +11,11 @@
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { lookup as dnsLookup } from "node:dns";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { Agent, ProxyAgent, fetch as undiciFetch } from "undici";
 import { getActiveProxy } from "./proxy.server.ts";
 import { getLogger } from "./log.server.ts";
 import { recordUpstreamHit } from "./upstream/health.server.ts";
@@ -39,6 +40,8 @@ export type CurlInit = {
   form?: CurlFormField[];
   timeout?: number;
   proxy?: string | null;
+  /** 已核实的地址。curl --resolve 钉死主机，不再二次解析。 */
+  pin?: string[];
 };
 
 export type CurlResult = {
@@ -94,6 +97,12 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
     args.push("--data-binary", "@-");
   }
 
+  if (init.pin?.length) {
+    const target = new URL(url);
+    const port = target.port || (target.protocol === "https:" ? "443" : "80");
+    for (const address of init.pin) args.push("--resolve", `${target.hostname}:${port}:${address}`);
+  }
+
   args.push(url);
 
   try {
@@ -140,9 +149,10 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
 export async function curlFetch(
   url: string,
   headers: Record<string, string>,
+  pin?: string[],
 ): Promise<{ status: number; contentType: string; body: Buffer }> {
   return recordOutbound(url, undefined, async () => {
-    const res = await curlRequest(url, { headers });
+    const res = await curlRequest(url, { headers, pin });
     return { status: res.status, contentType: res.contentType, body: res.body };
   });
 }
@@ -286,11 +296,46 @@ async function proxyPoolFetch(url: string, init: RequestInit, proxy: string): Pr
 // 45s AbortSignal（代理路径 undici 池已是 45s，curl --max-time 40，量级一致）。
 const OUTBOUND_TIMEOUT_MS = 45_000;
 
-export async function outboundFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  return recordOutbound(url, init.signal, () => outboundFetchAttempt(url, init));
+export type OutboundPin = { pin?: string[] };
+
+const pinAgents = new Map<string, { agent: Agent; at: number }>();
+const PIN_AGENT_TTL_MS = 5 * 60_000;
+
+function agentPinnedTo(host: string, addresses: string[]): Agent {
+  const key = `${host}\n${addresses.join(",")}`;
+  const now = Date.now();
+  const hit = pinAgents.get(key);
+  if (hit && now - hit.at < PIN_AGENT_TTL_MS) return hit.agent;
+  if (hit) void hit.agent.close();
+  const agent = new Agent({
+    connect: {
+      timeout: 15_000,
+      lookup(hostname, options, callback) {
+        if (hostname !== host) {
+          dnsLookup(hostname, options, callback);
+          return;
+        }
+        const mapped = addresses.map((address) => ({ address, family: address.includes(":") ? 6 : 4 }));
+        if (options.all) {
+          callback(null, mapped);
+          return;
+        }
+        const first = mapped[0];
+        callback(null, first?.address ?? hostname, first?.family ?? 4);
+      },
+    },
+    headersTimeout: 45_000,
+    bodyTimeout: 45_000,
+  });
+  pinAgents.set(key, { agent, at: now });
+  return agent;
 }
 
-async function outboundFetchAttempt(url: string, init: RequestInit): Promise<Response> {
+export async function outboundFetch(url: string, init: RequestInit = {}, extras: OutboundPin = {}): Promise<Response> {
+  return recordOutbound(url, init.signal, () => outboundFetchAttempt(url, init, extras.pin));
+}
+
+async function outboundFetchAttempt(url: string, init: RequestInit, pin?: string[]): Promise<Response> {
   const signal = init.signal ?? AbortSignal.timeout(OUTBOUND_TIMEOUT_MS);
   const resolved: RequestInit = { ...init, signal };
   if (signal.aborted) {
@@ -298,7 +343,13 @@ async function outboundFetchAttempt(url: string, init: RequestInit): Promise<Res
   }
   const proxy = getActiveProxy();
   if (!proxy) {
-    return fetch(url, resolved);
+    if (!pin?.length) return fetch(url, resolved);
+    const host = new URL(url).hostname;
+    const res = await undiciFetch(url, {
+      ...resolved,
+      dispatcher: agentPinnedTo(host, pin),
+    } as Parameters<typeof undiciFetch>[1]);
+    return res as unknown as Response;
   }
   // 带文件的表单不走连接池。undici 过代理时常把文件部分丢掉，
   // SauceNAO 就会回 “You need an Image!”，其实图根本没到。

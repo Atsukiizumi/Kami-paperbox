@@ -173,7 +173,7 @@ const defaultNow = () => Date.now();
 
 const GUARD_TTL_MS = 5 * 60_000;
 const GUARD_CACHE_MAX = 512;
-const resolutionCache = new Map<string, { verdict: boolean; at: number }>();
+const resolutionCache = new Map<string, { verdict: boolean; addresses: string[]; at: number }>();
 let resolveHost = defaultResolve;
 let nowMs = defaultNow;
 
@@ -194,24 +194,32 @@ export function setHostGuardInternalsForTests(
  * 可用性风险大于残余安全风险。成败结果一并缓存（5min TTL）：媒体请求热，
  * 不能每图一次 DNS。缓存的残余风险：域名在 TTL 窗口内从公网解析摆到私网
  * （rebinding 类攻击）最多有 5 分钟盲区——白名单域为图站自营域，常规解析
- * 不会摆到私网，盲区可接受。另注意 guard 通过 ≠ 连接安全：本函数与
- * outboundFetch 各自解析 DNS，存在解析后、连接前的 TOCTOU 窗口；彻底闭合
- * 需把解析结果钉进连接（自定义 undici dispatcher），白名单扩大到非自营域
- * 时应一并做。
+ * 不会摆到私网，盲区可接受。通过且拿到公网地址时，调用方必须用 pin
+ * 去连接，不再对同一主机做第二次解析。解析失败（fail-open）或只有
+ * fake-ip 时 pin 为空，连接仍走系统解析。
  */
-export async function assertHostResolvesPublicly(host: string): Promise<boolean> {
+export async function resolveMediaHost(host: string): Promise<{ ok: boolean; pin: string[] }> {
   const cached = resolutionCache.get(host);
   const now = nowMs();
-  if (cached && now - cached.at < GUARD_TTL_MS) return cached.verdict;
+  if (cached && now - cached.at < GUARD_TTL_MS) {
+    return { ok: cached.verdict, pin: cached.verdict ? cached.addresses : [] };
+  }
   let verdict = true;
+  let addresses: string[] = [];
   try {
     const results = await resolveHost(host);
-    // fake-ip 段（代理托管解析）不算私网：本机答案不代表连接目标
+    // fake-ip 段（代理托管解析）不算私网：本机答案不代表连接目标，也不拿来钉连接
     verdict = !results.some((r) => isPrivateAddress(r.address) && !isFakeIpResolution(r.address));
+    if (verdict) addresses = results.map((r) => r.address).filter((address) => !isFakeIpResolution(address));
   } catch {
     verdict = true; // fail-open，理由见函数头
+    addresses = [];
   }
   if (resolutionCache.size >= GUARD_CACHE_MAX) resolutionCache.clear();
-  resolutionCache.set(host, { verdict, at: now });
-  return verdict;
+  resolutionCache.set(host, { verdict, addresses, at: now });
+  return { ok: verdict, pin: verdict ? addresses : [] };
+}
+
+export async function assertHostResolvesPublicly(host: string): Promise<boolean> {
+  return (await resolveMediaHost(host)).ok;
 }
