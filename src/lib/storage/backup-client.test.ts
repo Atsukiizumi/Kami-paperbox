@@ -273,7 +273,7 @@ test("采集白名单带上 X 三段（xCookie/xAssociations/xGraphQLQueryIds �
   try {
     useSettings.setState({ xCookie: X_OK, xAssociations: X_ASSOCS_A, xGraphQLQueryIds: X_QUERY_IDS_A });
     const snap = snapshotSettings();
-    assert.equal(snap.xCookie, X_OK, "xCookie 必须进设置段");
+    assert.equal(snap.xCookie, "", "xCookie 原文不进设置段");
     assert.deepEqual(snap.xAssociations, X_ASSOCS_A, "xAssociations 必须进设置段");
     assert.deepEqual(snap.xGraphQLQueryIds, X_QUERY_IDS_A, "xGraphQLQueryIds 必须进设置段");
   } finally {
@@ -341,7 +341,7 @@ test("拉取显式空 X 段（用户真清空）照常应用", async () => {
 });
 
 test("三处字段清单交叉断言：X 三段在册，采集清单 ⊆ persist ∩ 备份（三处接线回归锁）", () => {
-  for (const field of ["xCookie", "xAssociations", "xGraphQLQueryIds"] as const) {
+  for (const field of ["xTag", "xAssociations", "xGraphQLQueryIds"] as const) {
     assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `store persist 白名单缺 ${field}`);
     assert.ok(BACKUP_SETTINGS_FIELDS.includes(field), `备份字段清单缺 ${field}`);
     assert.ok(SNAPSHOT_SETTINGS_FIELDS.includes(field), `采集白名单缺 ${field}`);

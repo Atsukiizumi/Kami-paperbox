@@ -65,7 +65,7 @@ export function WorkPage() {
   );
 
   useEffect(() => {
-    if (src === "pixiv") warmPixivCsrf(pixivCookie);
+    if (src === "pixiv") warmPixivCsrf(Boolean(useSettings.getState().pixivTag || pixivCookie));
   }, [src, pixivCookie]);
 
   const query = useQuery({
@@ -195,11 +195,11 @@ export function WorkPage() {
       if (detail.liked) toast.success("已经点过红心");
       return;
     }
-    if (src === "pixiv" && !pixivCookie) {
+    if (src === "pixiv" && !useSettings.getState().pixivTag && !pixivCookie) {
       toast.error("先在设置里添加 Pixiv 账号");
       return;
     }
-    if (src === "fanbox" && !fanboxCookie) {
+    if (src === "fanbox" && !useSettings.getState().fanboxTag && !fanboxCookie) {
       toast.error("先在设置里添加 FANBOX 账号");
       return;
     }
@@ -231,7 +231,7 @@ export function WorkPage() {
 
   async function doBookmark(detail: WorkDetail) {
     if (src !== "pixiv") return;
-    if (!pixivCookie) {
+    if (!useSettings.getState().pixivTag && !pixivCookie) {
       toast.error("先在设置里添加 Pixiv 账号");
       return;
     }
@@ -261,7 +261,7 @@ export function WorkPage() {
   async function doFollow(detail: WorkDetail) {
     try {
       if (src === "pixiv") {
-        if (!pixivCookie) {
+        if (!useSettings.getState().pixivTag && !pixivCookie) {
           toast.error("先在设置里添加 Pixiv 账号");
           return;
         }
@@ -272,7 +272,7 @@ export function WorkPage() {
         patchWork({ followed: on });
         toast.success(on ? `已关注 ${detail.author}` : "已取消关注");
       } else if (src === "fanbox") {
-        if (!fanboxCookie) {
+        if (!useSettings.getState().fanboxTag && !fanboxCookie) {
           toast.error("先在设置里添加 FANBOX 账号");
           return;
         }

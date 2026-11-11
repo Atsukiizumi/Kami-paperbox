@@ -703,11 +703,10 @@ test("cookiesFromSettings：X 凭据只在 x 数据源请求里带，Cookie 走 
       xGraphQLQueryIds: { userByScreenName: "NewId_1", userMedia: "" },
     } as Partial<typeof before>);
     const x = cookiesFromSettings("x");
-    assert.equal(x.xCookie, X_OK, "请求只带 sanitize 后的两字段形态");
+    assert.equal("xCookie" in x, false, "请求体不再带 X Cookie 原文");
     assert.deepEqual(x.xQueryIds, { userByScreenName: "NewId_1" }, "空覆盖撤掉、好覆盖带上");
     assert.equal(x.safeMode, before.safeModeBySite.x, "safeMode 取 x 自己的开关");
     const pixiv = cookiesFromSettings("pixiv");
-    assert.equal(pixiv.xCookie, undefined, "其他数据源不带 X Cookie");
     assert.equal(pixiv.xQueryIds, undefined);
   } finally {
     useSettings.setState({ xCookie: before.xCookie, xGraphQLQueryIds: before.xGraphQLQueryIds });
@@ -717,9 +716,10 @@ test("cookiesFromSettings：X 凭据只在 x 数据源请求里带，Cookie 走 
 test("partialize 白名单键清单与实际输出一致，X 三段在册（结构性漏采回归锁）", () => {
   const keys = Object.keys(partializeSettings(useSettings.getState())).sort();
   assert.deepEqual(keys, [...SETTINGS_PERSIST_FIELDS].sort(), "手抄清单与 partialize 输出不得漂移");
-  for (const field of ["xCookie", "xAssociations", "xGraphQLQueryIds"]) {
+  for (const field of ["xTag", "xAssociations", "xGraphQLQueryIds"]) {
     assert.ok(SETTINGS_PERSIST_FIELDS.includes(field), `${field} 必须持久化`);
   }
+  assert.equal(SETTINGS_PERSIST_FIELDS.includes("xCookie"), false, "X Cookie 原文不进 localStorage");
 });
 
 test("persist v19→v20：shell.custom 缺省无感；setShellCustom 深合并钳制并切到 custom 形态", () => {

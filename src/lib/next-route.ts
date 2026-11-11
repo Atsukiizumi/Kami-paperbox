@@ -18,6 +18,8 @@ import { runWithRequest } from "./request-context.ts";
 import { runWithRequestId } from "./request-context.server.ts";
 import { CrossSiteRequestError } from "./auth/isolation.server.ts";
 import { UnauthorizedError } from "./auth/verify.server.ts";
+import { allowGuest } from "./guest-rate.ts";
+import { BodyTooLargeError, bodySizeVerdict, capRequestBody } from "./http-body.ts";
 
 /** 8 字符足够一天内的请求量级对账，撞上时看时间戳也能区分。 */
 function shortRequestId(): string {
@@ -30,9 +32,11 @@ export function withRequest<T>(fn: (request: Request) => T): (request: Request) 
 
 export type DataPlaneGuest = boolean | "read";
 
+export type GuestRate = { bucket: string; limit: number };
+
 export function withDataPlane(
   fn: (request: Request) => Response | Promise<Response>,
-  opts: { guest?: DataPlaneGuest } = {},
+  opts: { guest?: DataPlaneGuest; guestRate?: GuestRate } = {},
 ): (request: Request) => Promise<Response> {
   return withRequest(async (request: Request): Promise<Response> => {
     const requestId = shortRequestId();
@@ -40,10 +44,37 @@ export function withDataPlane(
     // 400/502 都经过这里，避免逐个构造点贴头。
     const res = await runWithRequestId(requestId, async (): Promise<Response> => {
       try {
+        const size = bodySizeVerdict(request.method, request.headers.get("content-length"));
+        if (size !== "ok") {
+          return Response.json(
+            { error: size === "too-large" ? "请求体太大" : "无效的请求" },
+            { status: size === "too-large" ? 413 : 400, headers: { "cache-control": "no-store" } },
+          );
+        }
         const { requireDataPlaneAccess } = await import("./auth/data-plane.server");
         const guestOk = opts.guest === true || (opts.guest === "read" && request.method === "GET");
         await requireDataPlaneAccess(request, { guest: guestOk });
-        return await fn(request);
+        if (opts.guestRate) {
+          const { authConfigured, getSessionUser } = await import("./auth/verify.server");
+          if (authConfigured && !(await getSessionUser()) && !allowGuest(opts.guestRate.bucket, opts.guestRate.limit)) {
+            return Response.json(
+              { error: "请求太频繁" },
+              { status: 429, headers: { "cache-control": "no-store", "retry-after": "60" } },
+            );
+          }
+        }
+        const limited = capRequestBody(request);
+        try {
+          return await fn(limited);
+        } catch (err) {
+          if (err instanceof BodyTooLargeError) {
+            return Response.json(
+              { error: "请求体太大" },
+              { status: 413, headers: { "cache-control": "no-store" } },
+            );
+          }
+          throw err;
+        }
       } catch (err) {
         if (err instanceof UnauthorizedError) {
           return Response.json(

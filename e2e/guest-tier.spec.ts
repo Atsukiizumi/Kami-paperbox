@@ -25,11 +25,20 @@ test("访客能浏览公开内容，个人面仍需登录", async ({ page }) => 
   const rankings = await page.request.get("/api/rankings");
   expect(rankings.status()).toBe(200);
 
-  // 访客绑定链路（TD-20）：HttpOnly 镜像 cookie 对访客放行，media 的
-  // 图站凭据通道才建立得起来；login-browser/whoami 同批放行（不打上游的
-  // 只有 sessions 适合进 e2e）。
+  // 访客仍可写自己的 HttpOnly 图站 cookie（media 凭据通道）。
+  // 登录中转和以图搜图不再对未登录开放。
   const sessions = await page.request.post("/api/sessions", { data: {} });
   expect(sessions.status()).toBe(200);
+
+  // 会话面的服务端账号库（switch / drop）不对访客开放——只能动自己浏览器的镜像
+  const guestSwitch = await page.request.post("/api/sessions", {
+    data: { action: "switch", accountId: "default" },
+  });
+  expect(guestSwitch.status()).toBe(403);
+  const guestDrop = await page.request.post("/api/sessions", {
+    data: { action: "drop", accountId: "default" },
+  });
+  expect(guestDrop.status()).toBe(403);
 
   // 个人面：纸匣写仍要会话
   const vault = await page.request.put("/api/vault");

@@ -7,7 +7,7 @@
 # Kami 纸匣 — Next.js standalone（node:24 = Active LTS，CI setup-node 同步）
 # docker compose up --build
 
-FROM node:24.22.1-bookworm-slim AS build
+FROM node:24.22.2-bookworm-slim AS build
 WORKDIR /app
 
 # 锁文件只有 pnpm-lock.yaml（TD-06 统一包管理）；corepack 按 packageManager 字段选版本
@@ -31,12 +31,15 @@ ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build
 
-FROM node:24.22.1-bookworm-slim AS runner
+FROM node:24.22.2-bookworm-slim AS runner
 ARG KAMI_VERSION=dev
 ENV KAMI_VERSION=${KAMI_VERSION}
 WORKDIR /app
 
+# upgrade：基础镜像里已有的 Debian 包（openssl 等）不会被下面的 install 带到安全更新。
+# 这一层只在 Dockerfile 变化或发版流水线跳过 runner 缓存时重跑。
 RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
   && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \

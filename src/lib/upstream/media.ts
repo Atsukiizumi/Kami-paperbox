@@ -14,10 +14,10 @@ import { getActiveProxy } from "../proxy.server.ts";
 import { isDiskCacheableMedia, readCachedMedia, sniffMediaType, writeCachedMedia } from "../storage/media-cache.server.ts";
 import { UA } from "./http.ts";
 import {
-  assertHostResolvesPublicly,
   isPrivateHostname,
   isPrivateIpLiteral,
   normalizeIpLiteral,
+  resolveMediaHost,
 } from "./media-host-guard.server.ts";
 
 /**
@@ -189,11 +189,14 @@ async function loadMediaResponse(
   const cached = mediaFromDisk(url);
   if (cached) return cached;
   // SEC-08：白名单域还要「解析后判断」——解析出私网 IP（DNS rebinding 面）
-  // 就拒。fail-open 取舍与 5min TTL 缓存见 media-host-guard.server.ts。
-  // 出站配了代理时整道闸跳过：连接经代理由代理侧解析，本机 DNS 答案
-  // （含 fake-ip 映射、DNS 污染结果）不代表连接目标，判了只会误伤。
-  if (!getActiveProxy() && !(await assertHostResolvesPublicly(url.hostname.toLowerCase()))) {
-    throw new Error("非法地址");
+  // 就拒。通过时 pin 是这次解析到的公网地址，后面的连接必须用它，避免
+  // 再解析一次时指向变了。fail-open / fake-ip 时 pin 为空，仍走系统解析。
+  // 出站配了代理时整道闸跳过：连接经代理由代理侧解析。
+  let pin: string[] = [];
+  if (!getActiveProxy()) {
+    const guard = await resolveMediaHost(url.hostname.toLowerCase());
+    if (!guard.ok) throw new Error("非法地址");
+    pin = guard.pin;
   }
   const headers: Record<string, string> = {
     "User-Agent": UA,
@@ -212,7 +215,7 @@ async function loadMediaResponse(
     const authorization = danbooruAuthHeader(cookies.danbooru?.login, cookies.danbooru?.apiKey);
     if (authorization) headers.Authorization = authorization;
     const { curlFetch } = await import("../curl-fetch.server");
-    const res = await curlFetch(url.toString(), headers);
+    const res = await curlFetch(url.toString(), headers, pin);
     if (res.status < 200 || res.status >= 300) {
       return new Response("upstream error", { status: res.status === 404 ? 404 : 502 });
     }
@@ -247,7 +250,7 @@ async function loadMediaResponse(
 
   const gated = host.endsWith("pximg.net") || host.endsWith("fanbox.cc");
   const throttle = getThrottle();
-  const pull = () => outboundFetch(url.toString(), { headers, redirect: "follow", signal });
+  const pull = () => outboundFetch(url.toString(), { headers, redirect: "follow", signal }, { pin });
   const run = () => (gated ? withMediaGate(pull, signal, throttle.mediaConcurrency) : pull());
   let res = await run();
   if (signal?.aborted) return new Response(null, { status: 204 });

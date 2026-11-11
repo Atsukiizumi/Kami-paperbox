@@ -4,8 +4,9 @@
  * 作用：锁住「syncSessions 失败必须弹固定 id 的 toast；refreshIdentities 的
  *       失败提示由 store 内部负责（本层只静默兜底不重复）；成功路径零 toast」，
  *       动作以替身注入、不触网。
- * 注意：setPixivCookie 自带一次 void syncSessions() 预调用（store 既有行为），
- *       替身按调用序计数，只让被测尾部那次拒绝。
+ * 注意：setPixivCookie 会直发一次 /api/sessions（saveSessionsWithRetry）——
+ *       fetch 一并桩成功，被测尾部的 syncSessions 才是唯一可失败点，
+ *       toast 断言唯一归因。
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -44,18 +45,20 @@ function stubActions(stubs: { refreshIdentities?: () => Promise<void>; syncSessi
 
 test("syncSessions 失败时弹固定 id 提示，登录流程仍返回 ok", async () => {
   const stub = stubToastErrors();
-  let syncCalls = 0;
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response("{}", { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
   const restoreActions = stubActions({
     refreshIdentities: async () => undefined,
     syncSessions: async () => {
-      syncCalls += 1;
-      if (syncCalls === 2) throw new Error("会话写入失败（500）"); // 第 2 次 = 被测尾部
+      throw new Error("会话写入失败（500）"); // applyLoginSession 尾部那次（唯一一次）
     },
   });
   try {
     const result = await applyLoginSession({ pixiv: PIXIV_SESSION, pixivProfile: PROFILE });
     assert.deepEqual(result, { ok: true }, "失败已提示，不再向上抛");
   } finally {
+    globalThis.fetch = fetchOriginal;
     restoreActions();
     stub.restore();
   }

@@ -14,6 +14,10 @@ export type Account = {
   fanboxCookie: string;
   /** X（Twitter）会话 Cookie（auth_token=…; ct0=…）。画师 X 预览的时间线接口用，随账号切换。 */
   xCookie: string;
+  /** 凭据指纹。原文不进 localStorage，指纹用来显示「已登录」和区分缓存。 */
+  pixivTag?: string;
+  fanboxTag?: string;
+  xTag?: string;
   pixivProfile?: SiteProfile | null;
   fanboxProfile?: SiteProfile | null;
 };
@@ -80,9 +84,9 @@ export function accountLabel(account: Account | undefined): string {
   if (pixiv) return pixiv;
   if (fanbox) return fanbox;
   const bits: string[] = [];
-  if (account.pixivCookie) bits.push("Pixiv");
-  if (account.fanboxCookie) bits.push("FANBOX");
-  if (account.xCookie) bits.push("X");
+  if (account.pixivTag || account.pixivCookie) bits.push("Pixiv");
+  if (account.fanboxTag || account.fanboxCookie) bits.push("FANBOX");
+  if (account.xTag || account.xCookie) bits.push("X");
   return bits.length ? `${account.name} · ${bits.join("/")}` : account.name;
 }
 
@@ -99,9 +103,11 @@ export function displayName(account: Account | undefined, site: "pixiv" | "fanbo
     account.pixivCookie.trim().replace(/^PHPSESSID=/i, "").replace(/;.*$/, ""),
   );
   if (site === "pixiv") {
+    if (account.pixivTag) return "已登录";
     if (!account.pixivCookie) return "未登录";
     return loggedIn ? "已登录" : "会话无效";
   }
+  if (account.fanboxTag || account.pixivTag) return "已登录";
   const fanboxOk = /^\d{1,12}_[A-Za-z0-9._-]{8,}$/.test(
     account.fanboxCookie.trim().replace(/^FANBOXSESSID=/i, "").replace(/;.*$/, ""),
   );

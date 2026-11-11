@@ -53,6 +53,64 @@ export function kamiSessionCookies(data: {
   ];
 }
 
-export function kamiSessionSetCookieHeader(cookie: KamiSessionCookie): string {
-  return `${cookie.name}=${cookie.value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${cookie.maxAge}`;
+function readNamedCookie(header: string | null, name: string): string {
+  if (!header) return "";
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0 || part.slice(0, eq).trim() !== name) continue;
+    const raw = part.slice(eq + 1).trim();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return "";
+}
+
+/** HttpOnly 镜像里的当前图站凭据。请求体里的原文不再采用。 */
+export function readMirroredSiteSecrets(header: string | null): {
+  pixiv: string;
+  fanbox: string;
+  x: string;
+  danbooruLogin: string;
+  danbooruApiKey: string;
+} {
+  let danbooruLogin = "";
+  let danbooruApiKey = "";
+  try {
+    const parsed = JSON.parse(readNamedCookie(header, "kami_danbooru") || "{}") as { login?: unknown; apiKey?: unknown };
+    danbooruLogin = typeof parsed.login === "string" ? parsed.login : "";
+    danbooruApiKey = typeof parsed.apiKey === "string" ? parsed.apiKey : "";
+  } catch {
+    /* 坏镜像当没有 */
+  }
+  return {
+    pixiv: readNamedCookie(header, "kami_pixiv"),
+    fanbox: readNamedCookie(header, "kami_fanbox"),
+    x: readNamedCookie(header, "kami_x"),
+    danbooruLogin,
+    danbooruApiKey,
+  };
+}
+
+export function applyMirroredSecrets<T extends {
+  pixivCookie?: string;
+  fanboxCookie?: string;
+  xCookie?: string;
+  danbooruLogin?: string;
+  danbooruApiKey?: string;
+}>(data: T, header: string | null): T {
+  const secrets = readMirroredSiteSecrets(header);
+  data.pixivCookie = secrets.pixiv || undefined;
+  data.fanboxCookie = secrets.fanbox || undefined;
+  data.xCookie = secrets.x || undefined;
+  data.danbooruLogin = secrets.danbooruLogin || undefined;
+  data.danbooruApiKey = secrets.danbooruApiKey || undefined;
+  return data;
+}
+
+export function kamiSessionSetCookieHeader(cookie: KamiSessionCookie, secure = false): string {
+  const secureAttr = secure ? "; Secure" : "";
+  return `${cookie.name}=${cookie.value}; Path=/; HttpOnly; SameSite=Lax${secureAttr}; Max-Age=${cookie.maxAge}`;
 }

@@ -26,7 +26,7 @@ import { useBatchSelection } from "@/components/use-batch-selection";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { credentialTag } from "@/lib/sync/cred-tag";
+import { sessionKey } from "@/lib/sync/cred-tag";
 import { fetchSource } from "@/lib/source";
 import { cookiesFromSettings, useQueue, useSettings, useSettingsHydrated } from "@/lib/store";
 import { sanitizeXCookie } from "@/lib/x-settings";
@@ -76,12 +76,13 @@ export function XPreviewPage() {
     [queueItems],
   );
 
-  const cookieReady = Boolean(sanitizeXCookie(xCookie));
-  // 键含 credentialTag（#204 教训）：换号 / 换 Cookie 不命中旧缓存。写读同键，
-  // staleTime 10 分钟、无自动轮询（R6）。
+  const xTag = useSettings((s) => s.xTag);
+  const cookieReady = Boolean(xTag || sanitizeXCookie(xCookie));
+  // 键含凭据指纹（#204 教训）：换号 / 换 Cookie 不命中旧缓存。原文清空后
+  // 只剩指纹，指纹才是有效的区分维。写读同键，staleTime 10 分钟、无自动轮询（R6）。
   const queryKey = useMemo(
-    () => xMediaQueryKey(handle, credentialTag(sanitizeXCookie(xCookie))),
-    [handle, xCookie],
+    () => xMediaQueryKey(handle, sessionKey(xTag, sanitizeXCookie(xCookie))),
+    [handle, xTag, xCookie],
   );
 
   const query = useInfiniteQuery({

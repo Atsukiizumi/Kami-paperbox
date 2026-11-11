@@ -557,8 +557,8 @@ function VaultPageInner() {
             <Button
               size="sm"
               variant="ghost"
-              disabled={!isPixivLoggedInSession(pixivCookie)}
-              title={isPixivLoggedInSession(pixivCookie) ? undefined : "先在设置里登录 Pixiv"}
+              disabled={!useSettings.getState().pixivTag && !isPixivLoggedInSession(pixivCookie)}
+              title={useSettings.getState().pixivTag || isPixivLoggedInSession(pixivCookie) ? undefined : "先在设置里登录 Pixiv"}
               onClick={() => setImportOpen((v) => !v)}
             >
               {importOpen ? "收起导入" : "导入收藏夹"}

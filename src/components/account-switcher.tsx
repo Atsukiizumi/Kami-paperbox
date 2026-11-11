@@ -138,14 +138,16 @@ function LocalAccountMenu() {
   const fanbox = siteProfile(active, "fanbox");
   const headline = pixiv?.name || fanbox?.name || active?.name || "未登录";
 
-  const pixivOk = isPixivLoggedInSession(pixivCookie);
+  const pixivTag = useSettings((s) => s.pixivTag);
+  const fanboxTag = useSettings((s) => s.fanboxTag);
+  const pixivOk = Boolean(pixivTag) || isPixivLoggedInSession(pixivCookie);
   useEffect(() => {
-    if (!pixivOk && !fanboxCookie) return;
+    if (!pixivOk && !fanboxTag && !fanboxCookie) return;
     const missing =
       (pixivOk && (!pixiv?.name || !pixiv?.avatar)) ||
-      (fanboxCookie && (!fanbox?.name || !fanbox?.avatar));
+      ((fanboxTag || fanboxCookie) && (!fanbox?.name || !fanbox?.avatar));
     if (missing) void refreshIdentities().catch(() => undefined);
-  }, [activeAccountId, pixivOk, fanboxCookie, pixiv?.name, pixiv?.avatar, fanbox?.name, fanbox?.avatar, refreshIdentities]);
+  }, [activeAccountId, pixivOk, fanboxTag, fanboxCookie, pixiv?.name, pixiv?.avatar, fanbox?.name, fanbox?.avatar, refreshIdentities]);
 
   return (
     <DropdownMenu>
@@ -159,12 +161,12 @@ function LocalAccountMenu() {
         >
           <span className="flex -space-x-2">
             {pixivOk ? <SiteAvatar profile={pixiv} size="sm" /> : <UserRound className="size-4" />}
-            {fanboxCookie ? <SiteAvatar profile={fanbox} size="sm" className="ring-2 ring-bg" /> : null}
+            {fanboxTag || fanboxCookie ? <SiteAvatar profile={fanbox} size="sm" className="ring-2 ring-bg" /> : null}
           </span>
           <span className="hidden min-w-0 flex-col items-start leading-tight sm:flex">
             <span className="max-w-28 truncate text-fg">{headline}</span>
             <span className="max-w-28 truncate text-[10px] text-subtle">
-              {pixivOk || fanboxCookie ? "已登录" : active ? "会话无效" : "未登录"}
+              {pixivOk || fanboxTag || fanboxCookie ? "已登录" : active ? "会话无效" : "未登录"}
             </span>
           </span>
         </button>

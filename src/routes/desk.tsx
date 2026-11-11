@@ -187,7 +187,8 @@ export function DeskPage() {
 
   // 模块可用性（案头级判，模块内部不再重复）：信=有追踪、纸叠=有未读、
   // 墙=Pixiv 已登录；铺纸/报纸恒可用。渲染期据此让空槽让位。
-  const pixivLoggedIn = hydrated && pixivCookie.trim() !== "";
+  const pixivTag = useSettings((s) => s.pixivTag);
+  const pixivLoggedIn = hydrated && (pixivTag !== "" || pixivCookie.trim() !== "");
   const available = useMemo<Set<DeskModuleId>>(() => {
     const set = new Set<DeskModuleId>(["browse-sheet", "newspaper"]);
     if (watchArtists.length > 0) set.add("letters");

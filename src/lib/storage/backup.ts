@@ -54,6 +54,10 @@ export const BACKUP_FORMAT_V2 = "kami-paperbox-backup-v2";
 export type BackupSettings = {
   pixivCookie: string;
   fanboxCookie: string;
+  pixivTag?: string;
+  fanboxTag?: string;
+  xTag?: string;
+  danbooruTag?: string;
   /** X（Twitter）会话 Cookie（auth_token=…; ct0=…，规范化形态）。v16 起随设置段同步。 */
   xCookie: string;
   danbooruLogin: string;
@@ -117,6 +121,10 @@ export const BACKUP_SETTINGS_FIELDS: readonly string[] = [
   "pixivCookie",
   "fanboxCookie",
   "xCookie",
+  "pixivTag",
+  "fanboxTag",
+  "xTag",
+  "danbooruTag",
   "danbooruLogin",
   "danbooruApiKey",
   "safeModeBySite",
@@ -275,6 +283,10 @@ export function parseBackupSettings(raw: unknown): BackupSettings {
   return {
     pixivCookie: cookies.pixivCookie,
     fanboxCookie: cookies.fanboxCookie,
+    pixivTag: typeof p.pixivTag === "string" ? p.pixivTag : "",
+    fanboxTag: typeof p.fanboxTag === "string" ? p.fanboxTag : "",
+    xTag: typeof p.xTag === "string" ? p.xTag : "",
+    danbooruTag: typeof p.danbooruTag === "string" ? p.danbooruTag : "",
     // v16：X 三段宽松解析（类型不对给默认值）；旧备份缺字段补 ""/{}/{}，
     // 旧远端载荷不清空本地由 backup-client 的 hasField 守卫负责
     xCookie: sanitizeXCookie(typeof p.xCookie === "string" ? p.xCookie : ""),

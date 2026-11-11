@@ -24,8 +24,9 @@ import {
 import { applyEnqueue } from "./queue-cap.ts";
 import type { SearchEngine } from "./reverse-search.ts";
 import { DEFAULT_SEARCH_ENGINE, isSearchEngine } from "./reverse-search.ts";
-import { saveSessions } from "./source.ts";
-import { parseSafeModeBySite } from "./sites.ts";
+import { saveSessions, type SessionTags } from "./source.ts";
+import { credentialTag } from "./sync/cred-tag.ts";
+import { isSource, parseSafeModeBySite } from "./sites.ts";
 import {
   type Account,
   cookiesOf,
@@ -127,6 +128,11 @@ export type SettingsState = {
   xCookie: string;
   danbooruLogin: string;
   danbooruApiKey: string;
+  /** 图站凭据指纹。原文只在服务端，这里用来判断已登录和区分缓存。 */
+  pixivTag: string;
+  fanboxTag: string;
+  xTag: string;
+  danbooruTag: string;
   /** 每站点安全模式（true = 隐藏该站 R-18）。浏览页右上角开关读写当前站点这一份。 */
   safeModeBySite: Record<Source, boolean>;
   hideAi: boolean;
@@ -308,6 +314,9 @@ export function migrateSettings(persisted: unknown, version: number) {
     // v13（每站点 R-18）：全局 safeMode 升级为 safeModeBySite。老档 safeMode
     // 广播到五站；新档已带 safeModeBySite 的缺站点同样回安全侧补默认。
     safeModeBySite: parseSafeModeBySite(p.safeModeBySite, p.safeMode !== false),
+    downloadOriginal: p.downloadOriginal !== false,
+    tab: typeof p.tab === "string" && isSource(p.tab) ? p.tab : "pixiv",
+    recents: Array.isArray(p.recents) ? p.recents.filter((item) => typeof item === "string").slice(0, 8) : [],
     queueConcurrency: clampQueueConcurrency(p.queueConcurrency),
     vaultMirrorFolder: p.vaultMirrorFolder !== false,
     downloadToFolder: p.downloadToFolder !== false,
@@ -353,10 +362,16 @@ export function migrateSettings(persisted: unknown, version: number) {
     // bump 落回 null；v12 bump 后 <12 老档 migrate 会跑，这里仍只透传合法数字。
     lastBackupAt: typeof p.lastBackupAt === "number" && Number.isFinite(p.lastBackupAt) ? p.lastBackupAt : null,
   };
+  const tags = {
+    pixivTag: typeof p.pixivTag === "string" ? p.pixivTag : "",
+    fanboxTag: typeof p.fanboxTag === "string" ? p.fanboxTag : "",
+    xTag: typeof p.xTag === "string" ? p.xTag : "",
+    danbooruTag: typeof p.danbooruTag === "string" ? p.danbooruTag : "",
+  };
   if (version >= 2 && legacy.accounts.length) {
-    return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
+    return { ...p, ...legacy, ...cookies, ...tags, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
   }
-  return { ...p, ...legacy, ...cookies, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
+  return { ...p, ...legacy, ...cookies, ...tags, searchEngine, hideAi, theme, appearance, uiStyle, ...extra };
 }
 
 /**
@@ -364,13 +379,84 @@ export function migrateSettings(persisted: unknown, version: number) {
  * 见 backup-client.ts 同款注释）。新增设置段必须三处同步：这里、storage/backup.ts
  * 的 parseBackupSettings、storage/backup-client.ts 的 SNAPSHOT_SETTINGS_FIELDS。
  */
+function taggedState(
+  s: SettingsState,
+  tags: SessionTags,
+  clear: { pixiv?: boolean; fanbox?: boolean; x?: boolean; danbooru?: boolean },
+): Pick<SettingsState, "pixivTag" | "fanboxTag" | "xTag" | "danbooruTag" | "pixivCookie" | "fanboxCookie" | "xCookie" | "danbooruApiKey" | "accounts"> {
+  return {
+    pixivTag: tags.pixivTag,
+    fanboxTag: tags.fanboxTag,
+    xTag: tags.xTag,
+    danbooruTag: tags.danbooruTag,
+    pixivCookie: clear.pixiv ? "" : s.pixivCookie,
+    fanboxCookie: clear.fanbox ? "" : s.fanboxCookie,
+    xCookie: clear.x ? "" : s.xCookie,
+    danbooruApiKey: clear.danbooru ? "" : s.danbooruApiKey,
+    accounts: s.accounts.map((a) =>
+      a.id !== s.activeAccountId
+        ? a
+        : {
+            ...a,
+            pixivTag: tags.pixivTag,
+            fanboxTag: tags.fanboxTag,
+            xTag: tags.xTag,
+            pixivCookie: clear.pixiv ? "" : a.pixivCookie,
+            fanboxCookie: clear.fanbox ? "" : a.fanboxCookie,
+            xCookie: clear.x ? "" : a.xCookie,
+          },
+    ),
+  };
+}
+
+function accountForDisk(a: Account): Account {
+  return {
+    ...a,
+    pixivCookie: "",
+    fanboxCookie: "",
+    xCookie: "",
+    pixivTag: a.pixivTag || credentialTag(a.pixivCookie),
+    fanboxTag: a.fanboxTag || credentialTag(fanboxSessionFrom(a.fanboxCookie, a.pixivCookie)),
+    xTag: a.xTag || credentialTag(sanitizeXCookie(a.xCookie)),
+  };
+}
+
+/**
+ * 会话上传失败的两轮静默重试（4s / 15s）。partialize 已不落原文——失败后
+ * 任何一次其它设置写盘 + 刷新，内存与服务端就都没有了；重试把这个窗口
+ * 收到「连续三连击都失败」才提示。
+ */
+const SESSION_SAVE_RETRY_MS: readonly number[] = [4_000, 15_000];
+
+/** 入参与 saveSessions 同形（{ data: … } 整包透传），调用点不必拆装。 */
+function saveSessionsWithRetry(payload: { data: Parameters<typeof saveSessions>[0]["data"] }): Promise<SessionTags> {
+  return new Promise((resolve, reject) => {
+    const attempt = (round: number) => {
+      saveSessions(payload).then(resolve, (err: unknown) => {
+        const wait = SESSION_SAVE_RETRY_MS[round];
+        if (wait === undefined) {
+          reject(err);
+          return;
+        }
+        setTimeout(() => attempt(round + 1), wait);
+      });
+    };
+    attempt(0);
+  });
+}
+
+/** 服务端带回明确文案（switch 404 / 存储损坏 / 访客 403）时优先展示。 */
+function sessionSyncErrorText(err: unknown): string {
+  return err instanceof Error && err.message ? err.message : "登录状态同步失败，请稍后重试";
+}
+
 export function partializeSettings(s: SettingsState) {
   return {
-    pixivCookie: s.pixivCookie,
-    fanboxCookie: s.fanboxCookie,
-    xCookie: s.xCookie,
+    pixivTag: s.pixivTag || credentialTag(s.pixivCookie),
+    fanboxTag: s.fanboxTag || credentialTag(fanboxSessionFrom(s.fanboxCookie, s.pixivCookie)),
+    xTag: s.xTag || credentialTag(sanitizeXCookie(s.xCookie)),
+    danbooruTag: s.danbooruTag || credentialTag(s.danbooruApiKey),
     danbooruLogin: s.danbooruLogin,
-    danbooruApiKey: s.danbooruApiKey,
     safeModeBySite: s.safeModeBySite,
     hideAi: s.hideAi,
     downloadOriginal: s.downloadOriginal,
@@ -394,7 +480,7 @@ export function partializeSettings(s: SettingsState) {
     collections: s.collections,
     xAssociations: s.xAssociations,
     xGraphQLQueryIds: s.xGraphQLQueryIds,
-    accounts: s.accounts,
+    accounts: s.accounts.map(accountForDisk),
     activeAccountId: s.activeAccountId,
     theme: s.theme,
     appearance: s.appearance,
@@ -415,11 +501,11 @@ export function partializeSettings(s: SettingsState) {
  * 与 backup / backup-client 侧字段清单交叉断言——三处接线缺一处就是同步事故）。
  */
 export const SETTINGS_PERSIST_FIELDS: readonly string[] = [
-  "pixivCookie",
-  "fanboxCookie",
-  "xCookie",
+  "pixivTag",
+  "fanboxTag",
+  "xTag",
+  "danbooruTag",
   "danbooruLogin",
-  "danbooruApiKey",
   "safeModeBySite",
   "hideAi",
   "downloadOriginal",
@@ -466,6 +552,10 @@ export const useSettings = create<SettingsState>()(
       xCookie: "",
       danbooruLogin: "",
       danbooruApiKey: "",
+      pixivTag: "",
+      fanboxTag: "",
+      xTag: "",
+      danbooruTag: "",
       safeModeBySite: parseSafeModeBySite(undefined),
       hideAi: false,
       downloadOriginal: true,
@@ -517,7 +607,10 @@ export const useSettings = create<SettingsState>()(
           );
           return withActiveCookies(accounts, s.activeAccountId);
         });
-        void get().syncSessions();
+        const accountId = get().activeAccountId ?? undefined;
+        void saveSessionsWithRetry({ data: { pixiv: sanitizePixivCookie(pixivCookie), accountId } })
+          .then((tags) => set((s) => taggedState(s, tags, {})))
+          .catch(() => toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID }));
       },
       setFanboxCookie: (fanboxCookie) => {
         set((s) => {
@@ -530,7 +623,11 @@ export const useSettings = create<SettingsState>()(
           );
           return withActiveCookies(accounts, s.activeAccountId);
         });
-        void get().syncSessions();
+        const accountId = get().activeAccountId ?? undefined;
+        const pixiv = sanitizePixivCookie(get().pixivCookie);
+        void saveSessionsWithRetry({ data: { fanbox: fanboxSessionFrom(fanboxCookie, pixiv), accountId } })
+          .then((tags) => set((s) => taggedState(s, tags, {})))
+          .catch(() => toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID }));
       },
       setXCookie: (xCookie) => {
         // 存原文（trim 后），清洗发生在各边界（migrate / syncSessions / 请求组装），
@@ -545,7 +642,10 @@ export const useSettings = create<SettingsState>()(
           );
           return withActiveCookies(accounts, s.activeAccountId);
         });
-        void get().syncSessions();
+        const accountId = get().activeAccountId ?? undefined;
+        void saveSessionsWithRetry({ data: { x: sanitizeXCookie(xCookie), accountId } })
+          .then((tags) => set((s) => taggedState(s, tags, {})))
+          .catch(() => toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID }));
       },
       setXGraphQLQueryIds: (v) => set({ xGraphQLQueryIds: parseXQueryIdOverrides(v) }),
       setXAssociation: (key, assoc) =>
@@ -567,8 +667,20 @@ export const useSettings = create<SettingsState>()(
           delete xAssociations[key];
           return { xAssociations };
         }),
-      setDanbooruLogin: (danbooruLogin) => set({ danbooruLogin: danbooruLogin.trim().slice(0, 120) }),
-      setDanbooruApiKey: (danbooruApiKey) => set({ danbooruApiKey: danbooruApiKey.trim().slice(0, 200) }),
+      setDanbooruLogin: (danbooruLogin) => {
+        const login = danbooruLogin.trim().slice(0, 120);
+        set({ danbooruLogin: login });
+        void saveSessionsWithRetry({ data: { danbooruLogin: login } })
+          .then((tags) => set((s) => taggedState(s, tags, {})))
+          .catch(() => toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID }));
+      },
+      setDanbooruApiKey: (danbooruApiKey) => {
+        const key = danbooruApiKey.trim().slice(0, 200);
+        set({ danbooruApiKey: key });
+        void saveSessionsWithRetry({ data: { danbooruApiKey: key } })
+          .then((tags) => set((s) => taggedState(s, tags, { danbooru: true })))
+          .catch(() => toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID }));
+      },
       setSafeModeFor: (source, v) =>
         set((s) => ({ safeModeBySite: { ...s.safeModeBySite, [source]: v } })),
       setHideAi: (hideAi) => set({ hideAi }),
@@ -901,6 +1013,7 @@ export const useSettings = create<SettingsState>()(
           ),
         })),
       removeAccount: (id) => {
+        const wasActive = get().activeAccountId === id;
         set((s) => {
           const accounts = s.accounts.filter((a) => a.id !== id);
           const activeAccountId =
@@ -908,26 +1021,69 @@ export const useSettings = create<SettingsState>()(
           return withActiveCookies(accounts, activeAccountId);
         });
         // 曾裸 void：移除账号时写会话失败无任何提示，用户以为已同步
-        void get().syncSessions().catch(() => {
-          toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
-        });
+        const removed = id;
+        void (async () => {
+          try {
+            // 删的是当前账号时带上 clearMirror：服务端连 HttpOnly 镜像一起清；
+            // 删别的账号不动镜像（镜像属于当前账号，服务端分不清归属，由客户端声明）
+            await saveSessionsWithRetry({ data: { action: "drop", accountId: removed, clearMirror: wasActive } });
+            if (!wasActive) return;
+            const next = get().activeAccountId;
+            if (next) await get().switchAccount(next);
+            else {
+              const tags = await saveSessionsWithRetry({ data: { pixiv: "", fanbox: "", x: "", accountId: "default" } });
+              set((s) => taggedState(s, tags, { pixiv: true, fanbox: true, x: true }));
+            }
+          } catch (err) {
+            toast.error(sessionSyncErrorText(err), { id: SESSION_SYNC_TOAST_ID });
+          }
+        })();
       },
       switchAccount: async (id) => {
         const s = get();
-        if (!s.accounts.some((a) => a.id === id)) return;
-        set(withActiveCookies(s.accounts, id));
-        await get().syncSessions().catch(() => {
-          toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
-        });
+        const acc = s.accounts.find((a) => a.id === id);
+        if (!acc) return;
+        if (acc.pixivCookie || acc.fanboxCookie || acc.xCookie) {
+          set(withActiveCookies(s.accounts, id));
+          await get().syncSessions().catch(() => {
+            toast.error("登录状态同步失败，请稍后重试", { id: SESSION_SYNC_TOAST_ID });
+          });
+          return;
+        }
+        try {
+          // 有指纹 = 服务端应有这份凭据，走 switch；服务端没有会 404 并提示
+          // 重新登录（不再用空凭据把当前登录盖掉）。无指纹的空账号（新建
+          // 即切换）等价于明确清空。
+          const hadCreds = Boolean(acc.pixivTag || acc.fanboxTag || acc.xTag);
+          const tags = hadCreds
+            ? await saveSessionsWithRetry({ data: { action: "switch", accountId: id } })
+            : await saveSessionsWithRetry({ data: { pixiv: "", fanbox: "", x: "", accountId: id } });
+          set((state) => ({
+            ...taggedState(state, tags, { pixiv: true, fanbox: true, x: true }),
+            activeAccountId: id,
+          }));
+        } catch (err) {
+          toast.error(sessionSyncErrorText(err), { id: SESSION_SYNC_TOAST_ID });
+        }
       },
       syncSessions: async () => {
-        const { pixivCookie, fanboxCookie, xCookie, danbooruLogin, danbooruApiKey } = get();
-        const pixiv = sanitizePixivCookie(pixivCookie);
-        const fanbox = fanboxSessionFrom(fanboxCookie, pixiv);
-        const x = sanitizeXCookie(xCookie);
-        await saveSessions({
-          data: { pixiv, fanbox, x, danbooruLogin, danbooruApiKey },
+        const s = get();
+        const pixiv = sanitizePixivCookie(s.pixivCookie);
+        const fanbox = fanboxSessionFrom(s.fanboxCookie, pixiv);
+        const x = sanitizeXCookie(s.xCookie);
+        if (!pixiv && !fanbox && !x && !s.danbooruApiKey && !s.danbooruLogin) return;
+        const tags = await saveSessions({
+          data: {
+            ...(s.activeAccountId ? { accountId: s.activeAccountId } : {}),
+            ...(pixiv ? { pixiv } : {}),
+            ...(fanbox ? { fanbox } : {}),
+            ...(x ? { x } : {}),
+            ...(s.danbooruLogin ? { danbooruLogin: s.danbooruLogin } : {}),
+            ...(s.danbooruApiKey ? { danbooruApiKey: s.danbooruApiKey } : {}),
+          },
         });
+        if (!tags.pixivTag && !tags.fanboxTag && !tags.xTag && !tags.danbooruTag) return;
+        set((state) => taggedState(state, tags, { pixiv: true, fanbox: true, x: true, danbooru: true }));
       },
       applyProfiles: (profiles) => {
         set((s) => {
@@ -945,8 +1101,8 @@ export const useSettings = create<SettingsState>()(
         });
       },
       refreshIdentities: async () => {
-        const { pixivCookie, fanboxCookie } = get();
-        if (!pixivCookie && !fanboxCookie) {
+        const { pixivCookie, fanboxCookie, pixivTag, fanboxTag } = get();
+        if (!pixivTag && !fanboxTag && !pixivCookie && !fanboxCookie) {
           get().applyProfiles({ pixiv: null, fanbox: null });
           return;
         }
@@ -954,7 +1110,8 @@ export const useSettings = create<SettingsState>()(
           const res = await fetch("/api/whoami", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ pixiv: pixivCookie, fanbox: fanboxCookie }),
+            body: "{}",
+            credentials: "same-origin",
           });
           if (!res.ok) {
             // 曾静默 return：Cookie 失效 / 服务端故障时用户只看到头像不更新，无任何提示
@@ -966,8 +1123,8 @@ export const useSettings = create<SettingsState>()(
             fanbox?: SiteProfile | null;
           };
           get().applyProfiles({
-            pixiv: pixivCookie ? (data.pixiv ?? null) : null,
-            fanbox: fanboxCookie ? (data.fanbox ?? null) : null,
+            pixiv: pixivTag || pixivCookie ? (data.pixiv ?? null) : null,
+            fanbox: fanboxTag || fanboxCookie ? (data.fanbox ?? null) : null,
           });
         } catch {
           // 网络异常路径与非 2xx 同一固定 id：离线期反复重试折叠成一条，不刷屏
@@ -989,6 +1146,33 @@ export const useSettings = create<SettingsState>()(
       version: 21,
       migrate: migrateSettings,
       partialize: partializeSettings,
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // 迁移窗口：把每个还带原文的账号都送上服务端（不只当前账号）——
+        // partialize 的 accountForDisk 会在下一次任意设置写盘时把原文从
+        // 磁盘拿掉，没送出去的非当前账号就永远丢了。
+        const pendingAccounts = state.accounts
+          .map((a) => {
+            const pixiv = sanitizePixivCookie(a.pixivCookie);
+            const fanbox = fanboxSessionFrom(a.fanboxCookie, pixiv);
+            const x = sanitizeXCookie(a.xCookie);
+            if (!pixiv && !fanbox && !x) return null;
+            return { pixiv, fanbox, x, accountId: a.id };
+          })
+          .filter((v): v is { pixiv: string; fanbox: string; x: string; accountId: string } => v !== null);
+        if (!pendingAccounts.length && !state.danbooruApiKey && !state.danbooruLogin) return;
+        void (async () => {
+          try {
+            // 逐个串行：服务端账号库是读改写整文件，并发会互相覆盖
+            for (const account of pendingAccounts) {
+              await saveSessionsWithRetry({ data: account });
+            }
+            await state.syncSessions();
+          } catch (err) {
+            toast.error(sessionSyncErrorText(err), { id: SESSION_SYNC_TOAST_ID });
+          }
+        })();
+      },
     },
   ),
 );
@@ -1016,25 +1200,13 @@ export function cookiesFromSettings(source: Source): {
   hideAi: boolean;
 } {
   const s = useSettings.getState();
-  const pixiv = sanitizePixivCookie(s.pixivCookie);
-  const fanbox = fanboxSessionFrom(s.fanboxCookie, pixiv);
-  // X 凭据只在 X 数据源的请求里带（queryId 覆盖同车）；其他站点的请求不带，
-  // 既省载荷也不把 X Cookie 泄给无关 op 的日志 / 缓存键
+  // 图站原文不进请求体。服务端从 HttpOnly cookie 读取。X 的 queryId 覆盖仍由设置带上。
   const xExtras =
-    source === "x"
-      ? {
-          xCookie: sanitizeXCookie(s.xCookie) || undefined,
-          ...(Object.keys(s.xGraphQLQueryIds).length
-            ? { xQueryIds: parseXQueryIdOverrides(s.xGraphQLQueryIds) }
-            : {}),
-        }
+    source === "x" && Object.keys(s.xGraphQLQueryIds).length
+      ? { xQueryIds: parseXQueryIdOverrides(s.xGraphQLQueryIds) }
       : {};
   return {
-    pixivCookie: pixiv || undefined,
-    fanboxCookie: fanbox || undefined,
     ...xExtras,
-    danbooruLogin: s.danbooruLogin || undefined,
-    danbooruApiKey: s.danbooruApiKey || undefined,
     safeMode: s.safeModeBySite[source],
     hideAi: s.hideAi,
   };

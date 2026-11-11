@@ -21,3 +21,8 @@ export function credentialTag(value: string | undefined | null): string {
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
+
+/** 已丢掉原文时用服务端发回的指纹；迁移窗口里还拿得到原文就现算。 */
+export function sessionKey(tag: string | undefined, secret?: string | null): string {
+  return tag || credentialTag(secret);
+}

@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   assertHostResolvesPublicly,
+  resolveMediaHost,
   isPrivateIpLiteral,
   normalizeIpLiteral,
   setHostGuardInternalsForTests,
@@ -101,6 +102,9 @@ test("解析到私网（含 mapped）的域名判不通过，多 A 记录一票�
     assert.equal(await assertHostResolvesPublicly("mapped.example"), false);
     assert.equal(await assertHostResolvesPublicly("fakeip.example"), true, "fake-ip 映射（代理托管解析）必须放行");
     assert.equal(await assertHostResolvesPublicly("public.example"), true);
+    assert.deepEqual((await resolveMediaHost("public.example")).pin, ["210.140.139.150"]);
+    assert.deepEqual((await resolveMediaHost("fakeip.example")).pin, [], "fake-ip 不拿来钉连接");
+    assert.deepEqual((await resolveMediaHost("rebind.example")).pin, []);
   } finally {
     setHostGuardInternalsForTests(null);
   }
