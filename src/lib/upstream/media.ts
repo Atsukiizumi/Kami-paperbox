@@ -88,6 +88,28 @@ export function parseAllowedMediaUrl(raw: string): URL {
   return url;
 }
 
+/** 重定向最多追几跳（浏览器同款量级；CDN 内部跳转 1-2 跳足够）。 */
+export const MAX_MEDIA_REDIRECTS = 3;
+
+/**
+ * 重定向目标逐跳过闸（卫生批③）：Location 先解析成绝对地址，再走与首跳
+ * 完全相同的白名单 + 私网判断 + 解析钉扎——跳到白名单外主机 / 私网地址
+ * 一律抛「非法地址」，不再裸跟。配代理时由代理解析，只校验白名单。
+ */
+export async function mediaHopTarget(location: string, base: URL): Promise<{ url: URL; pin: string[] }> {
+  let resolved: URL;
+  try {
+    resolved = new URL(location, base);
+  } catch {
+    throw new Error("非法地址");
+  }
+  const next = parseAllowedMediaUrl(resolved.toString());
+  if (getActiveProxy()) return { url: next, pin: [] };
+  const guard = await resolveMediaHost(next.hostname.toLowerCase());
+  if (!guard.ok) throw new Error("非法地址");
+  return { url: next, pin: guard.pin };
+}
+
 function mediaFromDisk(url: URL): Response | null {
   if (!isDiskCacheableMedia(url)) return null;
   const hit = readCachedMedia(url.toString());
@@ -215,20 +237,35 @@ async function loadMediaResponse(
     const authorization = danbooruAuthHeader(cookies.danbooru?.login, cookies.danbooru?.apiKey);
     if (authorization) headers.Authorization = authorization;
     const { curlFetch } = await import("../curl-fetch.server");
-    const res = await curlFetch(url.toString(), headers, pin);
-    if (res.status < 200 || res.status >= 300) {
-      return new Response("upstream error", { status: res.status === 404 ? 404 : 502 });
+    // 卫生批③：curl 通道不跟重定向，Location 逐跳过 mediaHopTarget 白名单闸
+    let current = url;
+    let hopPin = pin;
+    for (let hop = 0; ; hop += 1) {
+      const res = await curlFetch(current.toString(), headers, hopPin, { follow: false });
+      if (res.status >= 300 && res.status < 400) {
+        const location = /^location:\s*(.+)$/im.exec(res.headerText ?? "")?.[1]?.trim();
+        if (!location || hop >= MAX_MEDIA_REDIRECTS) {
+          return new Response("upstream error", { status: 502 });
+        }
+        const hopNext = await mediaHopTarget(location, current);
+        current = hopNext.url;
+        hopPin = hopNext.pin;
+        continue;
+      }
+      if (res.status < 200 || res.status >= 300) {
+        return new Response("upstream error", { status: res.status === 404 ? 404 : 502 });
+      }
+      if (res.body.byteLength > MAX_MEDIA_BYTES) {
+        return new Response("file too large", { status: 413 });
+      }
+      const body = new Uint8Array(res.body);
+      const type = sniffMediaType(body, res.contentType);
+      rememberMedia(url, body, type);
+      return new Response(Buffer.from(body), {
+        status: 200,
+        headers: mediaOutHeaders(type),
+      });
     }
-    if (res.body.byteLength > MAX_MEDIA_BYTES) {
-      return new Response("file too large", { status: 413 });
-    }
-    const body = new Uint8Array(res.body);
-    const type = sniffMediaType(body, res.contentType);
-    rememberMedia(url, body, type);
-    return new Response(Buffer.from(body), {
-      status: 200,
-      headers: mediaOutHeaders(type),
-    });
   } else if (host.endsWith("ascii2d.net")) {
     headers.Referer = "https://ascii2d.net/";
   } else if (host.endsWith("saucenao.com")) {
@@ -250,7 +287,23 @@ async function loadMediaResponse(
 
   const gated = host.endsWith("pximg.net") || host.endsWith("fanbox.cc");
   const throttle = getThrottle();
-  const pull = () => outboundFetch(url.toString(), { headers, redirect: "follow", signal }, { pin });
+  // 卫生批③：undici 通道改手动跟——每跳 Location 过 mediaHopTarget 白名单闸
+  const pull = async (): Promise<Response> => {
+    let current = url;
+    let hopPin = pin;
+    for (let hop = 0; ; hop += 1) {
+      const res = await outboundFetch(current.toString(), { headers, redirect: "manual", signal }, { pin: hopPin });
+      if (res.status < 300 || res.status >= 400) return res;
+      const location = res.headers.get("location");
+      void res.body?.cancel().catch(() => undefined);
+      // 无 Location 的 3xx 当普通失败交给外层（!ok 路径统一处理）
+      if (!location) return res;
+      if (hop >= MAX_MEDIA_REDIRECTS) throw new Error("重定向次数过多");
+      const hopNext = await mediaHopTarget(location, current);
+      current = hopNext.url;
+      hopPin = hopNext.pin;
+    }
+  };
   const run = () => (gated ? withMediaGate(pull, signal, throttle.mediaConcurrency) : pull());
   let res = await run();
   if (signal?.aborted) return new Response(null, { status: 204 });

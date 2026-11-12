@@ -77,6 +77,7 @@ export async function sealJson(key: CryptoKey, value: unknown, saltB64: string):
 /** 打开容器；口令不对抛错（GCM 校验失败）。 */
 export async function openJson<T>(key: CryptoKey, box: CipherBox): Promise<T> {
   if (box.v !== 1 || box.kdf !== "PBKDF2-SHA256") throw new Error("不认识的加密格式");
+  if (!Number.isSafeInteger(box.iter) || box.iter < 1) throw new Error("不认识的加密格式");
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromB64(box.iv) as BufferSource },
     key,

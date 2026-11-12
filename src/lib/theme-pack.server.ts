@@ -412,6 +412,9 @@ export function exportThemePack(
 /** 从来源包克隆 css 与 assets 到导出目录（导出保真 ④）。css 失败必须报错（观感断链）；单个 asset 失败跳过（导出的包降级但不阻断）。 */
 function clonePackMedia(fromPack: string | undefined, targetDir: string, manifest: import("./theme-pack.ts").ThemePackManifest): { css: boolean } {
   if (!fromPack) return { css: true };
+  // 卫生批⑥：from 是客户端回传的目录名——先过字符白名单（与 safeThemeDirName
+  // 产物同集），把读源钉死在 themes/ 的直接子目录上，../ 之类一律当来源不存在
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(fromPack)) return { css: !manifest.css };
   const src = join(themesDir(), fromPack);
   if (!existsSync(src)) return { css: !manifest.css }; // 来源不在（zip/已删）：有 css 声明即报，无声明无事
   if (manifest.css) {

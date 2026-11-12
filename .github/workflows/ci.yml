@@ -23,7 +23,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # 生产依赖审计 + Dockerfile/CI 的 Node 钉扎对照上游 24 线。依赖或基础镜像落后都会红。
@@ -62,7 +62,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium

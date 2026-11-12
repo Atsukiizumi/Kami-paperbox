@@ -42,6 +42,8 @@ export type CurlInit = {
   proxy?: string | null;
   /** 已核实的地址。curl --resolve 钉死主机，不再二次解析。 */
   pin?: string[];
+  /** 默认跟重定向；媒体通道传 false，由调用方逐跳过白名单闸（卫生批③）。 */
+  follow?: boolean;
 };
 
 export type CurlResult = {
@@ -51,6 +53,12 @@ export type CurlResult = {
   headerText: string;
 };
 
+/** -F 规格串以 ; 和 = 分段：字段名/文件名/类型里的元字符会被 curl 当参数
+ * 分隔符解析（客户端可借文件名注入 ;headers= 等部件参数）——落成合法字符（卫生批⑤）。 */
+export function formToken(v: string): string {
+  return v.replace(/[;"\\\r\n=]/g, "_");
+}
+
 export async function curlRequest(url: string, init: CurlInit = {}): Promise<CurlResult> {
   const dir = mkdtempSync(join(tmpdir(), "kami-curl-"));
   const bodyPath = join(dir, "body");
@@ -58,7 +66,7 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
   const method = (init.method ?? (init.body || init.form ? "POST" : "GET")).toUpperCase();
   const args = [
     "-sS",
-    "-L",
+    ...(init.follow === false ? [] : ["-L"]),
     "--max-time",
     String(init.timeout ?? 40),
     "-D",
@@ -85,11 +93,11 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
   if (init.form?.length) {
     for (const field of init.form) {
       if (field.file) {
-        const filename = field.filename || "upload.bin";
-        const type = field.type || "application/octet-stream";
-        args.push("-F", `${field.name}=@${field.file};filename=${filename};type=${type}`);
+        const filename = formToken(field.filename || "upload.bin");
+        const type = formToken(field.type || "application/octet-stream");
+        args.push("-F", `${formToken(field.name)}=@${field.file};filename=${filename};type=${type}`);
       } else {
-        args.push("-F", `${field.name}=${field.value ?? ""}`);
+        args.push("-F", `${formToken(field.name)}=${field.value ?? ""}`);
       }
     }
   } else if (init.body !== undefined) {
@@ -150,10 +158,11 @@ export async function curlFetch(
   url: string,
   headers: Record<string, string>,
   pin?: string[],
-): Promise<{ status: number; contentType: string; body: Buffer }> {
+  opts: { follow?: boolean } = {},
+): Promise<{ status: number; contentType: string; body: Buffer; headerText?: string }> {
   return recordOutbound(url, undefined, async () => {
-    const res = await curlRequest(url, { headers, pin });
-    return { status: res.status, contentType: res.contentType, body: res.body };
+    const res = await curlRequest(url, { headers, pin, follow: opts.follow });
+    return { status: res.status, contentType: res.contentType, body: res.body, headerText: res.headerText };
   });
 }
 

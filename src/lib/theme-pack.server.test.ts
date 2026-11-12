@@ -152,6 +152,15 @@ describe("exportThemePack（导出落盘）", () => {
     const written = JSON.parse(readFileSync(join(themesDir(), "我的-夜-航-特别版", "kami-theme.json"), "utf8")) as { kamitheme: number };
     assert.equal(written.kamitheme, 1);
   });
+
+  it("from 越出字符白名单（../ 等）→ 当来源不存在处理，不做克隆读（卫生批⑥）", () => {
+    // manifest 声明 css 而来源被判缺失 → 导出必须失败（而不是去 themes 外读文件）
+    const withCss = { ...GOOD_MANIFEST, meta: { name: "越界源" }, css: "leak.txt" };
+    for (const from of ["../..", "..", "a/b", "a\\b", "."]) {
+      const res = exportThemePack(withCss, from);
+      assert.equal(res.ok, false, `from=${JSON.stringify(from)} 必须失败`);
+    }
+  });
 });
 
 describe("符号链接越界（安全批 R1）", () => {

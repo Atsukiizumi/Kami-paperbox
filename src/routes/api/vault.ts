@@ -13,6 +13,7 @@
  */
 import { extFromNameOrType } from "@/lib/ugoira-meta";
 import { isSource } from "@/lib/sites";
+import { vaultPageHeaders } from "@/lib/vault-page-mime";
 import type { Source, VaultMeta } from "@/lib/types";
 import { getVaultStore, normalizeVaultMarks, parseVaultKey, vaultStoreHealth } from "@/lib/storage/vault-store.server";
 import { nearestByDhash } from "@/lib/storage/vault-cross-source";
@@ -75,10 +76,11 @@ export async function GET(request: Request) {
             }
             const file = getVaultStore().readPage(key, page);
             if (!file) return json({ ok: false, error: "没有这一页" }, 404);
+            // 卫生批②：MIME 由服务端按扩展名白名单映射（不回放客户端声明值）
+            // + nosniff；白名单外按附件下发
             return new Response(new Uint8Array(file.bytes), {
               headers: {
-                "content-type": file.mime || "application/octet-stream",
-                "cache-control": "private, max-age=3600",
+                ...vaultPageHeaders(file.ext),
                 "x-file-ext": file.ext,
               },
             });

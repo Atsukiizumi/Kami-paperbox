@@ -76,7 +76,9 @@ export function workOriginUrl(source: Source, id: string, authorId = ""): string
     case "pixiv":
       return `https://www.pixiv.net/artworks/${id}`;
     case "fanbox":
-      return `https://${authorId || "www"}.fanbox.cc/posts/${id}`;
+      // 子域过主机名字符集白名单（数字 creatorId 与 legacy 字母 vanity 形态都放行）；
+      // 带点/斜杠等异常值退 www，防上游被控时把 origin 链接指到别的域（卫生批⑦）
+      return `https://${/^[A-Za-z0-9_-]{1,40}$/.test(authorId) ? authorId : "www"}.fanbox.cc/posts/${id}`;
     case "yande":
       return `https://yande.re/post/show/${id}`;
     case "konachan":

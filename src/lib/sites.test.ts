@@ -8,6 +8,11 @@ test("work origin urls", () => {
   assert.equal(workOriginUrl("yande", "1"), "https://yande.re/post/show/1");
   assert.equal(workOriginUrl("konachan", "2"), "https://konachan.com/post/show/2");
   assert.equal(workOriginUrl("danbooru", "3"), "https://danbooru.donmai.us/posts/3");
+  // 卫生批⑦：fanbox 子域过主机名字符集白名单——legacy 字母 vanity 放行，
+  // 带点/斜杠（可改写主机名的形态）退 www
+  assert.equal(workOriginUrl("fanbox", "99", "evil.com/x"), "https://www.fanbox.cc/posts/99");
+  assert.equal(workOriginUrl("fanbox", "99", "a..b"), "https://www.fanbox.cc/posts/99");
+  assert.equal(workOriginUrl("fanbox", "99", "creator_name"), "https://creator_name.fanbox.cc/posts/99");
 });
 
 test("x 站点：siteLabel 显式 X；原推链接第三参收 handle，restId/空值退 intent 链", () => {
