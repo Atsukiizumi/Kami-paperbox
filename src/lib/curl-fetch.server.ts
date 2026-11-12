@@ -42,6 +42,8 @@ export type CurlInit = {
   proxy?: string | null;
   /** 已核实的地址。curl --resolve 钉死主机，不再二次解析。 */
   pin?: string[];
+  /** 默认跟重定向；媒体通道传 false，由调用方逐跳过白名单闸（卫生批③）。 */
+  follow?: boolean;
 };
 
 export type CurlResult = {
@@ -58,7 +60,7 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
   const method = (init.method ?? (init.body || init.form ? "POST" : "GET")).toUpperCase();
   const args = [
     "-sS",
-    "-L",
+    ...(init.follow === false ? [] : ["-L"]),
     "--max-time",
     String(init.timeout ?? 40),
     "-D",
@@ -150,10 +152,11 @@ export async function curlFetch(
   url: string,
   headers: Record<string, string>,
   pin?: string[],
-): Promise<{ status: number; contentType: string; body: Buffer }> {
+  opts: { follow?: boolean } = {},
+): Promise<{ status: number; contentType: string; body: Buffer; headerText?: string }> {
   return recordOutbound(url, undefined, async () => {
-    const res = await curlRequest(url, { headers, pin });
-    return { status: res.status, contentType: res.contentType, body: res.body };
+    const res = await curlRequest(url, { headers, pin, follow: opts.follow });
+    return { status: res.status, contentType: res.contentType, body: res.body, headerText: res.headerText };
   });
 }
 
