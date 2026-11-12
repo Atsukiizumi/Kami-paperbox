@@ -85,6 +85,44 @@ describe("reverse search parsers", () => {
     assert.match(hits[0]?.thumb ?? "", /iqdb\.org/);
   });
 
+  it("非 http(s) 协议的引擎 URL 一律丢弃（javascript: 不进 href，卫生批 ①）", () => {
+    // IQDB 行内 href="javascript:..."——正则本就不限协议，靠 absUrl 兜底闸拦
+    const iqdb = parseIqdbHtml(
+      `<div id='pages'><div><table><tr><th>Best match</th></tr>` +
+        `<tr><td class='image'><a href="javascript:alert(1)"><img src='/a/b.jpg' alt="Rating: s Tags: sky"></a></td></tr>` +
+        `<tr><td>94% similarity</td></tr></table></div></div>`,
+      false,
+    );
+    assert.equal(iqdb.length, 1);
+    assert.equal(iqdb[0]?.sourceUrl, "", "javascript: 链接必须变成空串");
+    assert.equal(iqdb[0]?.thumb, "https://iqdb.org/a/b.jpg", "相对缩略图照常解析成引擎域绝对地址");
+
+    // 相对 href 照常解析成引擎域的 https 绝对地址
+    const rel = parseIqdbHtml(
+      `<div id='pages'><div><table><tr><th>Best match</th></tr>` +
+        `<tr><td class='image'><a href="/post/show/1"><img src='/a/b.jpg' alt="Rating: s Tags: sky"></a></td></tr>` +
+        `<tr><td>94% similarity</td></tr></table></div></div>`,
+      false,
+    );
+    assert.equal(rel[0]?.sourceUrl, "https://iqdb.org/post/show/1");
+
+    // SauceNAO JSON ext_urls 里混进 javascript: 的条目直接滤掉
+    const json = parseSauceNaoJson(
+      {
+        results: [
+          {
+            header: { similarity: "90", thumbnail: "javascript:alert(2)", index_name: "Index #5: Pixiv" },
+            data: { title: "x", ext_urls: ["javascript:alert(1)", "https://yande.re/post/show/99"] },
+          },
+        ],
+      },
+      false,
+    );
+    assert.equal(json.length, 1);
+    assert.equal(json[0]?.sourceUrl, "https://yande.re/post/show/99");
+    assert.equal(json[0]?.thumb, "", "thumbnail 的非 http 值同样归空");
+  });
+
   it("parses ascii2d item-box rows and bovw hash links", () => {
     const html = `
 <div class="row item-box">

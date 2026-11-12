@@ -5,7 +5,7 @@
  * 用法：实际上传在 reverse-search.server.ts，避免把图和 API key 暴露给页面。
  */
 import type { Source } from "./types.ts";
-import { decodeHtmlEntities } from "./utils.ts";
+import { decodeHtmlEntities, httpSourceHref } from "./utils.ts";
 import { asNumber, asRecord, asStringLoose as asString } from "./parse.ts";
 
 export type SearchEngine = "saucenao" | "ascii2d" | "iqdb" | "tracemoe" | "danbooru";
@@ -59,6 +59,10 @@ function decodeHtml(s: string): string {
   return decodeHtmlEntities(s);
 }
 
+/**
+ * 引擎回包里的 URL 一律过 http(s) 闸（thumb / sourceUrl 都会进 <a href> / <img src>）。
+ * 非白名单协议（javascript: / data: 等）在这里变成空串——UI 对空串按「没有」处理。
+ */
 function absUrl(base: string, raw: string): string {
   const v = raw.trim();
   if (!v) return "";
@@ -71,7 +75,8 @@ function absUrl(base: string, raw: string): string {
       return "";
     }
   }
-  return v;
+  // 兜底也过 http(s) 闸：尾分支直接放行会让 javascript: 之类原样进 href
+  return httpSourceHref(v);
 }
 
 function attr(tag: string, name: string): string {
@@ -165,7 +170,9 @@ export function parseSauceNaoJson(raw: unknown, _safeMode: boolean): ReverseHit[
     const header = asRecord(rec.header);
     const data = asRecord(rec.data);
     const sim = asNumber(header.similarity);
-    const urls = Array.isArray(data.ext_urls) ? data.ext_urls.map((v) => asString(v)).filter(Boolean) : [];
+    const urls = Array.isArray(data.ext_urls)
+      ? data.ext_urls.map((v) => httpSourceHref(asString(v))).filter(Boolean)
+      : [];
     const pixivId = asString(data.pixiv_id) || asString(data.pixivid);
     if (pixivId && !urls.some((u) => /pixiv\.net/i.test(u))) {
       urls.unshift(`https://www.pixiv.net/artworks/${pixivId}`);
@@ -185,7 +192,7 @@ export function parseSauceNaoJson(raw: unknown, _safeMode: boolean): ReverseHit[
         similarity: sim,
         title: title || extra || "未命名",
         author,
-        thumb: asString(header.thumbnail),
+        thumb: httpSourceHref(asString(header.thumbnail)),
         sourceUrl,
         extra,
       }),
