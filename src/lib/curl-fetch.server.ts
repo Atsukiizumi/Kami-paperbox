@@ -53,6 +53,12 @@ export type CurlResult = {
   headerText: string;
 };
 
+/** -F 规格串以 ; 和 = 分段：字段名/文件名/类型里的元字符会被 curl 当参数
+ * 分隔符解析（客户端可借文件名注入 ;headers= 等部件参数）——落成合法字符（卫生批⑤）。 */
+export function formToken(v: string): string {
+  return v.replace(/[;"\\\r\n=]/g, "_");
+}
+
 export async function curlRequest(url: string, init: CurlInit = {}): Promise<CurlResult> {
   const dir = mkdtempSync(join(tmpdir(), "kami-curl-"));
   const bodyPath = join(dir, "body");
@@ -87,11 +93,11 @@ export async function curlRequest(url: string, init: CurlInit = {}): Promise<Cur
   if (init.form?.length) {
     for (const field of init.form) {
       if (field.file) {
-        const filename = field.filename || "upload.bin";
-        const type = field.type || "application/octet-stream";
-        args.push("-F", `${field.name}=@${field.file};filename=${filename};type=${type}`);
+        const filename = formToken(field.filename || "upload.bin");
+        const type = formToken(field.type || "application/octet-stream");
+        args.push("-F", `${formToken(field.name)}=@${field.file};filename=${filename};type=${type}`);
       } else {
-        args.push("-F", `${field.name}=${field.value ?? ""}`);
+        args.push("-F", `${formToken(field.name)}=${field.value ?? ""}`);
       }
     }
   } else if (init.body !== undefined) {
